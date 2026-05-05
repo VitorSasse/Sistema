@@ -1,0 +1,769 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StatusCadastro {
+  ATIVO
+  INATIVO
+}
+
+enum TipoRecurso {
+  CAMINHAO
+  MAQUINA
+  CARRETA
+  EQUIPAMENTO_APOIO
+  OUTRO
+}
+
+enum FuncaoColaborador {
+  MOTORISTA
+  OPERADOR
+  ENCARREGADO
+  ADMINISTRATIVO
+  OUTRO
+}
+
+enum TipoMedicao {
+  UNICA
+  SEMANAL
+  QUINZENAL
+  MENSAL
+}
+
+enum StatusMedicao {
+  EM_ABERTO
+  ENVIADA_AO_CLIENTE
+  ENVIADA_PARA_FATURAMENTO
+  AGUARDANDO_APROVACAO
+  PEDIDO_ANEXADO
+  NOTA_FISCAL_ANEXADA
+  CONCLUIDA
+  EM_ELABORACAO
+  ENVIADA
+  APROVADA
+  CANCELADA
+}
+
+enum StatusLancamento {
+  VALIDO
+  PENDENTE_OBRA
+  PENDENTE_PRECO
+  DIVERGENTE
+  MEDIDO
+  CANCELADO
+}
+
+enum OrigemLancamento {
+  MANUAL
+  IMPORTADO
+  API
+}
+
+enum TipoAlteracao {
+  CRIACAO
+  EDICAO
+  EXCLUSAO_LOGICA
+  MUDANCA_STATUS
+  FECHAMENTO_MEDICAO
+  CANCELAMENTO_MEDICAO
+}
+
+enum TipoLogAuditoria {
+  LOGIN
+  LOGOUT
+  CRUD
+  EXPORTACAO
+  FECHAMENTO_MEDICAO
+  CANCELAMENTO_MEDICAO
+  ERRO_NEGOCIO
+}
+
+enum RoleCodigo {
+  ADMIN
+  GESTOR
+  OPERACIONAL
+  FINANCEIRO
+  CONSULTA
+}
+
+enum TipoCliente {
+  CPF
+  CNPJ
+}
+
+enum TipoAnexo {
+  RELATORIO_MEDICAO
+  PEDIDO
+  NOTA_FISCAL
+  OUTRO
+}
+
+enum StatusEquipamentoOperacional {
+  ATIVO
+  EM_OPERACAO
+  EM_MANUTENCAO
+  PARADO
+  INATIVO
+}
+
+enum TipoControleEquipamento {
+  HORIMETRO
+  KM
+}
+
+enum UnidadeApontada {
+  CARGA
+  HORA
+  M3
+}
+
+enum UnidadeFaturada {
+  CARGA
+  HORA
+  M3
+  DIARIA
+}
+
+enum OrigemLeituraEquipamento {
+  MANUAL
+  LANCAMENTO_DIARIO
+  MANUTENCAO
+  IMPORTADO
+  AJUSTE
+}
+
+enum CriterioControleManutencao {
+  HORIMETRO
+  KM
+  DIAS
+}
+
+enum StatusPlanoManutencao {
+  ATIVO
+  SUSPENSO
+  ENCERRADO
+}
+
+enum StatusAgendaManutencao {
+  PENDENTE
+  AGENDADA
+  EM_EXECUCAO
+  CONCLUIDA
+  CANCELADA
+  VENCIDA
+}
+
+enum StatusAgendaProgramacao {
+  PROGRAMADO
+  EM_EXECUCAO
+  FINALIZADO
+  OPERANDO
+  DISPONIVEL
+  SEM_FRENTE
+  MANUTENCAO
+  FALTA
+  FERIAS
+  CHUVA
+}
+
+enum TurnoAgendaProgramacao {
+  MANHA
+  TARDE
+  NOITE
+  INTEGRAL
+}
+
+enum PrioridadeManutencao {
+  BAIXA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum StatusAlertaManutencao {
+  ATIVO
+  LIDO
+  RESOLVIDO
+  CANCELADO
+}
+
+enum TipoAlertaManutencao {
+  HORIMETRO_VENCIDO
+  KM_VENCIDO
+  DATA_VENCIDA
+  PROXIMO_VENCIMENTO
+  SEM_ATUALIZACAO
+  EQUIPAMENTO_PARADO
+  LEITURA_INCONSISTENTE
+}
+
+model Usuario {
+  id               String              @id @default(uuid())
+  nome             String
+  email            String              @unique
+  senhaHash        String
+  status           StatusCadastro      @default(ATIVO)
+  ultimoLoginEm    DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  roles            UsuarioRole[]
+  fichasCriadas    Ficha[]             @relation("FichaCriadaPor")
+  lancCriados      LancamentoDiario[]  @relation("LancamentoCriadoPor")
+  lancAtualizados  LancamentoDiario[]  @relation("LancamentoAtualizadoPor")
+  medicoesFechadas Medicao[]           @relation("MedicaoFechadaPor")
+  historicos       HistoricoAlteracao[]
+  logsAuditoria    LogAuditoria[]
+  leiturasEquipamento           LeituraEquipamento[]
+  planosManutencaoResponsaveis  PlanoManutencao[]    @relation("PlanoManutencaoResponsavel")
+  agendasManutencaoResponsaveis AgendaManutencao[]   @relation("AgendaManutencaoResponsavel")
+  manutencoesRegistradas        ManutencaoExecutada[] @relation("ManutencaoRegistradaPor")
+  manutencoesExecutadas         ManutencaoExecutada[] @relation("ManutencaoExecutadaPor")
+}
+
+model Role {
+  id        String        @id @default(uuid())
+  codigo    RoleCodigo    @unique
+  nome      String
+  createdAt DateTime      @default(now())
+  usuarios  UsuarioRole[]
+}
+
+model UsuarioRole {
+  usuarioId String
+  roleId    String
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  role      Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, roleId])
+}
+
+model Cliente {
+  id                String              @id @default(uuid())
+  codigo            String              @unique
+  tipoCliente       TipoCliente         @default(CNPJ)
+  nome              String
+  nomeFantasia      String?
+  cpf               String?             @unique
+  cnpj              String?             @unique
+  inscricaoEstadual String?
+  contatoNome       String?
+  telefone          String?
+  email             String?
+  enderecoLinha1    String?
+  enderecoLinha2    String?
+  bairro            String?
+  cidade            String?
+  uf                String?
+  cep               String?
+  observacao        String?
+  status            StatusCadastro      @default(ATIVO)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  obras             Obra[]
+  fichas            Ficha[]
+  lancamentos       LancamentoDiario[]
+  precos            PrecoClienteObra[]
+  medicoes          Medicao[]
+
+  @@index([nome])
+  @@index([status, nome])
+}
+
+model Obra {
+  id                     String         @id @default(uuid())
+  codigo                 String         @unique
+  clienteId              String
+  nome                   String
+  contratoNumero         String?
+  localidade             String?
+  cidade                 String?
+  uf                     String?
+  dataInicio             DateTime?
+  dataFim                DateTime?
+  observacao             String?
+  status                 StatusCadastro @default(ATIVO)
+  liberadaParaLancamento Boolean        @default(true)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  cliente                Cliente        @relation(fields: [clienteId], references: [id])
+  fichas                 Ficha[]
+  lancamentos            LancamentoDiario[]
+  precos                 PrecoClienteObra[]
+  medicoes               Medicao[]
+  programacoes           AgendaProgramacao[]
+
+  @@index([nome])
+  @@index([clienteId, status])
+}
+
+model Equipamento {
+  id            String                     @id @default(uuid())
+  tipoRecurso   TipoRecurso
+  tipoControle  TipoControleEquipamento    @default(HORIMETRO)
+  descricao     String
+  placaOuTag    String                     @unique
+  fabricante    String?
+  modelo        String?
+  marcaModelo   String?
+  anoFabricacao Int?
+  dataEntrada   DateTime?
+  capacidadeM3  Decimal?                   @db.Decimal(10, 2)
+  unidadeCapacidade String?
+  apelido       String?
+  observacao    String?
+  status        StatusCadastro             @default(ATIVO)
+  statusOperacional StatusEquipamentoOperacional @default(ATIVO)
+  horimetroAtual Decimal?                  @db.Decimal(12, 2)
+  kmAtual       Decimal?                   @db.Decimal(12, 1)
+  periodicidadeManutencaoHoras Int?
+  periodicidadeManutencaoKm Int?
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  lancamentos   LancamentoDiario[]
+  precos        PrecoClienteObra[]
+  leituras      LeituraEquipamento[]
+  planosManutencao PlanoManutencao[]
+  agendasManutencao AgendaManutencao[]
+  programacoes     AgendaProgramacao[]
+  manutencoesExecutadas ManutencaoExecutada[]
+  alertasManutencao AlertaManutencao[]
+
+  @@index([descricao])
+  @@index([tipoRecurso, status])
+  @@index([statusOperacional, status])
+}
+
+model Material {
+  id             String            @id @default(uuid())
+  codigoMaterial String            @unique
+  descricao      String
+  categoria      String?
+  unidadePadrao  String
+  densidade      Decimal?          @db.Decimal(10, 3)
+  origemMaterial String?
+  observacao     String?
+  status         StatusCadastro    @default(ATIVO)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  lancamentos    LancamentoDiario[]
+  precos         PrecoClienteObra[]
+
+  @@index([descricao])
+}
+
+model Servico {
+  id                 String            @id @default(uuid())
+  codigo             String            @unique
+  tipoServico        String
+  categoria          String?
+  formaMedicao       String
+  unidadeApontamento String?
+  unidadeFaturamento String
+  exigeMaterial      Boolean           @default(false)
+  ativoParaMedicao   Boolean           @default(true)
+  observacao         String?
+  status             StatusCadastro    @default(ATIVO)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  lancamentos        LancamentoDiario[]
+  precos             PrecoClienteObra[]
+
+  @@index([codigo])
+  @@index([status, tipoServico])
+}
+
+model Colaborador {
+  id            String             @id @default(uuid())
+  codigo        String             @unique
+  nome          String
+  apelido       String?
+  funcao        FuncaoColaborador
+  documento     String?
+  telefone      String?
+  dataAdmissao  DateTime?
+  dataSaida     DateTime?
+  observacao    String?
+  status        StatusCadastro     @default(ATIVO)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  lancamentos   LancamentoDiario[]
+
+  @@index([nome])
+  @@index([funcao, status])
+}
+
+model PrecoClienteObra {
+  id                 String         @id @default(uuid())
+  clienteId          String
+  obraId             String
+  servicoId          String
+  materialId         String?
+  equipamentoId      String?
+  unidadeFaturamento String
+  valorUnitario      Decimal        @db.Decimal(12, 2)
+  vigenciaInicial    DateTime
+  vigenciaFinal      DateTime?
+  status             StatusCadastro @default(ATIVO)
+  observacao         String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  cliente            Cliente        @relation(fields: [clienteId], references: [id])
+  obra               Obra           @relation(fields: [obraId], references: [id])
+  servico            Servico        @relation(fields: [servicoId], references: [id])
+  material           Material?      @relation(fields: [materialId], references: [id])
+  equipamento        Equipamento?   @relation(fields: [equipamentoId], references: [id])
+  lancamentosAplicados LancamentoDiario[]
+
+  @@index([clienteId, obraId, servicoId, vigenciaInicial])
+  @@index([materialId])
+  @@index([equipamentoId])
+}
+
+model Ficha {
+  id          String           @id @default(uuid())
+  numero      String
+  data        DateTime
+  clienteId   String
+  obraId      String?
+  observacao  String?
+  origem      OrigemLancamento @default(MANUAL)
+  criadoPorId String
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  cliente     Cliente          @relation(fields: [clienteId], references: [id])
+  obra        Obra?            @relation(fields: [obraId], references: [id])
+  criadoPor   Usuario          @relation("FichaCriadaPor", fields: [criadoPorId], references: [id])
+  lancamentos LancamentoDiario[]
+  anexos      Anexo[]
+
+  @@unique([numero, data, clienteId, obraId])
+  @@index([clienteId, obraId, data])
+}
+
+model LancamentoDiario {
+  id                 String           @id @default(uuid())
+  fichaId            String
+  data               DateTime
+  clienteId          String
+  obraId             String?
+  servicoId          String
+  materialId         String?
+  equipamentoId      String
+  colaboradorId      String
+  quantidadeApontada Decimal          @db.Decimal(12, 2)
+  unidadeApontada    UnidadeApontada  @default(HORA)
+  quantidadeFaturada Decimal          @default(0) @db.Decimal(12, 2)
+  unidadeFaturada    UnidadeFaturada  @default(HORA)
+  horimetroInformado Decimal?         @db.Decimal(12, 2)
+  kmInformado       Decimal?          @db.Decimal(12, 1)
+  observacao         String?
+  statusValidacao    StatusLancamento @default(VALIDO)
+  origem             OrigemLancamento @default(MANUAL)
+  precoAplicadoId    String?
+  criadoPorId        String
+  atualizadoPorId    String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  deletedAt          DateTime?
+  ficha              Ficha            @relation(fields: [fichaId], references: [id])
+  cliente            Cliente          @relation(fields: [clienteId], references: [id])
+  obra               Obra?            @relation(fields: [obraId], references: [id])
+  servico            Servico          @relation(fields: [servicoId], references: [id])
+  material           Material?        @relation(fields: [materialId], references: [id])
+  equipamento        Equipamento      @relation(fields: [equipamentoId], references: [id])
+  colaborador        Colaborador      @relation(fields: [colaboradorId], references: [id])
+  precoAplicado      PrecoClienteObra? @relation(fields: [precoAplicadoId], references: [id])
+  criadoPor          Usuario          @relation("LancamentoCriadoPor", fields: [criadoPorId], references: [id])
+  atualizadoPor      Usuario?         @relation("LancamentoAtualizadoPor", fields: [atualizadoPorId], references: [id])
+  medicaoItens       MedicaoItem[]
+  leituraEquipamento LeituraEquipamento?
+
+  @@index([data, clienteId, obraId])
+  @@index([fichaId])
+  @@index([equipamentoId, data])
+  @@index([colaboradorId, data])
+  @@index([statusValidacao, data])
+}
+
+model LeituraEquipamento {
+  id                String                    @id @default(uuid())
+  equipamentoId     String
+  dataLeitura       DateTime
+  horimetroValor    Decimal?                  @db.Decimal(12, 2)
+  kmValor           Decimal?                  @db.Decimal(12, 1)
+  origem            OrigemLeituraEquipamento
+  usuarioId         String
+  lancamentoDiarioId String?                  @unique
+  observacao        String?
+  createdAt         DateTime                  @default(now())
+  equipamento       Equipamento               @relation(fields: [equipamentoId], references: [id])
+  usuario           Usuario                   @relation(fields: [usuarioId], references: [id])
+  lancamentoDiario  LancamentoDiario?         @relation(fields: [lancamentoDiarioId], references: [id])
+
+  @@index([equipamentoId, dataLeitura])
+  @@index([origem, dataLeitura])
+  @@index([usuarioId, dataLeitura])
+}
+
+model PlanoManutencao {
+  id                     String                    @id @default(uuid())
+  equipamentoId          String
+  titulo                 String
+  tipoManutencao         String
+  criterioControle       CriterioControleManutencao
+  periodicidadeValor     Int
+  toleranciaValor        Int                       @default(0)
+  ultimaExecucaoEm       DateTime?
+  ultimaLeituraHorimetro Decimal?                  @db.Decimal(12, 2)
+  ultimaLeituraKm        Decimal?                  @db.Decimal(12, 1)
+  proximaExecucaoEm      DateTime?
+  proximoHorimetro       Decimal?                  @db.Decimal(12, 2)
+  proximoKm              Decimal?                  @db.Decimal(12, 1)
+  status                 StatusPlanoManutencao     @default(ATIVO)
+  responsavelId          String?
+  observacao             String?
+  createdAt              DateTime                  @default(now())
+  updatedAt              DateTime                  @updatedAt
+  equipamento            Equipamento               @relation(fields: [equipamentoId], references: [id])
+  responsavel            Usuario?                  @relation("PlanoManutencaoResponsavel", fields: [responsavelId], references: [id])
+  agendas                AgendaManutencao[]
+  manutencoesExecutadas  ManutencaoExecutada[]
+  alertas                AlertaManutencao[]
+
+  @@index([equipamentoId, status])
+  @@index([criterioControle, status])
+  @@index([proximaExecucaoEm])
+}
+
+model AgendaManutencao {
+  id                       String                  @id @default(uuid())
+  equipamentoId            String
+  planoId                  String?
+  tipoManutencao           String
+  criterioControle         CriterioControleManutencao
+  dataReferencia           DateTime?
+  dataPrevista             DateTime?
+  dataLimite               DateTime?
+  leituraPrevistaHorimetro Decimal?                @db.Decimal(12, 2)
+  leituraPrevistaKm        Decimal?                @db.Decimal(12, 1)
+  prioridade               PrioridadeManutencao    @default(MEDIA)
+  status                   StatusAgendaManutencao  @default(PENDENTE)
+  responsavelId            String?
+  observacao               String?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  equipamento              Equipamento             @relation(fields: [equipamentoId], references: [id])
+  plano                    PlanoManutencao?        @relation(fields: [planoId], references: [id])
+  responsavel              Usuario?                @relation("AgendaManutencaoResponsavel", fields: [responsavelId], references: [id])
+  manutencoesExecutadas    ManutencaoExecutada[]
+  alertas                  AlertaManutencao[]
+
+  @@index([equipamentoId, status])
+  @@index([dataPrevista, status])
+  @@index([planoId])
+}
+
+model AgendaProgramacao {
+  id            String                  @id @default(uuid())
+  equipamentoId String
+  obraId        String?
+  local         String?
+  dataInicio    DateTime
+  dataFim       DateTime
+  turno         TurnoAgendaProgramacao?
+  status        StatusAgendaProgramacao @default(PROGRAMADO)
+  observacoes   String?
+  deletedAt     DateTime?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  equipamento   Equipamento             @relation(fields: [equipamentoId], references: [id])
+  obra          Obra?                   @relation(fields: [obraId], references: [id])
+
+  @@index([equipamentoId, dataInicio, dataFim])
+  @@index([obraId, dataInicio])
+  @@index([status, dataInicio])
+  @@index([deletedAt])
+}
+
+model ManutencaoExecutada {
+  id                    String         @id @default(uuid())
+  equipamentoId         String
+  planoId               String?
+  agendaId              String?
+  dataExecucao          DateTime
+  tipoManutencao        String
+  descricaoServico      String
+  horimetroMomento      Decimal?       @db.Decimal(12, 2)
+  kmMomento             Decimal?       @db.Decimal(12, 1)
+  pecasTrocadas         Json?
+  fornecedorOficina     String?
+  custo                 Decimal?       @db.Decimal(14, 2)
+  observacao            String?
+  executadoPorId        String?
+  registradoPorId       String
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  equipamento           Equipamento    @relation(fields: [equipamentoId], references: [id])
+  plano                 PlanoManutencao? @relation(fields: [planoId], references: [id])
+  agenda                AgendaManutencao? @relation(fields: [agendaId], references: [id])
+  executadoPor          Usuario?       @relation("ManutencaoExecutadaPor", fields: [executadoPorId], references: [id])
+  registradoPor         Usuario        @relation("ManutencaoRegistradaPor", fields: [registradoPorId], references: [id])
+  anexos                AnexoManutencao[]
+
+  @@index([equipamentoId, dataExecucao])
+  @@index([planoId, dataExecucao])
+  @@index([agendaId])
+}
+
+model AlertaManutencao {
+  id                       String                  @id @default(uuid())
+  equipamentoId            String
+  planoId                  String?
+  agendaId                 String?
+  tipoAlerta               TipoAlertaManutencao
+  titulo                   String
+  descricao                String
+  prioridade               PrioridadeManutencao    @default(MEDIA)
+  status                   StatusAlertaManutencao  @default(ATIVO)
+  dataReferencia           DateTime?
+  leituraReferenciaHorimetro Decimal?              @db.Decimal(12, 2)
+  leituraReferenciaKm      Decimal?                @db.Decimal(12, 1)
+  disparadoEm              DateTime                @default(now())
+  resolvidoEm              DateTime?
+  origemAutomatica         Boolean                 @default(true)
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  equipamento              Equipamento             @relation(fields: [equipamentoId], references: [id])
+  plano                    PlanoManutencao?        @relation(fields: [planoId], references: [id])
+  agenda                   AgendaManutencao?       @relation(fields: [agendaId], references: [id])
+
+  @@index([equipamentoId, status])
+  @@index([tipoAlerta, status])
+  @@index([disparadoEm])
+}
+
+model AnexoManutencao {
+  id              String               @id @default(uuid())
+  manutencaoId    String
+  nomeArquivo     String
+  mimeType        String
+  urlArquivo      String
+  tamanhoBytes    Int
+  createdAt       DateTime             @default(now())
+  manutencao      ManutencaoExecutada  @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+
+  @@index([manutencaoId])
+}
+
+model Medicao {
+  id             String        @id @default(uuid())
+  codigoMedicao  String        @unique
+  tipoMedicao    TipoMedicao   @default(QUINZENAL)
+  clienteId      String
+  obraId         String?
+  periodoInicial DateTime
+  periodoFinal   DateTime
+  status         StatusMedicao @default(EM_ABERTO)
+  valorTotal     Decimal       @default(0) @db.Decimal(14, 2)
+  observacao     String?
+  observacaoInterna String?
+  fechadoPorId   String?
+  fechadoEm      DateTime?
+  enviadaAoClienteEm DateTime?
+  enviadaParaFaturamentoEm DateTime?
+  aprovadaEm     DateTime?
+  pedidoAnexadoEm DateTime?
+  notaFiscalAnexadaEm DateTime?
+  deletedAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  cliente        Cliente       @relation(fields: [clienteId], references: [id])
+  obra           Obra?         @relation(fields: [obraId], references: [id])
+  fechadoPor     Usuario?      @relation("MedicaoFechadaPor", fields: [fechadoPorId], references: [id])
+  itens          MedicaoItem[]
+  anexos         Anexo[]
+
+  @@index([clienteId, obraId, periodoInicial, periodoFinal])
+  @@index([status])
+  @@index([deletedAt, status])
+}
+
+model MedicaoItem {
+  id               String            @id @default(uuid())
+  medicaoId        String
+  lancamentoId     String
+  data             DateTime
+  ficha            String
+  placaOuTag       String
+  tipoServico      String
+  material         String?
+  unidadeFaturada  UnidadeFaturada    @default(HORA)
+  quantidadeFaturada Decimal          @default(0) @db.Decimal(12, 2)
+  m3SeAplicavel    Decimal?          @db.Decimal(12, 2)
+  valorUnitario    Decimal           @default(0) @db.Decimal(12, 2)
+  valorTotalItem   Decimal           @default(0) @db.Decimal(14, 2)
+  origem           OrigemLancamento
+  deletedAt        DateTime?
+  createdAt        DateTime          @default(now())
+  medicao          Medicao           @relation(fields: [medicaoId], references: [id], onDelete: Cascade)
+  lancamento       LancamentoDiario  @relation(fields: [lancamentoId], references: [id])
+
+  @@index([medicaoId, data])
+  @@index([lancamentoId])
+  @@index([deletedAt])
+}
+
+model HistoricoAlteracao {
+  id            String         @id @default(uuid())
+  entidade      String
+  entidadeId    String
+  campo         String
+  valorAnterior String?
+  valorNovo     String?
+  motivo        String?
+  tipoAlteracao TipoAlteracao
+  usuarioId     String
+  createdAt     DateTime       @default(now())
+  usuario       Usuario        @relation(fields: [usuarioId], references: [id])
+
+  @@index([entidade, entidadeId, createdAt])
+}
+
+model Anexo {
+  id           String    @id @default(uuid())
+  fichaId      String?
+  medicaoId    String?
+  tipo         TipoAnexo @default(OUTRO)
+  nomeArquivo  String
+  mimeType     String
+  urlArquivo   String
+  tamanhoBytes Int
+  createdAt    DateTime  @default(now())
+  ficha        Ficha?    @relation(fields: [fichaId], references: [id], onDelete: Cascade)
+  medicao      Medicao?  @relation(fields: [medicaoId], references: [id], onDelete: Cascade)
+
+  @@index([fichaId])
+  @@index([medicaoId])
+}
+
+model LogAuditoria {
+  id         String           @id @default(uuid())
+  tipo       TipoLogAuditoria
+  entidade   String?
+  entidadeId String?
+  acao       String
+  detalhes   Json?
+  ip         String?
+  userAgent  String?
+  usuarioId  String?
+  createdAt  DateTime         @default(now())
+  usuario    Usuario?         @relation(fields: [usuarioId], references: [id])
+
+  @@index([tipo, createdAt])
+  @@index([entidade, entidadeId])
+}
