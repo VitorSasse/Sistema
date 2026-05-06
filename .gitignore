@@ -1,3 +1,7 @@
 node_modules
 .next
 .env
+tmp/
+.env.local-postgres.backup
+*.dump
+*.log
