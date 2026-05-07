@@ -13,12 +13,13 @@ Exemplo:
 ```env
 NEXT_PUBLIC_SUPABASE_URL="https://seu-project-ref.supabase.co"
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="sb_publishable_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-DATABASE_URL="postgresql://postgres:PASSWORD@db.seu-project-ref.supabase.co:5432/postgres?sslmode=require"
+DATABASE_URL="postgresql://postgres.seu-project-ref:PASSWORD@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
 DIRECT_URL="postgresql://postgres:PASSWORD@db.seu-project-ref.supabase.co:5432/postgres?sslmode=require"
 ```
 
 **Prisma**
-- `DATABASE_URL` e usada pela aplicacao
+- `DATABASE_URL` deve usar o **pooler de sessoes** do Supabase
+- `DIRECT_URL` deve usar a **conexao direta** do banco
 - `DIRECT_URL` e usada para operacoes administrativas e migrations
 
 **Fluxo recomendado**
