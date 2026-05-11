@@ -17,9 +17,14 @@ export async function authenticate(_: LoginState, formData: FormData): Promise<L
     });
   } catch (error) {
     if (error instanceof AuthError) {
+      console.warn("[auth-action] falha no login", {
+        type: error.type,
+        cause: error.cause
+      });
       return { error: "E-mail ou senha invalidos." };
     }
 
+    console.error("[auth-action] erro inesperado no login", error);
     throw error;
   }
 

@@ -39,6 +39,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         if (!parsed.success) {
+          console.warn("[auth] credenciais invalidas no parse", {
+            email: String(credentials?.email ?? "")
+          });
           return null;
         }
 
@@ -54,18 +57,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         if (!user || user.status !== "ATIVO") {
+          console.warn("[auth] usuario nao encontrado ou inativo", {
+            email: parsed.data.email,
+            found: Boolean(user),
+            status: user?.status ?? null
+          });
           return null;
         }
 
         const passwordMatches = await bcrypt.compare(parsed.data.password, user.senhaHash);
 
         if (!passwordMatches) {
+          console.warn("[auth] senha invalida", {
+            email: parsed.data.email
+          });
           return null;
         }
 
         await prisma.usuario.update({
           where: { id: user.id },
           data: { ultimoLoginEm: new Date() }
+        });
+
+        console.info("[auth] login autorizado", {
+          email: parsed.data.email,
+          userId: user.id,
+          roles: user.roles.map((item) => item.role.codigo)
         });
 
         return {
