@@ -1,17 +1,47 @@
 "use client";
 
-import { useActionState } from "react";
-import { authenticate } from "./actions";
-
-const initialState = {
-  error: ""
-};
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 
 export function LoginForm() {
-  const [state, formAction, pending] = useActionState(authenticate, initialState);
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const [isPending, startTransition] = useTransition();
 
   return (
-    <form action={formAction} className="auth-form auth-form-strong">
+    <form
+      className="auth-form auth-form-strong"
+      onSubmit={(event) => {
+        event.preventDefault();
+        setError("");
+
+        const formData = new FormData(event.currentTarget);
+        const email = String(formData.get("email") ?? "").trim().toLowerCase();
+        const password = String(formData.get("password") ?? "");
+
+        startTransition(async () => {
+          try {
+            const result = await signIn("credentials", {
+              email,
+              password,
+              redirect: false
+            });
+
+            if (!result || result.error) {
+              setError("E-mail ou senha invalidos.");
+              return;
+            }
+
+            router.replace("/dashboard");
+            router.refresh();
+          } catch (submitError) {
+            console.error("[login-form] erro ao autenticar", submitError);
+            setError("Nao foi possivel concluir o login agora.");
+          }
+        });
+      }}
+    >
       <div className="auth-form-grid">
         <label className="field">
           <span className="field-label">E-mail</span>
@@ -38,10 +68,10 @@ export function LoginForm() {
         </label>
       </div>
 
-      {state.error ? <p className="message-inline">{state.error}</p> : null}
+      {error ? <p className="message-inline">{error}</p> : null}
 
-      <button type="submit" disabled={pending} className="button-primary auth-submit">
-        {pending ? "Entrando..." : "Entrar no sistema"}
+      <button type="submit" disabled={isPending} className="button-primary auth-submit">
+        {isPending ? "Entrando..." : "Entrar no sistema"}
       </button>
 
       <div className="auth-tips auth-tips-strong">
