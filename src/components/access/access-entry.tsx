@@ -75,7 +75,19 @@ export function AccessEntry({ mode = "home" }: AccessEntryProps) {
           </p>
         </div>
 
-        <LoginForm />
+        {mode === "login" ? (
+          <LoginForm />
+        ) : (
+          <div className="access-home-actions">
+            <Link href="/login" className="button-primary access-home-primary">
+              Ir para o login
+            </Link>
+            <p className="subtle access-home-subtle">
+              O acesso ao sistema acontece pela tela dedicada de login para evitar erros de sessao na entrada
+              inicial.
+            </p>
+          </div>
+        )}
 
         <div className="access-secondary-links">
           {mode === "home" ? (
