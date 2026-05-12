@@ -30,4 +30,9 @@ Base inicial do MVP para uma empresa de terraplenagem.
 3. Implementar lancamento diario com validacoes.
 4. Implementar historico e auditoria.
 5. Implementar medicao quinzenal e PDF.
+
+## Backup
+
+- Workflow semanal de backup Supabase: `.github/workflows/weekly-supabase-backup.yml`
+- Guia rapido: `docs/backups.md`
 # Sistema

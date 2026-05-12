@@ -1,0 +1,71 @@
+name: Weekly Supabase Backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * 1"
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_BACKUP_DB_URL }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate backup secret
+        shell: bash
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "Secret SUPABASE_BACKUP_DB_URL is not configured."
+            exit 1
+          fi
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Prepare backup directory
+        shell: bash
+        run: |
+          stamp="$(date -u +'%Y-%m-%dT%H-%M-%SZ')"
+          backup_dir="backups/$stamp"
+          mkdir -p "$backup_dir"
+          echo "BACKUP_DIR=$backup_dir" >> "$GITHUB_ENV"
+          echo "BACKUP_STAMP=$stamp" >> "$GITHUB_ENV"
+
+      - name: Dump roles
+        run: supabase db dump --db-url "$SUPABASE_DB_URL" -f "$BACKUP_DIR/roles.sql" --role-only
+
+      - name: Dump schema
+        run: supabase db dump --db-url "$SUPABASE_DB_URL" -f "$BACKUP_DIR/schema.sql"
+
+      - name: Dump data
+        run: supabase db dump --db-url "$SUPABASE_DB_URL" -f "$BACKUP_DIR/data.sql" --data-only --use-copy
+
+      - name: Create manifest
+        shell: bash
+        run: |
+          cat <<EOF > "$BACKUP_DIR/manifest.txt"
+          Backup generated at: $BACKUP_STAMP
+          Workflow: $GITHUB_WORKFLOW
+          Run ID: $GITHUB_RUN_ID
+          Commit: $GITHUB_SHA
+          Repository: $GITHUB_REPOSITORY
+          EOF
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ env.BACKUP_STAMP }}
+          path: ${{ env.BACKUP_DIR }}
+          if-no-files-found: error
+          retention-days: 30
