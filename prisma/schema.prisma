@@ -671,6 +671,7 @@ model Medicao {
   periodoFinal   DateTime
   status         StatusMedicao @default(EM_ABERTO)
   valorTotal     Decimal       @default(0) @db.Decimal(14, 2)
+  descontoValor  Decimal       @default(0) @db.Decimal(14, 2)
   observacao     String?
   observacaoInterna String?
   fechadoPorId   String?

@@ -91,6 +91,7 @@ export function MedicoesManager() {
   const [editingSource, setEditingSource] = useState<"preview" | "detail" | null>(null);
   const [detailObservacao, setDetailObservacao] = useState("");
   const [detailObservacaoInterna, setDetailObservacaoInterna] = useState("");
+  const [detailDescontoValor, setDetailDescontoValor] = useState("0");
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
     codigoMedicao: string;
@@ -149,6 +150,7 @@ export function MedicoesManager() {
     setNextStatus(detail.status);
     setDetailObservacao(detail.observacao ?? "");
     setDetailObservacaoInterna(detail.observacaoInterna ?? "");
+    setDetailDescontoValor(detail.descontoValor ?? "0");
   }
 
   useEffect(() => {
@@ -193,7 +195,10 @@ export function MedicoesManager() {
       abertas: medicoes.filter((item) => item.status === "EM_ABERTO").length,
       mensais: medicoes.filter((item) => item.tipoMedicao === "MENSAL").length,
       concluidas: medicoes.filter((item) => item.status === "CONCLUIDA").length,
-      valorTotal: medicoes.reduce((acc, item) => acc + Number(item.valorTotal), 0)
+      valorTotal: medicoes.reduce(
+        (acc, item) => acc + (Number(item.valorTotal) - Number(item.descontoValor ?? 0)),
+        0
+      )
     }),
     [medicoes]
   );
@@ -461,6 +466,8 @@ export function MedicoesManager() {
 
       setSelectedMedicao(data as MedicaoDetail);
       setDetailObservacao((data as MedicaoDetail).observacao ?? "");
+      setDetailObservacaoInterna((data as MedicaoDetail).observacaoInterna ?? "");
+      setDetailDescontoValor((data as MedicaoDetail).descontoValor ?? "0");
       setMessage("Item da medicao atualizado.");
       await loadBase(filters);
     });
@@ -473,7 +480,8 @@ export function MedicoesManager() {
       const { response, data } = await atualizarObservacaoMedicao(
         selectedMedicaoId,
         detailObservacao,
-        detailObservacaoInterna
+        detailObservacaoInterna,
+        detailDescontoValor
       );
 
       if (!response.ok) {
@@ -486,7 +494,8 @@ export function MedicoesManager() {
       setSelectedMedicao(data as MedicaoDetail);
       setDetailObservacao((data as MedicaoDetail).observacao ?? "");
       setDetailObservacaoInterna((data as MedicaoDetail).observacaoInterna ?? "");
-      setMessage("Observacao da medicao atualizada.");
+      setDetailDescontoValor((data as MedicaoDetail).descontoValor ?? "0");
+      setMessage("Dados da medicao atualizados.");
       await loadBase(filters);
     });
   }
@@ -597,6 +606,8 @@ export function MedicoesManager() {
           onChangeObservacao={setDetailObservacao}
           observacaoInterna={detailObservacaoInterna}
           onChangeObservacaoInterna={setDetailObservacaoInterna}
+          descontoValor={detailDescontoValor}
+          onChangeDescontoValor={setDetailDescontoValor}
           onSaveObservacao={handleSaveObservacao}
           onOpenPdf={openPdf}
           onRequestDelete={handleRequestDelete}

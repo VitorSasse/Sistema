@@ -326,6 +326,7 @@ export async function atualizarObservacaoMedicao(
     id: string;
     observacao: string | null;
     observacaoInterna: string | null;
+    descontoValor: number;
   }
 ) {
   const medicao = await db.medicao.findFirst({
@@ -346,7 +347,8 @@ export async function atualizarObservacaoMedicao(
     where: { id: params.id },
     data: {
       observacao: params.observacao,
-      observacaoInterna: params.observacaoInterna
+      observacaoInterna: params.observacaoInterna,
+      descontoValor: params.descontoValor
     }
   });
 

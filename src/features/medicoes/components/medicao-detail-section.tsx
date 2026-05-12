@@ -41,6 +41,8 @@ export function MedicaoDetailSection(props: {
   onChangeObservacao: (value: string) => void;
   observacaoInterna: string;
   onChangeObservacaoInterna: (value: string) => void;
+  descontoValor: string;
+  onChangeDescontoValor: (value: string) => void;
   onSaveObservacao: () => void;
   onOpenPdf: (id: string, tipo: "DETALHADO" | "RESUMIDO") => void;
   onRequestDelete: (detail: MedicaoDetail) => void;
@@ -63,6 +65,8 @@ export function MedicaoDetailSection(props: {
     onChangeObservacao,
     observacaoInterna,
     onChangeObservacaoInterna,
+    descontoValor,
+    onChangeDescontoValor,
     onSaveObservacao,
     onOpenPdf,
     onRequestDelete,
@@ -110,6 +114,8 @@ export function MedicaoDetailSection(props: {
         Number(itemDrafts[item.id]?.valorUnitario ?? item.valorUnitario ?? 0)
     );
   }, 0);
+  const descontoAtual = Math.max(0, Number(descontoValor.replace(",", ".") || 0));
+  const valorFinalAtual = Math.max(0, valorTotalAtual - descontoAtual);
 
   return (
     <section className="surface section-card surface-strong">
@@ -173,7 +179,8 @@ export function MedicaoDetailSection(props: {
           lines={[
             `${formatDate(detail.periodoInicial)} ate ${formatDate(detail.periodoFinal)}`,
             `${detail.itens.length} item(ns) / ${detail.anexos.length} anexo(s)`,
-            `Valor total: ${formatCurrency(valorTotalAtual)}`
+            `Valor bruto: ${formatCurrency(valorTotalAtual)}`,
+            `Valor final: ${formatCurrency(valorFinalAtual)}`
           ]}
         />
         <MedicaoInfoCard
@@ -231,6 +238,21 @@ export function MedicaoDetailSection(props: {
                 placeholder="Use para numero do pedido, numero da nota fiscal e observacoes internas."
               />
             </MedicaoField>
+            <MedicaoField label="Desconto da medicao">
+              <input
+                className="field-control"
+                type="number"
+                min="0"
+                step="0.01"
+                value={descontoValor}
+                onChange={(e) => onChangeDescontoValor(e.target.value)}
+              />
+            </MedicaoField>
+            <div className="timeline-card">
+              <span>Valor bruto: {formatCurrency(valorTotalAtual)}</span>
+              <span>Desconto: {formatCurrency(descontoAtual)}</span>
+              <span>Valor final: {formatCurrency(valorFinalAtual)}</span>
+            </div>
             <div className="toolbar-actions">
               <button
                 type="button"
@@ -238,7 +260,7 @@ export function MedicaoDetailSection(props: {
                 className="button-secondary"
                 onClick={onSaveObservacao}
               >
-                {isPending ? "Salvando..." : "Salvar observacoes"}
+                {isPending ? "Salvando..." : "Salvar dados da medicao"}
               </button>
             </div>
           </div>

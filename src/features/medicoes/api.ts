@@ -157,12 +157,17 @@ export async function atualizarValorItemMedicao(params: {
 export async function atualizarObservacaoMedicao(
   id: string,
   observacao: string,
-  observacaoInterna: string
+  observacaoInterna: string,
+  descontoValor: string
 ) {
   const response = await fetch(`/api/medicoes/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ observacao, observacaoInterna })
+    body: JSON.stringify({
+      observacao,
+      observacaoInterna,
+      descontoValor: descontoValor.trim() ? Number(descontoValor.replace(",", ".")) : 0
+    })
   });
   return {
     response,

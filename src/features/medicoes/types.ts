@@ -47,6 +47,7 @@ export type MedicaoListItem = {
   periodoInicial: string;
   periodoFinal: string;
   valorTotal: string;
+  descontoValor: string;
   cliente: { id: string; codigo: string; nome: string };
   obra: { id: string; codigo: string; nome: string } | null;
   itens: Array<{ id: string }>;
@@ -61,6 +62,7 @@ export type MedicaoDetail = {
   periodoInicial: string;
   periodoFinal: string;
   valorTotal: string;
+  descontoValor: string;
   observacao: string | null;
   observacaoInterna: string | null;
   fechadoEm: string | null;

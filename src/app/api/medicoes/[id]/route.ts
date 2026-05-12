@@ -40,6 +40,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const payload = (await request.json()) as {
     observacao?: string | null;
     observacaoInterna?: string | null;
+    descontoValor?: number | null;
   };
 
   try {
@@ -49,7 +50,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         observacao: payload.observacao?.trim() ? payload.observacao.trim() : null,
         observacaoInterna: payload.observacaoInterna?.trim()
           ? payload.observacaoInterna.trim()
-          : null
+          : null,
+        descontoValor:
+          payload.descontoValor == null || Number.isNaN(Number(payload.descontoValor))
+            ? 0
+            : Math.max(0, Number(payload.descontoValor))
       })
     );
 
@@ -60,7 +65,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
 
     return NextResponse.json(
-      { message: "Nao foi possivel atualizar a observacao da medicao." },
+      { message: "Nao foi possivel atualizar os dados da medicao." },
       { status: 400 }
     );
   }

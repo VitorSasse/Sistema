@@ -154,7 +154,14 @@ export function MedicaoListSection(props: {
                   </span>
                 </td>
                 <td>{medicao.itens.length}</td>
-                <td>{formatCurrency(medicao.valorTotal)}</td>
+                <td>
+                  <div>{formatCurrency(Number(medicao.valorTotal) - Number(medicao.descontoValor ?? 0))}</div>
+                  {Number(medicao.descontoValor ?? 0) > 0 ? (
+                    <div className="subtle">
+                      Bruto: {formatCurrency(medicao.valorTotal)}
+                    </div>
+                  ) : null}
+                </td>
                 <td>{medicao.anexos.length}</td>
                 <td>
                   <div className="toolbar-actions">
