@@ -26,6 +26,7 @@ export async function buildCodigoMedicao(db: DbClient) {
       ) AS "maxNumero"
       FROM "Medicao"
       WHERE "codigoMedicao" ~ '^MED-[0-9]+$'
+        AND "deletedAt" IS NULL
     `
   );
 
