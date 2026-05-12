@@ -27,6 +27,7 @@ import {
   hasAnyHorarioFilled,
   isServicoMedidoPorHorario
 } from "@/features/lancamentos/utils/horario-apontamento";
+import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
 function buildDuplicatedState(
   current: LancamentoFormState,
@@ -293,6 +294,10 @@ export function useLancamentos() {
   }
 
   function handleDelete(id: string) {
+    if (!confirmDeleteAction("este lancamento")) {
+      return;
+    }
+
     startTransition(async () => {
       const { response, data } = await excluirLancamento(id);
 

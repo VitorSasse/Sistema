@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
 type Servico = {
   id: string;
@@ -150,6 +151,10 @@ export function ServicosManager() {
   }
 
   async function handleDelete(id: string) {
+    if (!confirmDeleteAction("este servico")) {
+      return;
+    }
+
     startTransition(async () => {
       const response = await fetch(`/api/servicos/${id}?mode=delete`, { method: "DELETE" });
       const data = (await response.json()) as { message?: string };

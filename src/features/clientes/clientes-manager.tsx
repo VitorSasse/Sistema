@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
 type ObraResumo = {
   id: string;
@@ -228,6 +229,10 @@ export function ClientesManager() {
   }
 
   async function handleDelete(id: string) {
+    if (!confirmDeleteAction("este cliente")) {
+      return;
+    }
+
     startTransition(async () => {
       const response = await fetch(`/api/clientes/${id}?mode=delete`, { method: "DELETE" });
       const data = (await response.json()) as { message?: string };

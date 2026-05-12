@@ -7,6 +7,7 @@ import {
   TipoRecurso
 } from "@prisma/client";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
 type Equipamento = {
   id: string;
@@ -242,6 +243,10 @@ export function EquipamentosManager() {
   }
 
   async function handleDelete(id: string) {
+    if (!confirmDeleteAction("este equipamento")) {
+      return;
+    }
+
     startTransition(async () => {
       const response = await fetch(`/api/equipamentos/${id}?mode=delete`, { method: "DELETE" });
       const data = (await response.json()) as { message?: string };

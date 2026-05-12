@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { loadOperationalOptions } from "@/lib/client/operational-options";
+import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 import { formatQuantidadeComUnidade } from "@/lib/utils/unidades";
 
 type Option = {
@@ -288,6 +289,10 @@ export function HistoricoManager() {
   }
 
   async function handleDelete(id: string) {
+    if (!confirmDeleteAction("este lancamento")) {
+      return;
+    }
+
     startTransition(async () => {
       const response = await fetch(`/api/lancamentos/${id}?mode=delete`, {
         method: "DELETE"

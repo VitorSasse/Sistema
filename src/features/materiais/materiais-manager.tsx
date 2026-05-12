@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
 type Material = {
   id: string;
@@ -139,6 +140,10 @@ export function MateriaisManager() {
   }
 
   async function handleDelete(id: string) {
+    if (!confirmDeleteAction("este material")) {
+      return;
+    }
+
     startTransition(async () => {
       const response = await fetch(`/api/materiais/${id}?mode=delete`, { method: "DELETE" });
       const data = (await response.json()) as { message?: string };
