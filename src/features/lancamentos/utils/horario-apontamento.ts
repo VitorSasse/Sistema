@@ -11,7 +11,7 @@ const servicosComApontamentoPorHorario = new Set([
 type CalculoHorariosOk = {
   ok: true;
   quantidadeApontada: string;
-  unidadeApontada: "HORA" | "DIARIA";
+  unidadeApontada: "HORA";
   totalMinutos: number;
   message: string;
 };
@@ -90,16 +90,8 @@ export function isServicoMedidoPorHorario(
   return servicosComApontamentoPorHorario.has(normalizeServiceType(servico?.tipoServico));
 }
 
-export function isServicoDiaria(
-  servico?: Pick<OperationalOption, "tipoServico"> | null
-) {
-  const normalized = normalizeServiceType(servico?.tipoServico);
-  return normalized === "SERVICO_DIARIA" || normalized === "DIARIA";
-}
-
 export function calcularQuantidadeApontadaPorHorarios(
-  horarios: HorarioApontamentoState,
-  unidadeApontada: "HORA" | "DIARIA" = "HORA"
+  horarios: HorarioApontamentoState
 ): CalculoHorariosResult {
   const inicioBruto = horarios.inicioServico.trim();
   const saidaBruto = horarios.saidaAlmoco.trim();
@@ -189,19 +181,13 @@ export function calcularQuantidadeApontadaPorHorarios(
     };
   }
 
-  const quantidadeApontada =
-    unidadeApontada === "DIARIA"
-      ? Number((totalMinutos / 480).toFixed(2)).toString()
-      : formatDecimalHours(totalMinutos);
+  const quantidadeApontada = formatDecimalHours(totalMinutos);
 
   return {
     ok: true,
-    unidadeApontada,
+    unidadeApontada: "HORA",
     quantidadeApontada,
     totalMinutos,
-    message:
-      unidadeApontada === "DIARIA"
-        ? `Quantidade apontada preenchida com ${quantidadeApontada} diaria(s).`
-        : `Quantidade apontada preenchida com ${quantidadeApontada} hora(s).`
+    message: `Quantidade apontada preenchida com ${quantidadeApontada} hora(s).`
   };
 }

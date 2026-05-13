@@ -11,7 +11,6 @@ type HorarioKey = keyof HorarioApontamentoState;
 type HorarioApontamentoCardProps = {
   horarios: HorarioApontamentoState;
   feedback: HorarioApontamentoFeedback;
-  mode?: "HORA" | "DIARIA";
   onChange: (key: HorarioKey, value: string) => void;
   onCalculate: () => boolean;
 };
@@ -48,7 +47,6 @@ function Field({
 export function HorarioApontamentoCard({
   horarios,
   feedback,
-  mode = "HORA",
   onChange,
   onCalculate
 }: HorarioApontamentoCardProps) {
@@ -67,9 +65,8 @@ export function HorarioApontamentoCard({
         <div>
           <h4 style={{ margin: 0 }}>Calculo por horario</h4>
           <p className="section-copy">
-            {mode === "DIARIA"
-              ? "Preencha o bloco da manha, o bloco da tarde ou o dia inteiro. Para diaria, o sistema converte o tempo em fracao de diaria automaticamente."
-              : "Preencha inicio e fim. Se houver almoco, informe saida e retorno. Pressione Enter no fim para calcular a quantidade apontada."}
+            Preencha o bloco da manha, o bloco da tarde ou o dia inteiro.
+            Nao e mais necessario informar todos os horarios para conseguir calcular.
           </p>
         </div>
       </div>
