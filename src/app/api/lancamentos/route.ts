@@ -2,6 +2,7 @@ import { StatusCadastro, StatusLancamento } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { lancamentoSchema } from "@/lib/validators/lancamento";
 import { sincronizarLeituraPorLancamento } from "@/server/services/frota/leitura-sync";
 
@@ -127,8 +128,8 @@ export async function POST(request: NextRequest) {
     ...payload,
     obraId: payload.obraId || null,
     materialId: payload.materialId || null,
-    quantidadeApontada: Number(payload.quantidadeApontada),
-    quantidadeFaturada: Number(payload.quantidadeFaturada),
+    quantidadeApontada: parseDecimalInput(payload.quantidadeApontada),
+    quantidadeFaturada: parseDecimalInput(payload.quantidadeFaturada),
     horimetroInformado: parseNullableNumber(payload.horimetroInformado),
     kmInformado: parseNullableNumber(payload.kmInformado)
   };

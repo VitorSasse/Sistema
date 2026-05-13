@@ -196,9 +196,9 @@ export async function criarMedicao(
           periodoFinal,
           observacao: input.observacao || null,
           valorTotal,
-          fechadoPorId: userId,
-          fechadoEm: now,
-          status: "EM_ABERTO"
+          fechadoPorId: null,
+          fechadoEm: null,
+          status: "CRIADA"
         }
       });
       createError = null;
@@ -394,7 +394,10 @@ export async function atualizarStatusMedicao(
         params.status === "ENVIADA_PARA_FATURAMENTO"
           ? medicao.enviadaParaFaturamentoEm ?? now
           : medicao.enviadaParaFaturamentoEm,
-      fechadoPorId: medicao.fechadoPorId ?? params.userId,
+      fechadoPorId:
+        params.status === "CONCLUIDA"
+          ? medicao.fechadoPorId ?? params.userId
+          : medicao.fechadoPorId,
       fechadoEm:
         params.status === "CONCLUIDA"
           ? medicao.fechadoEm ?? now
@@ -432,10 +435,6 @@ export async function excluirMedicao(
     throw new Error("MEDICAO_NAO_ENCONTRADA");
   }
 
-  if (medicao.tipoMedicao === TipoMedicao.MENSAL) {
-    throw new Error("MEDICAO_MENSAL_NAO_PODE_EXCLUIR");
-  }
-
   const deletedAt = new Date();
 
   if (medicao.itens.length > 0) {
@@ -466,7 +465,8 @@ export async function excluirMedicao(
   return db.medicao.update({
     where: { id: medicao.id },
     data: {
-      deletedAt
+      deletedAt,
+      codigoMedicao: `ARQ-${medicao.codigoMedicao}-${medicao.id.slice(0, 8)}`
     },
     include: medicaoListInclude
   });

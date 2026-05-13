@@ -28,7 +28,7 @@ type Lancamento = {
   equipamentoId?: string;
   colaboradorId?: string;
   quantidadeApontada: string;
-  unidadeApontada: "CARGA" | "HORA" | "M3";
+  unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA";
   quantidadeFaturada: string;
   unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
   statusValidacao: "VALIDO" | "PENDENTE_OBRA" | "PENDENTE_PRECO" | "DIVERGENTE" | "MEDIDO" | "CANCELADO";
@@ -98,7 +98,7 @@ export function HistoricoManager() {
     equipamentoId: "",
     colaboradorId: "",
     quantidadeApontada: "",
-    unidadeApontada: "HORA",
+    unidadeApontada: "DIARIA",
     quantidadeFaturada: "",
     unidadeFaturada: "HORA",
     observacao: "",
@@ -570,6 +570,7 @@ export function HistoricoManager() {
                   <option value="CARGA">CARGA</option>
                   <option value="HORA">HORA</option>
                   <option value="M3">M3</option>
+                  <option value="DIARIA">DIARIA</option>
                 </select>
               </Field>
               <Field label="Quantidade faturada">

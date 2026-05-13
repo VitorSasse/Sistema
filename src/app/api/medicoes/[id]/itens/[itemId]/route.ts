@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { atualizarValorItemMedicao } from "@/server/services/medicoes/service";
 
 type RouteContext = {
@@ -22,7 +23,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   };
   const valorUnitario = Number(payload.valorUnitario);
   const quantidadeFaturada =
-    payload.quantidadeFaturada === undefined ? undefined : Number(payload.quantidadeFaturada);
+    payload.quantidadeFaturada === undefined
+      ? undefined
+      : parseDecimalInput(payload.quantidadeFaturada);
   const unidadeFaturada = payload.unidadeFaturada;
 
   if (!Number.isFinite(valorUnitario) || valorUnitario < 0) {

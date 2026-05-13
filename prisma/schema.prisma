@@ -37,6 +37,7 @@ enum TipoMedicao {
 }
 
 enum StatusMedicao {
+  CRIADA
   EM_ABERTO
   ENVIADA_AO_CLIENTE
   ENVIADA_PARA_FATURAMENTO
@@ -121,6 +122,7 @@ enum UnidadeApontada {
   CARGA
   HORA
   M3
+  DIARIA
 }
 
 enum UnidadeFaturada {
@@ -669,7 +671,7 @@ model Medicao {
   obraId         String?
   periodoInicial DateTime
   periodoFinal   DateTime
-  status         StatusMedicao @default(EM_ABERTO)
+  status         StatusMedicao @default(CRIADA)
   valorTotal     Decimal       @default(0) @db.Decimal(14, 2)
   descontoValor  Decimal       @default(0) @db.Decimal(14, 2)
   observacao     String?

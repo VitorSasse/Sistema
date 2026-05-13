@@ -85,7 +85,7 @@ export function MedicoesManager() {
   const [filters, setFilters] = useState<MedicaoFilters>(initialMedicaoFilters);
   const [selectedMedicaoId, setSelectedMedicaoId] = useState<string | null>(null);
   const [selectedMedicao, setSelectedMedicao] = useState<MedicaoDetail | null>(null);
-  const [nextStatus, setNextStatus] = useState<MedicaoStatus>("EM_ABERTO");
+  const [nextStatus, setNextStatus] = useState<MedicaoStatus>("CRIADA");
   const [upload, setUpload] = useState<MedicaoUploadState>(initialMedicaoUpload);
   const [editing, setEditing] = useState<MedicaoEditState | null>(null);
   const [editingSource, setEditingSource] = useState<"preview" | "detail" | null>(null);
@@ -192,7 +192,7 @@ export function MedicoesManager() {
   const resumo = useMemo(
     () => ({
       total: medicoes.length,
-      abertas: medicoes.filter((item) => item.status === "EM_ABERTO").length,
+      abertas: medicoes.filter((item) => item.status === "CRIADA" || item.status === "EM_ABERTO").length,
       mensais: medicoes.filter((item) => item.tipoMedicao === "MENSAL").length,
       concluidas: medicoes.filter((item) => item.status === "CONCLUIDA").length,
       valorTotal: medicoes.reduce(
@@ -352,11 +352,6 @@ export function MedicoesManager() {
     codigoMedicao: string;
     tipoMedicao: MedicaoListItem["tipoMedicao"];
   }) {
-    if (medicao.tipoMedicao === "MENSAL") {
-      setMessage("Nao e possivel excluir uma medicao mensal.");
-      return;
-    }
-
     setDeleteTarget(medicao);
   }
 

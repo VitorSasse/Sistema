@@ -11,6 +11,9 @@ export async function GET() {
 
   const [clientes, obras, servicos, materiais, equipamentos, colaboradores] = await Promise.all([
     prisma.cliente.findMany({
+      where: {
+        status: "ATIVO"
+      },
       select: {
         id: true,
         codigo: true,
@@ -20,6 +23,9 @@ export async function GET() {
       orderBy: [{ nome: "asc" }]
     }),
     prisma.obra.findMany({
+      where: {
+        status: "ATIVO"
+      },
       select: {
         id: true,
         codigo: true,
@@ -31,6 +37,9 @@ export async function GET() {
       orderBy: [{ nome: "asc" }]
     }),
     prisma.servico.findMany({
+      where: {
+        status: "ATIVO"
+      },
       select: {
         id: true,
         codigo: true,
@@ -41,6 +50,9 @@ export async function GET() {
       orderBy: [{ tipoServico: "asc" }]
     }),
     prisma.material.findMany({
+      where: {
+        status: "ATIVO"
+      },
       select: {
         id: true,
         codigoMaterial: true,
@@ -50,6 +62,9 @@ export async function GET() {
       orderBy: [{ descricao: "asc" }]
     }),
     prisma.equipamento.findMany({
+      where: {
+        status: "ATIVO"
+      },
       select: {
         id: true,
         descricao: true,
@@ -59,6 +74,9 @@ export async function GET() {
       orderBy: [{ descricao: "asc" }]
     }),
     prisma.colaborador.findMany({
+      where: {
+        status: "ATIVO"
+      },
       select: {
         id: true,
         codigo: true,

@@ -30,6 +30,7 @@ export const initialMedicaoUpload: MedicaoUploadState = {
 };
 
 export const medicaoStatusOptions: MedicaoStatus[] = [
+  "CRIADA",
   "EM_ABERTO",
   "ENVIADA_AO_CLIENTE",
   "ENVIADA_PARA_FATURAMENTO",
@@ -37,6 +38,7 @@ export const medicaoStatusOptions: MedicaoStatus[] = [
 ];
 
 export const medicaoStatusLabels: Record<MedicaoStatus, string> = {
+  CRIADA: "Criada",
   EM_ABERTO: "Em aberto",
   ENVIADA_AO_CLIENTE: "Enviado para cliente",
   ENVIADA_PARA_FATURAMENTO: "Enviado para faturamento",
@@ -51,6 +53,7 @@ export const medicaoStatusLabels: Record<MedicaoStatus, string> = {
 };
 
 export const medicaoStatusClasses: Record<MedicaoStatus, string> = {
+  CRIADA: "badge badge-info",
   EM_ABERTO: "badge badge-warn",
   ENVIADA_AO_CLIENTE: "badge badge-info",
   ENVIADA_PARA_FATURAMENTO: "badge badge-neutral",

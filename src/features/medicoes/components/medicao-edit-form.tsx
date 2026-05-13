@@ -97,6 +97,7 @@ export function MedicaoEditForm(props: {
               <option value="CARGA">CARGA</option>
               <option value="HORA">HORA</option>
               <option value="M3">M3</option>
+              <option value="DIARIA">DIARIA</option>
             </select>
           </MedicaoField>
           <MedicaoField label="Quantidade faturada">

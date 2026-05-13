@@ -19,6 +19,34 @@ function formatDate(value: string | null) {
   return value ? new Date(value).toISOString().slice(0, 10) : "-";
 }
 
+function buildWarnings(detail: MedicaoDetail, descontoValor: string) {
+  const warnings: string[] = [];
+
+  if (detail.itens.length === 0) {
+    warnings.push("Esta medicao esta sem itens vinculados.");
+  }
+
+  if (detail.itens.some((item) => Number(item.valorUnitario) <= 0)) {
+    warnings.push("Existe item com valor unitario zerado ou invalido.");
+  }
+
+  if (detail.itens.some((item) => Number(item.quantidadeFaturada) <= 0)) {
+    warnings.push("Existe item com quantidade faturada zerada ou invalida.");
+  }
+
+  const valorTotal = detail.itens.reduce(
+    (acc, item) => acc + Number(item.quantidadeFaturada) * Number(item.valorUnitario),
+    0
+  );
+  const desconto = Number(descontoValor.replace(",", ".") || 0);
+
+  if (desconto > valorTotal) {
+    warnings.push("O desconto esta maior que o valor bruto da medicao.");
+  }
+
+  return warnings;
+}
+
 export function MedicaoDetailSection(props: {
   detail: MedicaoDetail;
   nextStatus: MedicaoStatus;
@@ -116,6 +144,7 @@ export function MedicaoDetailSection(props: {
   }, 0);
   const descontoAtual = Math.max(0, Number(descontoValor.replace(",", ".") || 0));
   const valorFinalAtual = Math.max(0, valorTotalAtual - descontoAtual);
+  const warnings = buildWarnings(detail, descontoValor);
 
   return (
     <section className="surface section-card surface-strong">
@@ -150,16 +179,11 @@ export function MedicaoDetailSection(props: {
             PDF para cliente
           </button>
           <span
-            title={
-              detail.tipoMedicao === "MENSAL"
-                ? "Medicoes mensais nao podem ser excluidas."
-                : ""
-            }
+            title=""
           >
             <button
               type="button"
               className="button-danger"
-              disabled={detail.tipoMedicao === "MENSAL"}
               onClick={() => onRequestDelete(detail)}
             >
               Excluir medicao
@@ -196,6 +220,17 @@ export function MedicaoDetailSection(props: {
         />
       </div>
 
+      {warnings.length > 0 ? (
+        <div className="message-inline message-inline-danger" style={{ marginBottom: 20 }}>
+          <strong>Avisos da medicao:</strong>
+          <ul style={{ margin: "8px 0 0 18px" }}>
+            {warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="split-grid" style={{ display: "grid", gap: 16, gridTemplateColumns: "1.1fr 0.9fr" }}>
         <article className="tile-card">
           <h3 style={{ marginTop: 0, marginBottom: 16 }}>Controle de status</h3>
@@ -211,6 +246,7 @@ export function MedicaoDetailSection(props: {
             </MedicaoField>
             <MedicaoField label="Linha do tempo">
               <div className="timeline-card">
+                <span>Criada: {formatDate(detail.createdAt)}</span>
                 <span>Enviada: {formatDate(detail.enviadaAoClienteEm)}</span>
                 <span>Faturamento: {formatDate(detail.enviadaParaFaturamentoEm)}</span>
                 <span>Concluida: {formatDate(detail.fechadoEm ?? null)}</span>

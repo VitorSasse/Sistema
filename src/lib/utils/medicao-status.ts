@@ -9,6 +9,8 @@ export function canTransitionMedicao(
   nextStatus: StatusMedicao
 ) {
   switch (nextStatus) {
+    case "CRIADA":
+      return medicao.status === "CRIADA";
     case "EM_ABERTO":
       return true;
     case "ENVIADA_AO_CLIENTE":

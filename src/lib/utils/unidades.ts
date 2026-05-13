@@ -1,5 +1,5 @@
-export type UnidadeApontada = "CARGA" | "HORA" | "M3";
-export type UnidadeFaturada = UnidadeApontada | "DIARIA";
+export type UnidadeApontada = "CARGA" | "HORA" | "M3" | "DIARIA";
+export type UnidadeFaturada = UnidadeApontada;
 
 export const unidadeLabels: Record<UnidadeFaturada, string> = {
   CARGA: "Carga",

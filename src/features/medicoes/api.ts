@@ -1,4 +1,5 @@
 import { loadOperationalOptions } from "@/lib/client/operational-options";
+import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import type {
   MedicaoDetail,
   MedicaoEditState,
@@ -194,9 +195,9 @@ export async function editarLancamentoNaMedicao(params: {
       materialId: exigeMaterial ? edit.materialId || null : null,
       equipamentoId: edit.equipamentoId,
       colaboradorId: edit.colaboradorId,
-      quantidadeApontada: Number(edit.quantidadeApontada),
+      quantidadeApontada: parseDecimalInput(edit.quantidadeApontada),
       unidadeApontada: edit.unidadeApontada,
-      quantidadeFaturada: Number(edit.quantidadeFaturada),
+      quantidadeFaturada: parseDecimalInput(edit.quantidadeFaturada),
       unidadeFaturada: edit.unidadeFaturada,
       horimetroInformado: edit.horimetroInformado.trim()
         ? Number(edit.horimetroInformado)

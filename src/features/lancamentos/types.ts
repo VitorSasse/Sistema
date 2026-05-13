@@ -12,7 +12,7 @@ export type LancamentoItem = {
   id: string;
   data: string;
   quantidadeApontada: string;
-  unidadeApontada: "CARGA" | "HORA" | "M3";
+  unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA";
   quantidadeFaturada: string;
   unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
   horimetroInformado: string | null;
@@ -39,7 +39,7 @@ export type LancamentoFormState = {
   equipamentoId: string;
   colaboradorId: string;
   quantidadeApontada: string;
-  unidadeApontada: "CARGA" | "HORA" | "M3";
+  unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA";
   quantidadeFaturada: string;
   unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
   horimetroInformado: string;

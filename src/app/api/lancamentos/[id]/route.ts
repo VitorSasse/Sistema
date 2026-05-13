@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { StatusCadastro, StatusLancamento, TipoAlteracao } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { lancamentoSchema } from "@/lib/validators/lancamento";
 import {
   recalcularAcumuladoEquipamento,
@@ -58,8 +59,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     ...payload,
     obraId: payload.obraId || null,
     materialId: payload.materialId || null,
-    quantidadeApontada: Number(payload.quantidadeApontada),
-    quantidadeFaturada: Number(payload.quantidadeFaturada),
+    quantidadeApontada: parseDecimalInput(payload.quantidadeApontada),
+    quantidadeFaturada: parseDecimalInput(payload.quantidadeFaturada),
     horimetroInformado: parseNullableNumber(payload.horimetroInformado),
     kmInformado: parseNullableNumber(payload.kmInformado)
   };

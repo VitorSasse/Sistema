@@ -27,7 +27,8 @@ export const initialLancamentoForm: LancamentoFormState = {
 export const unidadeApontadaOptions = [
   { value: "CARGA", label: "Carga" },
   { value: "HORA", label: "Hora" },
-  { value: "M3", label: "M3" }
+  { value: "M3", label: "M3" },
+  { value: "DIARIA", label: "Diaria" }
 ] as const;
 
 export const unidadeFaturadaOptions = [

@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import type { OperationalOption } from "@/lib/client/operational-options";
 import {
   medicaoStatusClasses,
@@ -45,6 +46,24 @@ export function MedicaoListSection(props: {
     onOpenPdf,
     onRequestDelete
   } = props;
+  const [clienteSearch, setClienteSearch] = useState("");
+  const [obraSearch, setObraSearch] = useState("");
+
+  const clientesFiltrados = useMemo(
+    () =>
+      clientes.filter((item) =>
+        optionLabel(item).toLocaleLowerCase("pt-BR").includes(clienteSearch.toLocaleLowerCase("pt-BR"))
+      ),
+    [clientes, clienteSearch]
+  );
+
+  const obrasFiltradas = useMemo(
+    () =>
+      obras.filter((item) =>
+        optionLabel(item).toLocaleLowerCase("pt-BR").includes(obraSearch.toLocaleLowerCase("pt-BR"))
+      ),
+    [obras, obraSearch]
+  );
 
   return (
     <section className="surface section-card">
@@ -62,9 +81,16 @@ export function MedicaoListSection(props: {
 
       <div className="form-grid-4" style={{ marginBottom: 20 }}>
         <MedicaoField label="Cliente">
+          <input
+            className="field-control"
+            value={clienteSearch}
+            onChange={(e) => setClienteSearch(e.target.value)}
+            placeholder="Buscar cliente"
+            style={{ marginBottom: 8 }}
+          />
           <select className="field-control" value={filters.clienteId} onChange={(e) => onChangeFilter("clienteId", e.target.value)}>
             <option value="">Todos</option>
-            {clientes.map((item) => (
+            {clientesFiltrados.map((item) => (
               <option key={item.id} value={item.id}>
                 {optionLabel(item)}
               </option>
@@ -72,9 +98,16 @@ export function MedicaoListSection(props: {
           </select>
         </MedicaoField>
         <MedicaoField label="Obra">
+          <input
+            className="field-control"
+            value={obraSearch}
+            onChange={(e) => setObraSearch(e.target.value)}
+            placeholder="Buscar obra"
+            style={{ marginBottom: 8 }}
+          />
           <select className="field-control" value={filters.obraId} onChange={(e) => onChangeFilter("obraId", e.target.value)}>
             <option value="">Todas</option>
-            {obras.map((item) => (
+            {obrasFiltradas.map((item) => (
               <option key={item.id} value={item.id}>
                 {optionLabel(item)}
               </option>
@@ -171,22 +204,13 @@ export function MedicaoListSection(props: {
                     <button type="button" className="button-ghost" onClick={() => onOpenPdf(medicao.id)}>
                       PDF
                     </button>
-                    <span
-                      title={
-                        medicao.tipoMedicao === "MENSAL"
-                          ? "Medicoes mensais nao podem ser excluidas."
-                          : ""
-                      }
+                    <button
+                      type="button"
+                      className="button-danger"
+                      onClick={() => onRequestDelete(medicao)}
                     >
-                      <button
-                        type="button"
-                        className="button-danger"
-                        disabled={medicao.tipoMedicao === "MENSAL"}
-                        onClick={() => onRequestDelete(medicao)}
-                      >
-                        Excluir medicao
-                      </button>
-                    </span>
+                      Excluir medicao
+                    </button>
                   </div>
                 </td>
               </tr>

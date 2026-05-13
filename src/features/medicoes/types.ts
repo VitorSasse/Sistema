@@ -3,6 +3,7 @@ import type { OperationalOption } from "@/lib/client/operational-options";
 export type MedicaoTipo = "UNICA" | "SEMANAL" | "QUINZENAL" | "MENSAL";
 
 export type MedicaoStatus =
+  | "CRIADA"
   | "EM_ABERTO"
   | "ENVIADA_AO_CLIENTE"
   | "ENVIADA_PARA_FATURAMENTO"
@@ -25,7 +26,7 @@ export type PreviewItem = {
   equipamentoId: string;
   colaboradorId: string;
   quantidadeApontada: string;
-  unidadeApontada: "CARGA" | "HORA" | "M3";
+  unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA";
   quantidadeFaturada: string;
   unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
   observacao: string | null;
@@ -57,6 +58,7 @@ export type MedicaoListItem = {
 export type MedicaoDetail = {
   id: string;
   codigoMedicao: string;
+  createdAt: string;
   tipoMedicao: MedicaoTipo;
   status: MedicaoStatus;
   periodoInicial: string;
@@ -111,7 +113,7 @@ export type MedicaoDetail = {
       equipamentoId: string;
       colaboradorId: string;
       quantidadeApontada: string;
-      unidadeApontada: "CARGA" | "HORA" | "M3";
+      unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA";
       quantidadeFaturada: string;
       unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
       horimetroInformado: string | null;
@@ -167,7 +169,7 @@ export type MedicaoEditState = {
   equipamentoId: string;
   colaboradorId: string;
   quantidadeApontada: string;
-  unidadeApontada: "CARGA" | "HORA" | "M3";
+  unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA";
   quantidadeFaturada: string;
   unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
   observacao: string;

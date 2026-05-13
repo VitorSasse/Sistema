@@ -3,9 +3,7 @@ import type { HorarioApontamentoState } from "@/features/lancamentos/types";
 
 const servicosComApontamentoPorHorario = new Set([
   "HORA_MAQUINA",
-  "HORA_CAMINHAO",
-  "SERVICO_DIARIA",
-  "DIARIA"
+  "HORA_CAMINHAO"
 ]);
 
 type CalculoHorariosOk = {
