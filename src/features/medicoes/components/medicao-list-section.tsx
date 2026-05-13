@@ -46,6 +46,15 @@ export function MedicaoListSection(props: {
     onOpenPdf,
     onRequestDelete
   } = props;
+  const hasActiveFilters = Boolean(
+    filters.clienteId ||
+      filters.obraId ||
+      filters.tipoMedicao ||
+      filters.status ||
+      filters.periodoInicial ||
+      filters.periodoFinal
+  );
+  const visibleItems = hasActiveFilters ? items : items.slice(0, 5);
 
   return (
     <section className="surface section-card">
@@ -53,7 +62,9 @@ export function MedicaoListSection(props: {
         <div>
           <h2 className="section-title">Relatorio completo de medicoes</h2>
           <p className="section-copy">
-            Consulte todas as medicoes e diferencie unicas, quinzenais e fechadas.
+            {hasActiveFilters
+              ? "Consulte as medicoes conforme os filtros aplicados."
+              : "Mostrando as 5 medicoes mais recentes para facilitar o acesso rapido aos detalhes."}
           </p>
         </div>
         <button type="button" className="button-secondary" onClick={onRefresh}>
@@ -130,7 +141,7 @@ export function MedicaoListSection(props: {
             </tr>
           </thead>
           <tbody>
-            {items.map((medicao) => (
+            {visibleItems.map((medicao) => (
               <tr key={medicao.id}>
                 <td>{medicao.codigoMedicao}</td>
                 <td>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 export type SearchableSelectOption = {
   value: string;
@@ -27,6 +27,8 @@ export function SearchableSelect(props: {
   const selectedOption = options.find((option) => option.value === value) ?? null;
   const [query, setQuery] = useState(selectedOption?.label ?? "");
   const [isOpen, setIsOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
     setQuery(selectedOption?.label ?? "");
@@ -45,6 +47,33 @@ export function SearchableSelect(props: {
       )
       .slice(0, 20);
   }, [options, query]);
+
+  useEffect(() => {
+    optionRefs.current = optionRefs.current.slice(0, filteredOptions.length);
+  }, [filteredOptions.length]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setHighlightedIndex(-1);
+      return;
+    }
+
+    if (filteredOptions.length === 0) {
+      setHighlightedIndex(-1);
+      return;
+    }
+
+    const selectedIndex = filteredOptions.findIndex((option) => option.value === value);
+    setHighlightedIndex(selectedIndex >= 0 ? selectedIndex : 0);
+  }, [filteredOptions, isOpen, value]);
+
+  useEffect(() => {
+    if (highlightedIndex < 0) {
+      return;
+    }
+
+    optionRefs.current[highlightedIndex]?.scrollIntoView({ block: "nearest" });
+  }, [highlightedIndex]);
 
   function handleInputChange(nextValue: string) {
     setQuery(nextValue);
@@ -66,6 +95,47 @@ export function SearchableSelect(props: {
     setIsOpen(false);
   }
 
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (disabled) {
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setIsOpen(true);
+      setHighlightedIndex((current) => {
+        if (filteredOptions.length === 0) return -1;
+        if (current < 0) return 0;
+        return Math.min(current + 1, filteredOptions.length - 1);
+      });
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setIsOpen(true);
+      setHighlightedIndex((current) => {
+        if (filteredOptions.length === 0) return -1;
+        if (current < 0) return filteredOptions.length - 1;
+        return Math.max(current - 1, 0);
+      });
+      return;
+    }
+
+    if (event.key === "Enter" && isOpen && highlightedIndex >= 0) {
+      event.preventDefault();
+      const option = filteredOptions[highlightedIndex];
+      if (option) {
+        handleSelect(option);
+      }
+      return;
+    }
+
+    if (event.key === "Escape") {
+      setIsOpen(false);
+    }
+  }
+
   return (
     <div style={{ position: "relative" }}>
       <input
@@ -77,6 +147,7 @@ export function SearchableSelect(props: {
         onBlur={() => {
           window.setTimeout(() => setIsOpen(false), 120);
         }}
+        onKeyDown={handleKeyDown}
         onChange={(event) => handleInputChange(event.target.value)}
       />
 
@@ -97,18 +168,25 @@ export function SearchableSelect(props: {
           }}
         >
           {filteredOptions.length > 0 ? (
-            filteredOptions.map((option) => (
+            filteredOptions.map((option, index) => (
               <button
                 key={option.value}
+                ref={(element) => {
+                  optionRefs.current[index] = element;
+                }}
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setHighlightedIndex(index)}
                 onClick={() => handleSelect(option)}
                 style={{
                   width: "100%",
                   textAlign: "left",
                   padding: "10px 12px",
                   border: "none",
-                  background: option.value === value ? "rgba(19, 94, 85, 0.08)" : "transparent",
+                  background:
+                    option.value === value || highlightedIndex === index
+                      ? "rgba(19, 94, 85, 0.08)"
+                      : "transparent",
                   cursor: "pointer",
                   color: "#1f2f2c"
                 }}
