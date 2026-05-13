@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import {
+  atualizarLancamento,
   cancelarLancamento,
   carregarLancamentosDoDia,
   carregarOpcoesLancamento,
@@ -81,6 +82,8 @@ export function useLancamentos() {
     emptyHorarioApontamentoFeedback
   );
   const [message, setMessage] = useState("");
+  const [editingLancamentoId, setEditingLancamentoId] = useState<string | null>(null);
+  const [motivoAlteracao, setMotivoAlteracao] = useState("");
   const [isPending, startTransition] = useTransition();
 
   async function loadOptions() {
@@ -217,6 +220,8 @@ export function useLancamentos() {
       ...initialLancamentoForm,
       data: current.data
     }));
+    setEditingLancamentoId(null);
+    setMotivoAlteracao("");
     setHorarios(initialHorarioApontamentoState);
     setHorarioFeedback(emptyHorarioApontamentoFeedback);
   }
@@ -251,14 +256,28 @@ export function useLancamentos() {
     }
 
     startTransition(async () => {
-      const { response, data } = await criarLancamento(formToSubmit);
+      const { response, data } = editingLancamentoId
+        ? await atualizarLancamento(editingLancamentoId, {
+            ...formToSubmit,
+            motivoAlteracao
+          })
+        : await criarLancamento(formToSubmit);
 
       if (!response.ok) {
-        setMessage(data.message ?? "Nao foi possivel salvar o lancamento.");
+        setMessage(
+          data.message ??
+            (editingLancamentoId
+              ? "Nao foi possivel atualizar o lancamento."
+              : "Nao foi possivel salvar o lancamento.")
+        );
         return;
       }
 
-      setMessage("Lancamento salvo com sucesso e leitura do equipamento sincronizada.");
+      setMessage(
+        editingLancamentoId
+          ? "Lancamento atualizado com sucesso."
+          : "Lancamento salvo com sucesso e leitura do equipamento sincronizada."
+      );
       const snapshot = { ...formToSubmit };
       resetForm();
       await loadLancamentos(snapshot.data);
@@ -277,6 +296,20 @@ export function useLancamentos() {
     setHorarios(initialHorarioApontamentoState);
     setHorarioFeedback(emptyHorarioApontamentoFeedback);
     setMessage("Ultimo lancamento carregado no formulario.");
+  }
+
+  function startEdit(item: LancamentoItem) {
+    setForm((current) => buildDuplicatedState(current, item, options));
+    setEditingLancamentoId(item.id);
+    setMotivoAlteracao("");
+    setHorarios(initialHorarioApontamentoState);
+    setHorarioFeedback(emptyHorarioApontamentoFeedback);
+    setMessage("Lancamento carregado para edicao.");
+  }
+
+  function cancelEdit() {
+    resetForm();
+    setMessage("Edicao cancelada.");
   }
 
   function handleCancel(id: string) {
@@ -316,6 +349,8 @@ export function useLancamentos() {
     lancamentos,
     form,
     message,
+    editingLancamentoId,
+    motivoAlteracao,
     isPending,
     obrasDisponiveis,
     servicoSelecionado,
@@ -329,6 +364,9 @@ export function useLancamentos() {
     resetForm,
     handleSubmit,
     duplicateLast,
+    startEdit,
+    cancelEdit,
+    setMotivoAlteracao,
     handleCancel,
     handleDelete
   };

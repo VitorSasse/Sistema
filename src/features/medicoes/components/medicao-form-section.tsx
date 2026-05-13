@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { SearchableSelect } from "@/components/form/searchable-select";
 import type { OperationalOption } from "@/lib/client/operational-options";
 import type { MedicaoFormState, MedicaoTipo } from "@/features/medicoes/types";
 import { MedicaoField } from "@/features/medicoes/components/shared";
@@ -28,24 +28,6 @@ export function MedicaoFormSection(props: {
   canGenerate: boolean;
 }) {
   const { form, clientes, obrasDisponiveis, isPending, message, onSubmit, onGenerate, onChange, canGenerate } = props;
-  const [clienteSearch, setClienteSearch] = useState("");
-  const [obraSearch, setObraSearch] = useState("");
-
-  const clientesFiltrados = useMemo(
-    () =>
-      clientes.filter((item) =>
-        optionLabel(item).toLocaleLowerCase("pt-BR").includes(clienteSearch.toLocaleLowerCase("pt-BR"))
-      ),
-    [clientes, clienteSearch]
-  );
-
-  const obrasFiltradas = useMemo(
-    () =>
-      obrasDisponiveis.filter((item) =>
-        optionLabel(item).toLocaleLowerCase("pt-BR").includes(obraSearch.toLocaleLowerCase("pt-BR"))
-      ),
-    [obrasDisponiveis, obraSearch]
-  );
 
   return (
     <section className="surface section-card">
@@ -76,38 +58,28 @@ export function MedicaoFormSection(props: {
             </select>
           </MedicaoField>
           <MedicaoField label="Cliente">
-            <input
-              className="field-control"
-              value={clienteSearch}
-              onChange={(e) => setClienteSearch(e.target.value)}
-              placeholder="Buscar cliente"
-              style={{ marginBottom: 8 }}
+            <SearchableSelect
+              value={form.clienteId}
+              onChange={(value) => onChange("clienteId", value)}
+              options={clientes.map((item) => ({
+                value: item.id,
+                label: optionLabel(item)
+              }))}
+              placeholder="Digite a primeira letra do cliente"
+              emptyLabel="Nenhum cliente encontrado."
             />
-            <select className="field-control" value={form.clienteId} onChange={(e) => onChange("clienteId", e.target.value)}>
-              <option value="">Selecione</option>
-              {clientesFiltrados.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {optionLabel(item)}
-                </option>
-              ))}
-            </select>
           </MedicaoField>
           <MedicaoField label="Obra">
-            <input
-              className="field-control"
-              value={obraSearch}
-              onChange={(e) => setObraSearch(e.target.value)}
-              placeholder="Buscar obra"
-              style={{ marginBottom: 8 }}
+            <SearchableSelect
+              value={form.obraId}
+              onChange={(value) => onChange("obraId", value)}
+              options={obrasDisponiveis.map((item) => ({
+                value: item.id,
+                label: optionLabel(item)
+              }))}
+              placeholder="Digite a primeira letra da obra"
+              emptyLabel="Nenhuma obra encontrada para esse cliente."
             />
-            <select className="field-control" value={form.obraId} onChange={(e) => onChange("obraId", e.target.value)}>
-              <option value="">Selecione a obra</option>
-              {obrasFiltradas.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {optionLabel(item)}
-                </option>
-              ))}
-            </select>
           </MedicaoField>
         </div>
 

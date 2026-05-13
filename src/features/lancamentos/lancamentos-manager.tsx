@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, type ReactNode } from "react";
+import { SearchableSelect } from "@/components/form/searchable-select";
 import { HorarioApontamentoCard } from "@/features/lancamentos/components/horario-apontamento-card";
 import {
   lancamentoStatusConfig,
@@ -26,6 +27,8 @@ export function LancamentosManager() {
     lancamentos,
     form,
     message,
+    editingLancamentoId,
+    motivoAlteracao,
     isPending,
     obrasDisponiveis,
     servicoSelecionado,
@@ -39,6 +42,9 @@ export function LancamentosManager() {
     resetForm,
     handleSubmit,
     duplicateLast,
+    startEdit,
+    cancelEdit,
+    setMotivoAlteracao,
     handleCancel,
     handleDelete
   } = useLancamentos();
@@ -94,10 +100,13 @@ export function LancamentosManager() {
       <section className="surface section-card">
         <div className="section-header">
           <div>
-            <h2 className="section-title">Nova ficha / apontamento</h2>
+            <h2 className="section-title">
+              {editingLancamentoId ? "Editar lancamento" : "Nova ficha / apontamento"}
+            </h2>
             <p className="section-copy">
-              Lance a producao apontada, defina a quantidade faturada e informe o
-              horimetro do equipamento no mesmo fluxo.
+              {editingLancamentoId
+                ? "Ajuste o lancamento na propria tela e informe o motivo da alteracao antes de salvar."
+                : "Lance a producao apontada, defina a quantidade faturada e informe o horimetro do equipamento no mesmo fluxo."}
             </p>
           </div>
         </div>
@@ -131,32 +140,27 @@ export function LancamentosManager() {
               />
             </SectionField>
             <SectionField label="Cliente">
-              <select
-                className="field-control"
+              <SearchableSelect
                 value={form.clienteId}
-                onChange={(e) => updateField("clienteId", e.target.value)}
-              >
-                <option value="">Selecione</option>
-                {options.clientes.map((cliente) => (
-                  <option key={cliente.id} value={cliente.id}>
-                    {(cliente.codigo ?? "") + " - " + (cliente.nome ?? "")}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => updateField("clienteId", value)}
+                options={options.clientes.map((cliente) => ({
+                  value: cliente.id,
+                  label: `${cliente.codigo ?? ""} - ${cliente.nome ?? ""}`.trim()
+                }))}
+                placeholder="Digite a primeira letra do cliente"
+              />
             </SectionField>
             <SectionField label="Obra">
-              <select
-                className="field-control"
+              <SearchableSelect
                 value={form.obraId}
-                onChange={(e) => updateField("obraId", e.target.value)}
-              >
-                <option value="">Sem obra / pendente</option>
-                {obrasDisponiveis.map((obra) => (
-                  <option key={obra.id} value={obra.id}>
-                    {(obra.codigo ?? "") + " - " + (obra.nome ?? "")}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => updateField("obraId", value)}
+                options={obrasDisponiveis.map((obra) => ({
+                  value: obra.id,
+                  label: `${obra.codigo ?? ""} - ${obra.nome ?? ""}`.trim()
+                }))}
+                placeholder="Digite a primeira letra da obra"
+                emptyLabel="Nenhuma obra encontrada. Deixe vazio se estiver pendente."
+              />
             </SectionField>
             <SectionField label="Servico">
               <select
@@ -341,16 +345,37 @@ export function LancamentosManager() {
             </SectionField>
           </div>
 
+          {editingLancamentoId ? (
+            <SectionField label="Motivo da alteracao">
+              <textarea
+                className="field-control textarea-lg"
+                value={motivoAlteracao}
+                onChange={(e) => setMotivoAlteracao(e.target.value)}
+                placeholder="Descreva o motivo da alteracao"
+              />
+            </SectionField>
+          ) : null}
+
           <div className="toolbar-actions">
             <button type="submit" disabled={isPending} className="button-primary">
-              {isPending ? "Salvando..." : "Salvar lancamento"}
+              {isPending
+                ? "Salvando..."
+                : editingLancamentoId
+                  ? "Salvar alteracao"
+                  : "Salvar lancamento"}
             </button>
             <button type="button" onClick={duplicateLast} className="button-secondary">
               Duplicar ultimo lancamento
             </button>
-            <button type="button" onClick={resetForm} className="button-ghost">
-              Limpar formulario
-            </button>
+            {editingLancamentoId ? (
+              <button type="button" onClick={cancelEdit} className="button-ghost">
+                Cancelar edicao
+              </button>
+            ) : (
+              <button type="button" onClick={resetForm} className="button-ghost">
+                Limpar formulario
+              </button>
+            )}
           </div>
 
           {message ? <p className="message-inline">{message}</p> : null}
@@ -419,10 +444,10 @@ export function LancamentosManager() {
                     <div className="toolbar-actions">
                       <button
                         type="button"
-                        onClick={() => handleCancel(item.id)}
-                        className="button-danger"
+                        onClick={() => startEdit(item)}
+                        className="button-secondary"
                       >
-                        Cancelar
+                        Editar
                       </button>
                       <button
                         type="button"

@@ -56,3 +56,19 @@ export async function excluirLancamento(id: string) {
     data: (await response.json()) as { message?: string }
   };
 }
+
+export async function atualizarLancamento(
+  id: string,
+  form: LancamentoFormState & { motivoAlteracao: string }
+) {
+  const response = await fetch(`/api/lancamentos/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(buildPayload(form))
+  });
+
+  return {
+    response,
+    data: (await response.json()) as { message?: string }
+  };
+}
