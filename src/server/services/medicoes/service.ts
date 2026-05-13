@@ -86,7 +86,9 @@ export async function buscarLancamentosElegiveis(
         gte: startOfDay(input.periodoInicial),
         lte: endOfDay(input.periodoFinal)
       },
-      statusValidacao: StatusLancamento.VALIDO,
+      statusValidacao: {
+        in: [StatusLancamento.NAO_MEDIDO, StatusLancamento.VALIDO]
+      },
       deletedAt: null,
       medicaoItens: {
         none: {
@@ -457,7 +459,7 @@ export async function excluirMedicao(
         statusValidacao: StatusLancamento.MEDIDO
       },
       data: {
-        statusValidacao: StatusLancamento.VALIDO
+        statusValidacao: StatusLancamento.NAO_MEDIDO
       }
     });
   }

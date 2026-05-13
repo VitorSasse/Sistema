@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
       }
 
       const statusValidacao = parsed.data.obraId
-        ? StatusLancamento.VALIDO
+        ? StatusLancamento.NAO_MEDIDO
         : StatusLancamento.PENDENTE_OBRA;
 
       const lancamento = await tx.lancamentoDiario.create({

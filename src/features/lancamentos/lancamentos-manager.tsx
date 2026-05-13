@@ -33,6 +33,7 @@ export function LancamentosManager() {
     obrasDisponiveis,
     servicoSelecionado,
     servicoUsaCalculoHoras,
+    servicoCalculadoEmDiaria,
     horarios,
     horarioFeedback,
     resumoOperacional,
@@ -258,6 +259,7 @@ export function LancamentosManager() {
                 <HorarioApontamentoCard
                   horarios={horarios}
                   feedback={horarioFeedback}
+                  mode={servicoCalculadoEmDiaria ? "DIARIA" : "HORA"}
                   onChange={updateHorarioField}
                   onCalculate={handleHorarioCalculation}
                 />

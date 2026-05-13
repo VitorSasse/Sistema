@@ -209,7 +209,22 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               }
             });
 
-      const nextStatus = parsed.data.obraId ? StatusLancamento.VALIDO : StatusLancamento.PENDENTE_OBRA;
+      const possuiMedicaoAtiva = await tx.medicaoItem.count({
+        where: {
+          lancamentoId: id,
+          deletedAt: null,
+          medicao: {
+            deletedAt: null
+          }
+        }
+      });
+
+      const nextStatus =
+        possuiMedicaoAtiva > 0 || existing.statusValidacao === StatusLancamento.MEDIDO
+          ? StatusLancamento.MEDIDO
+          : parsed.data.obraId
+            ? StatusLancamento.NAO_MEDIDO
+            : StatusLancamento.PENDENTE_OBRA;
 
       const updatedLancamento = await tx.lancamentoDiario.update({
         where: { id },

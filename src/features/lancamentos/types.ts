@@ -2,6 +2,7 @@ import type { OperationalOption } from "@/lib/client/operational-options";
 
 export type LancamentoStatus =
   | "VALIDO"
+  | "NAO_MEDIDO"
   | "PENDENTE_OBRA"
   | "PENDENTE_PRECO"
   | "DIVERGENTE"

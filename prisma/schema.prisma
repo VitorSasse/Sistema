@@ -53,6 +53,7 @@ enum StatusMedicao {
 
 enum StatusLancamento {
   VALIDO
+  NAO_MEDIDO
   PENDENTE_OBRA
   PENDENTE_PRECO
   DIVERGENTE

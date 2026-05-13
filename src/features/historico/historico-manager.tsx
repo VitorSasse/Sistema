@@ -31,7 +31,7 @@ type Lancamento = {
   unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA";
   quantidadeFaturada: string;
   unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
-  statusValidacao: "VALIDO" | "PENDENTE_OBRA" | "PENDENTE_PRECO" | "DIVERGENTE" | "MEDIDO" | "CANCELADO";
+  statusValidacao: "VALIDO" | "NAO_MEDIDO" | "PENDENTE_OBRA" | "PENDENTE_PRECO" | "DIVERGENTE" | "MEDIDO" | "CANCELADO";
   observacao: string | null;
   ficha: { numero: string; observacao?: string | null };
   cliente: { nome: string };
@@ -332,6 +332,7 @@ export function HistoricoManager() {
               <select value={filters.status} onChange={(e) => updateFilter("status", e.target.value)} style={fieldStyle}>
                 <option value="">Todos</option>
                 <option value="VALIDO">VALIDO</option>
+                <option value="NAO_MEDIDO">NAO_MEDIDO</option>
                 <option value="PENDENTE_OBRA">PENDENTE_OBRA</option>
                 <option value="PENDENTE_PRECO">PENDENTE_PRECO</option>
                 <option value="DIVERGENTE">DIVERGENTE</option>
@@ -652,6 +653,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 const statusStyles: Record<Lancamento["statusValidacao"], { background: string; color: string }> = {
   VALIDO: { background: "#dcefe9", color: "#125b50" },
+  NAO_MEDIDO: { background: "#dcefe9", color: "#125b50" },
   PENDENTE_OBRA: { background: "#fff1cf", color: "#a36e00" },
   PENDENTE_PRECO: { background: "#f8ddd6", color: "#bc4b2f" },
   DIVERGENTE: { background: "#f8ddd6", color: "#bc4b2f" },

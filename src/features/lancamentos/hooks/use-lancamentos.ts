@@ -26,6 +26,7 @@ import {
   calcularQuantidadeApontadaPorHorarios,
   formatHorarioInput,
   hasAnyHorarioFilled,
+  isServicoDiaria,
   isServicoMedidoPorHorario
 } from "@/features/lancamentos/utils/horario-apontamento";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
@@ -143,9 +144,16 @@ export function useLancamentos() {
     [servicoSelecionado]
   );
 
+  const servicoCalculadoEmDiaria = useMemo(
+    () => isServicoDiaria(servicoSelecionado),
+    [servicoSelecionado]
+  );
+
   const resumoOperacional = useMemo(() => {
     const total = lancamentos.length;
-    const validos = lancamentos.filter((item) => item.statusValidacao === "VALIDO").length;
+    const validos = lancamentos.filter(
+      (item) => item.statusValidacao === "NAO_MEDIDO" || item.statusValidacao === "VALIDO"
+    ).length;
     const pendentes = lancamentos.filter(
       (item) => item.statusValidacao === "PENDENTE_OBRA"
     ).length;
@@ -165,11 +173,14 @@ export function useLancamentos() {
     }
 
     setForm((current) =>
-      current.unidadeApontada === "HORA"
+      current.unidadeApontada === (servicoCalculadoEmDiaria ? "DIARIA" : "HORA")
         ? current
-        : { ...current, unidadeApontada: "HORA" }
+        : {
+            ...current,
+            unidadeApontada: servicoCalculadoEmDiaria ? "DIARIA" : "HORA"
+          }
     );
-  }, [servicoUsaCalculoHoras]);
+  }, [servicoCalculadoEmDiaria, servicoUsaCalculoHoras]);
 
   function updateField<K extends keyof LancamentoFormState>(
     key: K,
@@ -199,7 +210,10 @@ export function useLancamentos() {
       return false;
     }
 
-    const result = calcularQuantidadeApontadaPorHorarios(horarios);
+    const result = calcularQuantidadeApontadaPorHorarios(
+      horarios,
+      servicoCalculadoEmDiaria ? "DIARIA" : "HORA"
+    );
 
     if (!result.ok) {
       setHorarioFeedback({ tone: "error", message: result.message });
@@ -209,7 +223,7 @@ export function useLancamentos() {
     setForm((current) => ({
       ...current,
       quantidadeApontada: result.quantidadeApontada,
-      unidadeApontada: "HORA"
+      unidadeApontada: result.unidadeApontada
     }));
     setHorarioFeedback({ tone: "success", message: result.message });
     return true;
@@ -234,7 +248,10 @@ export function useLancamentos() {
     let formToSubmit = form;
 
     if (shouldValidateHorarios) {
-      const result = calcularQuantidadeApontadaPorHorarios(horarios);
+      const result = calcularQuantidadeApontadaPorHorarios(
+        horarios,
+        servicoCalculadoEmDiaria ? "DIARIA" : "HORA"
+      );
 
       if (!result.ok) {
         setHorarioFeedback({ tone: "error", message: result.message });
@@ -245,13 +262,13 @@ export function useLancamentos() {
       setForm((current) => ({
         ...current,
         quantidadeApontada: result.quantidadeApontada,
-        unidadeApontada: "HORA"
+        unidadeApontada: result.unidadeApontada
       }));
       setHorarioFeedback({ tone: "success", message: result.message });
       formToSubmit = {
         ...form,
         quantidadeApontada: result.quantidadeApontada,
-        unidadeApontada: "HORA"
+        unidadeApontada: result.unidadeApontada
       };
     }
 
@@ -355,6 +372,7 @@ export function useLancamentos() {
     obrasDisponiveis,
     servicoSelecionado,
     servicoUsaCalculoHoras,
+    servicoCalculadoEmDiaria,
     horarios,
     horarioFeedback,
     resumoOperacional,

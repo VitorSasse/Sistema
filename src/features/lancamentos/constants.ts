@@ -43,6 +43,7 @@ export const lancamentoStatusConfig: Record<
   { label: string; className: string }
 > = {
   VALIDO: { label: "Valido", className: "badge badge-success" },
+  NAO_MEDIDO: { label: "Nao medido", className: "badge badge-success" },
   PENDENTE_OBRA: { label: "Pendente obra", className: "badge badge-warn" },
   PENDENTE_PRECO: { label: "Pendente preco", className: "badge badge-danger" },
   DIVERGENTE: { label: "Divergente", className: "badge badge-danger" },

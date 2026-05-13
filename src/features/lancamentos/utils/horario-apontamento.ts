@@ -3,12 +3,15 @@ import type { HorarioApontamentoState } from "@/features/lancamentos/types";
 
 const servicosComApontamentoPorHorario = new Set([
   "HORA_MAQUINA",
-  "HORA_CAMINHAO"
+  "HORA_CAMINHAO",
+  "SERVICO_DIARIA",
+  "DIARIA"
 ]);
 
 type CalculoHorariosOk = {
   ok: true;
   quantidadeApontada: string;
+  unidadeApontada: "HORA" | "DIARIA";
   totalMinutos: number;
   message: string;
 };
@@ -87,42 +90,67 @@ export function isServicoMedidoPorHorario(
   return servicosComApontamentoPorHorario.has(normalizeServiceType(servico?.tipoServico));
 }
 
+export function isServicoDiaria(
+  servico?: Pick<OperationalOption, "tipoServico"> | null
+) {
+  const normalized = normalizeServiceType(servico?.tipoServico);
+  return normalized === "SERVICO_DIARIA" || normalized === "DIARIA";
+}
+
 export function calcularQuantidadeApontadaPorHorarios(
-  horarios: HorarioApontamentoState
+  horarios: HorarioApontamentoState,
+  unidadeApontada: "HORA" | "DIARIA" = "HORA"
 ): CalculoHorariosResult {
   const inicioBruto = horarios.inicioServico.trim();
   const saidaBruto = horarios.saidaAlmoco.trim();
   const retornoBruto = horarios.retornoAlmoco.trim();
   const fimBruto = horarios.fimServico.trim();
 
-  if (!inicioBruto) {
-    return { ok: false, message: "Informe o inicio do servico." };
-  }
-
-  if (!fimBruto) {
-    return { ok: false, message: "Informe o fim do servico." };
+  if (!inicioBruto && !saidaBruto && !retornoBruto && !fimBruto) {
+    return { ok: false, message: "Informe ao menos um bloco de horario para calcular." };
   }
 
   const inicio = parseHorario(inicioBruto);
+  const saidaAlmoco = parseHorario(saidaBruto);
+  const retornoAlmoco = parseHorario(retornoBruto);
   const fim = parseHorario(fimBruto);
 
-  if (inicio === null || fim === null) {
+  if (
+    (inicioBruto && inicio === null) ||
+    (saidaBruto && saidaAlmoco === null) ||
+    (retornoBruto && retornoAlmoco === null) ||
+    (fimBruto && fim === null)
+  ) {
     return { ok: false, message: "Use horarios validos no formato HH:mm." };
   }
 
   const hasSaidaAlmoco = saidaBruto.length > 0;
   const hasRetornoAlmoco = retornoBruto.length > 0;
+  let totalMinutos = 0;
 
-  if (hasSaidaAlmoco !== hasRetornoAlmoco) {
-    return {
-      ok: false,
-      message: hasSaidaAlmoco
-        ? "Informe o retorno do almoco para completar o calculo."
-        : "Nao informe retorno sem a saida para almoco."
-    };
+  if (inicio !== null && saidaAlmoco !== null) {
+    if (saidaAlmoco <= inicio) {
+      return {
+        ok: false,
+        message: "A saida para almoco precisa ser depois do inicio."
+      };
+    }
+
+    totalMinutos += saidaAlmoco - inicio;
   }
 
-  if (!hasSaidaAlmoco) {
+  if (retornoAlmoco !== null && fim !== null) {
+    if (fim <= retornoAlmoco) {
+      return {
+        ok: false,
+        message: "O fim do servico precisa ser depois do retorno do almoco."
+      };
+    }
+
+    totalMinutos += fim - retornoAlmoco;
+  }
+
+  if (!hasSaidaAlmoco && !hasRetornoAlmoco && inicio !== null && fim !== null) {
     if (fim <= inicio) {
       return {
         ok: false,
@@ -130,62 +158,50 @@ export function calcularQuantidadeApontadaPorHorarios(
       };
     }
 
-    const totalMinutos = fim - inicio;
-    const quantidadeApontada = formatDecimalHours(totalMinutos);
-
-    return {
-      ok: true,
-      quantidadeApontada,
-      totalMinutos,
-      message: `Quantidade apontada preenchida com ${quantidadeApontada} hora(s).`
-    };
+    totalMinutos = fim - inicio;
   }
 
-  const saidaAlmoco = parseHorario(saidaBruto);
-  const retornoAlmoco = parseHorario(retornoBruto);
-
-  if (saidaAlmoco === null || retornoAlmoco === null) {
-    return { ok: false, message: "Use horarios validos no formato HH:mm." };
-  }
-
-  if (saidaAlmoco <= inicio) {
+  if ((hasSaidaAlmoco && !inicioBruto) || (hasSaidaAlmoco && inicio === null)) {
     return {
       ok: false,
-      message: "A saida para almoco precisa ser depois do inicio."
+      message: "Informe o inicio do servico para calcular o bloco da manha."
     };
   }
 
-  if (retornoAlmoco <= saidaAlmoco) {
+  if ((hasRetornoAlmoco && !fimBruto) || (hasRetornoAlmoco && fim === null)) {
     return {
       ok: false,
-      message: "O retorno do almoco precisa ser depois da saida."
+      message: "Informe o fim do servico para calcular o bloco da tarde."
     };
   }
 
-  if (fim <= retornoAlmoco) {
+  if (!hasSaidaAlmoco && hasRetornoAlmoco) {
     return {
       ok: false,
-      message: "O fim do servico precisa ser depois do retorno do almoco."
+      message: "Nao informe retorno sem um bloco valido de almoco."
     };
   }
-
-  const totalManha = saidaAlmoco - inicio;
-  const totalTarde = fim - retornoAlmoco;
-  const totalMinutos = totalManha + totalTarde;
 
   if (totalMinutos <= 0) {
     return {
       ok: false,
-      message: "Os horarios informados nao geram horas validas de trabalho."
+      message: "Os horarios informados nao geram quantidade valida de trabalho."
     };
   }
 
-  const quantidadeApontada = formatDecimalHours(totalMinutos);
+  const quantidadeApontada =
+    unidadeApontada === "DIARIA"
+      ? Number((totalMinutos / 480).toFixed(2)).toString()
+      : formatDecimalHours(totalMinutos);
 
   return {
     ok: true,
+    unidadeApontada,
     quantidadeApontada,
     totalMinutos,
-    message: `Quantidade apontada preenchida com ${quantidadeApontada} hora(s).`
+    message:
+      unidadeApontada === "DIARIA"
+        ? `Quantidade apontada preenchida com ${quantidadeApontada} diaria(s).`
+        : `Quantidade apontada preenchida com ${quantidadeApontada} hora(s).`
   };
 }
