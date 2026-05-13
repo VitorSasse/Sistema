@@ -59,13 +59,14 @@ export async function POST(request: NextRequest) {
     const conflito = await existeConflitoProgramacao(prisma, {
       equipamentoId: data.equipamentoId,
       dataInicio: data.dataInicio,
-      dataFim: data.dataFim
+      dataFim: data.dataFim,
+      turno: data.turno
     });
 
     if (conflito) {
       return NextResponse.json(
         {
-          message: `Este equipamento ja esta programado entre ${conflito.dataInicio.toLocaleDateString("pt-BR")} e ${conflito.dataFim.toLocaleDateString("pt-BR")}.`
+          message: `Este equipamento ja esta programado entre ${conflito.dataInicio.toLocaleDateString("pt-BR")} e ${conflito.dataFim.toLocaleDateString("pt-BR")}${conflito.turno ? ` no turno ${conflito.turno.toLowerCase()}` : ""}.`
         },
         { status: 409 }
       );

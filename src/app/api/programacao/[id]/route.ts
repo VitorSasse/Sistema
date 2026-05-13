@@ -58,13 +58,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       equipamentoId: data.equipamentoId,
       dataInicio: data.dataInicio,
       dataFim: data.dataFim,
+      turno: data.turno,
       excludeId: id
     });
 
     if (conflito) {
       return NextResponse.json(
         {
-          message: `Este equipamento ja esta programado entre ${conflito.dataInicio.toLocaleDateString("pt-BR")} e ${conflito.dataFim.toLocaleDateString("pt-BR")}.`
+          message: `Este equipamento ja esta programado entre ${conflito.dataInicio.toLocaleDateString("pt-BR")} e ${conflito.dataFim.toLocaleDateString("pt-BR")}${conflito.turno ? ` no turno ${conflito.turno.toLowerCase()}` : ""}.`
         },
         { status: 409 }
       );

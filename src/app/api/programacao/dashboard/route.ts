@@ -15,8 +15,22 @@ const dashboardStatuses = [
 
 type DashboardStatus = (typeof dashboardStatuses)[number];
 
+const turnoPriority: Record<string, number> = {
+  MANHA: 0,
+  TARDE: 1,
+  NOITE: 2,
+  INTEGRAL: 3
+};
+
 function toDateOnly(value: Date) {
   return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
+function toDateInput(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function startOfWeek(base: Date) {
@@ -181,6 +195,20 @@ function getRowPriority(status: DashboardStatus, revisionStatus: string) {
   return statusWeight[status] + revisionWeight;
 }
 
+function getStatusPriority(status: DashboardStatus) {
+  const statusWeight: Record<DashboardStatus, number> = {
+    MANUTENCAO: 0,
+    FALTA: 1,
+    SEM_FRENTE: 2,
+    CHUVA: 3,
+    FERIAS: 4,
+    OPERANDO: 5,
+    DISPONIVEL: 6
+  };
+
+  return statusWeight[status];
+}
+
 export async function GET(request: NextRequest) {
   const session = await auth();
 
@@ -193,7 +221,7 @@ export async function GET(request: NextRequest) {
   const obraId = searchParams.get("obraId");
   const statusFilter = searchParams.get("status") as DashboardStatus | null;
   const view = (searchParams.get("view") ?? "SEMANA").toUpperCase();
-  const referenceDate = new Date(`${searchParams.get("date") ?? new Date().toISOString().slice(0, 10)}T00:00:00`);
+  const referenceDate = new Date(`${searchParams.get("date") ?? toDateInput(new Date())}T00:00:00`);
 
   const rangeStart =
     view === "HOJE" ? toDateOnly(referenceDate) : view === "MES" ? startOfMonth(referenceDate) : startOfWeek(referenceDate);
@@ -285,6 +313,7 @@ export async function GET(request: NextRequest) {
         turno: true,
         status: true,
         observacoes: true,
+        createdAt: true,
         obra: {
           select: {
             id: true,
@@ -331,33 +360,65 @@ export async function GET(request: NextRequest) {
       );
 
       const cells = days.map((day) => {
-        const found = programacoesEquipamento.find((item) => {
-          const itemStart = toDateOnly(item.dataInicio).getTime();
-          const itemEnd = toDateOnly(item.dataFim).getTime();
-          return day.getTime() >= itemStart && day.getTime() <= itemEnd;
-        });
+        const entries = programacoesEquipamento
+          .filter((item) => {
+            const itemStart = toDateOnly(item.dataInicio).getTime();
+            const itemEnd = toDateOnly(item.dataFim).getTime();
+            return day.getTime() >= itemStart && day.getTime() <= itemEnd;
+          })
+          .sort((a, b) => {
+            const left = turnoPriority[a.turno ?? "INTEGRAL"] ?? 99;
+            const right = turnoPriority[b.turno ?? "INTEGRAL"] ?? 99;
+            return left - right || a.createdAt.getTime() - b.createdAt.getTime();
+          })
+          .map((item) => ({
+            id: item.id,
+            status: normalizeProgramacaoStatus(item.status),
+            obraId: item.obraId,
+            obraNome: item.obra?.nome ?? null,
+            clienteId: item.obra?.clienteId ?? null,
+            clienteNome: item.obra?.cliente.nome ?? null,
+            obraCodigo: item.obra?.codigo ?? null,
+            local: item.local ?? null,
+            turno: item.turno ?? "INTEGRAL",
+            observacoes: item.observacoes ?? null
+          }));
 
-        const mappedStatus = found
-          ? normalizeProgramacaoStatus(found.status)
+        const primaryEntry = entries.length
+          ? [...entries].sort((a, b) => {
+              const byStatus = getStatusPriority(a.status) - getStatusPriority(b.status);
+              if (byStatus !== 0) return byStatus;
+
+              const byTurno =
+                (turnoPriority[a.turno ?? "INTEGRAL"] ?? 99) -
+                (turnoPriority[b.turno ?? "INTEGRAL"] ?? 99);
+
+              return byTurno;
+            })[0]
+          : null;
+
+        const mappedStatus = primaryEntry
+          ? primaryEntry.status
           : getFallbackStatus(equipamento.statusOperacional);
 
         return {
-          date: day.toISOString(),
-          programacaoId: found?.id ?? null,
+          date: toDateInput(day),
+          programacaoId: primaryEntry?.id ?? null,
           status: mappedStatus,
-          obraId: found?.obraId ?? null,
-          obraNome: found?.obra?.nome ?? null,
-          clienteId: found?.obra?.clienteId ?? null,
-          clienteNome: found?.obra?.cliente.nome ?? null,
-          obraCodigo: found?.obra?.codigo ?? null,
-          local: found?.local ?? null,
-          turno: found?.turno ?? null,
-          observacoes: found?.observacoes ?? null
+          obraId: primaryEntry?.obraId ?? null,
+          obraNome: primaryEntry?.obraNome ?? null,
+          clienteId: primaryEntry?.clienteId ?? null,
+          clienteNome: primaryEntry?.clienteNome ?? null,
+          obraCodigo: primaryEntry?.obraCodigo ?? null,
+          local: primaryEntry?.local ?? null,
+          turno: primaryEntry?.turno ?? null,
+          observacoes: primaryEntry?.observacoes ?? null,
+          entries
         };
       });
 
       const focusCell =
-        cells.find((cell) => toDateOnly(new Date(cell.date)).getTime() === focusDate.getTime()) ??
+        cells.find((cell) => cell.date === toDateInput(focusDate)) ??
         cells[0];
 
       return {
@@ -389,14 +450,14 @@ export async function GET(request: NextRequest) {
       obraId,
       status: statusFilter,
       view,
-      referenceDate: referenceDate.toISOString()
+      referenceDate: toDateInput(referenceDate)
     },
     range: {
-      start: rangeStart.toISOString(),
-      end: rangeEnd.toISOString(),
-      focusDate: focusDate.toISOString()
+      start: toDateInput(rangeStart),
+      end: toDateInput(rangeEnd),
+      focusDate: toDateInput(focusDate)
     },
-    days: days.map((day) => day.toISOString()),
+    days: days.map((day) => toDateInput(day)),
     clients: clientes,
     obras,
     summary,

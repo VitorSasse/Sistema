@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { TipoRecurso } from "@prisma/client";
+import { TipoRecurso, TurnoAgendaProgramacao } from "@prisma/client";
 import { useEffect, useMemo, useState, useTransition } from "react";
 
 type DashboardStatus =
@@ -38,6 +38,19 @@ type SummaryItem = {
   count: number;
 };
 
+type DashboardCellEntry = {
+  id: string;
+  status: DashboardStatus;
+  obraId: string | null;
+  obraNome: string | null;
+  clienteId: string | null;
+  clienteNome: string | null;
+  obraCodigo: string | null;
+  local: string | null;
+  turno: TurnoAgendaProgramacao;
+  observacoes: string | null;
+};
+
 type DashboardCell = {
   date: string;
   programacaoId: string | null;
@@ -48,8 +61,9 @@ type DashboardCell = {
   clienteNome: string | null;
   obraCodigo: string | null;
   local: string | null;
-  turno: string | null;
+  turno: TurnoAgendaProgramacao | null;
   observacoes: string | null;
+  entries: DashboardCellEntry[];
 };
 
 type DashboardRow = {
@@ -95,11 +109,13 @@ type ModalState = {
   equipamentoId: string;
   equipamentoNome: string;
   date: string;
+  turno: TurnoAgendaProgramacao;
   clienteId: string;
   obraId: string;
   status: DashboardStatus;
   observacoes: string;
   local: string;
+  entries: DashboardCellEntry[];
 };
 
 const statusCards: Array<{
@@ -123,12 +139,21 @@ const initialModal: ModalState = {
   equipamentoId: "",
   equipamentoNome: "",
   date: "",
+  turno: "INTEGRAL",
   clienteId: "",
   obraId: "",
   status: "OPERANDO",
   observacoes: "",
-  local: ""
+  local: "",
+  entries: []
 };
+
+const turnoOptions: Array<{ value: TurnoAgendaProgramacao; label: string }> = [
+  { value: "MANHA", label: "Manha" },
+  { value: "TARDE", label: "Tarde" },
+  { value: "NOITE", label: "Noite" },
+  { value: "INTEGRAL", label: "Integral" }
+];
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -140,7 +165,29 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function toDateInput(value: Date) {
-  return value.toISOString().slice(0, 10);
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateInput(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, (month ?? 1) - 1, day ?? 1);
+}
+
+function getTurnoLabel(value: TurnoAgendaProgramacao | null) {
+  if (!value) return "Integral";
+  return turnoOptions.find((item) => item.value === value)?.label ?? value;
+}
+
+function getSuggestedTurno(entries: DashboardCellEntry[]) {
+  const used = new Set(entries.map((entry) => entry.turno));
+
+  if (!used.has("MANHA")) return "MANHA";
+  if (!used.has("TARDE")) return "TARDE";
+  if (!used.has("NOITE")) return "NOITE";
+  return "INTEGRAL";
 }
 
 function startOfWeek(base: Date) {
@@ -164,7 +211,7 @@ function endOfMonth(base: Date) {
 }
 
 function formatDayLabel(value: string) {
-  const date = new Date(value);
+  const date = parseDateInput(value);
   return {
     weekday: date
       .toLocaleDateString("pt-BR", { weekday: "short" })
@@ -175,7 +222,7 @@ function formatDayLabel(value: string) {
 }
 
 function formatRangeLabel(start: string, end: string) {
-  return `${new Date(start).toLocaleDateString("pt-BR")} - ${new Date(end).toLocaleDateString("pt-BR")}`;
+  return `${parseDateInput(start).toLocaleDateString("pt-BR")} - ${parseDateInput(end).toLocaleDateString("pt-BR")}`;
 }
 
 function buildQuery(params: {
@@ -284,22 +331,79 @@ export function ProgramacaoManager() {
   }
 
   function openCellModal(row: DashboardRow, cell: DashboardCell) {
+    const firstEntry = cell.entries[0] ?? null;
+
     setModal({
       open: true,
-      programacaoId: cell.programacaoId,
+      programacaoId: firstEntry?.id ?? null,
       equipamentoId: row.equipamento.id,
       equipamentoNome: row.equipamento.descricao,
-      date: cell.date.slice(0, 10),
-      clienteId: cell.clienteId ?? "",
-      obraId: cell.obraId ?? "",
-      status: cell.status,
-      observacoes: cell.observacoes ?? "",
-      local: cell.local ?? ""
+      date: cell.date,
+      turno: firstEntry?.turno ?? getSuggestedTurno(cell.entries),
+      clienteId: firstEntry?.clienteId ?? "",
+      obraId: firstEntry?.obraId ?? "",
+      status: firstEntry?.status ?? cell.status,
+      observacoes: firstEntry?.observacoes ?? "",
+      local: firstEntry?.local ?? "",
+      entries: cell.entries
     });
   }
 
   function closeModal() {
     setModal(initialModal);
+  }
+
+  function startNewModalEntry() {
+    setModal((current) => ({
+      ...current,
+      programacaoId: null,
+      turno: getSuggestedTurno(current.entries),
+      clienteId: "",
+      obraId: "",
+      status: current.entries[0]?.status ?? "OPERANDO",
+      observacoes: "",
+      local: ""
+    }));
+  }
+
+  function editModalEntry(entry: DashboardCellEntry) {
+    setModal((current) => ({
+      ...current,
+      programacaoId: entry.id,
+      turno: entry.turno,
+      clienteId: entry.clienteId ?? "",
+      obraId: entry.obraId ?? "",
+      status: entry.status,
+      observacoes: entry.observacoes ?? "",
+      local: entry.local ?? ""
+    }));
+  }
+
+  async function handleDeleteModalEntry(programacaoId: string) {
+    const confirmed = window.confirm("Tem certeza que deseja excluir esta alocacao da agenda?");
+
+    if (!confirmed) {
+      return;
+    }
+
+    setFeedback("");
+
+    startTransition(async () => {
+      const response = await fetch(`/api/programacao/${programacaoId}`, {
+        method: "DELETE"
+      });
+
+      const data = (await response.json()) as { message?: string };
+
+      if (!response.ok) {
+        setFeedback(data.message ?? "Nao foi possivel excluir a alocacao da agenda.", "danger");
+        return;
+      }
+
+      closeModal();
+      setFeedback("Alocacao removida com sucesso.", "success");
+      await loadDashboard();
+    });
   }
 
   async function handleSaveCell(event: React.FormEvent<HTMLFormElement>) {
@@ -319,7 +423,7 @@ export function ProgramacaoManager() {
           local: modal.local,
           dataInicio: modal.date,
           dataFim: modal.date,
-          turno: null,
+          turno: modal.turno,
           status: modal.status,
           observacoes: modal.observacoes
         })
@@ -469,7 +573,7 @@ export function ProgramacaoManager() {
             <div className="programacao-equipment-head">Equipamentos</div>
             {days.map((day) => {
               const label = formatDayLabel(day);
-              const isToday = day.slice(0, 10) === toDateInput(new Date());
+              const isToday = day === toDateInput(new Date());
 
               return (
                 <div
@@ -510,7 +614,7 @@ export function ProgramacaoManager() {
                 </div>
 
                 {row.cells.map((cell) => {
-                  const today = cell.date.slice(0, 10) === toDateInput(new Date());
+                  const today = cell.date === toDateInput(new Date());
 
                   return (
                     <button
@@ -521,14 +625,27 @@ export function ProgramacaoManager() {
                       title={[
                         row.equipamento.descricao,
                         cell.status,
-                        cell.obraNome ?? cell.local ?? "Sem obra",
+                        cell.entries.length > 1
+                          ? cell.entries
+                              .map((entry) => `${getTurnoLabel(entry.turno)}: ${entry.obraNome ?? entry.local ?? "Sem obra"}`)
+                              .join(" | ")
+                          : cell.obraNome ?? cell.local ?? "Sem obra",
                         cell.observacoes ?? ""
                       ]
                         .filter(Boolean)
                         .join(" | ")}
                     >
                       <strong>{cell.status.replace("_", " ")}</strong>
-                      <span>{cell.obraNome ?? cell.local ?? "Sem alocacao"}</span>
+                      {cell.entries.length > 1 ? (
+                        <span>
+                          {cell.entries
+                            .slice(0, 2)
+                            .map((entry) => `${getTurnoLabel(entry.turno)}: ${entry.obraCodigo ?? entry.obraNome ?? entry.local ?? "Sem obra"}`)
+                            .join(" · ")}
+                        </span>
+                      ) : (
+                        <span>{cell.obraNome ?? cell.local ?? "Sem alocacao"}</span>
+                      )}
                     </button>
                   );
                 })}
@@ -613,12 +730,56 @@ export function ProgramacaoManager() {
               <div>
                 <h3 className="section-title">Atualizar celula da agenda</h3>
                 <p className="section-copy">
-                  {modal.equipamentoNome} · {new Date(`${modal.date}T00:00:00`).toLocaleDateString("pt-BR")}
+                  {modal.equipamentoNome} · {parseDateInput(modal.date).toLocaleDateString("pt-BR")}
                 </p>
               </div>
             </div>
 
             <form onSubmit={handleSaveCell} style={{ display: "grid", gap: 18 }}>
+              {modal.entries.length > 0 ? (
+                <div className="surface-inset" style={{ display: "grid", gap: 10, padding: 14, borderRadius: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+                    <strong style={{ fontSize: 13 }}>Alocacoes do dia</strong>
+                    <button type="button" className="button-secondary" onClick={startNewModalEntry}>
+                      Adicionar alocacao
+                    </button>
+                  </div>
+
+                  <div className="list-stack">
+                    {modal.entries.map((entry) => (
+                      <div key={entry.id} className="list-item" style={{ alignItems: "flex-start" }}>
+                        <div>
+                          <strong>{getTurnoLabel(entry.turno)}</strong>
+                          <span className="subtle">
+                            {entry.obraCodigo ? `${entry.obraCodigo} - ` : ""}
+                            {entry.obraNome ?? entry.local ?? "Sem alocacao"}
+                          </span>
+                        </div>
+                        <div className="toolbar-actions" style={{ marginLeft: "auto" }}>
+                          <button type="button" className="button-secondary" onClick={() => editModalEntry(entry)}>
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="button-danger"
+                            onClick={() => handleDeleteModalEntry(entry.id)}
+                            disabled={isPending}
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="toolbar-actions">
+                  <button type="button" className="button-secondary" onClick={startNewModalEntry}>
+                    Adicionar alocacao
+                  </button>
+                </div>
+              )}
+
               <div className="form-grid-3">
                 <Field label="Status">
                   <select
@@ -634,6 +795,25 @@ export function ProgramacaoManager() {
                     {statusCards.map((item) => (
                       <option key={item.status} value={item.status}>
                         {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="Turno">
+                  <select
+                    className="field-control"
+                    value={modal.turno}
+                    onChange={(event) =>
+                      setModal((current) => ({
+                        ...current,
+                        turno: event.target.value as TurnoAgendaProgramacao
+                      }))
+                    }
+                  >
+                    {turnoOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
                       </option>
                     ))}
                   </select>
@@ -711,7 +891,7 @@ export function ProgramacaoManager() {
 
               <div className="toolbar-actions">
                 <button type="submit" className="button-primary" disabled={isPending}>
-                  {isPending ? "Salvando..." : "Salvar celula"}
+                  {isPending ? "Salvando..." : modal.programacaoId ? "Salvar alocacao" : "Criar alocacao"}
                 </button>
                 <button type="button" className="button-secondary" onClick={closeModal}>
                   Cancelar

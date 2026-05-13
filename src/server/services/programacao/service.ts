@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient, StatusAgendaProgramacao } from "@prisma/client";
+import { Prisma, PrismaClient, StatusAgendaProgramacao, TurnoAgendaProgramacao } from "@prisma/client";
 import type { ProgramacaoInput } from "@/lib/validators/programacao";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
@@ -128,10 +128,11 @@ export async function existeConflitoProgramacao(
     equipamentoId: string;
     dataInicio: Date;
     dataFim: Date;
+    turno?: TurnoAgendaProgramacao | null;
     excludeId?: string;
   }
 ) {
-  const conflito = await db.agendaProgramacao.findFirst({
+  const conflitos = await db.agendaProgramacao.findMany({
     where: {
       id: params.excludeId ? { not: params.excludeId } : undefined,
       deletedAt: null,
@@ -149,10 +150,32 @@ export async function existeConflitoProgramacao(
           nome: true
         }
       }
-    }
+    },
+    orderBy: [{ dataInicio: "asc" }, { turno: "asc" }, { createdAt: "asc" }]
   });
 
-  return conflito;
+  const conflito = conflitos.find((item) => {
+    const sameStart = item.dataInicio.getTime() === params.dataInicio.getTime();
+    const sameEnd = item.dataFim.getTime() === params.dataFim.getTime();
+    const sameSingleDayRange = sameStart && sameEnd;
+    const currentTurno = item.turno ?? TurnoAgendaProgramacao.INTEGRAL;
+    const nextTurno = params.turno ?? TurnoAgendaProgramacao.INTEGRAL;
+
+    if (!sameSingleDayRange) {
+      return true;
+    }
+
+    if (
+      currentTurno === TurnoAgendaProgramacao.INTEGRAL ||
+      nextTurno === TurnoAgendaProgramacao.INTEGRAL
+    ) {
+      return true;
+    }
+
+    return currentTurno === nextTurno;
+  });
+
+  return conflito ?? null;
 }
 
 export function mapProgramacaoData(input: ProgramacaoInput) {
@@ -162,7 +185,7 @@ export function mapProgramacaoData(input: ProgramacaoInput) {
     local: input.local || null,
     dataInicio: startOfDay(input.dataInicio),
     dataFim: endOfDay(input.dataFim),
-    turno: input.turno ?? null,
+    turno: input.turno ?? TurnoAgendaProgramacao.INTEGRAL,
     status: input.status,
     observacoes: input.observacoes || null
   };
