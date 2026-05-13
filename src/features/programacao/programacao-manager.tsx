@@ -108,7 +108,9 @@ type ModalState = {
   programacaoId: string | null;
   equipamentoId: string;
   equipamentoNome: string;
+  equipamentoTag: string;
   date: string;
+  dateFim: string;
   turno: TurnoAgendaProgramacao;
   clienteId: string;
   obraId: string;
@@ -116,6 +118,12 @@ type ModalState = {
   observacoes: string;
   local: string;
   entries: DashboardCellEntry[];
+};
+
+type DragSelection = {
+  rowId: string;
+  startDate: string;
+  endDate: string;
 };
 
 const statusCards: Array<{
@@ -138,7 +146,9 @@ const initialModal: ModalState = {
   programacaoId: null,
   equipamentoId: "",
   equipamentoNome: "",
+  equipamentoTag: "",
   date: "",
+  dateFim: "",
   turno: "INTEGRAL",
   clienteId: "",
   obraId: "",
@@ -176,6 +186,10 @@ function parseDateInput(value: string) {
   return new Date(year, (month ?? 1) - 1, day ?? 1);
 }
 
+function sortDateRange(first: string, second: string) {
+  return first <= second ? { start: first, end: second } : { start: second, end: first };
+}
+
 function getTurnoLabel(value: TurnoAgendaProgramacao | null) {
   if (!value) return "Integral";
   return turnoOptions.find((item) => item.value === value)?.label ?? value;
@@ -192,7 +206,8 @@ function getSuggestedTurno(entries: DashboardCellEntry[]) {
 
 function startOfWeek(base: Date) {
   const next = new Date(base.getFullYear(), base.getMonth(), base.getDate());
-  next.setDate(next.getDate() - next.getDay());
+  const sundayOffset = next.getDay();
+  next.setDate(next.getDate() - sundayOffset);
   return next;
 }
 
@@ -222,6 +237,14 @@ function formatDayLabel(value: string) {
 }
 
 function formatRangeLabel(start: string, end: string) {
+  return `${parseDateInput(start).toLocaleDateString("pt-BR")} - ${parseDateInput(end).toLocaleDateString("pt-BR")}`;
+}
+
+function formatDateOrRange(start: string, end: string) {
+  if (start === end) {
+    return parseDateInput(start).toLocaleDateString("pt-BR");
+  }
+
   return `${parseDateInput(start).toLocaleDateString("pt-BR")} - ${parseDateInput(end).toLocaleDateString("pt-BR")}`;
 }
 
@@ -258,6 +281,8 @@ export function ProgramacaoManager() {
   const [message, setMessage] = useState("");
   const [messageTone, setMessageTone] = useState<"neutral" | "success" | "danger">("neutral");
   const [modal, setModal] = useState<ModalState>(initialModal);
+  const [dragSelection, setDragSelection] = useState<DragSelection | null>(null);
+  const [skipNextCellClick, setSkipNextCellClick] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   async function loadDashboard(next?: Partial<{
@@ -283,6 +308,15 @@ export function ProgramacaoManager() {
   useEffect(() => {
     void loadDashboard();
   }, [clienteId, obraId, statusFilter, view, referenceDate]);
+
+  useEffect(() => {
+    function resetDrag() {
+      setDragSelection(null);
+    }
+
+    window.addEventListener("mouseup", resetDrag);
+    return () => window.removeEventListener("mouseup", resetDrag);
+  }, []);
 
   const filteredObras = useMemo(() => {
     if (!dashboard) {
@@ -338,7 +372,9 @@ export function ProgramacaoManager() {
       programacaoId: firstEntry?.id ?? null,
       equipamentoId: row.equipamento.id,
       equipamentoNome: row.equipamento.descricao,
+      equipamentoTag: row.equipamento.placaOuTag,
       date: cell.date,
+      dateFim: cell.date,
       turno: firstEntry?.turno ?? getSuggestedTurno(cell.entries),
       clienteId: firstEntry?.clienteId ?? "",
       obraId: firstEntry?.obraId ?? "",
@@ -349,8 +385,76 @@ export function ProgramacaoManager() {
     });
   }
 
+  function openRangeModal(row: DashboardRow, startDate: string, endDate: string) {
+    const range = sortDateRange(startDate, endDate);
+
+    setModal({
+      open: true,
+      programacaoId: null,
+      equipamentoId: row.equipamento.id,
+      equipamentoNome: row.equipamento.descricao,
+      equipamentoTag: row.equipamento.placaOuTag,
+      date: range.start,
+      dateFim: range.end,
+      turno: "INTEGRAL",
+      clienteId: "",
+      obraId: "",
+      status: "OPERANDO",
+      observacoes: "",
+      local: "",
+      entries: []
+    });
+  }
+
   function closeModal() {
     setModal(initialModal);
+  }
+
+  function handleCellMouseDown(row: DashboardRow, cell: DashboardCell) {
+    setDragSelection({
+      rowId: row.equipamento.id,
+      startDate: cell.date,
+      endDate: cell.date
+    });
+  }
+
+  function handleCellMouseEnter(row: DashboardRow, cell: DashboardCell) {
+    setDragSelection((current) => {
+      if (!current || current.rowId !== row.equipamento.id) {
+        return current;
+      }
+
+      return {
+        ...current,
+        endDate: cell.date
+      };
+    });
+  }
+
+  function handleCellMouseUp(row: DashboardRow, cell: DashboardCell) {
+    setDragSelection((current) => {
+      if (!current || current.rowId !== row.equipamento.id) {
+        return current;
+      }
+
+      const range = sortDateRange(current.startDate, cell.date);
+
+      if (range.start !== range.end) {
+        openRangeModal(row, range.start, range.end);
+        setSkipNextCellClick(true);
+      }
+
+      return null;
+    });
+  }
+
+  function isCellInsideDrag(rowId: string, date: string) {
+    if (!dragSelection || dragSelection.rowId !== rowId) {
+      return false;
+    }
+
+    const range = sortDateRange(dragSelection.startDate, dragSelection.endDate);
+    return date >= range.start && date <= range.end;
   }
 
   function startNewModalEntry() {
@@ -422,7 +526,7 @@ export function ProgramacaoManager() {
           obraId: modal.obraId,
           local: modal.local,
           dataInicio: modal.date,
-          dataFim: modal.date,
+          dataFim: modal.dateFim || modal.date,
           turno: modal.turno,
           status: modal.status,
           observacoes: modal.observacoes
@@ -620,8 +724,18 @@ export function ProgramacaoManager() {
                     <button
                       key={`${row.equipamento.id}-${cell.date}`}
                       type="button"
-                      className={`programacao-cell status-${cell.status.toLowerCase().replace("_", "-")} ${today ? "is-today" : ""}`}
-                      onClick={() => openCellModal(row, cell)}
+                      className={`programacao-cell status-${cell.status.toLowerCase().replace("_", "-")} ${today ? "is-today" : ""} ${isCellInsideDrag(row.equipamento.id, cell.date) ? "is-drag-range" : ""}`}
+                      onMouseDown={() => handleCellMouseDown(row, cell)}
+                      onMouseEnter={() => handleCellMouseEnter(row, cell)}
+                      onMouseUp={() => handleCellMouseUp(row, cell)}
+                      onClick={() => {
+                        if (skipNextCellClick) {
+                          setSkipNextCellClick(false);
+                          return;
+                        }
+
+                        openCellModal(row, cell);
+                      }}
                       title={[
                         row.equipamento.descricao,
                         cell.status,
@@ -730,7 +844,7 @@ export function ProgramacaoManager() {
               <div>
                 <h3 className="section-title">Atualizar celula da agenda</h3>
                 <p className="section-copy">
-                  {modal.equipamentoNome} · {parseDateInput(modal.date).toLocaleDateString("pt-BR")}
+                  {modal.equipamentoNome} · {modal.equipamentoTag} · {formatDateOrRange(modal.date, modal.dateFim || modal.date)}
                 </p>
               </div>
             </div>
@@ -781,6 +895,14 @@ export function ProgramacaoManager() {
               )}
 
               <div className="form-grid-3">
+                <Field label="Periodo">
+                  <input
+                    className="field-control"
+                    value={formatDateOrRange(modal.date, modal.dateFim || modal.date)}
+                    readOnly
+                  />
+                </Field>
+
                 <Field label="Status">
                   <select
                     className="field-control"

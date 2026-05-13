@@ -35,8 +35,8 @@ function toDateInput(value: Date) {
 
 function startOfWeek(base: Date) {
   const date = toDateOnly(base);
-  const day = date.getDay();
-  date.setDate(date.getDate() - day);
+  const sundayOffset = date.getDay();
+  date.setDate(date.getDate() - sundayOffset);
   return date;
 }
 
