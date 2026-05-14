@@ -9,7 +9,10 @@ Este projeto agora tem um workflow de GitHub Actions para gerar backup logico se
 - `data.sql`
 - `manifest.txt`
 
-Os arquivos sobem como artifact do GitHub Actions com retencao de 30 dias.
+Os arquivos:
+
+- sobem como artifact do GitHub Actions com retencao de 30 dias
+- e tambem sao enviados para o repositorio privado `VitorSasse/Backup-Sistema`
 
 ## Quando roda
 
@@ -43,6 +46,25 @@ Observacoes:
 - nao use a `DATABASE_URL` da Vercel com `pgbouncer=true`
 - substitua `SUA_SENHA` pela senha atual do banco
 
+## Segundo secret necessario
+
+Para publicar no repositorio privado de backup, crie tambem:
+
+```text
+BACKUP_REPO_TOKEN
+```
+
+Esse token precisa ter permissao de escrita no repositorio:
+
+```text
+VitorSasse/Backup-Sistema
+```
+
+Sugestao:
+
+- criar um Personal Access Token classico ou fine-grained
+- conceder permissao de `Contents: Read and write` para o repositorio de backup
+
 ## Como testar agora
 
 1. Abra `Actions` no GitHub.
@@ -50,6 +72,11 @@ Observacoes:
 3. Clique em `Run workflow`.
 4. Aguarde finalizar.
 5. Abra a execucao e baixe o artifact gerado.
+6. Confira no repositorio `Backup-Sistema` se foi criada uma pasta:
+
+```text
+supabase/<timestamp-do-backup>
+```
 
 ## O que este backup nao cobre
 

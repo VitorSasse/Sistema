@@ -35,4 +35,5 @@ Base inicial do MVP para uma empresa de terraplenagem.
 
 - Workflow semanal de backup Supabase: `.github/workflows/weekly-supabase-backup.yml`
 - Guia rapido: `docs/backups.md`
+- Destino do backup versionado: repositorio privado `VitorSasse/Backup-Sistema`
 # Sistema

@@ -15,6 +15,8 @@ jobs:
 
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_BACKUP_DB_URL }}
+      BACKUP_REPO: VitorSasse/Backup-Sistema
+      BACKUP_BRANCH: main
 
     steps:
       - name: Checkout repository
@@ -25,6 +27,11 @@ jobs:
         run: |
           if [ -z "$SUPABASE_DB_URL" ]; then
             echo "Secret SUPABASE_BACKUP_DB_URL is not configured."
+            exit 1
+          fi
+
+          if [ -z "${{ secrets.BACKUP_REPO_TOKEN }}" ]; then
+            echo "Secret BACKUP_REPO_TOKEN is not configured."
             exit 1
           fi
 
@@ -60,6 +67,7 @@ jobs:
           Run ID: $GITHUB_RUN_ID
           Commit: $GITHUB_SHA
           Repository: $GITHUB_REPOSITORY
+          Backup repository: $BACKUP_REPO
           EOF
 
       - name: Upload backup artifact
@@ -69,3 +77,32 @@ jobs:
           path: ${{ env.BACKUP_DIR }}
           if-no-files-found: error
           retention-days: 30
+
+      - name: Checkout backup repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.BACKUP_REPO }}
+          ref: ${{ env.BACKUP_BRANCH }}
+          token: ${{ secrets.BACKUP_REPO_TOKEN }}
+          path: backup-repo
+
+      - name: Copy backup files to backup repository
+        shell: bash
+        run: |
+          target_dir="backup-repo/supabase/$BACKUP_STAMP"
+          mkdir -p "$target_dir"
+          cp -R "$BACKUP_DIR/." "$target_dir/"
+
+      - name: Commit and push backup repository
+        shell: bash
+        run: |
+          cd backup-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --cached --quiet; then
+            echo "No backup changes to commit."
+            exit 0
+          fi
+          git commit -m "backup: $BACKUP_STAMP"
+          git push origin "$BACKUP_BRANCH"
