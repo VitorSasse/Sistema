@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { TipoRecurso, TurnoAgendaProgramacao } from "@prisma/client";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { SearchableSelect } from "@/components/form/searchable-select";
 
 type DashboardStatus =
   | "OPERANDO"
@@ -269,6 +270,10 @@ function getRevisionClass(status: DashboardRow["revision"]["status"]) {
   if (status === "PROXIMA") return "revision-indicator is-warn";
   if (status === "EM_DIA") return "revision-indicator is-success";
   return "revision-indicator is-muted";
+}
+
+function optionLabel(option: ClientItem | ObraItem) {
+  return [option.codigo, option.nome].filter(Boolean).join(" - ");
 }
 
 export function ProgramacaoManager() {
@@ -586,34 +591,30 @@ export function ProgramacaoManager() {
         <div className="programacao-toolbar">
           <div className="programacao-toolbar-filters">
             <Field label="Cliente">
-              <select
-                className="field-control"
+              <SearchableSelect
                 value={clienteId}
-                onChange={(event) => handleClientChange(event.target.value)}
-              >
-                <option value="">Todos os clientes</option>
-                {dashboard.clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.codigo} - {client.nome}
-                  </option>
-                ))}
-              </select>
+                onChange={handleClientChange}
+                options={dashboard.clients.map((client) => ({
+                  value: client.id,
+                  label: optionLabel(client)
+                }))}
+                placeholder="Digite a primeira letra do cliente"
+                emptyLabel="Nenhum cliente encontrado."
+              />
             </Field>
 
             <Field label="Obra">
-              <select
-                className="field-control"
+              <SearchableSelect
                 value={obraId}
-                onChange={(event) => setObraId(event.target.value)}
+                onChange={setObraId}
+                options={filteredObras.map((obra) => ({
+                  value: obra.id,
+                  label: optionLabel(obra)
+                }))}
                 disabled={!clienteId}
-              >
-                <option value="">Todas as obras</option>
-                {filteredObras.map((obra) => (
-                  <option key={obra.id} value={obra.id}>
-                    {obra.codigo} - {obra.nome}
-                  </option>
-                ))}
-              </select>
+                placeholder="Digite a primeira letra da obra"
+                emptyLabel="Nenhuma obra encontrada para esse cliente."
+              />
             </Field>
           </div>
 
@@ -942,45 +943,41 @@ export function ProgramacaoManager() {
                 </Field>
 
                 <Field label="Cliente">
-                  <select
-                    className="field-control"
+                  <SearchableSelect
                     value={modal.clienteId}
-                    onChange={(event) =>
+                    onChange={(value) =>
                       setModal((current) => ({
                         ...current,
-                        clienteId: event.target.value,
+                        clienteId: value,
                         obraId: ""
                       }))
                     }
-                  >
-                    <option value="">Selecione um cliente</option>
-                    {dashboard.clients.map((client) => (
-                      <option key={client.id} value={client.id}>
-                        {client.codigo} - {client.nome}
-                      </option>
-                    ))}
-                  </select>
+                    options={dashboard.clients.map((client) => ({
+                      value: client.id,
+                      label: optionLabel(client)
+                    }))}
+                    placeholder="Digite a primeira letra do cliente"
+                    emptyLabel="Nenhum cliente encontrado."
+                  />
                 </Field>
 
                 <Field label="Obra">
-                  <select
-                    className="field-control"
+                  <SearchableSelect
                     value={modal.obraId}
-                    onChange={(event) =>
+                    onChange={(value) =>
                       setModal((current) => ({
                         ...current,
-                        obraId: event.target.value
+                        obraId: value
                       }))
                     }
+                    options={modalObras.map((obra) => ({
+                      value: obra.id,
+                      label: optionLabel(obra)
+                    }))}
                     disabled={!modal.clienteId}
-                  >
-                    <option value="">Selecione uma obra</option>
-                    {modalObras.map((obra) => (
-                      <option key={obra.id} value={obra.id}>
-                        {obra.codigo} - {obra.nome}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="Digite a primeira letra da obra"
+                    emptyLabel="Nenhuma obra encontrada para esse cliente."
+                  />
                 </Field>
               </div>
 

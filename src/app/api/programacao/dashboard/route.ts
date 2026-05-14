@@ -1,4 +1,4 @@
-import { StatusAgendaProgramacao, TipoControleEquipamento } from "@prisma/client";
+import { StatusAgendaProgramacao, TipoControleEquipamento, TipoRecurso } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -20,6 +20,11 @@ const turnoPriority: Record<string, number> = {
   TARDE: 1,
   NOITE: 2,
   INTEGRAL: 3
+};
+
+const equipmentTypeOrder: Partial<Record<TipoRecurso, number>> = {
+  MAQUINA: 0,
+  CAMINHAO: 1
 };
 
 function toDateOnly(value: Date) {
@@ -285,7 +290,7 @@ export async function GET(request: NextRequest) {
           }
         }
       },
-      orderBy: [{ descricao: "asc" }]
+      orderBy: [{ descricao: "asc" }, { placaOuTag: "asc" }]
     }),
     prisma.agendaProgramacao.findMany({
       where: {
@@ -435,7 +440,21 @@ export async function GET(request: NextRequest) {
         cells
       };
     })
-    .sort((a, b) => a.priority - b.priority || a.equipamento.descricao.localeCompare(b.equipamento.descricao));
+    .sort((a, b) => {
+      const leftType = equipmentTypeOrder[a.equipamento.tipoRecurso] ?? 99;
+      const rightType = equipmentTypeOrder[b.equipamento.tipoRecurso] ?? 99;
+
+      if (leftType !== rightType) {
+        return leftType - rightType;
+      }
+
+      const byName = a.equipamento.descricao.localeCompare(b.equipamento.descricao);
+      if (byName !== 0) {
+        return byName;
+      }
+
+      return a.equipamento.placaOuTag.localeCompare(b.equipamento.placaOuTag);
+    });
 
   const summary = dashboardStatuses.map((status) => ({
     status,
