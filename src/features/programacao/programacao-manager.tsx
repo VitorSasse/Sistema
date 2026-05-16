@@ -123,6 +123,9 @@ type ModalState = {
 
 type DragSelection = {
   rowId: string;
+  equipamentoId: string;
+  equipamentoNome: string;
+  equipamentoTag: string;
   startDate: string;
   endDate: string;
 };
@@ -189,6 +192,39 @@ function parseDateInput(value: string) {
 
 function sortDateRange(first: string, second: string) {
   return first <= second ? { start: first, end: second } : { start: second, end: first };
+}
+
+function isWeekendDate(value: string) {
+  const day = parseDateInput(value).getDay();
+  return day === 0 || day === 6;
+}
+
+function enumerateDateRange(start: string, end: string) {
+  const range = sortDateRange(start, end);
+  const cursor = parseDateInput(range.start);
+  const limit = parseDateInput(range.end);
+  const result: string[] = [];
+
+  while (cursor <= limit) {
+    result.push(toDateInput(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return result;
+}
+
+function getSchedulableDates(start: string, end: string) {
+  const dates = enumerateDateRange(start, end);
+  if (dates.length <= 1) {
+    return dates;
+  }
+
+  const businessDates = dates.filter((date) => !isWeekendDate(date));
+  return businessDates.length > 0 ? businessDates : dates;
+}
+
+function countBusinessDays(start: string, end: string) {
+  return enumerateDateRange(start, end).filter((date) => !isWeekendDate(date)).length;
 }
 
 function getTurnoLabel(value: TurnoAgendaProgramacao | null) {
@@ -316,7 +352,35 @@ export function ProgramacaoManager() {
 
   useEffect(() => {
     function resetDrag() {
-      setDragSelection(null);
+      setDragSelection((current) => {
+        if (!current) {
+          return null;
+        }
+
+        const range = sortDateRange(current.startDate, current.endDate);
+
+        if (range.start !== range.end) {
+          setModal({
+            open: true,
+            programacaoId: null,
+            equipamentoId: current.equipamentoId,
+            equipamentoNome: current.equipamentoNome,
+            equipamentoTag: current.equipamentoTag,
+            date: range.start,
+            dateFim: range.end,
+            turno: "INTEGRAL",
+            clienteId: "",
+            obraId: "",
+            status: "OPERANDO",
+            observacoes: "",
+            local: "",
+            entries: []
+          });
+          setSkipNextCellClick(true);
+        }
+
+        return null;
+      });
     }
 
     window.addEventListener("mouseup", resetDrag);
@@ -416,8 +480,12 @@ export function ProgramacaoManager() {
   }
 
   function handleCellMouseDown(row: DashboardRow, cell: DashboardCell) {
+    setSkipNextCellClick(false);
     setDragSelection({
       rowId: row.equipamento.id,
+      equipamentoId: row.equipamento.id,
+      equipamentoNome: row.equipamento.descricao,
+      equipamentoTag: row.equipamento.placaOuTag,
       startDate: cell.date,
       endDate: cell.date
     });
@@ -433,23 +501,6 @@ export function ProgramacaoManager() {
         ...current,
         endDate: cell.date
       };
-    });
-  }
-
-  function handleCellMouseUp(row: DashboardRow, cell: DashboardCell) {
-    setDragSelection((current) => {
-      if (!current || current.rowId !== row.equipamento.id) {
-        return current;
-      }
-
-      const range = sortDateRange(current.startDate, cell.date);
-
-      if (range.start !== range.end) {
-        openRangeModal(row, range.start, range.end);
-        setSkipNextCellClick(true);
-      }
-
-      return null;
     });
   }
 
@@ -532,6 +583,10 @@ export function ProgramacaoManager() {
           local: modal.local,
           dataInicio: modal.date,
           dataFim: modal.dateFim || modal.date,
+          datas:
+            !modal.programacaoId && modal.dateFim && modal.dateFim !== modal.date
+              ? getSchedulableDates(modal.date, modal.dateFim)
+              : undefined,
           turno: modal.turno,
           status: modal.status,
           observacoes: modal.observacoes
@@ -566,6 +621,10 @@ export function ProgramacaoManager() {
   }
 
   const days = dashboard.days;
+  const businessDayCount =
+    modal.date && (modal.dateFim || modal.date)
+      ? countBusinessDays(modal.date, modal.dateFim || modal.date)
+      : 0;
 
   return (
     <main className="page-stack">
@@ -679,11 +738,12 @@ export function ProgramacaoManager() {
             {days.map((day) => {
               const label = formatDayLabel(day);
               const isToday = day === toDateInput(new Date());
+              const isWeekend = isWeekendDate(day);
 
               return (
                 <div
                   key={day}
-                  className={`programacao-day-head ${isToday ? "is-today" : ""}`}
+                  className={`programacao-day-head ${isToday ? "is-today" : ""} ${isWeekend ? "is-weekend" : ""}`}
                 >
                   <strong>{label.weekday}</strong>
                   <span>{label.day}</span>
@@ -720,15 +780,18 @@ export function ProgramacaoManager() {
 
                 {row.cells.map((cell) => {
                   const today = cell.date === toDateInput(new Date());
+                  const weekend = isWeekendDate(cell.date);
 
                   return (
                     <button
                       key={`${row.equipamento.id}-${cell.date}`}
                       type="button"
-                      className={`programacao-cell status-${cell.status.toLowerCase().replace("_", "-")} ${today ? "is-today" : ""} ${isCellInsideDrag(row.equipamento.id, cell.date) ? "is-drag-range" : ""}`}
-                      onMouseDown={() => handleCellMouseDown(row, cell)}
+                      className={`programacao-cell status-${cell.status.toLowerCase().replace("_", "-")} ${today ? "is-today" : ""} ${weekend ? "is-weekend" : ""} ${isCellInsideDrag(row.equipamento.id, cell.date) ? "is-drag-range" : ""}`}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        handleCellMouseDown(row, cell);
+                      }}
                       onMouseEnter={() => handleCellMouseEnter(row, cell)}
-                      onMouseUp={() => handleCellMouseUp(row, cell)}
                       onClick={() => {
                         if (skipNextCellClick) {
                           setSkipNextCellClick(false);
@@ -740,7 +803,9 @@ export function ProgramacaoManager() {
                       title={[
                         row.equipamento.descricao,
                         cell.status,
-                        cell.entries.length > 1
+                        weekend && cell.entries.length === 0
+                          ? "Folga"
+                          : cell.entries.length > 1
                           ? cell.entries
                               .map((entry) => `${getTurnoLabel(entry.turno)}: ${entry.obraNome ?? entry.local ?? "Sem obra"}`)
                               .join(" | ")
@@ -751,7 +816,9 @@ export function ProgramacaoManager() {
                         .join(" | ")}
                     >
                       <strong>{cell.status.replace("_", " ")}</strong>
-                      {cell.entries.length > 1 ? (
+                      {weekend && cell.entries.length === 0 ? (
+                        <span>Folga</span>
+                      ) : cell.entries.length > 1 ? (
                         <span>
                           {cell.entries
                             .slice(0, 2)
@@ -897,11 +964,16 @@ export function ProgramacaoManager() {
 
               <div className="form-grid-3">
                 <Field label="Periodo">
-                  <input
-                    className="field-control"
-                    value={formatDateOrRange(modal.date, modal.dateFim || modal.date)}
-                    readOnly
-                  />
+                  <div style={{ display: "grid", gap: 8 }}>
+                    <input
+                      className="field-control"
+                      value={formatDateOrRange(modal.date, modal.dateFim || modal.date)}
+                      readOnly
+                    />
+                    <span className="subtle">
+                      Dias considerados no agendamento: {String(businessDayCount).padStart(2, "0")}
+                    </span>
+                  </div>
                 </Field>
 
                 <Field label="Status">

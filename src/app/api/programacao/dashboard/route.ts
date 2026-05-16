@@ -72,6 +72,11 @@ function enumerateDays(start: Date, end: Date) {
   return days;
 }
 
+function isWeekend(value: Date) {
+  const day = value.getDay();
+  return day === 0 || day === 6;
+}
+
 function normalizeProgramacaoStatus(status: StatusAgendaProgramacao): DashboardStatus {
   if (status === "PROGRAMADO" || status === "FINALIZADO") {
     return "DISPONIVEL";
@@ -212,6 +217,25 @@ function getStatusPriority(status: DashboardStatus) {
   };
 
   return statusWeight[status];
+}
+
+function getPeriodStatus(
+  cells: Array<{
+    date: string;
+    status: DashboardStatus;
+  }>,
+  view: string,
+  referenceDate: Date
+) {
+  const selectedDate = toDateInput(referenceDate);
+  const scopedCells =
+    view === "HOJE"
+      ? cells.filter((cell) => cell.date === selectedDate)
+      : cells.filter((cell) => !isWeekend(toDateOnly(new Date(`${cell.date}T00:00:00`))));
+
+  const candidates = scopedCells.length > 0 ? scopedCells : cells;
+
+  return [...candidates].sort((a, b) => getStatusPriority(a.status) - getStatusPriority(b.status))[0]?.status ?? "DISPONIVEL";
 }
 
 export async function GET(request: NextRequest) {
@@ -422,9 +446,7 @@ export async function GET(request: NextRequest) {
         };
       });
 
-      const focusCell =
-        cells.find((cell) => cell.date === toDateInput(focusDate)) ??
-        cells[0];
+      const periodStatus = getPeriodStatus(cells, view, referenceDate);
 
       return {
         equipamento: {
@@ -435,8 +457,8 @@ export async function GET(request: NextRequest) {
           statusOperacional: equipamento.statusOperacional
         },
         revision,
-        focusStatus: focusCell.status,
-        priority: getRowPriority(focusCell.status, revision.status),
+        focusStatus: periodStatus,
+        priority: getRowPriority(periodStatus, revision.status),
         cells
       };
     })
