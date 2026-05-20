@@ -43,6 +43,8 @@ export async function listarMedicoes(
     tipoMedicao?: string | null;
     periodoInicial?: string | null;
     periodoFinal?: string | null;
+    numeroPedido?: string | null;
+    numeroNotaFiscal?: string | null;
   }
 ) {
   const statusFilter =
@@ -62,14 +64,38 @@ export async function listarMedicoes(
     obraId: filters.obraId || undefined,
     status: statusFilter,
     tipoMedicao: tipoFilter,
-    periodoInicial:
-      filters.periodoInicial || filters.periodoFinal
-        ? {
-            gte: filters.periodoInicial ? startOfDay(filters.periodoInicial) : undefined,
-            lte: filters.periodoFinal ? endOfDay(filters.periodoFinal) : undefined
-          }
-        : undefined
+    numeroPedido: filters.numeroPedido
+      ? {
+          contains: filters.numeroPedido.trim(),
+          mode: "insensitive"
+        }
+      : undefined,
+    numeroNotaFiscal: filters.numeroNotaFiscal
+      ? {
+          contains: filters.numeroNotaFiscal.trim(),
+          mode: "insensitive"
+        }
+      : undefined
   };
+
+  if (filters.periodoInicial || filters.periodoFinal) {
+    const rows = await db.$queryRaw<Array<{ medicaoId: string }>>(
+      Prisma.sql`
+        SELECT item."medicaoId"
+        FROM "MedicaoItem" item
+        INNER JOIN "Medicao" medicao ON medicao.id = item."medicaoId"
+        WHERE item."deletedAt" IS NULL
+          AND medicao."deletedAt" IS NULL
+        GROUP BY item."medicaoId"
+        HAVING MAX(item."data") >= ${filters.periodoInicial ? startOfDay(filters.periodoInicial) : new Date("1900-01-01T00:00:00.000Z")}
+           AND MAX(item."data") <= ${filters.periodoFinal ? endOfDay(filters.periodoFinal) : new Date("2999-12-31T23:59:59.999Z")}
+      `
+    );
+
+    where.id = {
+      in: rows.map((row) => row.medicaoId)
+    };
+  }
 
   return db.medicao.findMany({ where, include: medicaoListInclude, orderBy: [{ createdAt: "desc" }] });
 }
@@ -330,6 +356,8 @@ export async function atualizarObservacaoMedicao(
     observacao: string | null;
     observacaoInterna: string | null;
     descontoValor: number;
+    numeroPedido: string | null;
+    numeroNotaFiscal: string | null;
   }
 ) {
   const medicao = await db.medicao.findFirst({
@@ -351,7 +379,9 @@ export async function atualizarObservacaoMedicao(
     data: {
       observacao: params.observacao,
       observacaoInterna: params.observacaoInterna,
-      descontoValor: params.descontoValor
+      descontoValor: params.descontoValor,
+      numeroPedido: params.numeroPedido,
+      numeroNotaFiscal: params.numeroNotaFiscal
     }
   });
 

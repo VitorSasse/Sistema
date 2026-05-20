@@ -21,6 +21,8 @@ function buildListQuery(filters: MedicaoFilters) {
   if (filters.status) params.set("status", filters.status);
   if (filters.periodoInicial) params.set("periodoInicial", filters.periodoInicial);
   if (filters.periodoFinal) params.set("periodoFinal", filters.periodoFinal);
+  if (filters.numeroPedido) params.set("numeroPedido", filters.numeroPedido);
+  if (filters.numeroNotaFiscal) params.set("numeroNotaFiscal", filters.numeroNotaFiscal);
   return params.toString();
 }
 
@@ -159,7 +161,9 @@ export async function atualizarObservacaoMedicao(
   id: string,
   observacao: string,
   observacaoInterna: string,
-  descontoValor: string
+  descontoValor: string,
+  numeroPedido: string,
+  numeroNotaFiscal: string
 ) {
   const response = await fetch(`/api/medicoes/${id}`, {
     method: "PATCH",
@@ -167,7 +171,9 @@ export async function atualizarObservacaoMedicao(
     body: JSON.stringify({
       observacao,
       observacaoInterna,
-      descontoValor: descontoValor.trim() ? Number(descontoValor.replace(",", ".")) : 0
+      descontoValor: descontoValor.trim() ? Number(descontoValor.replace(",", ".")) : 0,
+      numeroPedido,
+      numeroNotaFiscal
     })
   });
   return {

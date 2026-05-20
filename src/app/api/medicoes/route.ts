@@ -23,7 +23,9 @@ export async function GET(request: NextRequest) {
     status: searchParams.get("status"),
     tipoMedicao: searchParams.get("tipoMedicao"),
     periodoInicial: searchParams.get("periodoInicial"),
-    periodoFinal: searchParams.get("periodoFinal")
+    periodoFinal: searchParams.get("periodoFinal"),
+    numeroPedido: searchParams.get("numeroPedido"),
+    numeroNotaFiscal: searchParams.get("numeroNotaFiscal")
   });
 
   return NextResponse.json({ items });

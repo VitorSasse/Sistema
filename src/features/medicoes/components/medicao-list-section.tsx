@@ -52,7 +52,9 @@ export function MedicaoListSection(props: {
       filters.tipoMedicao ||
       filters.status ||
       filters.periodoInicial ||
-      filters.periodoFinal
+      filters.periodoFinal ||
+      filters.numeroPedido ||
+      filters.numeroNotaFiscal
   );
   const visibleItems = hasActiveFilters ? items : items.slice(0, 5);
 
@@ -122,7 +124,28 @@ export function MedicaoListSection(props: {
         <MedicaoField label="Periodo final">
           <input className="field-control" type="date" value={filters.periodoFinal} onChange={(e) => onChangeFilter("periodoFinal", e.target.value)} />
         </MedicaoField>
+        <MedicaoField label="Numero do pedido">
+          <input
+            className="field-control"
+            type="text"
+            value={filters.numeroPedido}
+            onChange={(e) => onChangeFilter("numeroPedido", e.target.value)}
+            placeholder="Filtrar por pedido"
+          />
+        </MedicaoField>
+        <MedicaoField label="Numero da nota">
+          <input
+            className="field-control"
+            type="text"
+            value={filters.numeroNotaFiscal}
+            onChange={(e) => onChangeFilter("numeroNotaFiscal", e.target.value)}
+            placeholder="Filtrar por nota"
+          />
+        </MedicaoField>
       </div>
+      <p className="subtle" style={{ marginTop: -8, marginBottom: 20 }}>
+        O filtro de periodo considera a data do ultimo lancamento vinculado a cada medicao.
+      </p>
 
       <div className="data-table-wrap">
         <table className="data-table">
@@ -133,6 +156,8 @@ export function MedicaoListSection(props: {
               <th>Cliente</th>
               <th>Obra</th>
               <th>Periodo</th>
+              <th>Pedido</th>
+              <th>Nota</th>
               <th>Status</th>
               <th>Itens</th>
               <th>Valor total</th>
@@ -164,6 +189,8 @@ export function MedicaoListSection(props: {
                   )}
                 </td>
                 <td>{new Date(medicao.periodoInicial).toISOString().slice(0, 10)} ate {new Date(medicao.periodoFinal).toISOString().slice(0, 10)}</td>
+                <td>{medicao.numeroPedido?.trim() || "-"}</td>
+                <td>{medicao.numeroNotaFiscal?.trim() || "-"}</td>
                 <td>
                   <span className={medicaoStatusClasses[medicao.status]}>
                     {medicaoStatusLabels[medicao.status]}

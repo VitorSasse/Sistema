@@ -677,6 +677,8 @@ model Medicao {
   descontoValor  Decimal       @default(0) @db.Decimal(14, 2)
   observacao     String?
   observacaoInterna String?
+  numeroPedido   String?
+  numeroNotaFiscal String?
   fechadoPorId   String?
   fechadoEm      DateTime?
   enviadaAoClienteEm DateTime?
@@ -696,6 +698,8 @@ model Medicao {
   @@index([clienteId, obraId, periodoInicial, periodoFinal])
   @@index([status])
   @@index([deletedAt, status])
+  @@index([numeroPedido])
+  @@index([numeroNotaFiscal])
 }
 
 model MedicaoItem {

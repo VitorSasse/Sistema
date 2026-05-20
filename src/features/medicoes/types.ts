@@ -49,6 +49,8 @@ export type MedicaoListItem = {
   periodoFinal: string;
   valorTotal: string;
   descontoValor: string;
+  numeroPedido: string | null;
+  numeroNotaFiscal: string | null;
   cliente: { id: string; codigo: string; nome: string };
   obra: { id: string; codigo: string; nome: string } | null;
   itens: Array<{ id: string }>;
@@ -67,6 +69,8 @@ export type MedicaoDetail = {
   descontoValor: string;
   observacao: string | null;
   observacaoInterna: string | null;
+  numeroPedido: string | null;
+  numeroNotaFiscal: string | null;
   fechadoEm: string | null;
   enviadaAoClienteEm: string | null;
   enviadaParaFaturamentoEm: string | null;
@@ -152,6 +156,8 @@ export type MedicaoFilters = {
   status: string;
   periodoInicial: string;
   periodoFinal: string;
+  numeroPedido: string;
+  numeroNotaFiscal: string;
 };
 
 export type MedicaoUploadState = {

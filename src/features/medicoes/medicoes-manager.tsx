@@ -92,6 +92,8 @@ export function MedicoesManager() {
   const [detailObservacao, setDetailObservacao] = useState("");
   const [detailObservacaoInterna, setDetailObservacaoInterna] = useState("");
   const [detailDescontoValor, setDetailDescontoValor] = useState("0");
+  const [detailNumeroPedido, setDetailNumeroPedido] = useState("");
+  const [detailNumeroNotaFiscal, setDetailNumeroNotaFiscal] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
     codigoMedicao: string;
@@ -151,6 +153,8 @@ export function MedicoesManager() {
     setDetailObservacao(detail.observacao ?? "");
     setDetailObservacaoInterna(detail.observacaoInterna ?? "");
     setDetailDescontoValor(detail.descontoValor ?? "0");
+    setDetailNumeroPedido(detail.numeroPedido ?? "");
+    setDetailNumeroNotaFiscal(detail.numeroNotaFiscal ?? "");
   }
 
   useEffect(() => {
@@ -463,6 +467,8 @@ export function MedicoesManager() {
       setDetailObservacao((data as MedicaoDetail).observacao ?? "");
       setDetailObservacaoInterna((data as MedicaoDetail).observacaoInterna ?? "");
       setDetailDescontoValor((data as MedicaoDetail).descontoValor ?? "0");
+      setDetailNumeroPedido((data as MedicaoDetail).numeroPedido ?? "");
+      setDetailNumeroNotaFiscal((data as MedicaoDetail).numeroNotaFiscal ?? "");
       setMessage("Item da medicao atualizado.");
       await loadBase(filters);
     });
@@ -476,7 +482,9 @@ export function MedicoesManager() {
         selectedMedicaoId,
         detailObservacao,
         detailObservacaoInterna,
-        detailDescontoValor
+        detailDescontoValor,
+        detailNumeroPedido,
+        detailNumeroNotaFiscal
       );
 
       if (!response.ok) {
@@ -490,6 +498,8 @@ export function MedicoesManager() {
       setDetailObservacao((data as MedicaoDetail).observacao ?? "");
       setDetailObservacaoInterna((data as MedicaoDetail).observacaoInterna ?? "");
       setDetailDescontoValor((data as MedicaoDetail).descontoValor ?? "0");
+      setDetailNumeroPedido((data as MedicaoDetail).numeroPedido ?? "");
+      setDetailNumeroNotaFiscal((data as MedicaoDetail).numeroNotaFiscal ?? "");
       setMessage("Dados da medicao atualizados.");
       await loadBase(filters);
     });
@@ -603,6 +613,10 @@ export function MedicoesManager() {
           onChangeObservacaoInterna={setDetailObservacaoInterna}
           descontoValor={detailDescontoValor}
           onChangeDescontoValor={setDetailDescontoValor}
+          numeroPedido={detailNumeroPedido}
+          onChangeNumeroPedido={setDetailNumeroPedido}
+          numeroNotaFiscal={detailNumeroNotaFiscal}
+          onChangeNumeroNotaFiscal={setDetailNumeroNotaFiscal}
           onSaveObservacao={handleSaveObservacao}
           onOpenPdf={openPdf}
           onRequestDelete={handleRequestDelete}

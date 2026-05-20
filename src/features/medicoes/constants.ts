@@ -21,7 +21,9 @@ export const initialMedicaoFilters: MedicaoFilters = {
   tipoMedicao: "",
   status: "",
   periodoInicial: "",
-  periodoFinal: ""
+  periodoFinal: "",
+  numeroPedido: "",
+  numeroNotaFiscal: ""
 };
 
 export const initialMedicaoUpload: MedicaoUploadState = {

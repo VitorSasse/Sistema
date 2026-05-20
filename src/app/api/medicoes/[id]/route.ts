@@ -41,6 +41,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     observacao?: string | null;
     observacaoInterna?: string | null;
     descontoValor?: number | null;
+    numeroPedido?: string | null;
+    numeroNotaFiscal?: string | null;
   };
 
   try {
@@ -54,7 +56,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         descontoValor:
           payload.descontoValor == null || Number.isNaN(Number(payload.descontoValor))
             ? 0
-            : Math.max(0, Number(payload.descontoValor))
+            : Math.max(0, Number(payload.descontoValor)),
+        numeroPedido: payload.numeroPedido?.trim() ? payload.numeroPedido.trim() : null,
+        numeroNotaFiscal: payload.numeroNotaFiscal?.trim()
+          ? payload.numeroNotaFiscal.trim()
+          : null
       })
     );
 

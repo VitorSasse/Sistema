@@ -26,10 +26,6 @@ function buildWarnings(detail: MedicaoDetail, descontoValor: string) {
     warnings.push("Esta medicao esta sem itens vinculados.");
   }
 
-  if (detail.itens.some((item) => Number(item.valorUnitario) <= 0)) {
-    warnings.push("Existe item com valor unitario zerado ou invalido.");
-  }
-
   if (detail.itens.some((item) => Number(item.quantidadeFaturada) <= 0)) {
     warnings.push("Existe item com quantidade faturada zerada ou invalida.");
   }
@@ -71,6 +67,10 @@ export function MedicaoDetailSection(props: {
   onChangeObservacaoInterna: (value: string) => void;
   descontoValor: string;
   onChangeDescontoValor: (value: string) => void;
+  numeroPedido: string;
+  onChangeNumeroPedido: (value: string) => void;
+  numeroNotaFiscal: string;
+  onChangeNumeroNotaFiscal: (value: string) => void;
   onSaveObservacao: () => void;
   onOpenPdf: (id: string, tipo: "DETALHADO" | "RESUMIDO") => void;
   onRequestDelete: (detail: MedicaoDetail) => void;
@@ -95,6 +95,10 @@ export function MedicaoDetailSection(props: {
     onChangeObservacaoInterna,
     descontoValor,
     onChangeDescontoValor,
+    numeroPedido,
+    onChangeNumeroPedido,
+    numeroNotaFiscal,
+    onChangeNumeroNotaFiscal,
     onSaveObservacao,
     onOpenPdf,
     onRequestDelete,
@@ -203,6 +207,8 @@ export function MedicaoDetailSection(props: {
           lines={[
             `${formatDate(detail.periodoInicial)} ate ${formatDate(detail.periodoFinal)}`,
             `${detail.itens.length} item(ns) / ${detail.anexos.length} anexo(s)`,
+            `Pedido: ${detail.numeroPedido?.trim() || "-"}`,
+            `Nota: ${detail.numeroNotaFiscal?.trim() || "-"}`,
             `Valor bruto: ${formatCurrency(valorTotalAtual)}`,
             `Valor final: ${formatCurrency(valorFinalAtual)}`
           ]}
@@ -271,9 +277,29 @@ export function MedicaoDetailSection(props: {
                 className="field-control textarea-lg"
                 value={observacaoInterna}
                 onChange={(e) => onChangeObservacaoInterna(e.target.value)}
-                placeholder="Use para numero do pedido, numero da nota fiscal e observacoes internas."
+                placeholder="Use para observacoes internas da medicao."
               />
             </MedicaoField>
+            <div className="form-grid-2">
+              <MedicaoField label="Numero do pedido">
+                <input
+                  className="field-control"
+                  type="text"
+                  value={numeroPedido}
+                  onChange={(e) => onChangeNumeroPedido(e.target.value)}
+                  placeholder="Ex.: PED-2026-014"
+                />
+              </MedicaoField>
+              <MedicaoField label="Numero da nota">
+                <input
+                  className="field-control"
+                  type="text"
+                  value={numeroNotaFiscal}
+                  onChange={(e) => onChangeNumeroNotaFiscal(e.target.value)}
+                  placeholder="Ex.: NF-001254"
+                />
+              </MedicaoField>
+            </div>
             <MedicaoField label="Desconto da medicao">
               <input
                 className="field-control"

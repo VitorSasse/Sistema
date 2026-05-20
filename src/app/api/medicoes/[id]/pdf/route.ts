@@ -53,9 +53,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ message: "Medicao sem itens para relatorio." }, { status: 400 });
   }
 
-  if (medicao.itens.some((item) => Number(item.valorUnitario) <= 0)) {
+  if (medicao.itens.some((item) => Number(item.valorUnitario) < 0)) {
     return NextResponse.json(
-      { message: "Todos os itens precisam ter valor unitario para gerar o PDF." },
+      { message: "Nao e permitido gerar PDF com item de valor unitario negativo." },
       { status: 400 }
     );
   }
