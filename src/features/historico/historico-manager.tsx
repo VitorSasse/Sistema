@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { SearchableSelect } from "@/components/form/searchable-select";
 import { loadOperationalOptions } from "@/lib/client/operational-options";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 import { formatQuantidadeComUnidade } from "@/lib/utils/unidades";
@@ -76,6 +77,19 @@ const initialFilters: Filters = {
   status: ""
 };
 
+function optionLabel(option: Option) {
+  return [
+    option.codigo,
+    option.codigoMaterial,
+    option.nome,
+    option.tipoServico,
+    option.descricao,
+    option.placaOuTag
+  ]
+    .filter(Boolean)
+    .join(" - ");
+}
+
 export function HistoricoManager() {
   const [clientes, setClientes] = useState<Option[]>([]);
   const [obras, setObras] = useState<Option[]>([]);
@@ -127,13 +141,22 @@ export function HistoricoManager() {
     [obras, filters.clienteId]
   );
 
+  const obrasEditaveis = useMemo(
+    () => obras.filter((obra) => !editForm.clienteId || obra.clienteId === editForm.clienteId),
+    [obras, editForm.clienteId]
+  );
+
   const hasActiveFilters = useMemo(
     () => Object.values(filters).some((value) => Boolean(value)),
     [filters]
   );
 
   function updateFilter<K extends keyof Filters>(key: K, value: Filters[K]) {
-    setFilters((current) => ({ ...current, [key]: value }));
+    setFilters((current) => ({
+      ...current,
+      [key]: value,
+      ...(key === "clienteId" ? { obraId: "" } : {})
+    }));
   }
 
   function buildSearchParams() {
@@ -246,7 +269,11 @@ export function HistoricoManager() {
   }
 
   function updateEditField(key: keyof typeof editForm, value: string) {
-    setEditForm((current) => ({ ...current, [key]: value }));
+    setEditForm((current) => ({
+      ...current,
+      [key]: value,
+      ...(key === "clienteId" ? { obraId: "" } : {})
+    }));
   }
 
   async function handleUpdate(event: React.FormEvent<HTMLFormElement>) {
@@ -341,24 +368,29 @@ export function HistoricoManager() {
               </select>
             </Field>
             <Field label="Cliente">
-              <select value={filters.clienteId} onChange={(e) => updateFilter("clienteId", e.target.value)} style={fieldStyle}>
-                <option value="">Todos</option>
-                {clientes.map((cliente) => (
-                  <option key={cliente.id} value={cliente.id}>
-                    {(cliente.codigo ?? "") + " - " + (cliente.nome ?? "")}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={filters.clienteId}
+                onChange={(value) => updateFilter("clienteId", value)}
+                options={clientes.map((cliente) => ({
+                  value: cliente.id,
+                  label: optionLabel(cliente)
+                }))}
+                placeholder="Digite a primeira letra do cliente"
+                emptyLabel="Nenhum cliente encontrado."
+              />
             </Field>
             <Field label="Obra">
-              <select value={filters.obraId} onChange={(e) => updateFilter("obraId", e.target.value)} style={fieldStyle}>
-                <option value="">Todas</option>
-                {obrasDisponiveis.map((obra) => (
-                  <option key={obra.id} value={obra.id}>
-                    {(obra.codigo ?? "") + " - " + (obra.nome ?? "")}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                value={filters.obraId}
+                onChange={(value) => updateFilter("obraId", value)}
+                options={obrasDisponiveis.map((obra) => ({
+                  value: obra.id,
+                  label: optionLabel(obra)
+                }))}
+                placeholder="Digite a primeira letra da obra"
+                emptyLabel="Nenhuma obra encontrada."
+                disabled={!filters.clienteId}
+              />
             </Field>
             <Field label="Servico">
               <select value={filters.servicoId} onChange={(e) => updateFilter("servicoId", e.target.value)} style={fieldStyle}>
@@ -500,26 +532,29 @@ export function HistoricoManager() {
                 <input value={editForm.fichaNumero} onChange={(e) => updateEditField("fichaNumero", e.target.value)} style={fieldStyle} />
               </Field>
               <Field label="Cliente">
-                <select value={editForm.clienteId} onChange={(e) => updateEditField("clienteId", e.target.value)} style={fieldStyle}>
-                  <option value="">Selecione</option>
-                  {clientes.map((cliente) => (
-                    <option key={cliente.id} value={cliente.id}>
-                      {(cliente.codigo ?? "") + " - " + (cliente.nome ?? "")}
-                    </option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  value={editForm.clienteId}
+                  onChange={(value) => updateEditField("clienteId", value)}
+                  options={clientes.map((cliente) => ({
+                    value: cliente.id,
+                    label: optionLabel(cliente)
+                  }))}
+                  placeholder="Digite a primeira letra do cliente"
+                  emptyLabel="Nenhum cliente encontrado."
+                />
               </Field>
               <Field label="Obra">
-                <select value={editForm.obraId} onChange={(e) => updateEditField("obraId", e.target.value)} style={fieldStyle}>
-                  <option value="">Sem obra</option>
-                  {obras
-                    .filter((obra) => !editForm.clienteId || obra.clienteId === editForm.clienteId)
-                    .map((obra) => (
-                      <option key={obra.id} value={obra.id}>
-                        {(obra.codigo ?? "") + " - " + (obra.nome ?? "")}
-                      </option>
-                    ))}
-                </select>
+                <SearchableSelect
+                  value={editForm.obraId}
+                  onChange={(value) => updateEditField("obraId", value)}
+                  options={obrasEditaveis.map((obra) => ({
+                    value: obra.id,
+                    label: optionLabel(obra)
+                  }))}
+                  placeholder="Digite a primeira letra da obra"
+                  emptyLabel="Nenhuma obra encontrada."
+                  disabled={!editForm.clienteId}
+                />
               </Field>
               <Field label="Servico">
                 <select value={editForm.servicoId} onChange={(e) => updateEditField("servicoId", e.target.value)} style={fieldStyle}>

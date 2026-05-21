@@ -9,6 +9,30 @@ import {
   validarRelacionamentosProgramacao
 } from "@/server/services/programacao/service";
 
+function canReuseDisponivelSlot(
+  conflito: Awaited<ReturnType<typeof existeConflitoProgramacao>>,
+  data: ReturnType<typeof mapProgramacaoData>
+) {
+  if (!conflito) {
+    return false;
+  }
+
+  const sameSingleDayRange =
+    conflito.dataInicio.getTime() === data.dataInicio.getTime() &&
+    conflito.dataFim.getTime() === data.dataFim.getTime();
+
+  if (!sameSingleDayRange) {
+    return false;
+  }
+
+  return (
+    conflito.status === "DISPONIVEL" &&
+    !conflito.obraId &&
+    !conflito.local &&
+    !conflito.observacoes
+  );
+}
+
 export async function GET(request: NextRequest) {
   const session = await auth();
 
@@ -91,6 +115,41 @@ export async function POST(request: NextRequest) {
         });
 
         if (conflito) {
+          if (canReuseDisponivelSlot(conflito, data)) {
+            records.push(
+              await tx.agendaProgramacao.update({
+                where: { id: conflito.id },
+                data,
+                include: {
+                  equipamento: {
+                    select: {
+                      id: true,
+                      descricao: true,
+                      placaOuTag: true,
+                      tipoRecurso: true,
+                      statusOperacional: true
+                    }
+                  },
+                  obra: {
+                    select: {
+                      id: true,
+                      codigo: true,
+                      nome: true,
+                      cliente: {
+                        select: {
+                          id: true,
+                          nome: true,
+                          codigo: true
+                        }
+                      }
+                    }
+                  }
+                }
+              })
+            );
+            continue;
+          }
+
           throw new Error(
             `CONFLITO:${conflito.dataInicio.toLocaleDateString("pt-BR")}:${conflito.dataFim.toLocaleDateString("pt-BR")}:${conflito.turno ?? ""}`
           );

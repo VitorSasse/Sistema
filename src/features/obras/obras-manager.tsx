@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { SearchableSelect } from "@/components/form/searchable-select";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
 type ClienteOption = {
@@ -90,6 +91,15 @@ export function ObrasManager() {
   const clientesAtivos = useMemo(
     () => clientes.filter((cliente) => cliente.status === "ATIVO"),
     [clientes]
+  );
+
+  const clienteOptions = useMemo(
+    () =>
+      clientesAtivos.map((cliente) => ({
+        value: cliente.id,
+        label: `${cliente.codigo} - ${cliente.nome}`
+      })),
+    [clientesAtivos]
   );
 
   const filteredObras = useMemo(() => {
@@ -222,18 +232,13 @@ export function ObrasManager() {
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 24 }}>
           <div style={formGridStyle}>
             <Field label="Cliente">
-              <select
+              <SearchableSelect
                 value={form.clienteId}
-                onChange={(event) => updateField("clienteId", event.target.value)}
-                style={fieldStyle}
-              >
-                <option value="">Selecione um cliente</option>
-                {clientesAtivos.map((cliente) => (
-                  <option key={cliente.id} value={cliente.id}>
-                    {cliente.codigo} - {cliente.nome}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => updateField("clienteId", value)}
+                options={clienteOptions}
+                placeholder="Digite a primeira letra do cliente"
+                emptyLabel="Nenhum cliente encontrado."
+              />
             </Field>
 
             <Field label="Nome da obra">
