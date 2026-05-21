@@ -214,13 +214,7 @@ function enumerateDateRange(start: string, end: string) {
 }
 
 function getSchedulableDates(start: string, end: string) {
-  const dates = enumerateDateRange(start, end);
-  if (dates.length <= 1) {
-    return dates;
-  }
-
-  const businessDates = dates.filter((date) => !isWeekendDate(date));
-  return businessDates.length > 0 ? businessDates : dates;
+  return enumerateDateRange(start, end);
 }
 
 function countBusinessDays(start: string, end: string) {
