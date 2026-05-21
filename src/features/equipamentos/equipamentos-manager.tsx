@@ -187,10 +187,13 @@ export function EquipamentosManager() {
         body: JSON.stringify(form)
       });
 
-      const data = (await response.json()) as { message?: string };
+      const data = (await response.json()) as { message?: string; detail?: string };
 
       if (!response.ok) {
-        setMessage(data.message ?? "Nao foi possivel salvar o equipamento.");
+        setMessage(
+          [data.message, data.detail].filter(Boolean).join(" ")
+            || "Nao foi possivel salvar o equipamento."
+        );
         return;
       }
 
@@ -234,10 +237,13 @@ export function EquipamentosManager() {
   async function handleDisable(id: string) {
     startTransition(async () => {
       const response = await fetch(`/api/equipamentos/${id}`, { method: "DELETE" });
-      const data = (await response.json()) as { message?: string };
+      const data = (await response.json()) as { message?: string; detail?: string };
 
       if (!response.ok) {
-        setMessage(data.message ?? "Nao foi possivel inativar o equipamento.");
+        setMessage(
+          [data.message, data.detail].filter(Boolean).join(" ")
+            || "Nao foi possivel inativar o equipamento."
+        );
         return;
       }
 
@@ -253,10 +259,13 @@ export function EquipamentosManager() {
 
     startTransition(async () => {
       const response = await fetch(`/api/equipamentos/${id}?mode=delete`, { method: "DELETE" });
-      const data = (await response.json()) as { message?: string };
+      const data = (await response.json()) as { message?: string; detail?: string };
 
       if (!response.ok) {
-        setMessage(data.message ?? "Nao foi possivel excluir o equipamento.");
+        setMessage(
+          [data.message, data.detail].filter(Boolean).join(" ")
+            || "Nao foi possivel excluir o equipamento."
+        );
         return;
       }
 
