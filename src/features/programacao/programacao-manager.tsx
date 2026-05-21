@@ -39,6 +39,12 @@ type SummaryItem = {
   count: number;
 };
 
+type AnalyticsStatusItem = {
+  status: DashboardStatus;
+  count: number;
+  percent: number;
+};
+
 type DashboardCellEntry = {
   id: string;
   status: DashboardStatus;
@@ -101,6 +107,14 @@ type DashboardPayload = {
   clients: ClientItem[];
   obras: ObraItem[];
   summary: SummaryItem[];
+  analytics: {
+    consideredEquipments: number;
+    complementaryExcluded: number;
+    businessDays: number;
+    consideredLines: number;
+    maintenanceLines: number;
+    statuses: AnalyticsStatusItem[];
+  };
   rows: DashboardRow[];
 };
 
@@ -304,6 +318,17 @@ function getRevisionClass(status: DashboardRow["revision"]["status"]) {
 
 function optionLabel(option: ClientItem | ObraItem) {
   return [option.codigo, option.nome].filter(Boolean).join(" - ");
+}
+
+function getStatusMeta(status: DashboardStatus) {
+  return statusCards.find((item) => item.status === status) ?? statusCards[0];
+}
+
+function formatPercent(value: number) {
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
 }
 
 export function ProgramacaoManager() {
@@ -614,6 +639,9 @@ export function ProgramacaoManager() {
     return <p className="section-copy">Carregando agenda operacional...</p>;
   }
 
+  const analyticsStatusItems = dashboard.analytics.statuses.filter((item) => item.count > 0);
+  const dominantAnalyticsStatus = [...dashboard.analytics.statuses].sort((a, b) => b.percent - a.percent)[0];
+
   const days = dashboard.days;
   const businessDayCount =
     modal.date && (modal.dateFim || modal.date)
@@ -829,6 +857,114 @@ export function ProgramacaoManager() {
             ))}
           </div>
         </div>
+      </section>
+
+      <section className="surface section-card programacao-analytics-panel">
+          <div className="section-header">
+            <div>
+              <h3 className="section-title">Distribuicao operacional</h3>
+              <p className="section-copy">
+                Leitura do periodo visivel considerando somente equipamentos nao complementares e dias uteis.
+              </p>
+            </div>
+            <div className="glass-band">
+              <strong>{rangeLabel}</strong>
+              <span className="subtle">
+                {view === "HOJE" ? "Base diaria" : view === "SEMANA" ? "Base semanal" : "Base mensal"}
+              </span>
+            </div>
+          </div>
+
+          <div className="programacao-analytics-grid">
+            <div className="programacao-analytics-summary">
+              <div className="programacao-analytics-stat">
+                <span className="programacao-analytics-label">Linhas consideradas</span>
+                <strong>{dashboard.analytics.consideredLines}</strong>
+                <span className="subtle">
+                  {dashboard.analytics.consideredEquipments} equipamentos fixos x {dashboard.analytics.businessDays} dia(s) util(eis)
+                </span>
+              </div>
+              <div className="programacao-analytics-stat">
+                <span className="programacao-analytics-label">Complementares fora do calculo</span>
+                <strong>{dashboard.analytics.complementaryExcluded}</strong>
+                <span className="subtle">Esses equipamentos seguem na agenda, mas nao entram no grafico.</span>
+              </div>
+              <div className="programacao-analytics-stat">
+                <span className="programacao-analytics-label">Linhas em manutencao</span>
+                <strong>{dashboard.analytics.maintenanceLines}</strong>
+                <span className="subtle">Total de equipamento-dia util marcado como manutencao no periodo.</span>
+              </div>
+            </div>
+
+            <div className="programacao-analytics-visual">
+              <div className="programacao-analytics-bars">
+                {dashboard.analytics.statuses.map((item) => {
+                  const meta = getStatusMeta(item.status);
+
+                  return (
+                    <div key={item.status} className="programacao-analytics-row">
+                      <div className="programacao-analytics-row-head">
+                        <span className={`programacao-legend-dot ${meta.accentClass}`} />
+                        <strong>{meta.label}</strong>
+                      </div>
+                      <div className="programacao-analytics-track">
+                        <div
+                          className={`programacao-analytics-fill ${meta.accentClass}`}
+                          style={{ width: `${item.percent}%` }}
+                        />
+                      </div>
+                      <span className="programacao-analytics-row-value">
+                        {formatPercent(item.percent)}% · {item.count}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="programacao-analytics-chart-card">
+                <div className="programacao-analytics-chart-header">
+                  <strong>{dominantAnalyticsStatus ? getStatusMeta(dominantAnalyticsStatus.status).label : "Sem dados"}</strong>
+                  <span className="subtle">
+                    {dashboard.analytics.consideredLines > 0
+                      ? `${formatPercent(dominantAnalyticsStatus?.percent ?? 0)}% das linhas do periodo`
+                      : "Nenhuma linha util considerada neste periodo."}
+                  </span>
+                </div>
+
+                <div className="programacao-analytics-stack">
+                  {analyticsStatusItems.length > 0 ? (
+                    analyticsStatusItems.map((item) => {
+                      const meta = getStatusMeta(item.status);
+
+                      return (
+                        <div
+                          key={item.status}
+                          className={`programacao-analytics-stack-segment ${meta.accentClass}`}
+                          style={{ width: `${item.percent}%` }}
+                          title={`${meta.label}: ${formatPercent(item.percent)}% (${item.count})`}
+                        />
+                      );
+                    })
+                  ) : (
+                    <div className="programacao-analytics-empty">Sem linhas uteis para consolidar.</div>
+                  )}
+                </div>
+
+                <div className="programacao-analytics-legend">
+                  {analyticsStatusItems.map((item) => {
+                    const meta = getStatusMeta(item.status);
+
+                    return (
+                      <div key={item.status} className="programacao-analytics-legend-item">
+                        <span className={`programacao-legend-dot ${meta.accentClass}`} />
+                        <span>{meta.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
       </section>
 
       <section className="programacao-footer-grid">

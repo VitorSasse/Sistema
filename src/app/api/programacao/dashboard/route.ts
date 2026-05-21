@@ -295,6 +295,7 @@ export async function GET(request: NextRequest) {
         id: true,
         descricao: true,
         placaOuTag: true,
+        complementar: true,
         tipoRecurso: true,
         tipoControle: true,
         statusOperacional: true,
@@ -453,6 +454,7 @@ export async function GET(request: NextRequest) {
           id: equipamento.id,
           descricao: equipamento.descricao,
           placaOuTag: equipamento.placaOuTag,
+          complementar: equipamento.complementar,
           tipoRecurso: equipamento.tipoRecurso,
           statusOperacional: equipamento.statusOperacional
         },
@@ -478,6 +480,34 @@ export async function GET(request: NextRequest) {
       return a.equipamento.placaOuTag.localeCompare(b.equipamento.placaOuTag);
     });
 
+  const visibleBusinessDates = new Set(
+    days.filter((day) => !isWeekend(day)).map((day) => toDateInput(day))
+  );
+
+  const rowsForAnalytics = mappedRows.filter((row) => !row.equipamento.complementar);
+  const analyticsCells = rowsForAnalytics.flatMap((row) =>
+    row.cells.filter((cell) => visibleBusinessDates.has(cell.date))
+  );
+  const consideredLines = analyticsCells.length;
+
+  const analytics = {
+    consideredEquipments: rowsForAnalytics.length,
+    complementaryExcluded: mappedRows.length - rowsForAnalytics.length,
+    businessDays: visibleBusinessDates.size,
+    consideredLines,
+    maintenanceLines: analyticsCells.filter((cell) => cell.status === "MANUTENCAO").length,
+    statuses: dashboardStatuses.map((status) => {
+      const count = analyticsCells.filter((cell) => cell.status === status).length;
+      const percent = consideredLines > 0 ? Number(((count / consideredLines) * 100).toFixed(2)) : 0;
+
+      return {
+        status,
+        count,
+        percent
+      };
+    })
+  };
+
   const summary = dashboardStatuses.map((status) => ({
     status,
     count: mappedRows.filter((row) => row.focusStatus === status).length
@@ -502,6 +532,7 @@ export async function GET(request: NextRequest) {
     clients: clientes,
     obras,
     summary,
+    analytics,
     rows
   });
 }

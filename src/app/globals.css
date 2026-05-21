@@ -2047,6 +2047,173 @@ button {
   gap: 18px;
 }
 
+.programacao-analytics-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.programacao-analytics-grid {
+  display: grid;
+  grid-template-columns: 0.92fr 1.08fr;
+  gap: 18px;
+}
+
+.programacao-analytics-summary,
+.programacao-analytics-bars,
+.programacao-analytics-visual {
+  display: grid;
+  gap: 14px;
+}
+
+.programacao-analytics-summary {
+  align-content: start;
+}
+
+.programacao-analytics-stat,
+.programacao-analytics-chart-card {
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 239, 225, 0.74));
+}
+
+.programacao-analytics-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.programacao-analytics-stat strong {
+  display: block;
+  font-size: 2rem;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.programacao-analytics-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 180px) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.programacao-analytics-row-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.programacao-analytics-row-head strong {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.programacao-analytics-track {
+  position: relative;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(109, 92, 66, 0.12);
+}
+
+.programacao-analytics-fill {
+  height: 100%;
+  border-radius: inherit;
+}
+
+.programacao-analytics-fill.is-operando,
+.programacao-analytics-stack-segment.is-operando {
+  background: #4fbf6a;
+}
+
+.programacao-analytics-fill.is-disponivel,
+.programacao-analytics-stack-segment.is-disponivel {
+  background: #4b8ad6;
+}
+
+.programacao-analytics-fill.is-sem-frente,
+.programacao-analytics-stack-segment.is-sem-frente {
+  background: #f0bd39;
+}
+
+.programacao-analytics-fill.is-manutencao,
+.programacao-analytics-stack-segment.is-manutencao {
+  background: #eb5a4d;
+}
+
+.programacao-analytics-fill.is-falta,
+.programacao-analytics-stack-segment.is-falta {
+  background: #9b63c8;
+}
+
+.programacao-analytics-fill.is-ferias,
+.programacao-analytics-stack-segment.is-ferias {
+  background: #ed9440;
+}
+
+.programacao-analytics-fill.is-chuva,
+.programacao-analytics-stack-segment.is-chuva {
+  background: #b8d3ea;
+}
+
+.programacao-analytics-row-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.programacao-analytics-chart-card {
+  display: grid;
+  gap: 16px;
+}
+
+.programacao-analytics-chart-header {
+  display: grid;
+  gap: 6px;
+}
+
+.programacao-analytics-stack {
+  display: flex;
+  min-height: 74px;
+  overflow: hidden;
+  border-radius: 24px;
+  background: rgba(109, 92, 66, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(109, 92, 66, 0.08);
+}
+
+.programacao-analytics-stack-segment {
+  min-width: 0;
+}
+
+.programacao-analytics-empty {
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.programacao-analytics-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.programacao-analytics-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .programacao-legend-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2143,6 +2310,7 @@ button {
   .detail-grid,
   .tile-grid,
   .programacao-kpi-grid,
+  .programacao-analytics-grid,
   .programacao-footer-grid,
   .programacao-legend-grid,
   .split-grid,
@@ -2206,6 +2374,7 @@ button {
   .form-grid-3,
   .form-grid-4,
   .programacao-toolbar-filters,
+  .programacao-analytics-grid,
   .detail-grid,
   .tile-grid,
   .module-grid-tight,
@@ -2218,5 +2387,9 @@ button {
   .programacao-grid,
   .programacao-grid-row {
     grid-template-columns: 220px repeat(var(--programacao-cols, 7), minmax(136px, 1fr));
+  }
+
+  .programacao-analytics-row {
+    grid-template-columns: 1fr;
   }
 }
