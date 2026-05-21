@@ -11,17 +11,19 @@ import {
 
 function canReuseDisponivelSlot(
   conflito: Awaited<ReturnType<typeof existeConflitoProgramacao>>,
-  data: ReturnType<typeof mapProgramacaoData>
+  data: ReturnType<typeof mapProgramacaoData>,
+  inputDate: string
 ) {
   if (!conflito) {
     return false;
   }
 
-  const sameSingleDayRange =
-    conflito.dataInicio.getTime() === data.dataInicio.getTime() &&
-    conflito.dataFim.getTime() === data.dataFim.getTime();
+  const sameStartDate = conflito.dataInicio.toISOString().slice(0, 10) === inputDate;
+  const durationHours =
+    (conflito.dataFim.getTime() - conflito.dataInicio.getTime()) / (1000 * 60 * 60);
+  const isSingleBusinessDaySlot = durationHours <= 24.5;
 
-  if (!sameSingleDayRange) {
+  if (!sameStartDate || !isSingleBusinessDaySlot) {
     return false;
   }
 
@@ -116,7 +118,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (conflito) {
-          if (canReuseDisponivelSlot(conflito, data)) {
+          if (canReuseDisponivelSlot(conflito, data, input.dataInicio)) {
             records.push(
               await tx.agendaProgramacao.update({
                 where: { id: conflito.id },
