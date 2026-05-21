@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
 
     const created = await prisma.$transaction(async (tx) => {
       const records = [];
+      const skipped: Array<{ date: string; turno: string | null }> = [];
 
       for (const input of validatedPayloads) {
         const data = mapProgramacaoData(input);
@@ -150,9 +151,11 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          throw new Error(
-            `CONFLITO:${conflito.dataInicio.toLocaleDateString("pt-BR")}:${conflito.dataFim.toLocaleDateString("pt-BR")}:${conflito.turno ?? ""}`
-          );
+          skipped.push({
+            date: conflito.dataInicio.toLocaleDateString("pt-BR"),
+            turno: conflito.turno ?? null
+          });
+          continue;
         }
 
         records.push(
@@ -187,10 +190,34 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      return records;
+      return { records, skipped };
     });
 
-    return NextResponse.json(created.length === 1 ? created[0] : created, { status: 201 });
+    if (created.records.length === 0 && created.skipped.length > 0) {
+      const skippedDates = [...new Set(created.skipped.map((item) => item.date))].join(", ");
+      return NextResponse.json(
+        {
+          message: `Nao foi possivel aplicar o agendamento em grupo. As datas ${skippedDates} ja possuem programacao que precisa ser ajustada individualmente.`
+        },
+        { status: 409 }
+      );
+    }
+
+    if (created.skipped.length > 0) {
+      const skippedDates = [...new Set(created.skipped.map((item) => item.date))].join(", ");
+      return NextResponse.json(
+        {
+          items: created.records,
+          message: `Agenda atualizada. As datas ${skippedDates} ja tinham programacao e ficaram de fora do lote.`
+        },
+        { status: 207 }
+      );
+    }
+
+    return NextResponse.json(
+      created.records.length === 1 ? created.records[0] : created.records,
+      { status: 201 }
+    );
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "EQUIPAMENTO_INVALIDO") {

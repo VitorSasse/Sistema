@@ -601,7 +601,7 @@ export function ProgramacaoManager() {
       }
 
       closeModal();
-      setFeedback("Agenda atualizada com sucesso.", "success");
+      setFeedback(data.message ?? "Agenda atualizada com sucesso.", "success");
       await loadDashboard();
     });
   }
