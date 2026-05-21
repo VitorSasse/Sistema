@@ -11,6 +11,7 @@ export const equipamentoSchema = z.object({
   tipoControle: z.nativeEnum(TipoControleEquipamento).default(TipoControleEquipamento.HORIMETRO),
   descricao: z.string().trim().min(3).max(160),
   placaOuTag: z.string().trim().min(2).max(30),
+  complementar: z.boolean().default(false),
   fabricante: z.string().trim().max(120).optional().or(z.literal("")),
   modelo: z.string().trim().max(120).optional().or(z.literal("")),
   marcaModelo: z.string().trim().max(120).optional().or(z.literal("")),

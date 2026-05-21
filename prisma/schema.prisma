@@ -311,6 +311,7 @@ model Equipamento {
   tipoControle  TipoControleEquipamento    @default(HORIMETRO)
   descricao     String
   placaOuTag    String                     @unique
+  complementar  Boolean                    @default(false)
   fabricante    String?
   modelo        String?
   marcaModelo   String?

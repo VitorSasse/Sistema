@@ -15,6 +15,7 @@ type Equipamento = {
   tipoControle: TipoControleEquipamento;
   descricao: string;
   placaOuTag: string;
+  complementar: boolean;
   fabricante: string | null;
   modelo: string | null;
   marcaModelo: string | null;
@@ -38,6 +39,7 @@ type FormState = {
   tipoControle: TipoControleEquipamento;
   descricao: string;
   placaOuTag: string;
+  complementar: boolean;
   fabricante: string;
   modelo: string;
   marcaModelo: string;
@@ -60,6 +62,7 @@ const initialForm: FormState = {
   tipoControle: "HORIMETRO",
   descricao: "",
   placaOuTag: "",
+  complementar: false,
   fabricante: "",
   modelo: "",
   marcaModelo: "",
@@ -204,6 +207,7 @@ export function EquipamentosManager() {
       tipoControle: equipamento.tipoControle,
       descricao: equipamento.descricao,
       placaOuTag: equipamento.placaOuTag,
+      complementar: equipamento.complementar,
       fabricante: equipamento.fabricante ?? "",
       modelo: equipamento.modelo ?? "",
       marcaModelo: equipamento.marcaModelo ?? "",
@@ -320,6 +324,16 @@ export function EquipamentosManager() {
                 value={form.placaOuTag}
                 onChange={(event) => updateField("placaOuTag", event.target.value.toUpperCase())}
               />
+            </Field>
+            <Field label="Equipamento complementar">
+              <select
+                className="field-control"
+                value={form.complementar ? "SIM" : "NAO"}
+                onChange={(event) => updateField("complementar", event.target.value === "SIM")}
+              >
+                <option value="NAO">NAO</option>
+                <option value="SIM">SIM</option>
+              </select>
             </Field>
             <Field label="Fabricante">
               <input
@@ -519,6 +533,7 @@ export function EquipamentosManager() {
               <tr>
                 <th>Equipamento</th>
                 <th>Controle</th>
+                <th>Complementar</th>
                 <th>Leitura atual</th>
                 <th>Periodicidade</th>
                 <th>Status</th>
@@ -539,6 +554,11 @@ export function EquipamentosManager() {
                   <td>
                     <div>{equipamento.tipoControle}</div>
                     <div className="subtle">{equipamento.tipoRecurso}</div>
+                  </td>
+                  <td>
+                    <span className={equipamento.complementar ? "badge badge-warn" : "badge badge-neutral"}>
+                      {equipamento.complementar ? "SIM" : "NAO"}
+                    </span>
                   </td>
                   <td>
                     <div>Horimetro: {equipamento.horimetroAtual ?? "-"}</div>
