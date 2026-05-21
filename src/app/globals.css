@@ -1808,6 +1808,11 @@ button {
   background: #ed9440;
 }
 
+.is-feriado .programacao-kpi-icon,
+.programacao-legend-dot.is-feriado {
+  background: #7a5af8;
+}
+
 .is-chuva .programacao-kpi-icon,
 .programacao-legend-dot.is-chuva {
   background: #b8d3ea;
@@ -2037,6 +2042,10 @@ button {
   background: #f6b160;
 }
 
+.status-feriado {
+  background: #b7a3ff;
+}
+
 .status-chuva {
   background: #c8def0;
 }
@@ -2154,6 +2163,11 @@ button {
 .programacao-analytics-fill.is-ferias,
 .programacao-analytics-stack-segment.is-ferias {
   background: #ed9440;
+}
+
+.programacao-analytics-fill.is-feriado,
+.programacao-analytics-stack-segment.is-feriado {
+  background: #7a5af8;
 }
 
 .programacao-analytics-fill.is-chuva,

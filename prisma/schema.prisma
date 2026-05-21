@@ -172,6 +172,7 @@ enum StatusAgendaProgramacao {
   MANUTENCAO
   FALTA
   FERIAS
+  FERIADO
   CHUVA
 }
 

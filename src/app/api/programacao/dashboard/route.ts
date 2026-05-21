@@ -10,6 +10,7 @@ const dashboardStatuses = [
   "MANUTENCAO",
   "FALTA",
   "FERIAS",
+  "FERIADO",
   "CHUVA"
 ] as const;
 
@@ -192,11 +193,12 @@ function getRowPriority(status: DashboardStatus, revisionStatus: string) {
   const statusWeight: Record<DashboardStatus, number> = {
     MANUTENCAO: 0,
     FALTA: 1,
-    SEM_FRENTE: 2,
-    CHUVA: 3,
-    FERIAS: 4,
-    OPERANDO: 5,
-    DISPONIVEL: 6
+    FERIADO: 2,
+    SEM_FRENTE: 3,
+    CHUVA: 4,
+    FERIAS: 5,
+    OPERANDO: 6,
+    DISPONIVEL: 7
   };
 
   const revisionWeight =
@@ -209,11 +211,12 @@ function getStatusPriority(status: DashboardStatus) {
   const statusWeight: Record<DashboardStatus, number> = {
     MANUTENCAO: 0,
     FALTA: 1,
-    SEM_FRENTE: 2,
-    CHUVA: 3,
-    FERIAS: 4,
-    OPERANDO: 5,
-    DISPONIVEL: 6
+    FERIADO: 2,
+    SEM_FRENTE: 3,
+    CHUVA: 4,
+    FERIAS: 5,
+    OPERANDO: 6,
+    DISPONIVEL: 7
   };
 
   return statusWeight[status];

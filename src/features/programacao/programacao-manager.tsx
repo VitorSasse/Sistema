@@ -12,6 +12,7 @@ type DashboardStatus =
   | "MANUTENCAO"
   | "FALTA"
   | "FERIAS"
+  | "FERIADO"
   | "CHUVA";
 
 type PeriodView = "HOJE" | "SEMANA" | "MES";
@@ -156,6 +157,7 @@ const statusCards: Array<{
   { status: "MANUTENCAO", label: "Manutencao", accentClass: "is-manutencao", icon: "MN" },
   { status: "FALTA", label: "Falta", accentClass: "is-falta", icon: "FT" },
   { status: "FERIAS", label: "Ferias", accentClass: "is-ferias", icon: "FR" },
+  { status: "FERIADO", label: "Feriado", accentClass: "is-feriado", icon: "FD" },
   { status: "CHUVA", label: "Chuva", accentClass: "is-chuva", icon: "CV" }
 ];
 
@@ -989,6 +991,8 @@ export function ProgramacaoManager() {
                               ? "Sem operador ou indisponivel por falta."
                               : item.status === "FERIAS"
                                 ? "Parada programada por ferias."
+                                : item.status === "FERIADO"
+                                  ? "Dia marcado como feriado operacional."
                                 : "Impactado por clima."}
                   </p>
                 </div>
