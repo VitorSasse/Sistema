@@ -1819,10 +1819,58 @@ button {
 }
 
 .programacao-grid-shell {
-  overflow-x: auto;
+  overflow: auto;
+  scrollbar-gutter: stable both-edges;
   border-radius: 22px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.48);
+  scrollbar-width: auto;
+  scrollbar-color: rgba(21, 91, 82, 0.48) rgba(109, 92, 66, 0.12);
+}
+
+.programacao-grid-shell::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+.programacao-grid-shell::-webkit-scrollbar-track {
+  background: rgba(109, 92, 66, 0.1);
+  border-radius: 999px;
+}
+
+.programacao-grid-shell::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    rgba(21, 91, 82, 0.78),
+    rgba(15, 70, 63, 0.88)
+  );
+  border-radius: 999px;
+  border: 2px solid rgba(255, 251, 244, 0.9);
+}
+
+.programacao-grid-shell:focus-visible {
+  outline: 2px solid rgba(21, 91, 82, 0.42);
+  outline-offset: 4px;
+}
+
+.programacao-grid-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.programacao-grid-toolbar-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.programacao-grid-toolbar-copy strong {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .programacao-grid,
@@ -1851,6 +1899,10 @@ button {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  background: rgba(255, 251, 244, 0.98);
 }
 
 .programacao-day-head {
@@ -1886,6 +1938,9 @@ button {
   padding: 16px 14px;
   background: rgba(255, 255, 255, 0.82);
   border-right: 1px solid rgba(109, 92, 66, 0.08);
+  position: sticky;
+  left: 0;
+  z-index: 1;
 }
 
 .programacao-equipment-card.is-row-operando {
@@ -2015,6 +2070,53 @@ button {
 .programacao-cell span {
   font-size: 0.9rem;
   line-height: 1.35;
+}
+
+.programacao-grid-shell.is-month-view .programacao-grid,
+.programacao-grid-shell.is-month-view .programacao-grid-row {
+  grid-template-columns: 240px repeat(var(--programacao-cols, 31), minmax(108px, 1fr));
+}
+
+.programacao-grid-shell.is-month-view .programacao-day-head,
+.programacao-grid-shell.is-month-view .programacao-equipment-head {
+  padding: 14px 10px;
+}
+
+.programacao-grid-shell.is-month-view .programacao-equipment-card {
+  grid-template-columns: 42px minmax(0, 1fr) 78px;
+  padding: 12px 10px;
+}
+
+.programacao-grid-shell.is-month-view .programacao-equipment-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  font-size: 11px;
+}
+
+.programacao-grid-shell.is-month-view .programacao-equipment-copy strong {
+  font-size: 0.92rem;
+}
+
+.programacao-grid-shell.is-month-view .programacao-equipment-copy span,
+.programacao-grid-shell.is-month-view .programacao-equipment-type,
+.programacao-grid-shell.is-month-view .revision-indicator span {
+  font-size: 11px;
+}
+
+.programacao-grid-shell.is-month-view .programacao-cell {
+  min-height: 78px;
+  padding: 10px 8px;
+  gap: 6px;
+}
+
+.programacao-grid-shell.is-month-view .programacao-cell strong {
+  font-size: 0.82rem;
+}
+
+.programacao-grid-shell.is-month-view .programacao-cell span {
+  font-size: 0.72rem;
+  line-height: 1.2;
 }
 
 .status-operando {

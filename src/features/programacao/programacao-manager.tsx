@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { TipoRecurso, TurnoAgendaProgramacao } from "@prisma/client";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { SearchableSelect } from "@/components/form/searchable-select";
 
 type DashboardStatus =
@@ -334,6 +334,7 @@ function formatPercent(value: number) {
 }
 
 export function ProgramacaoManager() {
+  const gridShellRef = useRef<HTMLDivElement | null>(null);
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [clienteId, setClienteId] = useState("");
   const [obraId, setObraId] = useState("");
@@ -452,6 +453,13 @@ export function ProgramacaoManager() {
       setView(nextView);
     }
     setReferenceDate(toDateInput(new Date()));
+  }
+
+  function scrollAgenda(direction: -1 | 1) {
+    gridShellRef.current?.scrollBy({
+      left: direction * (view === "MES" ? 720 : 420),
+      behavior: "smooth"
+    });
   }
 
   function openCellModal(row: DashboardRow, cell: DashboardCell) {
@@ -753,8 +761,29 @@ export function ProgramacaoManager() {
       </section>
 
       <section className="surface section-card fade-up fade-up-delay-2">
+        <div className="programacao-grid-toolbar">
+          <div className="programacao-grid-toolbar-copy">
+            <strong>{view === "MES" ? "Visao mensal compacta" : "Visao detalhada"}</strong>
+            <span className="subtle">
+              {view === "MES"
+                ? "No mes inteiro a leitura fica mais compacta, com a coluna do equipamento fixa e navegação lateral reforçada."
+                : "Use a rolagem lateral ou os botões para navegar pelos dias sem perder a referencia do equipamento."}
+            </span>
+          </div>
+          <div className="toolbar-actions">
+            <button type="button" className="button-secondary" onClick={() => scrollAgenda(-1)}>
+              {"<"} Rolar
+            </button>
+            <button type="button" className="button-secondary" onClick={() => scrollAgenda(1)}>
+              Rolar {">"}
+            </button>
+          </div>
+        </div>
         <div
-          className="programacao-grid-shell"
+          ref={gridShellRef}
+          className={`programacao-grid-shell ${view === "MES" ? "is-month-view" : ""}`}
+          tabIndex={0}
+          aria-label="Grade da agenda operacional com rolagem horizontal"
           style={{ ["--programacao-cols" as string]: String(days.length) }}
         >
           <div className="programacao-grid programacao-grid-head">
@@ -850,7 +879,11 @@ export function ProgramacaoManager() {
                             .join(" · ")}
                         </span>
                       ) : (
-                        <span>{cell.obraNome ?? cell.local ?? "Sem alocacao"}</span>
+                        <span>
+                          {view === "MES"
+                            ? cell.obraCodigo ?? cell.local ?? "Sem aloc."
+                            : cell.obraNome ?? cell.local ?? "Sem alocacao"}
+                        </span>
                       )}
                     </button>
                   );
