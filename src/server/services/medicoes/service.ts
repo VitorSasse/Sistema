@@ -4,6 +4,17 @@ import { canTransitionMedicao } from "@/lib/utils/medicao-status";
 import { medicaoDetailInclude, medicaoListInclude, medicaoTransitionInclude } from "@/server/services/medicoes/queries";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
+type LancamentoElegivel = Prisma.LancamentoDiarioGetPayload<{
+  include: {
+    ficha: true;
+    cliente: true;
+    obra: true;
+    servico: true;
+    material: true;
+    equipamento: true;
+    colaborador: true;
+  };
+}>;
 
 export function startOfDay(value: string) {
   const date = new Date(`${value}T00:00:00`);
@@ -120,7 +131,7 @@ export async function buscarLancamentosElegiveis(
   db: DbClient,
   input: MedicaoPreviewInput
 ) {
-  return db.lancamentoDiario.findMany({
+  const items = await db.lancamentoDiario.findMany({
     where: {
       clienteId: input.clienteId,
       obraId: input.obraId ?? undefined,
@@ -149,6 +160,8 @@ export async function buscarLancamentosElegiveis(
     },
     orderBy: [{ data: "asc" }, { createdAt: "asc" }]
   });
+
+  return normalizeLancamentosParaMedicao(items, input.cobrancaMaterial);
 }
 
 export function resumirLancamentos(
@@ -172,6 +185,53 @@ export function resumirLancamentos(
       totaisPorUnidade: {} as Record<string, number>
     }
   );
+}
+
+function shouldConvertLancamentoToM3(
+  item: Pick<LancamentoElegivel, "materialId" | "unidadeFaturada" | "equipamento">
+) {
+  return (
+    item.materialId !== null &&
+    item.unidadeFaturada === "CARGA" &&
+    (item.equipamento.tipoRecurso === "CAMINHAO" ||
+      item.equipamento.tipoRecurso === "CARRETA")
+  );
+}
+
+function normalizeLancamentosParaMedicao(
+  items: LancamentoElegivel[],
+  cobrancaMaterial: MedicaoPreviewInput["cobrancaMaterial"]
+) {
+  if (cobrancaMaterial !== "M3") {
+    return items;
+  }
+
+  const semCapacidade = items
+    .filter((item) => shouldConvertLancamentoToM3(item))
+    .filter((item) => Number(item.equipamento.capacidadeM3 ?? 0) <= 0);
+
+  if (semCapacidade.length > 0) {
+    const tags = Array.from(
+      new Set(semCapacidade.map((item) => item.equipamento.placaOuTag))
+    ).join(", ");
+
+    throw new Error(`CAPACIDADE_M3_NAO_CONFIGURADA:${tags}`);
+  }
+
+  return items.map((item) => {
+    if (!shouldConvertLancamentoToM3(item)) {
+      return item;
+    }
+
+    const quantidadeFaturada = Number(item.quantidadeFaturada);
+    const capacidadeM3 = Number(item.equipamento.capacidadeM3 ?? 0);
+
+    return {
+      ...item,
+      quantidadeFaturada: new Prisma.Decimal(quantidadeFaturada * capacidadeM3),
+      unidadeFaturada: "M3" as const
+    };
+  });
 }
 
 export async function criarMedicao(
@@ -273,6 +333,10 @@ export async function criarMedicao(
         material: medicaoItem.item.material?.descricao ?? null,
         unidadeFaturada: medicaoItem.item.unidadeFaturada,
         quantidadeFaturada: medicaoItem.item.quantidadeFaturada,
+        m3SeAplicavel:
+          medicaoItem.item.unidadeFaturada === "M3"
+            ? medicaoItem.item.quantidadeFaturada
+            : null,
         valorUnitario: medicaoItem.valorUnitario,
         valorTotalItem: medicaoItem.valorTotalItem,
         origem: medicaoItem.item.origem

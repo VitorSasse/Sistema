@@ -6,6 +6,7 @@ export const medicaoPreviewSchema = z.object({
   clienteId: z.string().uuid(),
   obraId: z.string().uuid().optional().nullable(),
   tipoMedicao: z.enum(["UNICA", "SEMANAL", "QUINZENAL", "MENSAL"]),
+  cobrancaMaterial: z.enum(["CARGA", "M3"]).default("CARGA"),
   observacao: z.string().trim().max(500).optional().or(z.literal(""))
 });
 

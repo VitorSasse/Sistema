@@ -34,8 +34,29 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const items = await buscarLancamentosElegiveis(prisma, parsed.data);
-  const resumo = resumirLancamentos(items);
+  try {
+    const items = await buscarLancamentosElegiveis(prisma, parsed.data);
+    const resumo = resumirLancamentos(items);
 
-  return NextResponse.json({ items, resumo });
+    return NextResponse.json({ items, resumo });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("CAPACIDADE_M3_NAO_CONFIGURADA:")
+    ) {
+      const tags = error.message.replace("CAPACIDADE_M3_NAO_CONFIGURADA:", "").trim();
+
+      return NextResponse.json(
+        {
+          message: `Existem caminhoes sem capacidade m3 cadastrada para calcular a medicao por m3: ${tags}.`
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { message: "Nao foi possivel gerar a pre-visualizacao da medicao." },
+      { status: 500 }
+    );
+  }
 }

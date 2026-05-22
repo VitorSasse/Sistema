@@ -1,6 +1,10 @@
 import { SearchableSelect } from "@/components/form/searchable-select";
 import type { OperationalOption } from "@/lib/client/operational-options";
-import type { MedicaoFormState, MedicaoTipo } from "@/features/medicoes/types";
+import type {
+  MedicaoCobrancaMaterial,
+  MedicaoFormState,
+  MedicaoTipo
+} from "@/features/medicoes/types";
 import { MedicaoField } from "@/features/medicoes/components/shared";
 
 function optionLabel(option: OperationalOption) {
@@ -57,6 +61,18 @@ export function MedicaoFormSection(props: {
               <option value="MENSAL">Mensal</option>
             </select>
           </MedicaoField>
+          <MedicaoField label="Cobranca de material">
+            <select
+              className="field-control"
+              value={form.cobrancaMaterial}
+              onChange={(e) =>
+                onChange("cobrancaMaterial", e.target.value as MedicaoCobrancaMaterial)
+              }
+            >
+              <option value="CARGA">Por carga</option>
+              <option value="M3">Por m3</option>
+            </select>
+          </MedicaoField>
           <MedicaoField label="Cliente">
             <SearchableSelect
               value={form.clienteId}
@@ -86,6 +102,13 @@ export function MedicaoFormSection(props: {
         <MedicaoField label="Observacao da medicao">
           <textarea className="field-control textarea-lg" value={form.observacao} onChange={(e) => onChange("observacao", e.target.value)} />
         </MedicaoField>
+
+        {form.cobrancaMaterial === "M3" ? (
+          <p className="message-inline">
+            Para lancamentos de material em carga, a pre-visualizacao vai usar a capacidade
+            m3 do caminhao para calcular a quantidade faturada automaticamente.
+          </p>
+        ) : null}
 
         <div className="toolbar-actions">
           <button type="submit" disabled={isPending} className="button-primary">

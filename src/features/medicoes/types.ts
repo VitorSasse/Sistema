@@ -1,6 +1,7 @@
 import type { OperationalOption } from "@/lib/client/operational-options";
 
 export type MedicaoTipo = "UNICA" | "SEMANAL" | "QUINZENAL" | "MENSAL";
+export type MedicaoCobrancaMaterial = "CARGA" | "M3";
 
 export type MedicaoStatus =
   | "CRIADA"
@@ -146,6 +147,7 @@ export type MedicaoFormState = {
   clienteId: string;
   obraId: string;
   tipoMedicao: MedicaoTipo;
+  cobrancaMaterial: MedicaoCobrancaMaterial;
   observacao: string;
 };
 

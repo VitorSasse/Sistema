@@ -12,6 +12,7 @@ export const initialMedicaoForm: MedicaoFormState = {
   clienteId: "",
   obraId: "",
   tipoMedicao: "QUINZENAL",
+  cobrancaMaterial: "CARGA",
   observacao: ""
 };
 

@@ -322,12 +322,13 @@ export function MedicoesManager() {
           editingSource === "detail" && selectedMedicao
             ? {
                 periodoInicial: selectedMedicao.periodoInicial.slice(0, 10),
-                periodoFinal: selectedMedicao.periodoFinal.slice(0, 10),
-                clienteId: selectedMedicao.cliente.id,
-                obraId: selectedMedicao.obra?.id ?? "",
-                tipoMedicao: selectedMedicao.tipoMedicao,
-                observacao: selectedMedicao.observacao ?? ""
-              }
+              periodoFinal: selectedMedicao.periodoFinal.slice(0, 10),
+              clienteId: selectedMedicao.cliente.id,
+              obraId: selectedMedicao.obra?.id ?? "",
+              tipoMedicao: selectedMedicao.tipoMedicao,
+              cobrancaMaterial: form.cobrancaMaterial,
+              observacao: selectedMedicao.observacao ?? ""
+            }
             : form,
         exigeMaterial: Boolean(servicoEditado?.exigeMaterial)
       });

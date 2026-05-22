@@ -100,6 +100,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (
+      error instanceof Error &&
+      error.message.startsWith("CAPACIDADE_M3_NAO_CONFIGURADA:")
+    ) {
+      const tags = error.message.replace("CAPACIDADE_M3_NAO_CONFIGURADA:", "").trim();
+
+      return NextResponse.json(
+        {
+          message: `Existem caminhoes sem capacidade m3 cadastrada para calcular a medicao por m3: ${tags}.`
+        },
+        { status: 400 }
+      );
+    }
+
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json(
         { message: "Nao foi possivel gerar a medicao. Tente novamente." },
