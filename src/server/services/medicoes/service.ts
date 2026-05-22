@@ -18,20 +18,36 @@ export function endOfDay(value: string) {
 }
 
 export async function buildCodigoMedicao(db: DbClient) {
-  const rows = await db.$queryRaw<Array<{ maxNumero: number | null }>>(
+  const rows = await db.$queryRaw<Array<{ numero: number }>>(
     Prisma.sql`
-      SELECT COALESCE(
-        MAX(CAST(SUBSTRING("codigoMedicao" FROM 'MED-([0-9]+)$') AS INTEGER)),
-        0
-      ) AS "maxNumero"
+      SELECT CAST(SUBSTRING("codigoMedicao" FROM 'MED-([0-9]+)$') AS INTEGER) AS "numero"
       FROM "Medicao"
       WHERE "codigoMedicao" ~ '^MED-[0-9]+$'
         AND "deletedAt" IS NULL
+      ORDER BY "numero" ASC
     `
   );
 
-  const maxNumero = Number(rows[0]?.maxNumero ?? 0);
-  return `MED-${String(maxNumero + 1).padStart(3, "0")}`;
+  let nextNumero = 1;
+
+  for (const row of rows) {
+    const numero = Number(row.numero);
+
+    if (Number.isNaN(numero) || numero < nextNumero) {
+      continue;
+    }
+
+    if (numero === nextNumero) {
+      nextNumero += 1;
+      continue;
+    }
+
+    if (numero > nextNumero) {
+      break;
+    }
+  }
+
+  return `MED-${String(nextNumero).padStart(3, "0")}`;
 }
 
 export async function listarMedicoes(
