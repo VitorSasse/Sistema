@@ -157,7 +157,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const statusValues = Prisma.join(faturamentoStatuses.map((status) => Prisma.sql`${status}`));
+  const statusValues = Prisma.raw(
+    faturamentoStatuses
+      .map((status) => `'${status}'::"StatusMedicao"`)
+      .join(", ")
+  );
   const faturamentoDate = buildFaturamentoDateExpression();
 
   const [ranking, totals] = await Promise.all([
