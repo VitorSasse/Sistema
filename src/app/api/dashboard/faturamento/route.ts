@@ -1,4 +1,4 @@
-import { Prisma, StatusMedicao } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -12,25 +12,23 @@ const allowedPresets = [
 
 type PeriodPreset = (typeof allowedPresets)[number];
 
-const faturamentoStatuses: StatusMedicao[] = [
-  "ENVIADA_PARA_FATURAMENTO",
-  "APROVADA",
-  "PEDIDO_ANEXADO",
-  "NOTA_FISCAL_ANEXADA",
-  "CONCLUIDA"
-];
-
 type RankingRow = {
   clienteId: string;
   clienteCodigo: string;
   clienteNome: string;
   totalFaturado: Prisma.Decimal;
+  totalAFaturar: Prisma.Decimal;
+  totalGeral: Prisma.Decimal;
   totalMedicoes: bigint;
 };
 
 type TotalsRow = {
   totalFaturado: Prisma.Decimal | null;
+  totalAFaturar: Prisma.Decimal | null;
+  totalGeral: Prisma.Decimal | null;
   totalMedicoes: bigint;
+  totalMedicoesConcluidas: bigint;
+  totalMedicoesAFaturar: bigint;
   totalClientes: bigint;
 };
 
@@ -147,70 +145,102 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const statusValues = Prisma.raw(
-    faturamentoStatuses
-      .map((status) => `'${status}'::"StatusMedicao"`)
-      .join(", ")
-  );
-
   const [ranking, totals] = await Promise.all([
     prisma.$queryRaw<RankingRow[]>(Prisma.sql`
+      WITH medicoes_periodo AS (
+        SELECT
+          medicao.id,
+          medicao.status,
+          medicao."clienteId"
+        FROM "Medicao" medicao
+        INNER JOIN "MedicaoItem" item
+          ON item."medicaoId" = medicao.id
+         AND item."deletedAt" IS NULL
+        WHERE medicao."deletedAt" IS NULL
+          AND medicao.status <> 'CANCELADA'::"StatusMedicao"
+        GROUP BY medicao.id, medicao.status, medicao."clienteId"
+        HAVING MAX(item."data") >= ${period.start}
+           AND MAX(item."data") <= ${period.end}
+      )
       SELECT
         cliente.id AS "clienteId",
         cliente.codigo AS "clienteCodigo",
         cliente.nome AS "clienteNome",
-        COALESCE(SUM(item."valorTotalItem"), 0) AS "totalFaturado",
+        COALESCE(SUM(CASE WHEN medicao.status = 'CONCLUIDA'::"StatusMedicao" THEN item."valorTotalItem" ELSE 0 END), 0) AS "totalFaturado",
+        COALESCE(SUM(CASE WHEN medicao.status <> 'CONCLUIDA'::"StatusMedicao" THEN item."valorTotalItem" ELSE 0 END), 0) AS "totalAFaturar",
+        COALESCE(SUM(item."valorTotalItem"), 0) AS "totalGeral",
         COUNT(DISTINCT medicao.id) AS "totalMedicoes"
-      FROM "Medicao" medicao
+      FROM medicoes_periodo medicao
       INNER JOIN "Cliente" cliente ON cliente.id = medicao."clienteId"
       INNER JOIN "MedicaoItem" item
         ON item."medicaoId" = medicao.id
        AND item."deletedAt" IS NULL
-      WHERE medicao."deletedAt" IS NULL
-        AND medicao.status IN (${statusValues})
-        AND medicao."periodoFinal" IS NOT NULL
-        AND medicao."periodoFinal" >= ${period.start}
-        AND medicao."periodoFinal" <= ${period.end}
       GROUP BY cliente.id, cliente.codigo, cliente.nome
-      ORDER BY "totalFaturado" DESC, cliente.nome ASC
+      ORDER BY "totalGeral" DESC, cliente.nome ASC
     `),
     prisma.$queryRaw<TotalsRow[]>(Prisma.sql`
+      WITH medicoes_periodo AS (
+        SELECT
+          medicao.id,
+          medicao.status,
+          medicao."clienteId"
+        FROM "Medicao" medicao
+        INNER JOIN "MedicaoItem" item
+          ON item."medicaoId" = medicao.id
+         AND item."deletedAt" IS NULL
+        WHERE medicao."deletedAt" IS NULL
+          AND medicao.status <> 'CANCELADA'::"StatusMedicao"
+        GROUP BY medicao.id, medicao.status, medicao."clienteId"
+        HAVING MAX(item."data") >= ${period.start}
+           AND MAX(item."data") <= ${period.end}
+      )
       SELECT
-        COALESCE(SUM(item."valorTotalItem"), 0) AS "totalFaturado",
+        COALESCE(SUM(CASE WHEN medicao.status = 'CONCLUIDA'::"StatusMedicao" THEN item."valorTotalItem" ELSE 0 END), 0) AS "totalFaturado",
+        COALESCE(SUM(CASE WHEN medicao.status <> 'CONCLUIDA'::"StatusMedicao" THEN item."valorTotalItem" ELSE 0 END), 0) AS "totalAFaturar",
+        COALESCE(SUM(item."valorTotalItem"), 0) AS "totalGeral",
         COUNT(DISTINCT medicao.id) AS "totalMedicoes",
+        COUNT(DISTINCT CASE WHEN medicao.status = 'CONCLUIDA'::"StatusMedicao" THEN medicao.id END) AS "totalMedicoesConcluidas",
+        COUNT(DISTINCT CASE WHEN medicao.status <> 'CONCLUIDA'::"StatusMedicao" THEN medicao.id END) AS "totalMedicoesAFaturar",
         COUNT(DISTINCT medicao."clienteId") AS "totalClientes"
-      FROM "Medicao" medicao
+      FROM medicoes_periodo medicao
       INNER JOIN "MedicaoItem" item
         ON item."medicaoId" = medicao.id
        AND item."deletedAt" IS NULL
-      WHERE medicao."deletedAt" IS NULL
-        AND medicao.status IN (${statusValues})
-        AND medicao."periodoFinal" IS NOT NULL
-        AND medicao."periodoFinal" >= ${period.start}
-        AND medicao."periodoFinal" <= ${period.end}
     `)
   ]);
 
   const totalsRow = totals[0] ?? {
     totalFaturado: new Prisma.Decimal(0),
+    totalAFaturar: new Prisma.Decimal(0),
+    totalGeral: new Prisma.Decimal(0),
     totalMedicoes: BigInt(0),
+    totalMedicoesConcluidas: BigInt(0),
+    totalMedicoesAFaturar: BigInt(0),
     totalClientes: BigInt(0)
   };
 
   const totalFaturado = Number(totalsRow.totalFaturado ?? 0);
+  const totalAFaturar = Number(totalsRow.totalAFaturar ?? 0);
+  const totalGeral = Number(totalsRow.totalGeral ?? 0);
   const totalClientes = Number(totalsRow.totalClientes ?? 0);
   const totalMedicoes = Number(totalsRow.totalMedicoes ?? 0);
+  const totalMedicoesConcluidas = Number(totalsRow.totalMedicoesConcluidas ?? 0);
+  const totalMedicoesAFaturar = Number(totalsRow.totalMedicoesAFaturar ?? 0);
 
   const rankingItems = ranking.map((item, index) => {
-    const totalCliente = Number(item.totalFaturado ?? 0);
-    const sharePercent = totalFaturado > 0 ? (totalCliente / totalFaturado) * 100 : 0;
+    const totalClienteFaturado = Number(item.totalFaturado ?? 0);
+    const totalClienteAFaturar = Number(item.totalAFaturar ?? 0);
+    const totalCliente = Number(item.totalGeral ?? 0);
+    const sharePercent = totalGeral > 0 ? (totalCliente / totalGeral) * 100 : 0;
 
     return {
       rank: index + 1,
       clienteId: item.clienteId,
       clienteCodigo: item.clienteCodigo,
       clienteNome: item.clienteNome,
-      totalFaturado: totalCliente,
+      totalFaturado: totalClienteFaturado,
+      totalAFaturar: totalClienteAFaturar,
+      totalGeral: totalCliente,
       totalMedicoes: Number(item.totalMedicoes),
       sharePercent
     };
@@ -225,15 +255,21 @@ export async function GET(request: NextRequest) {
     },
     summary: {
       totalFaturado,
+      totalAFaturar,
+      totalGeral,
       totalMedicoes,
+      totalMedicoesConcluidas,
+      totalMedicoesAFaturar,
       totalClientes,
-      ticketMedioPorCliente: totalClientes > 0 ? totalFaturado / totalClientes : 0,
+      ticketMedioPorCliente: totalClientes > 0 ? totalGeral / totalClientes : 0,
       clienteTop:
         rankingItems[0]
           ? {
               nome: rankingItems[0].clienteNome,
               codigo: rankingItems[0].clienteCodigo,
-              totalFaturado: rankingItems[0].totalFaturado
+              totalFaturado: rankingItems[0].totalFaturado,
+              totalAFaturar: rankingItems[0].totalAFaturar,
+              totalGeral: rankingItems[0].totalGeral
             }
           : null
     },

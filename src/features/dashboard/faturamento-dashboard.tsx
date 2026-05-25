@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
-  BarChart,
   CartesianGrid,
   Cell,
   ComposedChart,
@@ -27,13 +26,19 @@ type DashboardPayload = {
   };
   summary: {
     totalFaturado: number;
+    totalAFaturar: number;
+    totalGeral: number;
     totalMedicoes: number;
+    totalMedicoesConcluidas: number;
+    totalMedicoesAFaturar: number;
     totalClientes: number;
     ticketMedioPorCliente: number;
     clienteTop: {
       nome: string;
       codigo: string;
       totalFaturado: number;
+      totalAFaturar: number;
+      totalGeral: number;
     } | null;
   };
   ranking: Array<{
@@ -42,6 +47,8 @@ type DashboardPayload = {
     clienteCodigo: string;
     clienteNome: string;
     totalFaturado: number;
+    totalAFaturar: number;
+    totalGeral: number;
     totalMedicoes: number;
     sharePercent: number;
   }>;
@@ -90,7 +97,9 @@ function CustomTooltip({
     <div className="billing-tooltip">
       <strong>{item.clienteNome}</strong>
       <span>{item.clienteCodigo}</span>
-      <span>Faturamento: {formatCurrency(item.totalFaturado)}</span>
+      <span>Faturado: {formatCurrency(item.totalFaturado)}</span>
+      <span>A faturar: {formatCurrency(item.totalAFaturar)}</span>
+      <span>Total: {formatCurrency(item.totalGeral)}</span>
       <span>Participacao: {formatPercent(item.sharePercent)}</span>
       <span>Medicoes: {item.totalMedicoes}</span>
     </div>
@@ -111,7 +120,7 @@ function DashboardSkeleton() {
       </section>
 
       <section className="billing-summary-grid">
-        {Array.from({ length: 4 }).map((_, index) => (
+        {Array.from({ length: 5 }).map((_, index) => (
           <article key={index} className="billing-summary-card">
             <div className="billing-skeleton billing-skeleton-line billing-skeleton-kicker" />
             <div className="billing-skeleton billing-skeleton-line billing-skeleton-value" />
@@ -201,8 +210,8 @@ export function FaturamentoDashboard() {
           <span className="billing-kicker">Dashboard de faturamento</span>
           <h1 className="page-title">Receita por cliente com foco mensal</h1>
           <p className="page-copy">
-            Painel financeiro para acompanhar o faturamento das medicoes faturadas,
-            entender quem mais gera receita e comparar o desempenho do periodo selecionado.
+            Painel financeiro por competencia do ultimo lancamento da medicao,
+            separando o que ja foi concluido do que ainda segue como valor a faturar.
           </p>
         </div>
 
@@ -273,29 +282,34 @@ export function FaturamentoDashboard() {
 
       <section className="billing-summary-grid fade-up fade-up-delay-1">
         <article className="billing-summary-card">
-          <span className="billing-summary-label">Faturamento total</span>
+          <span className="billing-summary-label">Faturado no periodo</span>
           <strong>{formatCurrency(data?.summary.totalFaturado ?? 0)}</strong>
-          <p>Receita consolidada das medicoes faturadas no periodo.</p>
+          <p>{data?.summary.totalMedicoesConcluidas ?? 0} medicao(oes) concluidas.</p>
         </article>
         <article className="billing-summary-card">
-          <span className="billing-summary-label">Cliente que mais faturou</span>
-          <strong>{data?.summary.clienteTop?.nome ?? "Sem faturamento"}</strong>
+          <span className="billing-summary-label">Valor a faturar</span>
+          <strong>{formatCurrency(data?.summary.totalAFaturar ?? 0)}</strong>
+          <p>{data?.summary.totalMedicoesAFaturar ?? 0} medicao(oes) ainda nao concluidas.</p>
+        </article>
+        <article className="billing-summary-card">
+          <span className="billing-summary-label">Cliente com maior carteira</span>
+          <strong>{data?.summary.clienteTop?.nome ?? "Sem medicao"}</strong>
           <p>
             {data?.summary.clienteTop
-              ? `${data.summary.clienteTop.codigo} • ${formatCurrency(data.summary.clienteTop.totalFaturado)}`
-              : "Ainda nao ha medicoes faturadas para a janela selecionada."}
+              ? `${data.summary.clienteTop.codigo} • ${formatCurrency(data.summary.clienteTop.totalGeral)}`
+              : "Ainda nao ha medicoes para a janela selecionada."}
           </p>
         </article>
         <article className="billing-summary-card">
-          <span className="billing-summary-label">Medicoes faturadas</span>
+          <span className="billing-summary-label">Medicoes do periodo</span>
           <strong>{data?.summary.totalMedicoes ?? 0}</strong>
-          <p>Quantidade de medicoes contabilizadas no faturamento do periodo.</p>
+          <p>Inclui concluidas e valores ainda a faturar.</p>
         </article>
         <article className="billing-summary-card">
           <span className="billing-summary-label">Ticket medio por cliente</span>
           <strong>{formatCurrency(data?.summary.ticketMedioPorCliente ?? 0)}</strong>
           <p>
-            Baseado em {data?.summary.totalClientes ?? 0} cliente(s) com medicao faturada.
+            Baseado em {data?.summary.totalClientes ?? 0} cliente(s) com medicao no periodo.
           </p>
         </article>
       </section>
@@ -307,17 +321,16 @@ export function FaturamentoDashboard() {
               <span className="billing-kicker">Faturamento por cliente</span>
               <h2 className="section-title">Ranking financeiro do periodo</h2>
               <p className="section-copy">
-                Clientes ordenados do maior faturamento para o menor, com participacao no total.
+                Clientes ordenados pelo total da carteira no periodo, separando faturado e a faturar.
               </p>
             </div>
           </div>
 
           {chartData.length === 0 ? (
             <div className="billing-empty-state">
-              <strong>Nenhum faturamento encontrado</strong>
+              <strong>Nenhuma medicao encontrada</strong>
               <p>
-                Nao ha medicoes faturadas no periodo selecionado. Ajuste a janela para ver o
-                grafico.
+                Nao ha medicoes vinculadas ao periodo selecionado. Ajuste a janela para ver o grafico.
               </p>
             </div>
           ) : (
@@ -327,12 +340,6 @@ export function FaturamentoDashboard() {
                   data={chartData}
                   margin={{ top: 18, right: 24, left: 8, bottom: 32 }}
                 >
-                  <defs>
-                    <linearGradient id="billingBarGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#1b7c6f" stopOpacity={0.95} />
-                      <stop offset="100%" stopColor="#155b52" stopOpacity={0.72} />
-                    </linearGradient>
-                  </defs>
                   <CartesianGrid stroke="rgba(109, 92, 66, 0.12)" vertical={false} />
                   <XAxis
                     dataKey="label"
@@ -365,24 +372,34 @@ export function FaturamentoDashboard() {
                   <Legend
                     wrapperStyle={{ paddingTop: 12 }}
                     formatter={(value) =>
-                      value === "totalFaturado" ? "Faturamento" : "Participacao"
+                      value === "totalFaturado"
+                        ? "Faturado"
+                        : value === "totalAFaturar"
+                          ? "A faturar"
+                          : "Participacao"
                     }
                   />
                   <Bar
                     yAxisId="currency"
                     dataKey="totalFaturado"
                     name="totalFaturado"
+                    stackId="billing"
                     radius={[12, 12, 0, 0]}
-                    fill="url(#billingBarGradient)"
                     maxBarSize={56}
                   >
                     {chartData.map((entry, index) => (
-                      <Cell
-                        key={entry.clienteId}
-                        fill={chartPalette[index % chartPalette.length]}
-                      />
+                      <Cell key={entry.clienteId} fill={chartPalette[index % chartPalette.length]} />
                     ))}
                   </Bar>
+                  <Bar
+                    yAxisId="currency"
+                    dataKey="totalAFaturar"
+                    name="totalAFaturar"
+                    stackId="billing"
+                    radius={[12, 12, 0, 0]}
+                    fill="#d9a441"
+                    maxBarSize={56}
+                  />
                   <Line
                     yAxisId="share"
                     type="monotone"
@@ -403,7 +420,7 @@ export function FaturamentoDashboard() {
           <div className="billing-ranking-header">
             <div>
               <span className="billing-kicker">Top clientes</span>
-              <h2 className="section-title">Maiores faturamentos</h2>
+              <h2 className="section-title">Maiores carteiras do periodo</h2>
             </div>
             <span className="badge badge-info">
               {data?.summary.totalClientes ?? 0} cliente(s)
@@ -413,7 +430,7 @@ export function FaturamentoDashboard() {
           {topFive.length === 0 ? (
             <div className="billing-empty-state billing-empty-state-compact">
               <strong>Sem ranking no periodo</strong>
-              <p>Nao ha clientes faturados para exibir no momento.</p>
+              <p>Nao ha clientes com medicao para exibir no momento.</p>
             </div>
           ) : (
             <div className="billing-ranking-list">
@@ -425,7 +442,10 @@ export function FaturamentoDashboard() {
                     <span>{item.clienteCodigo}</span>
                   </div>
                   <div className="billing-ranking-metrics">
-                    <strong>{formatCurrency(item.totalFaturado)}</strong>
+                    <strong>{formatCurrency(item.totalGeral)}</strong>
+                    <span>
+                      {formatCurrency(item.totalFaturado)} faturado • {formatCurrency(item.totalAFaturar)} a faturar
+                    </span>
                     <span>{formatPercent(item.sharePercent)} do total</span>
                   </div>
                 </article>
