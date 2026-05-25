@@ -8,7 +8,7 @@ const navigationGroups = [
   {
     label: "Visao geral",
     description: "Painel executivo e acompanhamento rapido.",
-    items: [{ href: "/dashboard", label: "Dashboard" }]
+    items: [{ href: "/dashboard", label: "Dashboard de faturamento" }]
   },
   {
     label: "Cadastros",

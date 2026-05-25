@@ -1659,6 +1659,288 @@ button {
   color: var(--muted);
 }
 
+.billing-dashboard {
+  display: grid;
+  gap: 22px;
+}
+
+.billing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 20px;
+  align-items: start;
+  background:
+    radial-gradient(circle at top right, rgba(240, 213, 143, 0.16), transparent 22%),
+    radial-gradient(circle at bottom left, rgba(21, 91, 82, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 239, 225, 0.9));
+}
+
+.billing-header-copy,
+.billing-header-controls,
+.billing-custom-range,
+.billing-summary-card,
+.billing-chart-header,
+.billing-ranking-header,
+.billing-tooltip,
+.billing-ranking-copy,
+.billing-ranking-metrics {
+  display: grid;
+  gap: 8px;
+}
+
+.billing-kicker {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(21, 91, 82, 0.08);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.billing-header-controls {
+  justify-items: stretch;
+  align-content: start;
+}
+
+.billing-filter-field {
+  min-width: 0;
+}
+
+.billing-custom-range {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+}
+
+.billing-period-badge {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.billing-period-badge strong {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.billing-summary-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.billing-summary-card,
+.billing-chart-card,
+.billing-ranking-card {
+  border-radius: 22px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 239, 225, 0.78));
+  box-shadow: var(--shadow-md);
+}
+
+.billing-summary-card {
+  padding: 20px;
+  min-height: 162px;
+}
+
+.billing-summary-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.billing-summary-card strong {
+  font-size: clamp(1.7rem, 2.1vw, 2.35rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.billing-summary-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.billing-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+}
+
+.billing-chart-card,
+.billing-ranking-card {
+  padding: 22px;
+}
+
+.billing-chart-shell {
+  height: 420px;
+  margin-top: 8px;
+}
+
+.billing-ranking-list {
+  display: grid;
+  gap: 12px;
+}
+
+.billing-ranking-item {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) minmax(140px, auto);
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.billing-ranking-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(21, 91, 82, 0.22);
+  box-shadow: 0 18px 32px rgba(53, 43, 29, 0.08);
+}
+
+.billing-ranking-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(21, 91, 82, 0.14), rgba(240, 213, 143, 0.2));
+  color: var(--primary);
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.billing-ranking-copy strong,
+.billing-ranking-metrics strong {
+  font-size: 1rem;
+}
+
+.billing-ranking-copy span,
+.billing-ranking-metrics span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.billing-ranking-metrics {
+  justify-items: end;
+  text-align: right;
+}
+
+.billing-tooltip {
+  min-width: 220px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(21, 91, 82, 0.14);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 40px rgba(53, 43, 29, 0.12);
+}
+
+.billing-tooltip strong {
+  font-size: 0.98rem;
+}
+
+.billing-tooltip span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.billing-empty-state {
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.billing-empty-state-compact {
+  min-height: 220px;
+}
+
+.billing-empty-state strong {
+  color: var(--text);
+  font-size: 1.08rem;
+}
+
+.billing-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(109, 92, 66, 0.12);
+  border-radius: 999px;
+}
+
+.billing-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.55),
+    transparent
+  );
+  animation: billingShimmer 1.4s infinite;
+}
+
+.billing-skeleton-line {
+  height: 14px;
+}
+
+.billing-skeleton-title {
+  width: 58%;
+  height: 24px;
+}
+
+.billing-skeleton-copy {
+  width: 82%;
+}
+
+.billing-skeleton-pill {
+  width: 220px;
+  height: 46px;
+}
+
+.billing-skeleton-kicker {
+  width: 42%;
+}
+
+.billing-skeleton-value {
+  width: 66%;
+  height: 30px;
+}
+
+.billing-skeleton-chart {
+  height: 420px;
+  border-radius: 24px;
+}
+
+.billing-skeleton-row {
+  height: 82px;
+  border-radius: 20px;
+}
+
+@keyframes billingShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 .programacao-hero-panel {
   display: grid;
   gap: 18px;
@@ -2441,6 +2723,9 @@ button {
 
   .detail-grid,
   .tile-grid,
+  .billing-summary-grid,
+  .billing-grid,
+  .billing-hero,
   .programacao-kpi-grid,
   .programacao-analytics-grid,
   .programacao-footer-grid,
@@ -2505,6 +2790,9 @@ button {
   .form-grid-2,
   .form-grid-3,
   .form-grid-4,
+  .billing-summary-grid,
+  .billing-grid,
+  .billing-hero,
   .programacao-toolbar-filters,
   .programacao-analytics-grid,
   .detail-grid,
@@ -2523,5 +2811,23 @@ button {
 
   .programacao-analytics-row {
     grid-template-columns: 1fr;
+  }
+
+  .billing-custom-range {
+    grid-template-columns: 1fr;
+  }
+
+  .billing-ranking-item {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .billing-ranking-metrics {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .billing-chart-shell {
+    height: 360px;
   }
 }
