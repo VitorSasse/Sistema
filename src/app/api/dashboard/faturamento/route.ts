@@ -151,7 +151,9 @@ export async function GET(request: NextRequest) {
         SELECT
           medicao.id,
           medicao.status,
-          medicao."clienteId"
+          medicao."clienteId",
+          medicao."codigoMedicao",
+          COALESCE(medicao."valorTotal", 0) - COALESCE(medicao."descontoValor", 0) AS "valorLiquido"
         FROM "Medicao" medicao
         INNER JOIN "MedicaoItem" item
           ON item."medicaoId" = medicao.id
@@ -166,15 +168,12 @@ export async function GET(request: NextRequest) {
         cliente.id AS "clienteId",
         cliente.codigo AS "clienteCodigo",
         cliente.nome AS "clienteNome",
-        COALESCE(SUM(CASE WHEN medicao.status = 'CONCLUIDA'::"StatusMedicao" THEN item."valorTotalItem" ELSE 0 END), 0) AS "totalFaturado",
-        COALESCE(SUM(CASE WHEN medicao.status <> 'CONCLUIDA'::"StatusMedicao" THEN item."valorTotalItem" ELSE 0 END), 0) AS "totalAFaturar",
-        COALESCE(SUM(item."valorTotalItem"), 0) AS "totalGeral",
+        COALESCE(SUM(CASE WHEN medicao.status = 'CONCLUIDA'::"StatusMedicao" THEN medicao."valorLiquido" ELSE 0 END), 0) AS "totalFaturado",
+        COALESCE(SUM(CASE WHEN medicao.status <> 'CONCLUIDA'::"StatusMedicao" THEN medicao."valorLiquido" ELSE 0 END), 0) AS "totalAFaturar",
+        COALESCE(SUM(medicao."valorLiquido"), 0) AS "totalGeral",
         COUNT(DISTINCT medicao.id) AS "totalMedicoes"
       FROM medicoes_periodo medicao
       INNER JOIN "Cliente" cliente ON cliente.id = medicao."clienteId"
-      INNER JOIN "MedicaoItem" item
-        ON item."medicaoId" = medicao.id
-       AND item."deletedAt" IS NULL
       GROUP BY cliente.id, cliente.codigo, cliente.nome
       ORDER BY "totalGeral" DESC, cliente.nome ASC
     `),
@@ -183,7 +182,9 @@ export async function GET(request: NextRequest) {
         SELECT
           medicao.id,
           medicao.status,
-          medicao."clienteId"
+          medicao."clienteId",
+          medicao."codigoMedicao",
+          COALESCE(medicao."valorTotal", 0) - COALESCE(medicao."descontoValor", 0) AS "valorLiquido"
         FROM "Medicao" medicao
         INNER JOIN "MedicaoItem" item
           ON item."medicaoId" = medicao.id
@@ -195,17 +196,14 @@ export async function GET(request: NextRequest) {
            AND MAX(item."data") <= ${period.end}
       )
       SELECT
-        COALESCE(SUM(CASE WHEN medicao.status = 'CONCLUIDA'::"StatusMedicao" THEN item."valorTotalItem" ELSE 0 END), 0) AS "totalFaturado",
-        COALESCE(SUM(CASE WHEN medicao.status <> 'CONCLUIDA'::"StatusMedicao" THEN item."valorTotalItem" ELSE 0 END), 0) AS "totalAFaturar",
-        COALESCE(SUM(item."valorTotalItem"), 0) AS "totalGeral",
+        COALESCE(SUM(CASE WHEN medicao.status = 'CONCLUIDA'::"StatusMedicao" THEN medicao."valorLiquido" ELSE 0 END), 0) AS "totalFaturado",
+        COALESCE(SUM(CASE WHEN medicao.status <> 'CONCLUIDA'::"StatusMedicao" THEN medicao."valorLiquido" ELSE 0 END), 0) AS "totalAFaturar",
+        COALESCE(SUM(medicao."valorLiquido"), 0) AS "totalGeral",
         COUNT(DISTINCT medicao.id) AS "totalMedicoes",
         COUNT(DISTINCT CASE WHEN medicao.status = 'CONCLUIDA'::"StatusMedicao" THEN medicao.id END) AS "totalMedicoesConcluidas",
         COUNT(DISTINCT CASE WHEN medicao.status <> 'CONCLUIDA'::"StatusMedicao" THEN medicao.id END) AS "totalMedicoesAFaturar",
         COUNT(DISTINCT medicao."clienteId") AS "totalClientes"
       FROM medicoes_periodo medicao
-      INNER JOIN "MedicaoItem" item
-        ON item."medicaoId" = medicao.id
-       AND item."deletedAt" IS NULL
     `)
   ]);
 
