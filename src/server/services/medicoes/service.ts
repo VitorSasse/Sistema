@@ -124,7 +124,11 @@ export async function listarMedicoes(
     };
   }
 
-  return db.medicao.findMany({ where, include: medicaoListInclude, orderBy: [{ createdAt: "desc" }] });
+  return db.medicao.findMany({
+    where,
+    include: medicaoListInclude,
+    orderBy: [{ periodoFinal: "desc" }, { createdAt: "desc" }]
+  });
 }
 
 export async function buscarLancamentosElegiveis(
@@ -158,7 +162,7 @@ export async function buscarLancamentosElegiveis(
       equipamento: true,
       colaborador: true
     },
-    orderBy: [{ data: "asc" }, { createdAt: "asc" }]
+    orderBy: [{ data: "desc" }, { createdAt: "desc" }]
   });
 
   return normalizeLancamentosParaMedicao(items, input.cobrancaMaterial);

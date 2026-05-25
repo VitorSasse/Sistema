@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
       equipamento: true,
       colaborador: true
     },
-    orderBy: [{ createdAt: "desc" }]
+    orderBy: [{ data: "desc" }, { createdAt: "desc" }]
   });
 
   return NextResponse.json({ items });

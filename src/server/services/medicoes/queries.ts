@@ -75,7 +75,7 @@ export const medicaoDetailInclude = {
         }
       }
     },
-    orderBy: [{ data: "asc" }, { createdAt: "asc" }]
+    orderBy: [{ data: "desc" }, { createdAt: "desc" }]
   },
   anexos: {
     orderBy: [{ createdAt: "desc" }]

@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
       equipamento: true,
       colaborador: true
     },
-    orderBy: [{ data: "asc" }, { ficha: { numero: "asc" } }, { createdAt: "asc" }]
+    orderBy: [{ data: "desc" }, { ficha: { numero: "desc" } }, { createdAt: "desc" }]
   });
 
   if (items.length === 0) {
