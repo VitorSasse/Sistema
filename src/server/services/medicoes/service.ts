@@ -478,6 +478,7 @@ export async function atualizarStatusMedicao(
     id: string;
     status: StatusMedicao;
     userId: string;
+    justificativaCancelamento?: string | null;
   }
 ) {
   const medicao = await db.medicao.findFirst({
@@ -496,12 +497,47 @@ export async function atualizarStatusMedicao(
     throw new Error("TRANSICAO_INVALIDA");
   }
 
+  if (params.status === "CANCELADA" && !params.justificativaCancelamento?.trim()) {
+    throw new Error("JUSTIFICATIVA_CANCELAMENTO_OBRIGATORIA");
+  }
+
   const now = new Date();
+
+  if (params.status === "CANCELADA") {
+    if (medicao.itens.length > 0) {
+      await db.medicaoItem.updateMany({
+        where: {
+          medicaoId: medicao.id,
+          deletedAt: null
+        },
+        data: {
+          deletedAt: now
+        }
+      });
+
+      await db.lancamentoDiario.updateMany({
+        where: {
+          id: {
+            in: medicao.itens.map((item) => item.lancamentoId)
+          },
+          deletedAt: null,
+          statusValidacao: StatusLancamento.MEDIDO
+        },
+        data: {
+          statusValidacao: StatusLancamento.NAO_MEDIDO
+        }
+      });
+    }
+  }
 
   return db.medicao.update({
     where: { id: params.id },
     data: {
       status: params.status,
+      justificativaCancelamento:
+        params.status === "CANCELADA"
+          ? params.justificativaCancelamento?.trim() ?? null
+          : medicao.justificativaCancelamento,
       enviadaAoClienteEm:
         params.status === "ENVIADA_AO_CLIENTE"
           ? medicao.enviadaAoClienteEm ?? now
@@ -517,7 +553,11 @@ export async function atualizarStatusMedicao(
       fechadoEm:
         params.status === "CONCLUIDA"
           ? medicao.fechadoEm ?? now
-          : medicao.fechadoEm
+          : medicao.fechadoEm,
+      canceladaEm:
+        params.status === "CANCELADA"
+          ? medicao.canceladaEm ?? now
+          : medicao.canceladaEm
     },
     include: medicaoListInclude
   });

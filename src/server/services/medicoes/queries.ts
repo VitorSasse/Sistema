@@ -83,6 +83,15 @@ export const medicaoDetailInclude = {
 } satisfies Prisma.MedicaoInclude;
 
 export const medicaoTransitionInclude = {
+  itens: {
+    where: {
+      deletedAt: null
+    },
+    select: {
+      id: true,
+      lancamentoId: true
+    }
+  },
   anexos: {
     select: { tipo: true }
   }

@@ -91,6 +91,7 @@ export function MedicoesManager() {
   const [editingSource, setEditingSource] = useState<"preview" | "detail" | null>(null);
   const [detailObservacao, setDetailObservacao] = useState("");
   const [detailObservacaoInterna, setDetailObservacaoInterna] = useState("");
+  const [detailJustificativaCancelamento, setDetailJustificativaCancelamento] = useState("");
   const [detailDescontoValor, setDetailDescontoValor] = useState("0");
   const [detailNumeroPedido, setDetailNumeroPedido] = useState("");
   const [detailNumeroNotaFiscal, setDetailNumeroNotaFiscal] = useState("");
@@ -152,6 +153,7 @@ export function MedicoesManager() {
     setNextStatus(detail.status);
     setDetailObservacao(detail.observacao ?? "");
     setDetailObservacaoInterna(detail.observacaoInterna ?? "");
+    setDetailJustificativaCancelamento(detail.justificativaCancelamento ?? "");
     setDetailDescontoValor(detail.descontoValor ?? "0");
     setDetailNumeroPedido(detail.numeroPedido ?? "");
     setDetailNumeroNotaFiscal(detail.numeroNotaFiscal ?? "");
@@ -200,7 +202,10 @@ export function MedicoesManager() {
       mensais: medicoes.filter((item) => item.tipoMedicao === "MENSAL").length,
       concluidas: medicoes.filter((item) => item.status === "CONCLUIDA").length,
       valorTotal: medicoes.reduce(
-        (acc, item) => acc + (Number(item.valorTotal) - Number(item.descontoValor ?? 0)),
+        (acc, item) =>
+          item.status === "CANCELADA"
+            ? acc
+            : acc + (Number(item.valorTotal) - Number(item.descontoValor ?? 0)),
         0
       )
     }),
@@ -386,7 +391,8 @@ export function MedicoesManager() {
     startTransition(async () => {
       const { response, data } = await atualizarStatusMedicao(
         selectedMedicaoId,
-        nextStatus
+        nextStatus,
+        detailJustificativaCancelamento
       );
       if (!response.ok) {
         setMessage(data.message ?? "Nao foi possivel atualizar o status.");
@@ -612,6 +618,8 @@ export function MedicoesManager() {
           onChangeObservacao={setDetailObservacao}
           observacaoInterna={detailObservacaoInterna}
           onChangeObservacaoInterna={setDetailObservacaoInterna}
+          justificativaCancelamento={detailJustificativaCancelamento}
+          onChangeJustificativaCancelamento={setDetailJustificativaCancelamento}
           descontoValor={detailDescontoValor}
           onChangeDescontoValor={setDetailDescontoValor}
           numeroPedido={detailNumeroPedido}

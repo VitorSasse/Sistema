@@ -70,9 +70,11 @@ export type MedicaoDetail = {
   descontoValor: string;
   observacao: string | null;
   observacaoInterna: string | null;
+  justificativaCancelamento: string | null;
   numeroPedido: string | null;
   numeroNotaFiscal: string | null;
   fechadoEm: string | null;
+  canceladaEm: string | null;
   enviadaAoClienteEm: string | null;
   enviadaParaFaturamentoEm: string | null;
   aprovadaEm: string | null;

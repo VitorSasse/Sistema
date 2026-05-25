@@ -37,7 +37,8 @@ export const medicaoStatusOptions: MedicaoStatus[] = [
   "EM_ABERTO",
   "ENVIADA_AO_CLIENTE",
   "ENVIADA_PARA_FATURAMENTO",
-  "CONCLUIDA"
+  "CONCLUIDA",
+  "CANCELADA"
 ];
 
 export const medicaoStatusLabels: Record<MedicaoStatus, string> = {

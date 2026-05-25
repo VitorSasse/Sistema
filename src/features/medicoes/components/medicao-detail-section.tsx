@@ -22,6 +22,10 @@ function formatDate(value: string | null) {
 function buildWarnings(detail: MedicaoDetail, descontoValor: string) {
   const warnings: string[] = [];
 
+  if (detail.status === "CANCELADA") {
+    return warnings;
+  }
+
   if (detail.itens.length === 0) {
     warnings.push("Esta medicao esta sem itens vinculados.");
   }
@@ -65,6 +69,8 @@ export function MedicaoDetailSection(props: {
   onChangeObservacao: (value: string) => void;
   observacaoInterna: string;
   onChangeObservacaoInterna: (value: string) => void;
+  justificativaCancelamento: string;
+  onChangeJustificativaCancelamento: (value: string) => void;
   descontoValor: string;
   onChangeDescontoValor: (value: string) => void;
   numeroPedido: string;
@@ -93,6 +99,8 @@ export function MedicaoDetailSection(props: {
     onChangeObservacao,
     observacaoInterna,
     onChangeObservacaoInterna,
+    justificativaCancelamento,
+    onChangeJustificativaCancelamento,
     descontoValor,
     onChangeDescontoValor,
     numeroPedido,
@@ -256,9 +264,22 @@ export function MedicaoDetailSection(props: {
                 <span>Enviada: {formatDate(detail.enviadaAoClienteEm)}</span>
                 <span>Faturamento: {formatDate(detail.enviadaParaFaturamentoEm)}</span>
                 <span>Concluida: {formatDate(detail.fechadoEm ?? null)}</span>
+                <span>Cancelada: {formatDate(detail.canceladaEm ?? null)}</span>
               </div>
             </MedicaoField>
           </div>
+          {nextStatus === "CANCELADA" || detail.status === "CANCELADA" ? (
+            <div style={{ marginTop: 16 }}>
+              <MedicaoField label="Justificativa do cancelamento">
+                <textarea
+                  className="field-control textarea-lg"
+                  value={justificativaCancelamento}
+                  onChange={(e) => onChangeJustificativaCancelamento(e.target.value)}
+                  placeholder="Informe o motivo do cancelamento. Os lancamentos serao liberados novamente."
+                />
+              </MedicaoField>
+            </div>
+          ) : null}
           <div className="toolbar-actions" style={{ marginTop: 16 }}>
             <button type="button" disabled={isPending} className="button-primary" onClick={onUpdateStatus}>
               {isPending ? "Atualizando..." : "Atualizar status"}
@@ -314,6 +335,9 @@ export function MedicaoDetailSection(props: {
               <span>Valor bruto: {formatCurrency(valorTotalAtual)}</span>
               <span>Desconto: {formatCurrency(descontoAtual)}</span>
               <span>Valor final: {formatCurrency(valorFinalAtual)}</span>
+              {detail.justificativaCancelamento?.trim() ? (
+                <span>Justificativa: {detail.justificativaCancelamento}</span>
+              ) : null}
             </div>
             <div className="toolbar-actions">
               <button

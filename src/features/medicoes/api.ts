@@ -109,11 +109,15 @@ export async function excluirMedicao(id: string) {
   };
 }
 
-export async function atualizarStatusMedicao(id: string, status: MedicaoStatus) {
+export async function atualizarStatusMedicao(
+  id: string,
+  status: MedicaoStatus,
+  justificativaCancelamento?: string
+) {
   const response = await fetch(`/api/medicoes/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status })
+    body: JSON.stringify({ status, justificativaCancelamento })
   });
   return {
     response,

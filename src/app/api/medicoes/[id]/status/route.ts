@@ -32,7 +32,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const updated = await atualizarStatusMedicao(prisma, {
       id,
       status: nextStatus,
-      userId: session.user.id
+      userId: session.user.id,
+      justificativaCancelamento: parsed.data.justificativaCancelamento?.trim() || null
     });
 
     return NextResponse.json(updated);
@@ -45,6 +46,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       MEDICAO_NAO_ENCONTRADA: {
         status: 404,
         message: "Medicao nao encontrada."
+      },
+      JUSTIFICATIVA_CANCELAMENTO_OBRIGATORIA: {
+        status: 400,
+        message: "Informe a justificativa do cancelamento."
       },
       TRANSICAO_INVALIDA: {
         status: 400,

@@ -26,8 +26,18 @@ export const medicaoStatusSchema = z.object({
     "EM_ABERTO",
     "ENVIADA_AO_CLIENTE",
     "ENVIADA_PARA_FATURAMENTO",
-    "CONCLUIDA"
-  ])
+    "CONCLUIDA",
+    "CANCELADA"
+  ]),
+  justificativaCancelamento: z.string().trim().max(1000).optional().nullable()
+}).superRefine((data, ctx) => {
+  if (data.status === "CANCELADA" && !data.justificativaCancelamento?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["justificativaCancelamento"],
+      message: "Informe a justificativa do cancelamento."
+    });
+  }
 });
 
 export type MedicaoPreviewInput = z.infer<typeof medicaoPreviewSchema>;

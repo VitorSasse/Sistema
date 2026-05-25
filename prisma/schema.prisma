@@ -679,10 +679,12 @@ model Medicao {
   descontoValor  Decimal       @default(0) @db.Decimal(14, 2)
   observacao     String?
   observacaoInterna String?
+  justificativaCancelamento String?
   numeroPedido   String?
   numeroNotaFiscal String?
   fechadoPorId   String?
   fechadoEm      DateTime?
+  canceladaEm    DateTime?
   enviadaAoClienteEm DateTime?
   enviadaParaFaturamentoEm DateTime?
   aprovadaEm     DateTime?
