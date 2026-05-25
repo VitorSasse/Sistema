@@ -124,16 +124,6 @@ function resolvePeriod(searchParams: URLSearchParams) {
   };
 }
 
-function buildFaturamentoDateExpression() {
-  return Prisma.sql`COALESCE(
-    medicao."notaFiscalAnexadaEm",
-    medicao."pedidoAnexadoEm",
-    medicao."aprovadaEm",
-    medicao."enviadaParaFaturamentoEm",
-    medicao."fechadoEm"
-  )`;
-}
-
 export async function GET(request: NextRequest) {
   const session = await auth();
 
@@ -162,7 +152,6 @@ export async function GET(request: NextRequest) {
       .map((status) => `'${status}'::"StatusMedicao"`)
       .join(", ")
   );
-  const faturamentoDate = buildFaturamentoDateExpression();
 
   const [ranking, totals] = await Promise.all([
     prisma.$queryRaw<RankingRow[]>(Prisma.sql`
@@ -179,9 +168,9 @@ export async function GET(request: NextRequest) {
        AND item."deletedAt" IS NULL
       WHERE medicao."deletedAt" IS NULL
         AND medicao.status IN (${statusValues})
-        AND ${faturamentoDate} IS NOT NULL
-        AND ${faturamentoDate} >= ${period.start}
-        AND ${faturamentoDate} <= ${period.end}
+        AND medicao."periodoFinal" IS NOT NULL
+        AND medicao."periodoFinal" >= ${period.start}
+        AND medicao."periodoFinal" <= ${period.end}
       GROUP BY cliente.id, cliente.codigo, cliente.nome
       ORDER BY "totalFaturado" DESC, cliente.nome ASC
     `),
@@ -196,9 +185,9 @@ export async function GET(request: NextRequest) {
        AND item."deletedAt" IS NULL
       WHERE medicao."deletedAt" IS NULL
         AND medicao.status IN (${statusValues})
-        AND ${faturamentoDate} IS NOT NULL
-        AND ${faturamentoDate} >= ${period.start}
-        AND ${faturamentoDate} <= ${period.end}
+        AND medicao."periodoFinal" IS NOT NULL
+        AND medicao."periodoFinal" >= ${period.start}
+        AND medicao."periodoFinal" <= ${period.end}
     `)
   ]);
 
