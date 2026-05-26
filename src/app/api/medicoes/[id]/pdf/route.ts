@@ -15,26 +15,53 @@ function normalizeFileSegment(value: string, maxLength = 32) {
   const normalized = value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase();
+    .replace(/[^a-zA-Z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
 
   if (!normalized) {
-    return "sem-obra";
+    return "SEM OBRA";
   }
 
-  return normalized.slice(0, maxLength).replace(/-+$/g, "") || "sem-obra";
+  return normalized.slice(0, maxLength).trim() || "SEM OBRA";
+}
+
+function formatPeriodSegment(value: Date) {
+  const months = [
+    "JAN",
+    "FEV",
+    "MAR",
+    "ABR",
+    "MAI",
+    "JUN",
+    "JUL",
+    "AGO",
+    "SET",
+    "OUT",
+    "NOV",
+    "DEZ"
+  ];
+
+  const date = new Date(value);
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = months[date.getMonth()] ?? "MES";
+  return `${day}-${month}`;
 }
 
 function buildPdfFilename(params: {
   codigoMedicao: string;
   obraNome: string | null;
+  periodoInicial: Date;
+  periodoFinal: Date;
   tipoRelatorio: MedicaoPdfTipo;
 }) {
-  const codigo = params.codigoMedicao.toLowerCase();
-  const obra = normalizeFileSegment(params.obraNome ?? "sem-obra");
-  const tipo = params.tipoRelatorio === "RESUMIDO" ? "res" : "det";
-  return `${codigo}-${obra}-${tipo}.pdf`;
+  const obra = normalizeFileSegment(params.obraNome ?? "SEM OBRA", 42);
+  const codigo = params.codigoMedicao.toUpperCase();
+  const periodoInicial = formatPeriodSegment(params.periodoInicial);
+  const periodoFinal = formatPeriodSegment(params.periodoFinal);
+  const suffix = params.tipoRelatorio === "RESUMIDO" ? " RESUMIDO" : "";
+  return `${obra} ${codigo} ${periodoInicial} ${periodoFinal}${suffix}.pdf`;
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
@@ -93,6 +120,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const filename = buildPdfFilename({
     codigoMedicao: medicao.codigoMedicao,
     obraNome: medicao.obra?.nome ?? null,
+    periodoInicial: medicao.periodoInicial,
+    periodoFinal: medicao.periodoFinal,
     tipoRelatorio
   });
 
@@ -121,7 +150,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${filename}"`
+      "Content-Disposition": `inline; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`
     }
   });
 }
