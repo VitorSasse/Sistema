@@ -11,6 +11,32 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+function normalizeFileSegment(value: string, maxLength = 32) {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toLowerCase();
+
+  if (!normalized) {
+    return "sem-obra";
+  }
+
+  return normalized.slice(0, maxLength).replace(/-+$/g, "") || "sem-obra";
+}
+
+function buildPdfFilename(params: {
+  codigoMedicao: string;
+  obraNome: string | null;
+  tipoRelatorio: MedicaoPdfTipo;
+}) {
+  const codigo = params.codigoMedicao.toLowerCase();
+  const obra = normalizeFileSegment(params.obraNome ?? "sem-obra");
+  const tipo = params.tipoRelatorio === "RESUMIDO" ? "res" : "det";
+  return `${codigo}-${obra}-${tipo}.pdf`;
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
   const session = await auth();
 
@@ -64,6 +90,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const rawTipo = (url.searchParams.get("tipo") ?? "DETALHADO").toUpperCase();
   const tipoRelatorio: MedicaoPdfTipo =
     rawTipo === "RESUMIDO" ? "RESUMIDO" : "DETALHADO";
+  const filename = buildPdfFilename({
+    codigoMedicao: medicao.codigoMedicao,
+    obraNome: medicao.obra?.nome ?? null,
+    tipoRelatorio
+  });
 
   const buffer = await renderToBuffer(
     MedicaoPdfDocument({
@@ -90,7 +121,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${medicao.codigoMedicao}.pdf"`
+      "Content-Disposition": `inline; filename="${filename}"`
     }
   });
 }
