@@ -13,16 +13,32 @@ type SyncFromLancamentoInput = {
 };
 
 export async function recalcularAcumuladoEquipamento(tx: PrismaTx, equipamentoId: string) {
-  const ultimaLeitura = await tx.leituraEquipamento.findFirst({
-    where: { equipamentoId },
-    orderBy: [{ dataLeitura: "desc" }, { createdAt: "desc" }]
-  });
+  const [horimetroMaximo, kmMaximo] = await Promise.all([
+    tx.leituraEquipamento.aggregate({
+      where: {
+        equipamentoId,
+        horimetroValor: { not: null }
+      },
+      _max: {
+        horimetroValor: true
+      }
+    }),
+    tx.leituraEquipamento.aggregate({
+      where: {
+        equipamentoId,
+        kmValor: { not: null }
+      },
+      _max: {
+        kmValor: true
+      }
+    })
+  ]);
 
   await tx.equipamento.update({
     where: { id: equipamentoId },
     data: {
-      horimetroAtual: ultimaLeitura?.horimetroValor ?? null,
-      kmAtual: ultimaLeitura?.kmValor ?? null
+      horimetroAtual: horimetroMaximo._max.horimetroValor ?? null,
+      kmAtual: kmMaximo._max.kmValor ?? null
     }
   });
 }
@@ -37,30 +53,6 @@ export async function sincronizarLeituraPorLancamento(
     });
     await recalcularAcumuladoEquipamento(tx, input.equipamentoId);
     return;
-  }
-
-  const leituraAnterior = await tx.leituraEquipamento.findFirst({
-    where: {
-      equipamentoId: input.equipamentoId,
-      lancamentoDiarioId: { not: input.lancamentoDiarioId }
-    },
-    orderBy: [{ dataLeitura: "desc" }, { createdAt: "desc" }]
-  });
-
-  if (
-    input.horimetroInformado != null &&
-    leituraAnterior?.horimetroValor != null &&
-    input.horimetroInformado < Number(leituraAnterior.horimetroValor)
-  ) {
-    throw new Error("Leitura de horimetro inconsistente. O valor nao pode regredir.");
-  }
-
-  if (
-    input.kmInformado != null &&
-    leituraAnterior?.kmValor != null &&
-    input.kmInformado < Number(leituraAnterior.kmValor)
-  ) {
-    throw new Error("Leitura de quilometragem inconsistente. O valor nao pode regredir.");
   }
 
   await tx.leituraEquipamento.upsert({

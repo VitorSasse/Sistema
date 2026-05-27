@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { leituraEquipamentoSchema } from "@/lib/validators/frota/leitura-equipamento";
+import { recalcularAcumuladoEquipamento } from "@/server/services/frota/leitura-sync";
 
 function parseNullableNumber(value: unknown) {
   if (value === "" || value === undefined || value === null) {
@@ -98,28 +99,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (
-    parsed.data.horimetroValor !== null &&
-    equipamento.horimetroAtual !== null &&
-    Number(parsed.data.horimetroValor) < Number(equipamento.horimetroAtual)
-  ) {
-    return NextResponse.json(
-      { message: "Leitura de horimetro inconsistente. O valor nao pode regredir." },
-      { status: 409 }
-    );
-  }
-
-  if (
-    parsed.data.kmValor !== null &&
-    equipamento.kmAtual !== null &&
-    Number(parsed.data.kmValor) < Number(equipamento.kmAtual)
-  ) {
-    return NextResponse.json(
-      { message: "Leitura de quilometragem inconsistente. O valor nao pode regredir." },
-      { status: 409 }
-    );
-  }
-
   const leitura = await prisma.$transaction(async (tx) => {
     const created = await tx.leituraEquipamento.create({
       data: {
@@ -145,13 +124,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    await tx.equipamento.update({
-      where: { id: parsed.data.equipamentoId },
-      data: {
-        horimetroAtual: parsed.data.horimetroValor ?? equipamento.horimetroAtual,
-        kmAtual: parsed.data.kmValor ?? equipamento.kmAtual
-      }
-    });
+    await recalcularAcumuladoEquipamento(tx, parsed.data.equipamentoId);
 
     return created;
   });
