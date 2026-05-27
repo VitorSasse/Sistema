@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
+import { MedicoesSubnav } from "@/features/medicoes/components/medicoes-subnav";
 import { MedicoesManager } from "@/features/medicoes/medicoes-manager";
 
 export default function MedicoesPage() {
@@ -8,6 +9,7 @@ export default function MedicoesPage() {
         title="Medicoes"
         description="Consolidacao operacional por periodo para conferencia com cliente antes do faturamento."
       />
+      <MedicoesSubnav />
       <MedicoesManager />
     </main>
   );

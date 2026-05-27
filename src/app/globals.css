@@ -1564,6 +1564,40 @@ button {
   padding-bottom: 12px;
 }
 
+.page-subnav {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: -4px 0 24px;
+}
+
+.page-subnav-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
+  font-weight: 700;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.page-subnav-link:hover {
+  transform: translateY(-1px);
+  border-color: rgba(21, 91, 82, 0.22);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.page-subnav-link-active {
+  border-color: rgba(21, 91, 82, 0.2);
+  background: rgba(21, 91, 82, 0.12);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px rgba(21, 91, 82, 0.08);
+}
+
 .subtle {
   color: var(--muted);
   font-size: 13px;

@@ -27,21 +27,36 @@ export function MedicaoFormSection(props: {
   isPending: boolean;
   message: string;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-  onGenerate: () => void;
+  onGenerate?: () => void;
   onChange: <K extends keyof MedicaoFormState>(key: K, value: MedicaoFormState[K]) => void;
-  canGenerate: boolean;
+  canGenerate?: boolean;
+  title?: string;
+  description?: string;
+  submitLabel?: string;
+  generateLabel?: string;
 }) {
-  const { form, clientes, obrasDisponiveis, isPending, message, onSubmit, onGenerate, onChange, canGenerate } = props;
+  const {
+    form,
+    clientes,
+    obrasDisponiveis,
+    isPending,
+    message,
+    onSubmit,
+    onGenerate,
+    onChange,
+    canGenerate = false,
+    title = "Gerar medicao por obra",
+    description = "Selecione o periodo, carregue os lancamentos da obra e ajuste o que for necessario antes de consolidar, incluindo o valor unitario de cada item.",
+    submitLabel = "Buscar lancamentos validos",
+    generateLabel = "Gerar medicao"
+  } = props;
 
   return (
     <section className="surface section-card">
       <div className="section-header">
         <div>
-          <h2 className="section-title">Gerar medicao por obra</h2>
-          <p className="section-copy">
-            Selecione o periodo, carregue os lancamentos da obra e ajuste o que for
-            necessario antes de consolidar, incluindo o valor unitario de cada item.
-          </p>
+          <h2 className="section-title">{title}</h2>
+          <p className="section-copy">{description}</p>
         </div>
       </div>
 
@@ -112,11 +127,18 @@ export function MedicaoFormSection(props: {
 
         <div className="toolbar-actions">
           <button type="submit" disabled={isPending} className="button-primary">
-            {isPending ? "Processando..." : "Buscar lancamentos validos"}
+            {isPending ? "Processando..." : submitLabel}
           </button>
-          <button type="button" disabled={isPending || !canGenerate} className="button-secondary" onClick={onGenerate}>
-            Gerar medicao
-          </button>
+          {onGenerate ? (
+            <button
+              type="button"
+              disabled={isPending || !canGenerate}
+              className="button-secondary"
+              onClick={onGenerate}
+            >
+              {generateLabel}
+            </button>
+          ) : null}
         </div>
 
         {message ? <p className="message-inline">{message}</p> : null}

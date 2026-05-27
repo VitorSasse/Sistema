@@ -12,9 +12,23 @@ export function MedicaoPreviewTable(props: {
   itemValues: MedicaoPreviewValueMap;
   editingId: string | null;
   onChangeItemValue: (itemId: string, value: string) => void;
-  onEdit: (item: PreviewItem) => void;
+  onEdit?: (item: PreviewItem) => void;
+  title?: string;
+  description?: string;
+  emptyDescription?: string;
 }) {
-  const { items, resumo, itemValues, editingId, onChangeItemValue, onEdit } = props;
+  const {
+    items,
+    resumo,
+    itemValues,
+    editingId,
+    onChangeItemValue,
+    onEdit,
+    title = "Itens elegiveis",
+    description = "Nenhuma pre-visualizacao carregada.",
+    emptyDescription
+  } = props;
+  const showActions = Boolean(onEdit);
   const valorTotalPreview = items.reduce((acc, item) => {
     const value = itemValues[item.id]?.replace(",", ".").trim() ?? "";
     const valorUnitario = value ? Number(value) : 0;
@@ -26,11 +40,11 @@ export function MedicaoPreviewTable(props: {
     <section className="surface section-card">
       <div className="section-header">
         <div>
-          <h2 className="section-title">Itens elegiveis</h2>
+          <h2 className="section-title">{title}</h2>
           <p className="section-copy">
             {resumo
               ? `${resumo.totalLancamentos} lancamentos somando ${resumo.quantidadeTotal.toFixed(2)} no faturado.`
-              : "Nenhuma pre-visualizacao carregada."}
+              : emptyDescription ?? description}
           </p>
         </div>
       </div>
@@ -64,7 +78,7 @@ export function MedicaoPreviewTable(props: {
               <th>Faturado</th>
               <th>Valor unit.</th>
               <th>Valor total</th>
-              <th>Acoes</th>
+              {showActions ? <th>Acoes</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -112,15 +126,17 @@ export function MedicaoPreviewTable(props: {
                     />
                   </td>
                   <td>{valorTotalItem !== null ? formatCurrency(valorTotalItem) : "--"}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="button-secondary"
-                      onClick={() => onEdit(item)}
-                    >
-                      Editar
-                    </button>
-                  </td>
+                  {showActions ? (
+                    <td>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={() => onEdit?.(item)}
+                      >
+                        Editar
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               );
             })}
