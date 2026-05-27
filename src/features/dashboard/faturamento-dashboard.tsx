@@ -28,6 +28,11 @@ type DashboardPayload = {
     totalFaturado: number;
     totalAFaturar: number;
     totalGeral: number;
+    totalFaturadoAno: number;
+    totalMedicoesAno: number;
+    mediaMensalFaturamento: number;
+    mesesNoAcumulado: number;
+    anoReferencia: number;
     totalMedicoes: number;
     totalMedicoesConcluidas: number;
     totalMedicoesAFaturar: number;
@@ -80,6 +85,10 @@ function shortClientName(name: string) {
   return name.length > 18 ? `${name.slice(0, 18)}...` : name;
 }
 
+function splitClientName(name: string) {
+  return name.length > 24 ? `${name.slice(0, 24)}...` : name;
+}
+
 function CustomTooltip({
   active,
   payload
@@ -120,7 +129,7 @@ function DashboardSkeleton() {
       </section>
 
       <section className="billing-summary-grid">
-        {Array.from({ length: 5 }).map((_, index) => (
+        {Array.from({ length: 7 }).map((_, index) => (
           <article key={index} className="billing-summary-card">
             <div className="billing-skeleton billing-skeleton-line billing-skeleton-kicker" />
             <div className="billing-skeleton billing-skeleton-line billing-skeleton-value" />
@@ -198,6 +207,8 @@ export function FaturamentoDashboard() {
   );
 
   const topFive = useMemo(() => (data?.ranking ?? []).slice(0, 5), [data]);
+  const topCliente = data?.summary.clienteTop;
+  const carteiraTotal = data?.summary.totalGeral ?? 0;
 
   if (loading && !data) {
     return <DashboardSkeleton />;
@@ -292,6 +303,21 @@ export function FaturamentoDashboard() {
           <p>{data?.summary.totalMedicoesAFaturar ?? 0} medicao(oes) ainda nao concluidas.</p>
         </article>
         <article className="billing-summary-card">
+          <span className="billing-summary-label">Valor total do periodo</span>
+          <strong>{formatCurrency(data?.summary.totalGeral ?? 0)}</strong>
+          <p>Resultado consolidado entre faturado e valor ainda a faturar.</p>
+        </article>
+        <article className="billing-summary-card">
+          <span className="billing-summary-label">
+            Faturado no ano {data?.summary.anoReferencia ?? new Date().getFullYear()}
+          </span>
+          <strong>{formatCurrency(data?.summary.totalFaturadoAno ?? 0)}</strong>
+          <p>
+            Media mensal: {formatCurrency(data?.summary.mediaMensalFaturamento ?? 0)} em{" "}
+            {data?.summary.mesesNoAcumulado ?? 0} mes(es) do acumulado.
+          </p>
+        </article>
+        <article className="billing-summary-card">
           <span className="billing-summary-label">Cliente com maior carteira</span>
           <strong>{data?.summary.clienteTop?.nome ?? "Sem medicao"}</strong>
           <p>
@@ -324,6 +350,10 @@ export function FaturamentoDashboard() {
                 Clientes ordenados pelo total da carteira no periodo, separando faturado e a faturar.
               </p>
             </div>
+            <div className="billing-chart-header-badge">
+              <strong>{formatCurrency(carteiraTotal)}</strong>
+              <span>Carteira total do periodo</span>
+            </div>
           </div>
 
           {chartData.length === 0 ? (
@@ -334,12 +364,58 @@ export function FaturamentoDashboard() {
               </p>
             </div>
           ) : (
-            <div className="billing-chart-shell">
+            <div className="billing-chart-panel">
+              <div className="billing-chart-summary">
+                <article className="billing-chart-summary-card is-success">
+                  <span>Faturado</span>
+                  <strong>{formatCurrency(data?.summary.totalFaturado ?? 0)}</strong>
+                  <small>{data?.summary.totalMedicoesConcluidas ?? 0} medicao(oes)</small>
+                </article>
+                <article className="billing-chart-summary-card is-warn">
+                  <span>A faturar</span>
+                  <strong>{formatCurrency(data?.summary.totalAFaturar ?? 0)}</strong>
+                  <small>{data?.summary.totalMedicoesAFaturar ?? 0} medicao(oes)</small>
+                </article>
+                <article className="billing-chart-summary-card is-neutral">
+                  <span>Cliente lider</span>
+                  <strong>{splitClientName(topCliente?.nome ?? "Sem medicao")}</strong>
+                  <small>
+                    {topCliente ? formatCurrency(topCliente.totalGeral) : "Sem carteira no periodo"}
+                  </small>
+                </article>
+              </div>
+
+              <div className="billing-chart-legend">
+                <span className="billing-chart-legend-item">
+                  <i className="billing-chart-dot is-faturado" />
+                  Faturado
+                </span>
+                <span className="billing-chart-legend-item">
+                  <i className="billing-chart-dot is-pendente" />
+                  A faturar
+                </span>
+                <span className="billing-chart-legend-item">
+                  <i className="billing-chart-dot is-share" />
+                  Participacao
+                </span>
+              </div>
+
+              <div className="billing-chart-shell">
               <ResponsiveContainer width="100%" height={420}>
                 <ComposedChart
                   data={chartData}
                   margin={{ top: 18, right: 24, left: 8, bottom: 32 }}
                 >
+                  <defs>
+                    <linearGradient id="billingBarFaturado" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#1e8b7d" />
+                      <stop offset="100%" stopColor="#155b52" />
+                    </linearGradient>
+                    <linearGradient id="billingBarPendente" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#f0c15a" />
+                      <stop offset="100%" stopColor="#d4932d" />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid stroke="rgba(109, 92, 66, 0.12)" vertical={false} />
                   <XAxis
                     dataKey="label"
@@ -369,26 +445,19 @@ export function FaturamentoDashboard() {
                     width={56}
                   />
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(21, 91, 82, 0.06)" }} />
-                  <Legend
-                    wrapperStyle={{ paddingTop: 12 }}
-                    formatter={(value) =>
-                      value === "totalFaturado"
-                        ? "Faturado"
-                        : value === "totalAFaturar"
-                          ? "A faturar"
-                          : "Participacao"
-                    }
-                  />
                   <Bar
                     yAxisId="currency"
                     dataKey="totalFaturado"
                     name="totalFaturado"
                     stackId="billing"
-                    radius={[12, 12, 0, 0]}
+                    radius={[0, 0, 0, 0]}
                     maxBarSize={56}
                   >
                     {chartData.map((entry, index) => (
-                      <Cell key={entry.clienteId} fill={chartPalette[index % chartPalette.length]} />
+                      <Cell
+                        key={entry.clienteId}
+                        fill={chartPalette[index % chartPalette.length] ?? "url(#billingBarFaturado)"}
+                      />
                     ))}
                   </Bar>
                   <Bar
@@ -397,7 +466,7 @@ export function FaturamentoDashboard() {
                     name="totalAFaturar"
                     stackId="billing"
                     radius={[12, 12, 0, 0]}
-                    fill="#d9a441"
+                    fill="url(#billingBarPendente)"
                     maxBarSize={56}
                   />
                   <Line
@@ -407,11 +476,13 @@ export function FaturamentoDashboard() {
                     name="sharePercent"
                     stroke="#d4932d"
                     strokeWidth={3}
+                    strokeDasharray="0"
                     dot={{ r: 4, strokeWidth: 0, fill: "#d4932d" }}
                     activeDot={{ r: 6, fill: "#f0b544" }}
                   />
                 </ComposedChart>
               </ResponsiveContainer>
+            </div>
             </div>
           )}
         </article>

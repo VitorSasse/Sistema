@@ -32,12 +32,21 @@ type TotalsRow = {
   totalClientes: bigint;
 };
 
+type AnnualTotalsRow = {
+  totalFaturadoAno: Prisma.Decimal | null;
+  totalMedicoesAno: bigint;
+};
+
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
 }
 
 function endOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999);
+}
+
+function startOfYear(date: Date) {
+  return new Date(date.getFullYear(), 0, 1, 0, 0, 0, 0);
 }
 
 function parseDateInput(value: string | null) {
@@ -145,7 +154,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const [ranking, totals] = await Promise.all([
+  const annualStart = startOfYear(period.end);
+  const annualEnd = period.end;
+  const annualMonths = period.end.getMonth() + 1;
+
+  const [ranking, totals, annualTotals] = await Promise.all([
     prisma.$queryRaw<RankingRow[]>(Prisma.sql`
       WITH medicoes_periodo AS (
         SELECT
@@ -204,6 +217,26 @@ export async function GET(request: NextRequest) {
         COUNT(DISTINCT CASE WHEN medicao.status <> 'CONCLUIDA'::"StatusMedicao" THEN medicao.id END) AS "totalMedicoesAFaturar",
         COUNT(DISTINCT medicao."clienteId") AS "totalClientes"
       FROM medicoes_periodo medicao
+    `),
+    prisma.$queryRaw<AnnualTotalsRow[]>(Prisma.sql`
+      WITH medicoes_ano AS (
+        SELECT
+          medicao.id,
+          COALESCE(medicao."valorTotal", 0) - COALESCE(medicao."descontoValor", 0) AS "valorLiquido"
+        FROM "Medicao" medicao
+        INNER JOIN "MedicaoItem" item
+          ON item."medicaoId" = medicao.id
+         AND item."deletedAt" IS NULL
+        WHERE medicao."deletedAt" IS NULL
+          AND medicao.status = 'CONCLUIDA'::"StatusMedicao"
+        GROUP BY medicao.id
+        HAVING MAX(item."data") >= ${annualStart}
+           AND MAX(item."data") <= ${annualEnd}
+      )
+      SELECT
+        COALESCE(SUM(medicao."valorLiquido"), 0) AS "totalFaturadoAno",
+        COUNT(DISTINCT medicao.id) AS "totalMedicoesAno"
+      FROM medicoes_ano medicao
     `)
   ]);
 
@@ -224,6 +257,12 @@ export async function GET(request: NextRequest) {
   const totalMedicoes = Number(totalsRow.totalMedicoes ?? 0);
   const totalMedicoesConcluidas = Number(totalsRow.totalMedicoesConcluidas ?? 0);
   const totalMedicoesAFaturar = Number(totalsRow.totalMedicoesAFaturar ?? 0);
+  const annualTotalsRow = annualTotals[0] ?? {
+    totalFaturadoAno: new Prisma.Decimal(0),
+    totalMedicoesAno: BigInt(0)
+  };
+  const totalFaturadoAno = Number(annualTotalsRow.totalFaturadoAno ?? 0);
+  const totalMedicoesAno = Number(annualTotalsRow.totalMedicoesAno ?? 0);
 
   const rankingItems = ranking.map((item, index) => {
     const totalClienteFaturado = Number(item.totalFaturado ?? 0);
@@ -260,6 +299,11 @@ export async function GET(request: NextRequest) {
       totalMedicoesAFaturar,
       totalClientes,
       ticketMedioPorCliente: totalClientes > 0 ? totalGeral / totalClientes : 0,
+      totalFaturadoAno,
+      totalMedicoesAno,
+      mediaMensalFaturamento: annualMonths > 0 ? totalFaturadoAno / annualMonths : 0,
+      mesesNoAcumulado: annualMonths,
+      anoReferencia: period.end.getFullYear(),
       clienteTop:
         rankingItems[0]
           ? {
