@@ -294,47 +294,67 @@ export function FaturamentoDashboard() {
       <section className="billing-summary-grid fade-up fade-up-delay-1">
         <article className="billing-summary-card">
           <span className="billing-summary-label">Faturado no periodo</span>
-          <strong>{formatCurrency(data?.summary.totalFaturado ?? 0)}</strong>
-          <p>{data?.summary.totalMedicoesConcluidas ?? 0} medicao(oes) concluidas.</p>
+          <strong className="billing-summary-main">
+            {formatCurrency(data?.summary.totalFaturado ?? 0)}
+          </strong>
+          <p className="billing-summary-meta">
+            {data?.summary.totalMedicoesConcluidas ?? 0} medicao(oes) concluidas.
+          </p>
         </article>
         <article className="billing-summary-card">
           <span className="billing-summary-label">Valor a faturar</span>
-          <strong>{formatCurrency(data?.summary.totalAFaturar ?? 0)}</strong>
-          <p>{data?.summary.totalMedicoesAFaturar ?? 0} medicao(oes) ainda nao concluidas.</p>
+          <strong className="billing-summary-main">
+            {formatCurrency(data?.summary.totalAFaturar ?? 0)}
+          </strong>
+          <p className="billing-summary-meta">
+            {data?.summary.totalMedicoesAFaturar ?? 0} medicao(oes) ainda nao concluidas.
+          </p>
         </article>
-        <article className="billing-summary-card">
+        <article className="billing-summary-card is-total">
           <span className="billing-summary-label">Valor total do periodo</span>
-          <strong>{formatCurrency(data?.summary.totalGeral ?? 0)}</strong>
-          <p>Resultado consolidado entre faturado e valor ainda a faturar.</p>
+          <strong className="billing-summary-main">
+            {formatCurrency(data?.summary.totalGeral ?? 0)}
+          </strong>
+          <p className="billing-summary-meta">
+            Resultado consolidado entre faturado e valor ainda a faturar.
+          </p>
         </article>
-        <article className="billing-summary-card">
+        <article className="billing-summary-card is-annual">
           <span className="billing-summary-label">
             Faturado no ano {data?.summary.anoReferencia ?? new Date().getFullYear()}
           </span>
-          <strong>{formatCurrency(data?.summary.totalFaturadoAno ?? 0)}</strong>
-          <p>
+          <strong className="billing-summary-main">
+            {formatCurrency(data?.summary.totalFaturadoAno ?? 0)}
+          </strong>
+          <p className="billing-summary-meta">
             Media mensal: {formatCurrency(data?.summary.mediaMensalFaturamento ?? 0)} em{" "}
             {data?.summary.mesesNoAcumulado ?? 0} mes(es) do acumulado.
           </p>
         </article>
-        <article className="billing-summary-card">
+        <article className="billing-summary-card is-client">
           <span className="billing-summary-label">Cliente com maior carteira</span>
-          <strong>{data?.summary.clienteTop?.nome ?? "Sem medicao"}</strong>
-          <p>
+          <strong className="billing-summary-main is-name">
+            {data?.summary.clienteTop?.nome ?? "Sem medicao"}
+          </strong>
+          <p className="billing-summary-meta">
             {data?.summary.clienteTop
               ? `${data.summary.clienteTop.codigo} • ${formatCurrency(data.summary.clienteTop.totalGeral)}`
               : "Ainda nao ha medicoes para a janela selecionada."}
           </p>
         </article>
-        <article className="billing-summary-card">
+        <article className="billing-summary-card is-count">
           <span className="billing-summary-label">Medicoes do periodo</span>
-          <strong>{data?.summary.totalMedicoes ?? 0}</strong>
-          <p>Inclui concluidas e valores ainda a faturar.</p>
+          <strong className="billing-summary-main">{data?.summary.totalMedicoes ?? 0}</strong>
+          <p className="billing-summary-meta">
+            Inclui concluidas e valores ainda a faturar.
+          </p>
         </article>
         <article className="billing-summary-card">
           <span className="billing-summary-label">Ticket medio por cliente</span>
-          <strong>{formatCurrency(data?.summary.ticketMedioPorCliente ?? 0)}</strong>
-          <p>
+          <strong className="billing-summary-main">
+            {formatCurrency(data?.summary.ticketMedioPorCliente ?? 0)}
+          </strong>
+          <p className="billing-summary-meta">
             Baseado em {data?.summary.totalClientes ?? 0} cliente(s) com medicao no periodo.
           </p>
         </article>

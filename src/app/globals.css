@@ -1735,7 +1735,7 @@ button {
 .billing-summary-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
 }
 
 .billing-summary-card,
@@ -1757,8 +1757,31 @@ button {
 }
 
 .billing-summary-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
   padding: 20px;
   min-height: 162px;
+  grid-column: span 3;
+}
+
+.billing-summary-card.is-total,
+.billing-summary-card.is-annual,
+.billing-summary-card.is-client {
+  grid-column: span 4;
+}
+
+.billing-summary-card.is-total,
+.billing-summary-card.is-annual {
+  background:
+    radial-gradient(circle at top right, rgba(240, 193, 90, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 239, 225, 0.86));
+}
+
+.billing-summary-card.is-client {
+  background:
+    radial-gradient(circle at top right, rgba(21, 91, 82, 0.08), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 239, 225, 0.84));
 }
 
 .billing-summary-label {
@@ -1769,16 +1792,28 @@ button {
   color: var(--muted);
 }
 
-.billing-summary-card strong {
+.billing-summary-main {
+  display: block;
   font-size: clamp(1.7rem, 2.1vw, 2.35rem);
-  line-height: 1;
+  line-height: 0.98;
   letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
 }
 
-.billing-summary-card p {
+.billing-summary-main.is-name {
+  font-size: clamp(1.55rem, 1.8vw, 2rem);
+  line-height: 1.04;
+}
+
+.billing-summary-card.is-count .billing-summary-main {
+  font-size: clamp(2.2rem, 2.6vw, 3rem);
+}
+
+.billing-summary-meta {
   margin: 0;
   color: var(--muted);
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .billing-grid {
@@ -2875,6 +2910,20 @@ button {
   .form-grid-3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .billing-summary-card,
+  .billing-summary-card.is-total,
+  .billing-summary-card.is-annual,
+  .billing-summary-card.is-client,
+  .billing-summary-card.is-count {
+    grid-column: span 1;
+  }
+
+  .billing-summary-card.is-total,
+  .billing-summary-card.is-annual,
+  .billing-summary-card.is-client {
+    grid-column: span 2;
+  }
 }
 
 @media (max-width: 760px) {
@@ -2941,6 +2990,14 @@ button {
   .hero-visual-columns,
   .split-grid {
     grid-template-columns: 1fr;
+  }
+
+  .billing-summary-card,
+  .billing-summary-card.is-total,
+  .billing-summary-card.is-annual,
+  .billing-summary-card.is-client,
+  .billing-summary-card.is-count {
+    grid-column: span 1;
   }
 
   .programacao-grid,
