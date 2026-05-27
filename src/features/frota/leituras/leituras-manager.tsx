@@ -58,6 +58,7 @@ export function LeiturasManager() {
   const [leituras, setLeituras] = useState<LeituraItem[]>([]);
   const [form, setForm] = useState<FormState>(initialForm);
   const [message, setMessage] = useState("");
+  const [editingLeituraId, setEditingLeituraId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [origemFilter, setOrigemFilter] = useState<"TODOS" | OrigemLeituraEquipamento>("TODOS");
   const [equipamentoFilter, setEquipamentoFilter] = useState("TODOS");
@@ -110,21 +111,51 @@ export function LeiturasManager() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function startEdit(item: LeituraItem) {
+    setEditingLeituraId(item.id);
+    setForm({
+      equipamentoId: item.equipamento.id,
+      dataLeitura: item.dataLeitura.slice(0, 10),
+      horimetroValor: item.horimetroValor ?? "",
+      kmValor: item.kmValor ?? "",
+      origem: item.origem,
+      observacao: item.observacao ?? ""
+    });
+    setMessage("Leitura carregada para edicao.");
+  }
+
+  function cancelEdit() {
+    setEditingLeituraId(null);
+    setForm((current) => ({
+      ...initialForm,
+      equipamentoId: current.equipamentoId || equipamentos[0]?.id || ""
+    }));
+    setMessage("Edicao cancelada.");
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
 
     startTransition(async () => {
-      const response = await fetch("/api/frota/leituras", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
-      });
+      const response = await fetch(
+        editingLeituraId ? `/api/frota/leituras/${editingLeituraId}` : "/api/frota/leituras",
+        {
+          method: editingLeituraId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form)
+        }
+      );
 
       const data = (await response.json()) as { message?: string };
 
       if (!response.ok) {
-        setMessage(data.message ?? "Nao foi possivel registrar a leitura.");
+        setMessage(
+          data.message ??
+            (editingLeituraId
+              ? "Nao foi possivel atualizar a leitura."
+              : "Nao foi possivel registrar a leitura.")
+        );
         return;
       }
 
@@ -132,7 +163,12 @@ export function LeiturasManager() {
         ...initialForm,
         equipamentoId: current.equipamentoId
       }));
-      setMessage("Leitura registrada e equipamento atualizado.");
+      setEditingLeituraId(null);
+      setMessage(
+        editingLeituraId
+          ? "Leitura atualizada e equipamento recalculado."
+          : "Leitura registrada e equipamento atualizado."
+      );
       await Promise.all([loadLeituras(), loadEquipamentos()]);
     });
   }
@@ -144,7 +180,9 @@ export function LeiturasManager() {
           <div>
             <h2 className="section-title">Nova leitura</h2>
             <p className="section-copy">
-              Registre horimetro e quilometragem com validacao para evitar regressao de leitura.
+              {editingLeituraId
+                ? "Edite horimetro, KM e observacao diretamente pela frota. O sistema mantera sempre a maior leitura do equipamento."
+                : "Registre horimetro e quilometragem manualmente. O sistema mantera sempre a maior leitura do equipamento."}
             </p>
           </div>
         </div>
@@ -156,6 +194,7 @@ export function LeiturasManager() {
               <select
                 className="field-control"
                 value={form.equipamentoId}
+                disabled={Boolean(editingLeituraId)}
                 onChange={(event) => updateField("equipamentoId", event.target.value)}
               >
                 {equipamentos.map((equipamento) => (
@@ -171,6 +210,7 @@ export function LeiturasManager() {
                 className="field-control"
                 type="date"
                 value={form.dataLeitura}
+                disabled={Boolean(editingLeituraId)}
                 onChange={(event) => updateField("dataLeitura", event.target.value)}
               />
             </label>
@@ -201,6 +241,7 @@ export function LeiturasManager() {
               <select
                 className="field-control"
                 value={form.origem}
+                disabled={Boolean(editingLeituraId)}
                 onChange={(event) =>
                   updateField("origem", event.target.value as OrigemLeituraEquipamento)
                 }
@@ -226,8 +267,17 @@ export function LeiturasManager() {
 
           <div className="toolbar-actions">
             <button type="submit" disabled={isPending} className="button-primary">
-              {isPending ? "Salvando..." : "Registrar leitura"}
+              {isPending
+                ? "Salvando..."
+                : editingLeituraId
+                  ? "Salvar leitura"
+                  : "Registrar leitura"}
             </button>
+            {editingLeituraId ? (
+              <button type="button" onClick={cancelEdit} className="button-ghost">
+                Cancelar edicao
+              </button>
+            ) : null}
           </div>
 
           {message ? <p className="message-inline">{message}</p> : null}
@@ -288,6 +338,7 @@ export function LeiturasManager() {
                 <th>Origem</th>
                 <th>Usuario</th>
                 <th>Observacao</th>
+                <th>Acoes</th>
               </tr>
             </thead>
             <tbody>
@@ -307,6 +358,15 @@ export function LeiturasManager() {
                   </td>
                   <td>{item.usuario.nome}</td>
                   <td>{item.observacao ?? "-"}</td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => startEdit(item)}
+                      className="button-secondary"
+                    >
+                      Editar
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
