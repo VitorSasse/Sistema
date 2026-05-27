@@ -6,7 +6,6 @@ import {
   CartesianGrid,
   Cell,
   ComposedChart,
-  Legend,
   Line,
   ResponsiveContainer,
   Tooltip,
@@ -28,23 +27,11 @@ type DashboardPayload = {
     totalFaturado: number;
     totalAFaturar: number;
     totalGeral: number;
-    totalFaturadoAno: number;
-    totalMedicoesAno: number;
-    mediaMensalFaturamento: number;
-    mesesNoAcumulado: number;
-    anoReferencia: number;
     totalMedicoes: number;
     totalMedicoesConcluidas: number;
     totalMedicoesAFaturar: number;
     totalClientes: number;
     ticketMedioPorCliente: number;
-    clienteTop: {
-      nome: string;
-      codigo: string;
-      totalFaturado: number;
-      totalAFaturar: number;
-      totalGeral: number;
-    } | null;
   };
   ranking: Array<{
     rank: number;
@@ -83,10 +70,6 @@ function formatPercent(value: number) {
 
 function shortClientName(name: string) {
   return name.length > 18 ? `${name.slice(0, 18)}...` : name;
-}
-
-function splitClientName(name: string) {
-  return name.length > 24 ? `${name.slice(0, 24)}...` : name;
 }
 
 function CustomTooltip({
@@ -129,7 +112,7 @@ function DashboardSkeleton() {
       </section>
 
       <section className="billing-summary-grid">
-        {Array.from({ length: 7 }).map((_, index) => (
+        {Array.from({ length: 3 }).map((_, index) => (
           <article key={index} className="billing-summary-card">
             <div className="billing-skeleton billing-skeleton-line billing-skeleton-kicker" />
             <div className="billing-skeleton billing-skeleton-line billing-skeleton-value" />
@@ -207,8 +190,6 @@ export function FaturamentoDashboard() {
   );
 
   const topFive = useMemo(() => (data?.ranking ?? []).slice(0, 5), [data]);
-  const topCliente = data?.summary.clienteTop;
-  const carteiraTotal = data?.summary.totalGeral ?? 0;
 
   if (loading && !data) {
     return <DashboardSkeleton />;
@@ -301,53 +282,10 @@ export function FaturamentoDashboard() {
             {data?.summary.totalMedicoesConcluidas ?? 0} medicao(oes) concluidas.
           </p>
         </article>
-        <article className="billing-summary-card">
-          <span className="billing-summary-label">Valor a faturar</span>
-          <strong className="billing-summary-main">
-            {formatCurrency(data?.summary.totalAFaturar ?? 0)}
-          </strong>
-          <p className="billing-summary-meta">
-            {data?.summary.totalMedicoesAFaturar ?? 0} medicao(oes) ainda nao concluidas.
-          </p>
-        </article>
-        <article className="billing-summary-card is-total">
-          <span className="billing-summary-label">Valor total do periodo</span>
-          <strong className="billing-summary-main">
-            {formatCurrency(data?.summary.totalGeral ?? 0)}
-          </strong>
-          <p className="billing-summary-meta">
-            Resultado consolidado entre faturado e valor ainda a faturar.
-          </p>
-        </article>
-        <article className="billing-summary-card is-annual">
-          <span className="billing-summary-label">
-            Faturado no ano {data?.summary.anoReferencia ?? new Date().getFullYear()}
-          </span>
-          <strong className="billing-summary-main">
-            {formatCurrency(data?.summary.totalFaturadoAno ?? 0)}
-          </strong>
-          <p className="billing-summary-meta">
-            Media mensal: {formatCurrency(data?.summary.mediaMensalFaturamento ?? 0)} em{" "}
-            {data?.summary.mesesNoAcumulado ?? 0} mes(es) do acumulado.
-          </p>
-        </article>
-        <article className="billing-summary-card is-client">
-          <span className="billing-summary-label">Cliente com maior carteira</span>
-          <strong className="billing-summary-main is-name">
-            {data?.summary.clienteTop?.nome ?? "Sem medicao"}
-          </strong>
-          <p className="billing-summary-meta">
-            {data?.summary.clienteTop
-              ? `${data.summary.clienteTop.codigo} • ${formatCurrency(data.summary.clienteTop.totalGeral)}`
-              : "Ainda nao ha medicoes para a janela selecionada."}
-          </p>
-        </article>
         <article className="billing-summary-card is-count">
           <span className="billing-summary-label">Medicoes do periodo</span>
           <strong className="billing-summary-main">{data?.summary.totalMedicoes ?? 0}</strong>
-          <p className="billing-summary-meta">
-            Inclui concluidas e valores ainda a faturar.
-          </p>
+          <p className="billing-summary-meta">Inclui concluidas e valores ainda a faturar.</p>
         </article>
         <article className="billing-summary-card">
           <span className="billing-summary-label">Ticket medio por cliente</span>
@@ -362,20 +300,6 @@ export function FaturamentoDashboard() {
 
       <section className="billing-grid fade-up fade-up-delay-2">
         <article className="billing-chart-card surface section-card">
-          <div className="billing-chart-header">
-            <div>
-              <span className="billing-kicker">Faturamento por cliente</span>
-              <h2 className="section-title">Ranking financeiro do periodo</h2>
-              <p className="section-copy">
-                Clientes ordenados pelo total da carteira no periodo, separando faturado e a faturar.
-              </p>
-            </div>
-            <div className="billing-chart-header-badge">
-              <strong>{formatCurrency(carteiraTotal)}</strong>
-              <span>Carteira total do periodo</span>
-            </div>
-          </div>
-
           {chartData.length === 0 ? (
             <div className="billing-empty-state">
               <strong>Nenhuma medicao encontrada</strong>
@@ -385,26 +309,6 @@ export function FaturamentoDashboard() {
             </div>
           ) : (
             <div className="billing-chart-panel">
-              <div className="billing-chart-summary">
-                <article className="billing-chart-summary-card is-success">
-                  <span>Faturado</span>
-                  <strong>{formatCurrency(data?.summary.totalFaturado ?? 0)}</strong>
-                  <small>{data?.summary.totalMedicoesConcluidas ?? 0} medicao(oes)</small>
-                </article>
-                <article className="billing-chart-summary-card is-warn">
-                  <span>A faturar</span>
-                  <strong>{formatCurrency(data?.summary.totalAFaturar ?? 0)}</strong>
-                  <small>{data?.summary.totalMedicoesAFaturar ?? 0} medicao(oes)</small>
-                </article>
-                <article className="billing-chart-summary-card is-neutral">
-                  <span>Cliente lider</span>
-                  <strong>{splitClientName(topCliente?.nome ?? "Sem medicao")}</strong>
-                  <small>
-                    {topCliente ? formatCurrency(topCliente.totalGeral) : "Sem carteira no periodo"}
-                  </small>
-                </article>
-              </div>
-
               <div className="billing-chart-legend">
                 <span className="billing-chart-legend-item">
                   <i className="billing-chart-dot is-faturado" />
@@ -421,88 +325,94 @@ export function FaturamentoDashboard() {
               </div>
 
               <div className="billing-chart-shell">
-              <ResponsiveContainer width="100%" height={420}>
-                <ComposedChart
-                  data={chartData}
-                  margin={{ top: 18, right: 24, left: 8, bottom: 32 }}
-                >
-                  <defs>
-                    <linearGradient id="billingBarFaturado" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#1e8b7d" />
-                      <stop offset="100%" stopColor="#155b52" />
-                    </linearGradient>
-                    <linearGradient id="billingBarPendente" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f0c15a" />
-                      <stop offset="100%" stopColor="#d4932d" />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="rgba(109, 92, 66, 0.12)" vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    tickLine={false}
-                    axisLine={false}
-                    interval={0}
-                    angle={-24}
-                    textAnchor="end"
-                    height={72}
-                    tick={{ fill: "#6f6455", fontSize: 12 }}
-                  />
-                  <YAxis
-                    yAxisId="currency"
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                    tick={{ fill: "#6f6455", fontSize: 12 }}
-                    width={110}
-                  />
-                  <YAxis
-                    yAxisId="share"
-                    orientation="right"
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `${value}%`}
-                    tick={{ fill: "#6f6455", fontSize: 12 }}
-                    width={56}
-                  />
-                  <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(21, 91, 82, 0.06)" }} />
-                  <Bar
-                    yAxisId="currency"
-                    dataKey="totalFaturado"
-                    name="totalFaturado"
-                    stackId="billing"
-                    radius={[0, 0, 0, 0]}
-                    maxBarSize={56}
+                <ResponsiveContainer width="100%" height={420}>
+                  <ComposedChart
+                    data={chartData}
+                    margin={{ top: 18, right: 24, left: 8, bottom: 32 }}
                   >
-                    {chartData.map((entry, index) => (
-                      <Cell
-                        key={entry.clienteId}
-                        fill={chartPalette[index % chartPalette.length] ?? "url(#billingBarFaturado)"}
-                      />
-                    ))}
-                  </Bar>
-                  <Bar
-                    yAxisId="currency"
-                    dataKey="totalAFaturar"
-                    name="totalAFaturar"
-                    stackId="billing"
-                    radius={[12, 12, 0, 0]}
-                    fill="url(#billingBarPendente)"
-                    maxBarSize={56}
-                  />
-                  <Line
-                    yAxisId="share"
-                    type="monotone"
-                    dataKey="sharePercent"
-                    name="sharePercent"
-                    stroke="#d4932d"
-                    strokeWidth={3}
-                    strokeDasharray="0"
-                    dot={{ r: 4, strokeWidth: 0, fill: "#d4932d" }}
-                    activeDot={{ r: 6, fill: "#f0b544" }}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
+                    <defs>
+                      <linearGradient id="billingBarFaturado" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#1e8b7d" />
+                        <stop offset="100%" stopColor="#155b52" />
+                      </linearGradient>
+                      <linearGradient id="billingBarPendente" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f0c15a" />
+                        <stop offset="100%" stopColor="#d4932d" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="rgba(109, 92, 66, 0.12)" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      interval={0}
+                      angle={-24}
+                      textAnchor="end"
+                      height={72}
+                      tick={{ fill: "#6f6455", fontSize: 12 }}
+                    />
+                    <YAxis
+                      yAxisId="currency"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
+                      tick={{ fill: "#6f6455", fontSize: 12 }}
+                      width={110}
+                    />
+                    <YAxis
+                      yAxisId="share"
+                      orientation="right"
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `${value}%`}
+                      tick={{ fill: "#6f6455", fontSize: 12 }}
+                      width={56}
+                    />
+                    <Tooltip
+                      content={<CustomTooltip />}
+                      cursor={{ fill: "rgba(21, 91, 82, 0.06)" }}
+                    />
+                    <Bar
+                      yAxisId="currency"
+                      dataKey="totalFaturado"
+                      name="totalFaturado"
+                      stackId="billing"
+                      radius={[0, 0, 0, 0]}
+                      maxBarSize={56}
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell
+                          key={entry.clienteId}
+                          fill={
+                            chartPalette[index % chartPalette.length] ??
+                            "url(#billingBarFaturado)"
+                          }
+                        />
+                      ))}
+                    </Bar>
+                    <Bar
+                      yAxisId="currency"
+                      dataKey="totalAFaturar"
+                      name="totalAFaturar"
+                      stackId="billing"
+                      radius={[12, 12, 0, 0]}
+                      fill="url(#billingBarPendente)"
+                      maxBarSize={56}
+                    />
+                    <Line
+                      yAxisId="share"
+                      type="monotone"
+                      dataKey="sharePercent"
+                      name="sharePercent"
+                      stroke="#d4932d"
+                      strokeWidth={3}
+                      strokeDasharray="0"
+                      dot={{ r: 4, strokeWidth: 0, fill: "#d4932d" }}
+                      activeDot={{ r: 6, fill: "#f0b544" }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           )}
         </article>
@@ -513,9 +423,7 @@ export function FaturamentoDashboard() {
               <span className="billing-kicker">Top clientes</span>
               <h2 className="section-title">Maiores carteiras do periodo</h2>
             </div>
-            <span className="badge badge-info">
-              {data?.summary.totalClientes ?? 0} cliente(s)
-            </span>
+            <span className="badge badge-info">{data?.summary.totalClientes ?? 0} cliente(s)</span>
           </div>
 
           {topFive.length === 0 ? (
@@ -535,7 +443,8 @@ export function FaturamentoDashboard() {
                   <div className="billing-ranking-metrics">
                     <strong>{formatCurrency(item.totalGeral)}</strong>
                     <span>
-                      {formatCurrency(item.totalFaturado)} faturado • {formatCurrency(item.totalAFaturar)} a faturar
+                      {formatCurrency(item.totalFaturado)} faturado •{" "}
+                      {formatCurrency(item.totalAFaturar)} a faturar
                     </span>
                     <span>{formatPercent(item.sharePercent)} do total</span>
                   </div>
