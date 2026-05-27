@@ -309,6 +309,24 @@ export function FaturamentoDashboard() {
             </div>
           ) : (
             <div className="billing-chart-panel">
+              <div className="billing-chart-summary">
+                <article className="billing-chart-summary-card is-success">
+                  <span>Faturado no periodo</span>
+                  <strong>{formatCurrency(data?.summary.totalFaturado ?? 0)}</strong>
+                  <small>{data?.summary.totalMedicoesConcluidas ?? 0} medicao(oes)</small>
+                </article>
+                <article className="billing-chart-summary-card is-warn">
+                  <span>Valor a faturar</span>
+                  <strong>{formatCurrency(data?.summary.totalAFaturar ?? 0)}</strong>
+                  <small>{data?.summary.totalMedicoesAFaturar ?? 0} medicao(oes)</small>
+                </article>
+                <article className="billing-chart-summary-card is-total">
+                  <span>Faturamento total</span>
+                  <strong>{formatCurrency(data?.summary.totalGeral ?? 0)}</strong>
+                  <small>Faturado somado ao valor ainda a faturar.</small>
+                </article>
+              </div>
+
               <div className="billing-chart-legend">
                 <span className="billing-chart-legend-item">
                   <i className="billing-chart-dot is-faturado" />
