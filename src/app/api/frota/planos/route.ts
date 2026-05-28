@@ -40,7 +40,9 @@ export async function GET() {
         select: {
           id: true,
           descricao: true,
-          placaOuTag: true
+          placaOuTag: true,
+          horimetroAtual: true,
+          kmAtual: true
         }
       }
     },

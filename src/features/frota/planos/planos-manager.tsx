@@ -28,6 +28,8 @@ type PlanoItem = {
   equipamento: {
     descricao: string;
     placaOuTag: string;
+    horimetroAtual: string | null;
+    kmAtual: string | null;
   };
 };
 
@@ -306,6 +308,7 @@ export function PlanosManager() {
                 <th>Equipamento</th>
                 <th>Revisao</th>
                 <th>Criterio</th>
+                <th>Leitura atual</th>
                 <th>Ultima revisao</th>
                 <th>Proxima previsao</th>
                 <th>Status</th>
@@ -323,6 +326,10 @@ export function PlanosManager() {
                   <td>
                     <div>{item.criterioControle}</div>
                     <div className="subtle">Intervalo: {item.periodicidadeValor}</div>
+                  </td>
+                  <td>
+                    <div>H: {item.equipamento.horimetroAtual ?? "-"}</div>
+                    <div className="subtle">KM: {item.equipamento.kmAtual ?? "-"}</div>
                   </td>
                   <td>
                     <div>{item.ultimaExecucaoEm ? new Date(item.ultimaExecucaoEm).toLocaleDateString("pt-BR") : "-"}</div>
