@@ -245,7 +245,6 @@ export async function GET(request: NextRequest) {
   const [equipamentos, items] = await Promise.all([
     prisma.equipamento.findMany({
       where: {
-        complementar: false,
         tipoRecurso: {
           in: ["CAMINHAO", "MAQUINA"]
         }
@@ -274,7 +273,6 @@ export async function GET(request: NextRequest) {
         lancamento: {
           deletedAt: null,
           equipamento: {
-            complementar: false,
             tipoRecurso: {
               in: ["CAMINHAO", "MAQUINA"]
             }
