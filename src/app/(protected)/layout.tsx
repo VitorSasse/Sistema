@@ -6,9 +6,12 @@ import { hasRoleAccess, requireSession } from "@/lib/auth-guards";
 
 const navigationGroups = [
   {
-    label: "Visao geral",
-    description: "Painel executivo e acompanhamento rapido.",
-    items: [{ href: "/dashboard", label: "Dashboard de faturamento" }]
+    label: "Dashboards",
+    description: "Painel financeiro e acompanhamento consolidado da frota.",
+    items: [
+      { href: "/dashboard", label: "Dashboard de faturamento" },
+      { href: "/frota/dashboard", label: "Dashboard da frota" }
+    ]
   },
   {
     label: "Cadastros",
@@ -36,15 +39,9 @@ const navigationGroups = [
     label: "Frota",
     description: "Leituras, manutencao e acompanhamento dos recursos.",
     items: [
-      { href: "/frota/dashboard", label: "Dashboard da frota" },
       { href: "/frota/leituras", label: "Leituras de horimetro/KM" },
       { href: "/frota/planos", label: "Plano preventivo" }
     ]
-  },
-  {
-    label: "Expansao",
-    description: "Modulo preparado para futuro financeiro.",
-    items: [{ href: "/precos", label: "Precos" }]
   }
 ] satisfies {
   label: string;
