@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type DashboardData = {
   resumo: {
@@ -23,6 +23,48 @@ type DashboardData = {
   }>;
 };
 
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("pt-BR");
+}
+
+function buildAttentionItems(data: DashboardData["resumo"]) {
+  const items = [];
+
+  if (data.emManutencao > 0) {
+    items.push({
+      tone: "danger" as const,
+      title: "Manutencao ativa",
+      copy: `${data.emManutencao} recurso(s) seguem bloqueados para revisao ou servico.`
+    });
+  }
+
+  if (data.parados > 0) {
+    items.push({
+      tone: "warn" as const,
+      title: "Recursos parados",
+      copy: `${data.parados} equipamento(s) aguardam liberacao ou nova frente.`
+    });
+  }
+
+  if (data.semLeituraRecente > 0) {
+    items.push({
+      tone: "info" as const,
+      title: "Leituras pendentes",
+      copy: `${data.semLeituraRecente} cadastro(s) precisam de leitura recente para ficar confiaveis.`
+    });
+  }
+
+  if (data.alertas === 0) {
+    items.push({
+      tone: "success" as const,
+      title: "Sem alertas ativos",
+      copy: "Nao ha alerta de manutencao disparado no painel atual."
+    });
+  }
+
+  return items;
+}
+
 export function FrotaDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
 
@@ -36,94 +78,194 @@ export function FrotaDashboard() {
     void loadDashboard();
   }, []);
 
+  const baseAtiva = data?.resumo.ativos ?? 0;
+  const liberadosEstimados = Math.max(
+    0,
+    baseAtiva - (data?.resumo.emManutencao ?? 0) - (data?.resumo.parados ?? 0)
+  );
+
+  const operacaoMix = useMemo(() => {
+    if (!data || baseAtiva === 0) {
+      return {
+        liberados: 0,
+        manutencao: 0,
+        parados: 0
+      };
+    }
+
+    return {
+      liberados: Number(((liberadosEstimados / baseAtiva) * 100).toFixed(1)),
+      manutencao: Number(((data.resumo.emManutencao / baseAtiva) * 100).toFixed(1)),
+      parados: Number(((data.resumo.parados / baseAtiva) * 100).toFixed(1))
+    };
+  }, [baseAtiva, data, liberadosEstimados]);
+
+  const attentionItems = useMemo(
+    () => (data ? buildAttentionItems(data.resumo) : []),
+    [data]
+  );
+
   if (!data) {
-    return <p className="section-copy">Carregando dashboard da frota...</p>;
+    return (
+      <main className="fleet-dashboard">
+        <section className="surface section-card fleet-hero fleet-skeleton-block" />
+        <section className="fleet-summary-grid">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <article
+              key={index}
+              className="surface section-card fleet-summary-card fleet-skeleton-block"
+            />
+          ))}
+        </section>
+      </main>
+    );
   }
 
   return (
-    <main className="page-stack">
-      <section className="stats-grid">
-        <article className="stat-card">
-          <p className="stat-card-label">Equipamentos ativos</p>
-          <p className="stat-card-value">{data.resumo.ativos}</p>
-          <p className="stat-card-copy">Cadastros ativos com potencial de uso operacional.</p>
-        </article>
-        <article className="stat-card">
-          <p className="stat-card-label">Em manutencao</p>
-          <p className="stat-card-value">{data.resumo.emManutencao}</p>
-          <p className="stat-card-copy">Recursos atualmente bloqueados para revisao ou servico.</p>
-        </article>
-        <article className="stat-card">
-          <p className="stat-card-label">Parados</p>
-          <p className="stat-card-value">{data.resumo.parados}</p>
-          <p className="stat-card-copy">Equipamentos aguardando leitura, agenda ou liberacao.</p>
-        </article>
-        <article className="stat-card">
-          <p className="stat-card-label">Sem leitura recente</p>
-          <p className="stat-card-value">{data.resumo.semLeituraRecente}</p>
-          <p className="stat-card-copy">Recursos sem atualizacao recente no cadastro operacional.</p>
-        </article>
-      </section>
+    <main className="fleet-dashboard">
+      <section className="surface section-card fleet-hero">
+        <div className="fleet-hero-main">
+          <span className="fleet-kicker">Pulso da frota</span>
+          <h2 className="fleet-hero-title">
+            {baseAtiva} equipamento(s) ativos com leitura e manutencao sob monitoramento.
+          </h2>
+          <p className="fleet-hero-copy">
+            O quadro abaixo prioriza o que exige atencao agora: manutencao ativa,
+            recursos parados e cadastros com leitura desatualizada.
+          </p>
 
-      <section className="tile-grid">
-        <article className="tile-card">
-          <h3>Alertas ativos</h3>
-          <p className="stat-card-value" style={{ fontSize: "2rem", marginTop: 8 }}>
-            {data.resumo.alertas}
-          </p>
-          <p className="section-copy">O gerador de alertas entra na proxima sprint.</p>
-        </article>
-        <article className="tile-card">
-          <h3>Proximos servicos</h3>
-          <p className="stat-card-value" style={{ fontSize: "2rem", marginTop: 8 }}>
-            {data.resumo.proximosServicos}
-          </p>
-          <p className="section-copy">Indicador preparatorio para agenda e plano preventivo.</p>
-        </article>
-        <article className="tile-card">
-          <h3>Ultimas leituras</h3>
-          <p className="stat-card-value" style={{ fontSize: "2rem", marginTop: 8 }}>
-            {data.leiturasRecentes.length}
-          </p>
-          <p className="section-copy">Leituras recentes ja consolidadas pela frota.</p>
-        </article>
-      </section>
+          <div className="fleet-hero-strip">
+            <div
+              className="fleet-hero-strip-segment is-success"
+              style={{ width: `${operacaoMix.liberados}%` }}
+            />
+            <div
+              className="fleet-hero-strip-segment is-danger"
+              style={{ width: `${operacaoMix.manutencao}%` }}
+            />
+            <div
+              className="fleet-hero-strip-segment is-warn"
+              style={{ width: `${operacaoMix.parados}%` }}
+            />
+          </div>
 
-      <section className="surface section-card">
-        <div className="section-header">
-          <div>
-            <h2 className="section-title">Ultimas leituras registradas</h2>
-            <p className="section-copy">
-              Painel rapido para o escritorio acompanhar a atualizacao da frota.
-            </p>
+          <div className="fleet-hero-metrics">
+            <div className="fleet-hero-metric">
+              <strong>{liberadosEstimados}</strong>
+              <span>Liberados estimados</span>
+            </div>
+            <div className="fleet-hero-metric">
+              <strong>{data.resumo.emManutencao}</strong>
+              <span>Em manutencao</span>
+            </div>
+            <div className="fleet-hero-metric">
+              <strong>{data.resumo.parados}</strong>
+              <span>Parados</span>
+            </div>
           </div>
         </div>
 
-        <div className="data-table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Equipamento</th>
-                <th>Horimetro</th>
-                <th>KM</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.leiturasRecentes.map((item) => (
-                <tr key={item.id}>
-                  <td>{new Date(item.dataLeitura).toLocaleDateString("pt-BR")}</td>
-                  <td>
-                    <div>{item.equipamento.descricao}</div>
-                    <div className="subtle">{item.equipamento.placaOuTag}</div>
-                  </td>
-                  <td>{item.horimetroValor ?? "-"}</td>
-                  <td>{item.kmValor ?? "-"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="fleet-hero-side">
+          <article className="fleet-spotlight-card is-danger">
+            <span className="fleet-spotlight-label">Atencao imediata</span>
+            <strong>{data.resumo.semLeituraRecente}</strong>
+            <p>
+              equipamento(s) sem leitura recente e com risco de decisao baseada em dado velho.
+            </p>
+          </article>
+          <article className="fleet-spotlight-card is-neutral">
+            <span className="fleet-spotlight-label">Base monitorada</span>
+            <strong>{data.resumo.proximosServicos}</strong>
+            <p>recurso(s) ativos ja possuem leitura consolidada para controle da frota.</p>
+          </article>
         </div>
+      </section>
+
+      <section className="fleet-summary-grid">
+        <article className="fleet-summary-card fleet-summary-card-strong">
+          <span className="fleet-card-label">Equipamentos ativos</span>
+          <strong className="fleet-card-value">{data.resumo.ativos}</strong>
+          <p className="fleet-card-copy">Base operacional ativa acompanhada pelo painel.</p>
+        </article>
+
+        <article className="fleet-summary-card fleet-summary-card-danger">
+          <span className="fleet-card-label">Em manutencao</span>
+          <strong className="fleet-card-value">{data.resumo.emManutencao}</strong>
+          <p className="fleet-card-copy">Recursos bloqueados para revisao, oficina ou servico.</p>
+        </article>
+
+        <article className="fleet-summary-card fleet-summary-card-warn">
+          <span className="fleet-card-label">Parados</span>
+          <strong className="fleet-card-value">{data.resumo.parados}</strong>
+          <p className="fleet-card-copy">Equipamentos aguardando liberacao ou replanejamento.</p>
+        </article>
+
+        <article className="fleet-summary-card fleet-summary-card-info">
+          <span className="fleet-card-label">Ultimas leituras</span>
+          <strong className="fleet-card-value">{data.leiturasRecentes.length}</strong>
+          <p className="fleet-card-copy">Leituras recentes que alimentam o controle da frota.</p>
+        </article>
+      </section>
+
+      <section className="fleet-analysis-grid">
+        <article className="surface section-card fleet-attention-card">
+          <div className="section-header">
+            <div>
+              <h2 className="section-title">Radar de atencao</h2>
+              <p className="section-copy">
+                Resumo de impacto para o escritorio bater o olho e agir rapido.
+              </p>
+            </div>
+          </div>
+
+          <div className="fleet-attention-list">
+            {attentionItems.map((item) => (
+              <div
+                key={item.title}
+                className={`fleet-attention-item fleet-attention-item-${item.tone}`}
+              >
+                <strong>{item.title}</strong>
+                <span>{item.copy}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="surface section-card fleet-reading-card">
+          <div className="section-header">
+            <div>
+              <h2 className="section-title">Ultimas leituras registradas</h2>
+              <p className="section-copy">
+                Sequencia recente para validar se a frota esta sendo alimentada corretamente.
+              </p>
+            </div>
+          </div>
+
+          <div className="fleet-reading-list">
+            {data.leiturasRecentes.map((item) => (
+              <article key={item.id} className="fleet-reading-item">
+                <div className="fleet-reading-item-top">
+                  <div>
+                    <strong>{item.equipamento.descricao}</strong>
+                    <span>{item.equipamento.placaOuTag}</span>
+                  </div>
+                  <span className="badge badge-neutral">{formatDate(item.dataLeitura)}</span>
+                </div>
+
+                <div className="fleet-reading-values">
+                  <div>
+                    <small>Horimetro</small>
+                    <strong>{item.horimetroValor ?? "-"}</strong>
+                  </div>
+                  <div>
+                    <small>KM</small>
+                    <strong>{item.kmValor ?? "-"}</strong>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </article>
       </section>
     </main>
   );
