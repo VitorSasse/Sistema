@@ -15,16 +15,16 @@ function normalizeFileSegment(value: string, maxLength = 32) {
   const normalized = value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
     .toUpperCase();
 
   if (!normalized) {
     return "SEM OBRA";
   }
 
-  return normalized.slice(0, maxLength).trim() || "SEM OBRA";
+  return normalized.slice(0, maxLength).replace(/_+$/g, "") || "SEM OBRA";
 }
 
 function formatPeriodSegment(value: Date) {
@@ -46,7 +46,7 @@ function formatPeriodSegment(value: Date) {
   const date = new Date(value);
   const day = String(date.getDate()).padStart(2, "0");
   const month = months[date.getMonth()] ?? "MES";
-  return `${day}-${month}`;
+  return `${day}${month}`;
 }
 
 function buildPdfFilename(params: {
@@ -60,8 +60,8 @@ function buildPdfFilename(params: {
   const codigo = params.codigoMedicao.toUpperCase();
   const periodoInicial = formatPeriodSegment(params.periodoInicial);
   const periodoFinal = formatPeriodSegment(params.periodoFinal);
-  const suffix = params.tipoRelatorio === "RESUMIDO" ? " RESUMIDO" : "";
-  return `${obra} ${codigo} ${periodoInicial} ${periodoFinal}${suffix}.pdf`;
+  const suffix = params.tipoRelatorio === "RESUMIDO" ? "_RESUMIDO" : "";
+  return `${codigo}_${obra}_${periodoInicial}_a_${periodoFinal}${suffix}.pdf`;
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
@@ -150,7 +150,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+      "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`
     }
   });
 }
