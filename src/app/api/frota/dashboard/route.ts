@@ -10,10 +10,7 @@ const allowedPresets = [
 ] as const;
 
 type PeriodPreset = (typeof allowedPresets)[number];
-
-const dayKeyFormatter = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "America/Sao_Paulo"
-});
+type SectionType = "CAMINHAO" | "MAQUINA";
 
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
@@ -111,35 +108,114 @@ function resolvePeriod(searchParams: URLSearchParams) {
 }
 
 function toDayKey(value: Date) {
-  return dayKeyFormatter.format(value);
+  return value.toISOString().slice(0, 10);
 }
 
-function resolveProduction(
-  unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA",
-  unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA",
-  quantidadeApontada: number,
-  quantidadeFaturada: number,
-  capacidadeM3: number
-) {
-  const cargas =
-    unidadeApontada === "CARGA"
-      ? quantidadeApontada
-      : unidadeFaturada === "CARGA"
-        ? quantidadeFaturada
-        : 0;
+type RawItem = {
+  data: Date;
+  valorTotalItem: number;
+  equipamento: {
+    id: string;
+    descricao: string;
+    placaOuTag: string;
+    tipoRecurso: SectionType;
+  };
+};
 
-  const totalM3 =
-    unidadeApontada === "M3"
-      ? quantidadeApontada
-      : unidadeFaturada === "M3"
-        ? quantidadeFaturada
-        : cargas > 0 && capacidadeM3 > 0
-          ? cargas * capacidadeM3
-          : 0;
+function buildSection(
+  items: RawItem[],
+  selectedEquipamentoId: string | null,
+  type: SectionType
+) {
+  const filteredItems = items.filter(
+    (item) =>
+      item.equipamento.tipoRecurso === type &&
+      (!selectedEquipamentoId || item.equipamento.id === selectedEquipamentoId)
+  );
+
+  const rankingMap = new Map<
+    string,
+    {
+      equipamentoId: string;
+      descricao: string;
+      placaOuTag: string;
+      totalValor: number;
+      totalItens: number;
+      dias: Set<string>;
+      ultimoLancamento: Date;
+    }
+  >();
+
+  const daysWithProduction = new Set<string>();
+
+  for (const item of filteredItems) {
+    const dayKey = toDayKey(item.data);
+    daysWithProduction.add(dayKey);
+
+    const current =
+      rankingMap.get(item.equipamento.id) ??
+      {
+        equipamentoId: item.equipamento.id,
+        descricao: item.equipamento.descricao,
+        placaOuTag: item.equipamento.placaOuTag,
+        totalValor: 0,
+        totalItens: 0,
+        dias: new Set<string>(),
+        ultimoLancamento: item.data
+      };
+
+    current.totalValor = Number((current.totalValor + item.valorTotalItem).toFixed(2));
+    current.totalItens += 1;
+    current.dias.add(dayKey);
+
+    if (item.data > current.ultimoLancamento) {
+      current.ultimoLancamento = item.data;
+    }
+
+    rankingMap.set(item.equipamento.id, current);
+  }
+
+  const ranking = Array.from(rankingMap.values())
+    .map((item) => {
+      const diasComProducao = item.dias.size;
+      return {
+        equipamentoId: item.equipamentoId,
+        descricao: item.descricao,
+        placaOuTag: item.placaOuTag,
+        totalValor: item.totalValor,
+        totalItens: item.totalItens,
+        diasComProducao,
+        mediaValorPorDia:
+          diasComProducao > 0 ? Number((item.totalValor / diasComProducao).toFixed(2)) : 0,
+        ultimoLancamento: item.ultimoLancamento.toISOString()
+      };
+    })
+    .sort((a, b) => {
+      if (b.totalValor !== a.totalValor) return b.totalValor - a.totalValor;
+      if (b.totalItens !== a.totalItens) return b.totalItens - a.totalItens;
+      return a.placaOuTag.localeCompare(b.placaOuTag);
+    });
+
+  const totalValor = Number(ranking.reduce((acc, item) => acc + item.totalValor, 0).toFixed(2));
+  const totalItens = ranking.reduce((acc, item) => acc + item.totalItens, 0);
+  const equipamentosComProducao = ranking.length;
+  const diasComProducao = daysWithProduction.size;
 
   return {
-    cargas: Number(cargas.toFixed(2)),
-    totalM3: Number(totalM3.toFixed(2))
+    filteredItems,
+    summary: {
+      totalValor,
+      totalItens,
+      equipamentosComProducao,
+      diasComProducao,
+      mediaValorPorEquipamento:
+        equipamentosComProducao > 0
+          ? Number((totalValor / equipamentosComProducao).toFixed(2))
+          : 0,
+      mediaValorPorDia:
+        diasComProducao > 0 ? Number((totalValor / diasComProducao).toFixed(2)) : 0
+    },
+    ranking
   };
 }
 
@@ -163,144 +239,116 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const selectedEquipamentoId = request.nextUrl.searchParams.get("equipamentoId");
+  const selectedCaminhaoId = request.nextUrl.searchParams.get("caminhaoId");
+  const selectedMaquinaId = request.nextUrl.searchParams.get("maquinaId");
 
-  const equipamentos = await prisma.equipamento.findMany({
-    where: {
-      tipoRecurso: "CAMINHAO",
-      complementar: false
-    },
-    select: {
-      id: true,
-      descricao: true,
-      placaOuTag: true
-    },
-    orderBy: [{ descricao: "asc" }, { placaOuTag: "asc" }]
-  });
+  const [equipamentos, items] = await Promise.all([
+    prisma.equipamento.findMany({
+      where: {
+        complementar: false,
+        tipoRecurso: {
+          in: ["CAMINHAO", "MAQUINA"]
+        }
+      },
+      select: {
+        id: true,
+        tipoRecurso: true,
+        descricao: true,
+        placaOuTag: true
+      },
+      orderBy: [{ descricao: "asc" }, { placaOuTag: "asc" }]
+    }),
+    prisma.medicaoItem.findMany({
+      where: {
+        deletedAt: null,
+        data: {
+          gte: period.start,
+          lte: period.end
+        },
+        medicao: {
+          deletedAt: null,
+          status: {
+            not: "CANCELADA"
+          }
+        },
+        lancamento: {
+          deletedAt: null,
+          equipamento: {
+            complementar: false,
+            tipoRecurso: {
+              in: ["CAMINHAO", "MAQUINA"]
+            }
+          }
+        }
+      },
+      select: {
+        data: true,
+        valorTotalItem: true,
+        medicao: {
+          select: {
+            valorTotal: true,
+            descontoValor: true
+          }
+        },
+        lancamento: {
+          select: {
+            equipamento: {
+              select: {
+                id: true,
+                descricao: true,
+                placaOuTag: true,
+                tipoRecurso: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: [{ data: "desc" }, { createdAt: "desc" }]
+    })
+  ]);
 
-  if (selectedEquipamentoId && !equipamentos.some((item) => item.id === selectedEquipamentoId)) {
+  const caminhoes = equipamentos.filter((item) => item.tipoRecurso === "CAMINHAO");
+  const maquinas = equipamentos.filter((item) => item.tipoRecurso === "MAQUINA");
+
+  if (selectedCaminhaoId && !caminhoes.some((item) => item.id === selectedCaminhaoId)) {
     return NextResponse.json({ message: "Caminhao invalido para o filtro." }, { status: 400 });
   }
 
-  const lancamentos = await prisma.lancamentoDiario.findMany({
-    where: {
-      deletedAt: null,
-      statusValidacao: {
-        not: "CANCELADO"
-      },
-      data: {
-        gte: period.start,
-        lte: period.end
-      },
-      equipamento: {
-        tipoRecurso: "CAMINHAO",
-        complementar: false,
-        ...(selectedEquipamentoId ? { id: selectedEquipamentoId } : {})
-      }
-    },
-    select: {
-      data: true,
-      quantidadeApontada: true,
-      quantidadeFaturada: true,
-      unidadeApontada: true,
-      unidadeFaturada: true,
-      equipamento: {
-        select: {
-          id: true,
-          descricao: true,
-          placaOuTag: true,
-          capacidadeM3: true
-        }
-      }
-    },
-    orderBy: [{ data: "desc" }, { createdAt: "desc" }]
-  });
-
-  const rankingMap = new Map<
-    string,
-    {
-      equipamentoId: string;
-      descricao: string;
-      placaOuTag: string;
-      totalM3: number;
-      totalCargas: number;
-      dias: Set<string>;
-      ultimoLancamento: Date;
-    }
-  >();
-  const daysWithProduction = new Set<string>();
-
-  for (const lancamento of lancamentos) {
-    const capacidadeM3 = Number(lancamento.equipamento.capacidadeM3 ?? 0);
-    const quantidadeApontada = Number(lancamento.quantidadeApontada ?? 0);
-    const quantidadeFaturada = Number(lancamento.quantidadeFaturada ?? 0);
-    const production = resolveProduction(
-      lancamento.unidadeApontada,
-      lancamento.unidadeFaturada,
-      quantidadeApontada,
-      quantidadeFaturada,
-      capacidadeM3
-    );
-
-    if (production.totalM3 <= 0 && production.cargas <= 0) {
-      continue;
-    }
-
-    const dayKey = toDayKey(lancamento.data);
-    daysWithProduction.add(dayKey);
-
-    const current =
-      rankingMap.get(lancamento.equipamento.id) ??
-      {
-        equipamentoId: lancamento.equipamento.id,
-        descricao: lancamento.equipamento.descricao,
-        placaOuTag: lancamento.equipamento.placaOuTag,
-        totalM3: 0,
-        totalCargas: 0,
-        dias: new Set<string>(),
-        ultimoLancamento: lancamento.data
-      };
-
-    current.totalM3 = Number((current.totalM3 + production.totalM3).toFixed(2));
-    current.totalCargas = Number((current.totalCargas + production.cargas).toFixed(2));
-    current.dias.add(dayKey);
-
-    if (lancamento.data > current.ultimoLancamento) {
-      current.ultimoLancamento = lancamento.data;
-    }
-
-    rankingMap.set(lancamento.equipamento.id, current);
+  if (selectedMaquinaId && !maquinas.some((item) => item.id === selectedMaquinaId)) {
+    return NextResponse.json({ message: "Maquina invalida para o filtro." }, { status: 400 });
   }
 
-  const ranking = Array.from(rankingMap.values())
-    .map((item) => {
-      const diasComProducao = item.dias.size;
-      return {
-        equipamentoId: item.equipamentoId,
-        descricao: item.descricao,
-        placaOuTag: item.placaOuTag,
-        totalM3: item.totalM3,
-        totalCargas: item.totalCargas,
-        diasComProducao,
-        mediaM3PorDia:
-          diasComProducao > 0 ? Number((item.totalM3 / diasComProducao).toFixed(2)) : 0,
-        ultimoLancamento: item.ultimoLancamento.toISOString()
-      };
-    })
-    .sort((a, b) => {
-      if (b.totalM3 !== a.totalM3) return b.totalM3 - a.totalM3;
-      if (b.totalCargas !== a.totalCargas) return b.totalCargas - a.totalCargas;
-      return a.placaOuTag.localeCompare(b.placaOuTag);
-    });
+  const rawItems: RawItem[] = items.map((item) => ({
+    data: item.data,
+    valorTotalItem: (() => {
+      const itemGross = Number(item.valorTotalItem ?? 0);
+      const medicaoGross = Number(item.medicao.valorTotal ?? 0);
+      const medicaoDiscount = Number(item.medicao.descontoValor ?? 0);
 
-  const totalM3 = Number(
-    ranking.reduce((acc, item) => acc + item.totalM3, 0).toFixed(2)
+      if (medicaoGross <= 0 || medicaoDiscount <= 0) {
+        return itemGross;
+      }
+
+      const netFactor = Math.max(0, (medicaoGross - medicaoDiscount) / medicaoGross);
+      return Number((itemGross * netFactor).toFixed(2));
+    })(),
+    equipamento: {
+      id: item.lancamento.equipamento.id,
+      descricao: item.lancamento.equipamento.descricao,
+      placaOuTag: item.lancamento.equipamento.placaOuTag,
+      tipoRecurso: item.lancamento.equipamento.tipoRecurso as SectionType
+    }
+  }));
+
+  const caminhaoSection = buildSection(rawItems, selectedCaminhaoId, "CAMINHAO");
+  const maquinaSection = buildSection(rawItems, selectedMaquinaId, "MAQUINA");
+
+  const overallItems = [...caminhaoSection.filteredItems, ...maquinaSection.filteredItems];
+  const overallDays = new Set(overallItems.map((item) => toDayKey(item.data)));
+  const overallEquipamentos = new Set(overallItems.map((item) => item.equipamento.id));
+  const totalValorGeral = Number(
+    overallItems.reduce((acc, item) => acc + item.valorTotalItem, 0).toFixed(2)
   );
-  const totalCargas = Number(
-    ranking.reduce((acc, item) => acc + item.totalCargas, 0).toFixed(2)
-  );
-  const caminhoesComProducao = ranking.length;
-  const diasComProducao = daysWithProduction.size;
 
   return NextResponse.json({
     period: {
@@ -310,21 +358,30 @@ export async function GET(request: NextRequest) {
       label: period.label
     },
     filters: {
-      equipamentoId: selectedEquipamentoId,
-      equipamentos: equipamentos.map((item) => ({
+      caminhaoId: selectedCaminhaoId,
+      maquinaId: selectedMaquinaId,
+      caminhoes: caminhoes.map((item) => ({
+        id: item.id,
+        label: `${item.placaOuTag} - ${item.descricao}`
+      })),
+      maquinas: maquinas.map((item) => ({
         id: item.id,
         label: `${item.placaOuTag} - ${item.descricao}`
       }))
     },
     summary: {
-      totalM3,
-      totalCargas,
-      caminhoesComProducao,
-      diasComProducao,
-      mediaM3PorCaminhao:
-        caminhoesComProducao > 0 ? Number((totalM3 / caminhoesComProducao).toFixed(2)) : 0,
-      mediaM3PorDia: diasComProducao > 0 ? Number((totalM3 / diasComProducao).toFixed(2)) : 0
+      totalValorGeral,
+      totalItens: overallItems.length,
+      equipamentosComProducao: overallEquipamentos.size,
+      diasComProducao: overallDays.size
     },
-    ranking
+    caminhoes: {
+      summary: caminhaoSection.summary,
+      ranking: caminhaoSection.ranking
+    },
+    maquinas: {
+      summary: maquinaSection.summary,
+      ranking: maquinaSection.ranking
+    }
   });
 }

@@ -11,8 +11,29 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import { formatCurrency } from "@/lib/utils/formatters";
 
 type PeriodPreset = "current_month" | "previous_month" | "last_30_days" | "custom";
+
+type EquipmentRankingItem = {
+  equipamentoId: string;
+  descricao: string;
+  placaOuTag: string;
+  totalValor: number;
+  totalItens: number;
+  diasComProducao: number;
+  mediaValorPorDia: number;
+  ultimoLancamento: string;
+};
+
+type EquipmentSectionSummary = {
+  totalValor: number;
+  totalItens: number;
+  equipamentosComProducao: number;
+  diasComProducao: number;
+  mediaValorPorEquipamento: number;
+  mediaValorPorDia: number;
+};
 
 type DashboardPayload = {
   period: {
@@ -22,30 +43,25 @@ type DashboardPayload = {
     label: string;
   };
   filters: {
-    equipamentoId: string | null;
-    equipamentos: Array<{
-      id: string;
-      label: string;
-    }>;
+    caminhaoId: string | null;
+    maquinaId: string | null;
+    caminhoes: Array<{ id: string; label: string }>;
+    maquinas: Array<{ id: string; label: string }>;
   };
   summary: {
-    totalM3: number;
-    totalCargas: number;
-    caminhoesComProducao: number;
+    totalValorGeral: number;
+    totalItens: number;
+    equipamentosComProducao: number;
     diasComProducao: number;
-    mediaM3PorCaminhao: number;
-    mediaM3PorDia: number;
   };
-  ranking: Array<{
-    equipamentoId: string;
-    descricao: string;
-    placaOuTag: string;
-    totalM3: number;
-    totalCargas: number;
-    diasComProducao: number;
-    mediaM3PorDia: number;
-    ultimoLancamento: string;
-  }>;
+  caminhoes: {
+    summary: EquipmentSectionSummary;
+    ranking: EquipmentRankingItem[];
+  };
+  maquinas: {
+    summary: EquipmentSectionSummary;
+    ranking: EquipmentRankingItem[];
+  };
 };
 
 const periodOptions: Array<{ value: PeriodPreset; label: string }> = [
@@ -57,6 +73,10 @@ const periodOptions: Array<{ value: PeriodPreset; label: string }> = [
 
 const chartPalette = ["#155b52", "#1d7266", "#25897b", "#34a18f", "#4fb9a0", "#7ed0b3"];
 
+function formatDate(value: string) {
+  return new Date(value).toLocaleDateString("pt-BR");
+}
+
 function formatNumber(value: number, digits = 0) {
   return new Intl.NumberFormat("pt-BR", {
     minimumFractionDigits: digits,
@@ -64,16 +84,12 @@ function formatNumber(value: number, digits = 0) {
   }).format(value);
 }
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("pt-BR");
-}
-
 function CustomTooltip({
   active,
   payload
 }: {
   active?: boolean;
-  payload?: Array<{ payload: DashboardPayload["ranking"][number] }>;
+  payload?: Array<{ payload: EquipmentRankingItem }>;
 }) {
   if (!active || !payload?.length) {
     return null;
@@ -85,9 +101,9 @@ function CustomTooltip({
     <div className="fleet-tooltip">
       <strong>{item.placaOuTag}</strong>
       <span>{item.descricao}</span>
-      <span>{formatNumber(item.totalM3, 1)} m3 no periodo</span>
-      <span>{formatNumber(item.totalCargas, 0)} carga(s)</span>
-      <span>{formatNumber(item.mediaM3PorDia, 1)} m3 por dia</span>
+      <span>{formatCurrency(item.totalValor)}</span>
+      <span>{item.totalItens} item(ns)</span>
+      <span>{formatCurrency(item.mediaValorPorDia)}/dia</span>
       <span>Ultimo lancamento: {formatDate(item.ultimoLancamento)}</span>
     </div>
   );
@@ -105,11 +121,177 @@ function DashboardSkeleton() {
           />
         ))}
       </section>
-      <section className="fleet-content-grid">
-        <article className="surface section-card fleet-skeleton-block" />
-        <article className="surface section-card fleet-skeleton-block" />
-      </section>
+      {Array.from({ length: 2 }).map((_, index) => (
+        <section key={index} className="fleet-section-grid">
+          <article className="surface section-card fleet-skeleton-block" />
+          <article className="surface section-card fleet-skeleton-block" />
+        </section>
+      ))}
     </main>
+  );
+}
+
+function SectionPanel({
+  title,
+  kicker,
+  valueLabel,
+  valuePlaceholder,
+  filterValue,
+  filterOptions,
+  onFilterChange,
+  summary,
+  ranking
+}: {
+  title: string;
+  kicker: string;
+  valueLabel: string;
+  valuePlaceholder: string;
+  filterValue: string;
+  filterOptions: Array<{ id: string; label: string }>;
+  onFilterChange: (value: string) => void;
+  summary: EquipmentSectionSummary;
+  ranking: EquipmentRankingItem[];
+}) {
+  const chartData = useMemo(
+    () =>
+      ranking.map((item) => ({
+        ...item,
+        label: item.placaOuTag
+      })),
+    [ranking]
+  );
+
+  return (
+    <section className="fleet-section surface section-card fade-up">
+      <div className="fleet-section-header">
+        <div>
+          <span className="fleet-kicker">{kicker}</span>
+          <h2 className="section-title">{title}</h2>
+        </div>
+        <label className="field fleet-filter-field fleet-section-filter">
+          <span className="field-label">{valueLabel}</span>
+          <select
+            className="field-control"
+            value={filterValue}
+            onChange={(event) => onFilterChange(event.target.value)}
+          >
+            <option value="">{valuePlaceholder}</option>
+            {filterOptions.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="fleet-section-summary">
+        <article className="fleet-section-card">
+          <span className="fleet-card-label">Valor medido</span>
+          <strong className="fleet-section-value">{formatCurrency(summary.totalValor)}</strong>
+          <small>{summary.totalItens} item(ns)</small>
+        </article>
+        <article className="fleet-section-card">
+          <span className="fleet-card-label">Media por equipamento</span>
+          <strong className="fleet-section-value">
+            {formatCurrency(summary.mediaValorPorEquipamento)}
+          </strong>
+          <small>{summary.equipamentosComProducao} equipamento(s)</small>
+        </article>
+        <article className="fleet-section-card">
+          <span className="fleet-card-label">Media por dia</span>
+          <strong className="fleet-section-value">{formatCurrency(summary.mediaValorPorDia)}</strong>
+          <small>{summary.diasComProducao} dia(s)</small>
+        </article>
+      </div>
+
+      <div className="fleet-section-grid">
+        <article className="fleet-chart-card">
+          {chartData.length === 0 ? (
+            <div className="fleet-empty-state">
+              <strong>Sem valor medido</strong>
+              <p>Sem itens de medicao no filtro atual.</p>
+            </div>
+          ) : (
+            <>
+              <div className="fleet-chart-header">
+                <span className="badge badge-info">{chartData.length} item(ns)</span>
+              </div>
+
+              <div className="fleet-chart-shell">
+                <ResponsiveContainer width="100%" height={360}>
+                  <BarChart
+                    data={chartData}
+                    layout="vertical"
+                    margin={{ top: 8, right: 18, left: 8, bottom: 8 }}
+                  >
+                    <CartesianGrid stroke="rgba(109, 92, 66, 0.12)" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tickLine={false}
+                      axisLine={false}
+                      tick={{ fill: "#6f6455", fontSize: 12 }}
+                      tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      width={96}
+                      tick={{ fill: "#4c4338", fontSize: 12, fontWeight: 700 }}
+                    />
+                    <Tooltip
+                      content={<CustomTooltip />}
+                      cursor={{ fill: "rgba(21, 91, 82, 0.06)" }}
+                    />
+                    <Bar dataKey="totalValor" radius={[0, 14, 14, 0]} barSize={22}>
+                      {chartData.map((item, index) => (
+                        <Cell
+                          key={item.equipamentoId}
+                          fill={chartPalette[index % chartPalette.length] ?? "#155b52"}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </>
+          )}
+        </article>
+
+        <aside className="fleet-ranking-card">
+          {chartData.length === 0 ? (
+            <div className="fleet-empty-state fleet-empty-state-compact">
+              <strong>Sem ranking</strong>
+              <p>Sem itens medidos para listar.</p>
+            </div>
+          ) : (
+            <div className="fleet-ranking-list">
+              {chartData.slice(0, 6).map((item, index) => (
+                <article key={item.equipamentoId} className="fleet-ranking-item">
+                  <div className="fleet-ranking-rank">#{String(index + 1).padStart(2, "0")}</div>
+                  <div className="fleet-ranking-copy">
+                    <strong>{item.placaOuTag}</strong>
+                    <span>{item.descricao}</span>
+                  </div>
+                  <div className="fleet-ranking-metrics">
+                    <strong>{formatCurrency(item.totalValor)}</strong>
+                    <div className="fleet-ranking-chips">
+                      <span className="fleet-ranking-chip">{item.totalItens} item(ns)</span>
+                      <span className="fleet-ranking-chip">
+                        {formatCurrency(item.mediaValorPorDia)}/dia
+                      </span>
+                      <span className="fleet-ranking-chip">{item.diasComProducao} dia(s)</span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </aside>
+      </div>
+    </section>
   );
 }
 
@@ -117,14 +299,16 @@ export function FrotaDashboard() {
   const [preset, setPreset] = useState<PeriodPreset>("current_month");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  const [equipamentoId, setEquipamentoId] = useState("");
+  const [caminhaoId, setCaminhaoId] = useState("");
+  const [maquinaId, setMaquinaId] = useState("");
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   async function loadDashboard(
     nextPreset: PeriodPreset,
-    nextEquipamentoId = equipamentoId,
+    nextCaminhaoId = caminhaoId,
+    nextMaquinaId = maquinaId,
     start = customStart,
     end = customEnd
   ) {
@@ -139,8 +323,12 @@ export function FrotaDashboard() {
         if (end) params.set("end", end);
       }
 
-      if (nextEquipamentoId) {
-        params.set("equipamentoId", nextEquipamentoId);
+      if (nextCaminhaoId) {
+        params.set("caminhaoId", nextCaminhaoId);
+      }
+
+      if (nextMaquinaId) {
+        params.set("maquinaId", nextMaquinaId);
       }
 
       const response = await fetch(`/api/frota/dashboard?${params.toString()}`, {
@@ -155,7 +343,8 @@ export function FrotaDashboard() {
       }
 
       setData(payload);
-      setEquipamentoId(payload.filters.equipamentoId ?? "");
+      setCaminhaoId(payload.filters.caminhaoId ?? "");
+      setMaquinaId(payload.filters.maquinaId ?? "");
     } catch {
       setError("Nao foi possivel carregar o dashboard da frota.");
       setData(null);
@@ -165,17 +354,8 @@ export function FrotaDashboard() {
   }
 
   useEffect(() => {
-    void loadDashboard("current_month", "", "", "");
+    void loadDashboard("current_month", "", "", "", "");
   }, []);
-
-  const chartData = useMemo(
-    () =>
-      (data?.ranking ?? []).map((item) => ({
-        ...item,
-        label: item.placaOuTag
-      })),
-    [data]
-  );
 
   if (loading && !data) {
     return <DashboardSkeleton />;
@@ -186,7 +366,7 @@ export function FrotaDashboard() {
       <section className="fleet-toolbar surface section-card fade-up">
         <div className="fleet-toolbar-copy">
           <span className="fleet-kicker">Frota</span>
-          <h1 className="page-title">Producao dos caminhoes</h1>
+          <h1 className="page-title">Valor medido por equipamento</h1>
         </div>
 
         <div className="fleet-filter-row">
@@ -199,36 +379,13 @@ export function FrotaDashboard() {
                 const nextPreset = event.target.value as PeriodPreset;
                 setPreset(nextPreset);
                 if (nextPreset !== "custom") {
-                  void loadDashboard(nextPreset, equipamentoId, customStart, customEnd);
+                  void loadDashboard(nextPreset, caminhaoId, maquinaId, customStart, customEnd);
                 }
               }}
             >
               {periodOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field fleet-filter-field">
-            <span className="field-label">Caminhao</span>
-            <select
-              className="field-control"
-              value={equipamentoId}
-              onChange={(event) => {
-                const nextEquipamentoId = event.target.value;
-                setEquipamentoId(nextEquipamentoId);
-                if (preset === "custom" && (!customStart || !customEnd)) {
-                  return;
-                }
-                void loadDashboard(preset, nextEquipamentoId, customStart, customEnd);
-              }}
-            >
-              <option value="">Todos os caminhoes</option>
-              {(data?.filters.equipamentos ?? []).map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
                 </option>
               ))}
             </select>
@@ -257,7 +414,7 @@ export function FrotaDashboard() {
               <button
                 type="button"
                 className="button-primary"
-                onClick={() => void loadDashboard("custom", equipamentoId, customStart, customEnd)}
+                onClick={() => void loadDashboard("custom", caminhaoId, maquinaId, customStart, customEnd)}
               >
                 Aplicar
               </button>
@@ -279,131 +436,75 @@ export function FrotaDashboard() {
 
       <section className="fleet-summary-grid fade-up fade-up-delay-1">
         <article className="fleet-summary-card fleet-summary-card-strong">
-          <span className="fleet-card-label">Producao total</span>
-          <strong className="fleet-card-value">{formatNumber(data?.summary.totalM3 ?? 0, 1)} m3</strong>
-          <p className="fleet-card-copy">{formatNumber(data?.summary.totalCargas ?? 0)} carga(s)</p>
+          <span className="fleet-card-label">Valor total medido</span>
+          <strong className="fleet-card-value">{formatCurrency(data?.summary.totalValorGeral ?? 0)}</strong>
+          <p className="fleet-card-copy">{data?.summary.totalItens ?? 0} item(ns) no periodo</p>
         </article>
-
         <article className="fleet-summary-card fleet-summary-card-info">
-          <span className="fleet-card-label">Media por caminhao</span>
-          <strong className="fleet-card-value">
-            {formatNumber(data?.summary.mediaM3PorCaminhao ?? 0, 1)} m3
-          </strong>
-          <p className="fleet-card-copy">
-            {data?.summary.caminhoesComProducao ?? 0} caminhao(oes) com producao
-          </p>
+          <span className="fleet-card-label">Equipamentos com valor</span>
+          <strong className="fleet-card-value">{data?.summary.equipamentosComProducao ?? 0}</strong>
+          <p className="fleet-card-copy">Caminhoes e maquinas com medicao</p>
         </article>
-
         <article className="fleet-summary-card fleet-summary-card-warn">
-          <span className="fleet-card-label">Media por dia</span>
-          <strong className="fleet-card-value">
-            {formatNumber(data?.summary.mediaM3PorDia ?? 0, 1)} m3
-          </strong>
-          <p className="fleet-card-copy">{data?.summary.diasComProducao ?? 0} dia(s) com lancamento</p>
-        </article>
-
-        <article className="fleet-summary-card fleet-summary-card-danger">
-          <span className="fleet-card-label">Caminhoes com producao</span>
-          <strong className="fleet-card-value">{data?.summary.caminhoesComProducao ?? 0}</strong>
-          <p className="fleet-card-copy">{formatNumber(data?.summary.totalCargas ?? 0)} cargas no periodo</p>
+          <span className="fleet-card-label">Dias com medicao</span>
+          <strong className="fleet-card-value">{data?.summary.diasComProducao ?? 0}</strong>
+          <p className="fleet-card-copy">Dias com valor registrado nas medicoes</p>
         </article>
       </section>
 
-      <section className="fleet-content-grid fade-up fade-up-delay-2">
-        <article className="surface section-card fleet-chart-card">
-          {chartData.length === 0 ? (
-            <div className="fleet-empty-state">
-              <strong>Sem producao no periodo</strong>
-              <p>Ajuste o periodo ou o caminhao para carregar o painel.</p>
-            </div>
-          ) : (
-            <>
-              <div className="fleet-chart-header">
-                <div>
-                  <span className="fleet-kicker">m3 por caminhao</span>
-                  <h2 className="section-title">Ranking de producao</h2>
-                </div>
-                <span className="badge badge-info">{chartData.length} item(ns)</span>
-              </div>
+      <SectionPanel
+        title="Caminhoes"
+        kicker="Resumo por valor"
+        valueLabel="Caminhao"
+        valuePlaceholder="Todos os caminhoes"
+        filterValue={caminhaoId}
+        filterOptions={data?.filters.caminhoes ?? []}
+        onFilterChange={(value) => {
+          setCaminhaoId(value);
+          if (preset === "custom" && (!customStart || !customEnd)) {
+            return;
+          }
+          void loadDashboard(preset, value, maquinaId, customStart, customEnd);
+        }}
+        summary={
+          data?.caminhoes.summary ?? {
+            totalValor: 0,
+            totalItens: 0,
+            equipamentosComProducao: 0,
+            diasComProducao: 0,
+            mediaValorPorEquipamento: 0,
+            mediaValorPorDia: 0
+          }
+        }
+        ranking={data?.caminhoes.ranking ?? []}
+      />
 
-              <div className="fleet-chart-shell">
-                <ResponsiveContainer width="100%" height={420}>
-                  <BarChart
-                    data={chartData}
-                    layout="vertical"
-                    margin={{ top: 8, right: 18, left: 8, bottom: 8 }}
-                  >
-                    <CartesianGrid stroke="rgba(109, 92, 66, 0.12)" horizontal={false} />
-                    <XAxis
-                      type="number"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: "#6f6455", fontSize: 12 }}
-                      tickFormatter={(value) => `${formatNumber(value, 0)} m3`}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="label"
-                      tickLine={false}
-                      axisLine={false}
-                      width={92}
-                      tick={{ fill: "#4c4338", fontSize: 12, fontWeight: 700 }}
-                    />
-                    <Tooltip
-                      content={<CustomTooltip />}
-                      cursor={{ fill: "rgba(21, 91, 82, 0.06)" }}
-                    />
-                    <Bar dataKey="totalM3" radius={[0, 14, 14, 0]} barSize={22}>
-                      {chartData.map((item, index) => (
-                        <Cell
-                          key={item.equipamentoId}
-                          fill={chartPalette[index % chartPalette.length] ?? "#155b52"}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </>
-          )}
-        </article>
-
-        <aside className="surface section-card fleet-ranking-card">
-          <div className="fleet-chart-header">
-            <div>
-              <span className="fleet-kicker">Leitura rapida</span>
-              <h2 className="section-title">Top caminhoes</h2>
-            </div>
-          </div>
-
-          {chartData.length === 0 ? (
-            <div className="fleet-empty-state fleet-empty-state-compact">
-              <strong>Nenhum caminhao no ranking</strong>
-              <p>Sem lancamento produtivo para exibir.</p>
-            </div>
-          ) : (
-            <div className="fleet-ranking-list">
-              {chartData.slice(0, 6).map((item, index) => (
-                <article key={item.equipamentoId} className="fleet-ranking-item">
-                  <div className="fleet-ranking-rank">#{String(index + 1).padStart(2, "0")}</div>
-                  <div className="fleet-ranking-copy">
-                    <strong>{item.placaOuTag}</strong>
-                    <span>{item.descricao}</span>
-                  </div>
-                  <div className="fleet-ranking-metrics">
-                    <strong>{formatNumber(item.totalM3, 1)} m3</strong>
-                    <div className="fleet-ranking-chips">
-                      <span className="fleet-ranking-chip">{formatNumber(item.totalCargas, 0)} cargas</span>
-                      <span className="fleet-ranking-chip">{formatNumber(item.mediaM3PorDia, 1)} m3/dia</span>
-                      <span className="fleet-ranking-chip">{item.diasComProducao} dia(s)</span>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </aside>
-      </section>
+      <SectionPanel
+        title="Maquinas"
+        kicker="Resumo por valor"
+        valueLabel="Maquina"
+        valuePlaceholder="Todas as maquinas"
+        filterValue={maquinaId}
+        filterOptions={data?.filters.maquinas ?? []}
+        onFilterChange={(value) => {
+          setMaquinaId(value);
+          if (preset === "custom" && (!customStart || !customEnd)) {
+            return;
+          }
+          void loadDashboard(preset, caminhaoId, value, customStart, customEnd);
+        }}
+        summary={
+          data?.maquinas.summary ?? {
+            totalValor: 0,
+            totalItens: 0,
+            equipamentosComProducao: 0,
+            diasComProducao: 0,
+            mediaValorPorEquipamento: 0,
+            mediaValorPorDia: 0
+          }
+        }
+        ranking={data?.maquinas.ranking ?? []}
+      />
     </main>
   );
 }

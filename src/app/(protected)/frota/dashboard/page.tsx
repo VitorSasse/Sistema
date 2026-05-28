@@ -6,7 +6,7 @@ export default function FrotaDashboardPage() {
     <main style={{ padding: 24 }}>
       <PageHeader
         title="Dashboard da frota"
-        description="Producao dos caminhoes no periodo selecionado."
+        description="Valor medido por caminhões e máquinas no período selecionado."
       />
       <FrotaDashboard />
     </main>

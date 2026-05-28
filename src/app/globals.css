@@ -1774,7 +1774,7 @@ button {
 .fleet-summary-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .fleet-summary-card {
@@ -1823,15 +1823,55 @@ button {
   line-height: 1.5;
 }
 
-.fleet-content-grid {
-  display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-}
-
 .fleet-chart-card,
 .fleet-ranking-card {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 239, 225, 0.84));
+}
+
+.fleet-section {
+  display: grid;
+  gap: 16px;
+}
+
+.fleet-section-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 14px;
+  align-items: end;
+}
+
+.fleet-section-filter {
+  justify-self: end;
+}
+
+.fleet-section-summary {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fleet-section-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.fleet-section-card small {
+  color: var(--muted);
+}
+
+.fleet-section-value {
+  font-size: 1.8rem;
+  line-height: 0.95;
+}
+
+.fleet-section-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
 }
 
 .fleet-chart-header {
@@ -3189,7 +3229,8 @@ button {
   .tile-grid,
   .fleet-filter-row,
   .fleet-summary-grid,
-  .fleet-content-grid,
+  .fleet-section-summary,
+  .fleet-section-grid,
   .billing-summary-grid,
   .billing-grid,
   .billing-hero,
@@ -3274,7 +3315,8 @@ button {
   .form-grid-4,
   .fleet-filter-row,
   .fleet-summary-grid,
-  .fleet-content-grid,
+  .fleet-section-summary,
+  .fleet-section-grid,
   .billing-summary-grid,
   .billing-grid,
   .billing-hero,
@@ -3316,6 +3358,14 @@ button {
   }
 
   .fleet-period-badge {
+    justify-self: stretch;
+  }
+
+  .fleet-section-header {
+    grid-template-columns: 1fr;
+  }
+
+  .fleet-section-filter {
     justify-self: stretch;
   }
 
