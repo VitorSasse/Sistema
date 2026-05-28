@@ -6,7 +6,7 @@ export default function FrotaDashboardPage() {
     <main style={{ padding: 24 }}>
       <PageHeader
         title="Dashboard da frota"
-        description="Painel inicial da frota com status, leitura recente e visao operacional dos recursos."
+        description="Producao dos caminhoes no periodo selecionado."
       />
       <FrotaDashboard />
     </main>
