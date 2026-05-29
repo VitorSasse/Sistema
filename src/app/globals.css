@@ -1721,7 +1721,7 @@ button {
 }
 
 .fleet-filter-row {
-  grid-template-columns: repeat(2, minmax(0, 220px)) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
   gap: 14px;
   align-items: end;
 }
@@ -1731,6 +1731,7 @@ button {
 }
 
 .fleet-custom-range {
+  grid-column: 1 / -1;
   grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
   gap: 12px;
   align-items: end;
@@ -1772,16 +1773,7 @@ button {
   font-weight: 700;
 }
 
-@media (max-width: 1180px) {
-  .fleet-filter-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .fleet-custom-range,
-  .fleet-period-badge {
-    grid-column: 1 / -1;
-  }
-
+@media (max-width: 1380px) {
   .fleet-custom-range {
     grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(140px, auto);
   }
