@@ -189,7 +189,7 @@ function SectionPanel({
         <article className="fleet-section-card">
           <span className="fleet-card-label">Valor medido</span>
           <strong className="fleet-section-value">{formatCurrency(summary.totalValor)}</strong>
-          <small>{summary.totalItens} item(ns)</small>
+          <small>{summary.totalItens} item(ns) nas medicoes do periodo</small>
         </article>
         <article className="fleet-section-card">
           <span className="fleet-card-label">Media por equipamento</span>
@@ -215,7 +215,7 @@ function SectionPanel({
           ) : (
             <>
               <div className="fleet-chart-header">
-                <span className="badge badge-info">{chartData.length} item(ns)</span>
+                <span className="badge badge-info">{chartData.length} equipamento(s)</span>
               </div>
 
               <div className="fleet-chart-shell">
@@ -438,7 +438,9 @@ export function FrotaDashboard() {
         <article className="fleet-summary-card fleet-summary-card-strong">
           <span className="fleet-card-label">Valor total medido</span>
           <strong className="fleet-card-value">{formatCurrency(data?.summary.totalValorGeral ?? 0)}</strong>
-          <p className="fleet-card-copy">{data?.summary.totalItens ?? 0} item(ns) no periodo</p>
+          <p className="fleet-card-copy">
+            {data?.summary.totalItens ?? 0} item(ns) nas medicoes do periodo
+          </p>
         </article>
         <article className="fleet-summary-card fleet-summary-card-info">
           <span className="fleet-card-label">Equipamentos com valor</span>

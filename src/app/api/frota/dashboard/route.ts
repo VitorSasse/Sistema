@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -122,6 +123,10 @@ type RawItem = {
   };
 };
 
+type MedicaoPeriodRow = {
+  id: string;
+};
+
 function buildSection(
   items: RawItem[],
   selectedEquipamentoId: string | null,
@@ -242,7 +247,7 @@ export async function GET(request: NextRequest) {
   const selectedCaminhaoId = request.nextUrl.searchParams.get("caminhaoId");
   const selectedMaquinaId = request.nextUrl.searchParams.get("maquinaId");
 
-  const [equipamentos, items] = await Promise.all([
+  const [equipamentos, medicoesPeriodo] = await Promise.all([
     prisma.equipamento.findMany({
       where: {
         tipoRecurso: {
@@ -257,53 +262,66 @@ export async function GET(request: NextRequest) {
       },
       orderBy: [{ descricao: "asc" }, { placaOuTag: "asc" }]
     }),
-    prisma.medicaoItem.findMany({
-      where: {
-        deletedAt: null,
-        data: {
-          gte: period.start,
-          lte: period.end
-        },
-        medicao: {
-          deletedAt: null,
-          status: {
-            not: "CANCELADA"
-          }
-        },
-        lancamento: {
-          deletedAt: null,
-          equipamento: {
-            tipoRecurso: {
-              in: ["CAMINHAO", "MAQUINA"]
-            }
-          }
-        }
-      },
-      select: {
-        data: true,
-        valorTotalItem: true,
-        medicao: {
-          select: {
-            valorTotal: true,
-            descontoValor: true
-          }
-        },
-        lancamento: {
-          select: {
-            equipamento: {
-              select: {
-                id: true,
-                descricao: true,
-                placaOuTag: true,
-                tipoRecurso: true
+    prisma.$queryRaw<MedicaoPeriodRow[]>(Prisma.sql`
+      SELECT
+        medicao.id
+      FROM "Medicao" medicao
+      INNER JOIN "MedicaoItem" item
+        ON item."medicaoId" = medicao.id
+       AND item."deletedAt" IS NULL
+      WHERE medicao."deletedAt" IS NULL
+        AND medicao.status <> 'CANCELADA'::"StatusMedicao"
+      GROUP BY medicao.id
+      HAVING MAX(item."data") >= ${period.start}
+         AND MAX(item."data") <= ${period.end}
+    `)
+  ]);
+
+  const medicaoIds = medicoesPeriodo.map((item) => item.id);
+
+  const items =
+    medicaoIds.length === 0
+      ? []
+      : await prisma.medicaoItem.findMany({
+          where: {
+            deletedAt: null,
+            medicaoId: {
+              in: medicaoIds
+            },
+            lancamento: {
+              deletedAt: null,
+              equipamento: {
+                tipoRecurso: {
+                  in: ["CAMINHAO", "MAQUINA"]
+                }
               }
             }
-          }
-        }
-      },
-      orderBy: [{ data: "desc" }, { createdAt: "desc" }]
-    })
-  ]);
+          },
+          select: {
+            medicaoId: true,
+            data: true,
+            valorTotalItem: true,
+            medicao: {
+              select: {
+                valorTotal: true,
+                descontoValor: true
+              }
+            },
+            lancamento: {
+              select: {
+                equipamento: {
+                  select: {
+                    id: true,
+                    descricao: true,
+                    placaOuTag: true,
+                    tipoRecurso: true
+                  }
+                }
+              }
+            }
+          },
+          orderBy: [{ data: "desc" }, { createdAt: "desc" }]
+        });
 
   const caminhoes = equipamentos.filter((item) => item.tipoRecurso === "CAMINHAO");
   const maquinas = equipamentos.filter((item) => item.tipoRecurso === "MAQUINA");
@@ -316,27 +334,61 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Maquina invalida para o filtro." }, { status: 400 });
   }
 
-  const rawItems: RawItem[] = items.map((item) => ({
-    data: item.data,
-    valorTotalItem: (() => {
-      const itemGross = Number(item.valorTotalItem ?? 0);
-      const medicaoGross = Number(item.medicao.valorTotal ?? 0);
-      const medicaoDiscount = Number(item.medicao.descontoValor ?? 0);
+  const rawItems: RawItem[] = [];
+  const itemsByMedicao = new Map<string, typeof items>();
 
-      if (medicaoGross <= 0 || medicaoDiscount <= 0) {
-        return itemGross;
+  for (const item of items) {
+    const current = itemsByMedicao.get(item.medicaoId) ?? [];
+    current.push(item);
+    itemsByMedicao.set(item.medicaoId, current);
+  }
+
+  for (const medicaoItems of itemsByMedicao.values()) {
+    if (!medicaoItems.length) continue;
+
+    const medicaoGross = Number(medicaoItems[0].medicao.valorTotal ?? 0);
+    const medicaoDiscount = Number(medicaoItems[0].medicao.descontoValor ?? 0);
+    const medicaoNet = Math.max(0, medicaoGross - medicaoDiscount);
+
+    if (medicaoGross <= 0 || medicaoDiscount <= 0) {
+      for (const item of medicaoItems) {
+        rawItems.push({
+          data: item.data,
+          valorTotalItem: Number(item.valorTotalItem ?? 0),
+          equipamento: {
+            id: item.lancamento.equipamento.id,
+            descricao: item.lancamento.equipamento.descricao,
+            placaOuTag: item.lancamento.equipamento.placaOuTag,
+            tipoRecurso: item.lancamento.equipamento.tipoRecurso as SectionType
+          }
+        });
       }
-
-      const netFactor = Math.max(0, (medicaoGross - medicaoDiscount) / medicaoGross);
-      return Number((itemGross * netFactor).toFixed(2));
-    })(),
-    equipamento: {
-      id: item.lancamento.equipamento.id,
-      descricao: item.lancamento.equipamento.descricao,
-      placaOuTag: item.lancamento.equipamento.placaOuTag,
-      tipoRecurso: item.lancamento.equipamento.tipoRecurso as SectionType
+      continue;
     }
-  }));
+
+    let allocated = 0;
+
+    medicaoItems.forEach((item, index) => {
+      const itemGross = Number(item.valorTotalItem ?? 0);
+      const isLast = index === medicaoItems.length - 1;
+      const value = isLast
+        ? Number((medicaoNet - allocated).toFixed(2))
+        : Number(((itemGross / medicaoGross) * medicaoNet).toFixed(2));
+
+      allocated = Number((allocated + value).toFixed(2));
+
+      rawItems.push({
+        data: item.data,
+        valorTotalItem: value,
+        equipamento: {
+          id: item.lancamento.equipamento.id,
+          descricao: item.lancamento.equipamento.descricao,
+          placaOuTag: item.lancamento.equipamento.placaOuTag,
+          tipoRecurso: item.lancamento.equipamento.tipoRecurso as SectionType
+        }
+      });
+    });
+  }
 
   const caminhaoSection = buildSection(rawItems, selectedCaminhaoId, "CAMINHAO");
   const maquinaSection = buildSection(rawItems, selectedMaquinaId, "MAQUINA");
