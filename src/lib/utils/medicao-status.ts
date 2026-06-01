@@ -4,6 +4,17 @@ type MedicaoSnapshot = {
   status: StatusMedicao;
 };
 
+const editableMedicaoStatuses: StatusMedicao[] = [
+  "CRIADA",
+  "EM_ABERTO",
+  "ENVIADA_AO_CLIENTE",
+  "ENVIADA"
+];
+
+export function canEditMedicaoContent(status: StatusMedicao) {
+  return editableMedicaoStatuses.includes(status);
+}
+
 export function canTransitionMedicao(
   medicao: MedicaoSnapshot,
   nextStatus: StatusMedicao

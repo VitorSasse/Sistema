@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient, StatusLancamento, StatusMedicao, TipoMedicao } from "@prisma/client";
 import type { MedicaoCreateInput, MedicaoPreviewInput } from "@/lib/validators/medicao";
-import { canTransitionMedicao } from "@/lib/utils/medicao-status";
+import { canEditMedicaoContent, canTransitionMedicao } from "@/lib/utils/medicao-status";
 import { medicaoDetailInclude, medicaoListInclude, medicaoTransitionInclude } from "@/server/services/medicoes/queries";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
@@ -15,6 +15,24 @@ type LancamentoElegivel = Prisma.LancamentoDiarioGetPayload<{
     colaborador: true;
   };
 }>;
+
+type MedicaoEditavelSnapshot = {
+  id: string;
+  clienteId: string;
+  obraId: string | null;
+  tipoMedicao: TipoMedicao;
+  periodoInicial: Date;
+  periodoFinal: Date;
+  observacao: string | null;
+  status: StatusMedicao;
+  itens: Array<{
+    id: string;
+    tipoServico: string;
+    material: string | null;
+    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
+    valorUnitario: Prisma.Decimal;
+  }>;
+};
 
 export function startOfDay(value: string) {
   const date = new Date(`${value}T00:00:00`);
@@ -238,6 +256,195 @@ function normalizeLancamentosParaMedicao(
   });
 }
 
+function toInputDate(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function inferCobrancaMaterialFromMedicao(
+  medicao: Pick<MedicaoEditavelSnapshot, "itens">
+): MedicaoPreviewInput["cobrancaMaterial"] {
+  return medicao.itens.some(
+    (item) => item.material !== null && item.unidadeFaturada === "M3"
+  )
+    ? "M3"
+    : "CARGA";
+}
+
+async function buscarMedicaoEditavel(db: DbClient, id: string) {
+  const medicao = await db.medicao.findFirst({
+    where: {
+      id,
+      deletedAt: null
+    },
+    select: {
+      id: true,
+      clienteId: true,
+      obraId: true,
+      tipoMedicao: true,
+      periodoInicial: true,
+      periodoFinal: true,
+      observacao: true,
+      status: true,
+      itens: {
+        where: {
+          deletedAt: null
+        },
+        orderBy: {
+          createdAt: "desc"
+        },
+        select: {
+          id: true,
+          tipoServico: true,
+          material: true,
+          unidadeFaturada: true,
+          valorUnitario: true
+        }
+      }
+    }
+  });
+
+  if (!medicao) {
+    throw new Error("MEDICAO_NAO_ENCONTRADA");
+  }
+
+  if (!canEditMedicaoContent(medicao.status)) {
+    throw new Error("MEDICAO_BLOQUEADA_PARA_EDICAO");
+  }
+
+  return medicao as MedicaoEditavelSnapshot;
+}
+
+function sugerirValorUnitarioParaLancamento(
+  item: LancamentoElegivel,
+  referencias: MedicaoEditavelSnapshot["itens"]
+) {
+  const material = item.material?.descricao ?? null;
+  const referenciaExata = referencias.find(
+    (referencia) =>
+      referencia.tipoServico === item.servico.tipoServico &&
+      referencia.material === material &&
+      referencia.unidadeFaturada === item.unidadeFaturada
+  );
+
+  if (referenciaExata) {
+    return Number(referenciaExata.valorUnitario);
+  }
+
+  const referenciaParcial = referencias.find(
+    (referencia) =>
+      referencia.tipoServico === item.servico.tipoServico &&
+      referencia.unidadeFaturada === item.unidadeFaturada
+  );
+
+  return referenciaParcial ? Number(referenciaParcial.valorUnitario) : 0;
+}
+
+export async function buscarLancamentosElegiveisParaMedicao(
+  db: DbClient,
+  params: {
+    medicaoId: string;
+    cobrancaMaterial?: MedicaoPreviewInput["cobrancaMaterial"];
+  }
+) {
+  const medicao = await buscarMedicaoEditavel(db, params.medicaoId);
+  const cobrancaMaterial =
+    params.cobrancaMaterial ?? inferCobrancaMaterialFromMedicao(medicao);
+  const items = await buscarLancamentosElegiveis(db, {
+    periodoInicial: toInputDate(medicao.periodoInicial),
+    periodoFinal: toInputDate(medicao.periodoFinal),
+    clienteId: medicao.clienteId,
+    obraId: medicao.obraId,
+    tipoMedicao: medicao.tipoMedicao,
+    cobrancaMaterial,
+    observacao: medicao.observacao ?? ""
+  });
+
+  return {
+    cobrancaMaterial,
+    items,
+    resumo: resumirLancamentos(items)
+  };
+}
+
+export async function adicionarLancamentosNaMedicao(
+  db: DbClient,
+  params: {
+    medicaoId: string;
+    lancamentoIds: string[];
+    cobrancaMaterial?: MedicaoPreviewInput["cobrancaMaterial"];
+  }
+) {
+  if (params.lancamentoIds.length === 0) {
+    throw new Error("NENHUM_LANCAMENTO_SELECIONADO");
+  }
+
+  const medicao = await buscarMedicaoEditavel(db, params.medicaoId);
+  const { items } = await buscarLancamentosElegiveisParaMedicao(db, {
+    medicaoId: params.medicaoId,
+    cobrancaMaterial: params.cobrancaMaterial
+  });
+  const selectedIds = new Set(params.lancamentoIds);
+  const itensSelecionados = items.filter((item) => selectedIds.has(item.id));
+
+  if (itensSelecionados.length !== selectedIds.size) {
+    throw new Error("LANCAMENTOS_NAO_ELEGIVEIS");
+  }
+
+  for (const item of itensSelecionados) {
+    const valorUnitario = sugerirValorUnitarioParaLancamento(item, medicao.itens);
+    const valorTotalItem = Number(item.quantidadeFaturada) * valorUnitario;
+
+    await db.medicaoItem.create({
+      data: {
+        medicaoId: medicao.id,
+        lancamentoId: item.id,
+        data: item.data,
+        ficha: item.ficha.numero,
+        placaOuTag: item.equipamento.placaOuTag,
+        tipoServico: item.servico.tipoServico,
+        material: item.material?.descricao ?? null,
+        unidadeFaturada: item.unidadeFaturada,
+        quantidadeFaturada: item.quantidadeFaturada,
+        m3SeAplicavel: item.unidadeFaturada === "M3" ? item.quantidadeFaturada : null,
+        valorUnitario,
+        valorTotalItem,
+        origem: item.origem
+      }
+    });
+
+    await db.lancamentoDiario.update({
+      where: { id: item.id },
+      data: {
+        statusValidacao: StatusLancamento.MEDIDO
+      }
+    });
+  }
+
+  const itensDaMedicao = await db.medicaoItem.findMany({
+    where: {
+      medicaoId: medicao.id,
+      deletedAt: null
+    },
+    select: {
+      valorTotalItem: true
+    }
+  });
+
+  const valorTotal = itensDaMedicao.reduce(
+    (acc, item) => acc + Number(item.valorTotalItem),
+    0
+  );
+
+  await db.medicao.update({
+    where: { id: medicao.id },
+    data: {
+      valorTotal
+    }
+  });
+
+  return buscarDetalheMedicao(db, medicao.id);
+}
+
 export async function criarMedicao(
   db: DbClient,
   params: {
@@ -387,11 +594,26 @@ export async function atualizarValorItemMedicao(
       medicao: {
         deletedAt: null
       }
+    },
+    select: {
+      id: true,
+      lancamentoId: true,
+      quantidadeFaturada: true,
+      unidadeFaturada: true,
+      medicao: {
+        select: {
+          status: true
+        }
+      }
     }
   });
 
   if (!item) {
     throw new Error("ITEM_MEDICAO_NAO_ENCONTRADO");
+  }
+
+  if (!canEditMedicaoContent(item.medicao.status)) {
+    throw new Error("MEDICAO_BLOQUEADA_PARA_EDICAO");
   }
 
   const quantidadeFaturada = params.quantidadeFaturada ?? Number(item.quantidadeFaturada);
@@ -450,12 +672,17 @@ export async function atualizarObservacaoMedicao(
       deletedAt: null
     },
     select: {
-      id: true
+      id: true,
+      status: true
     }
   });
 
   if (!medicao) {
     throw new Error("MEDICAO_NAO_ENCONTRADA");
+  }
+
+  if (!canEditMedicaoContent(medicao.status)) {
+    throw new Error("MEDICAO_BLOQUEADA_PARA_EDICAO");
   }
 
   await db.medicao.update({

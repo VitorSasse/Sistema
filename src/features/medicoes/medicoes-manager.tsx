@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import {
+  adicionarLancamentosNaMedicao,
   carregarBaseMedicoes,
   carregarDetalheMedicao,
+  carregarLancamentosElegiveisDaMedicao,
   atualizarValorItemMedicao,
   editarLancamentoNaMedicao,
   excluirMedicao,
@@ -27,6 +29,7 @@ import { MedicaoListSection } from "@/features/medicoes/components/medicao-list-
 import { MedicaoPreviewTable } from "@/features/medicoes/components/medicao-preview-table";
 import type {
   MedicaoDetail,
+  MedicaoEligiblePayload,
   MedicaoEditState,
   MedicaoFilters,
   MedicaoFormState,
@@ -75,6 +78,25 @@ function buildEditState(
   };
 }
 
+const editableMedicaoStatuses: MedicaoStatus[] = [
+  "CRIADA",
+  "EM_ABERTO",
+  "ENVIADA_AO_CLIENTE",
+  "ENVIADA"
+];
+
+function canEditMedicao(detail: MedicaoDetail | null) {
+  return detail ? editableMedicaoStatuses.includes(detail.status) : false;
+}
+
+function inferCobrancaMaterialFromDetail(detail: MedicaoDetail) {
+  return detail.itens.some(
+    (item) => item.material && item.unidadeFaturada === "M3"
+  )
+    ? "M3"
+    : "CARGA";
+}
+
 export function MedicoesManager() {
   const [options, setOptions] = useState<MedicaoOptionsState>(emptyOptions);
   const [medicoes, setMedicoes] = useState<MedicaoListItem[]>([]);
@@ -85,6 +107,14 @@ export function MedicoesManager() {
   const [filters, setFilters] = useState<MedicaoFilters>(initialMedicaoFilters);
   const [selectedMedicaoId, setSelectedMedicaoId] = useState<string | null>(null);
   const [selectedMedicao, setSelectedMedicao] = useState<MedicaoDetail | null>(null);
+  const [detailCobrancaMaterial, setDetailCobrancaMaterial] = useState<"CARGA" | "M3">(
+    "CARGA"
+  );
+  const [detailEligibleItems, setDetailEligibleItems] = useState<PreviewItem[]>([]);
+  const [detailEligibleResumo, setDetailEligibleResumo] = useState<MedicaoPreviewResumo | null>(
+    null
+  );
+  const [detailSelectedLancamentoIds, setDetailSelectedLancamentoIds] = useState<string[]>([]);
   const [nextStatus, setNextStatus] = useState<MedicaoStatus>("CRIADA");
   const [upload, setUpload] = useState<MedicaoUploadState>(initialMedicaoUpload);
   const [editing, setEditing] = useState<MedicaoEditState | null>(null);
@@ -138,6 +168,34 @@ export function MedicoesManager() {
     setMessage("Pre-visualizacao carregada.");
   }
 
+  async function loadEligibleLancamentos(
+    medicaoId: string,
+    cobrancaMaterial: "CARGA" | "M3"
+  ) {
+    const { response, data } = await carregarLancamentosElegiveisDaMedicao(
+      medicaoId,
+      cobrancaMaterial
+    );
+
+    if (!response.ok) {
+      setDetailEligibleItems([]);
+      setDetailEligibleResumo(null);
+      setDetailSelectedLancamentoIds([]);
+      if ("message" in data && data.message) {
+        setMessage(data.message);
+      }
+      return;
+    }
+
+    const payload = data as MedicaoEligiblePayload;
+    setDetailCobrancaMaterial(payload.cobrancaMaterial);
+    setDetailEligibleItems(payload.items);
+    setDetailEligibleResumo(payload.resumo);
+    setDetailSelectedLancamentoIds((current) =>
+      current.filter((id) => payload.items.some((item) => item.id === id))
+    );
+  }
+
   async function loadDetail(id: string) {
     const { response, data } = await carregarDetalheMedicao(id);
     if (!response.ok) {
@@ -149,6 +207,7 @@ export function MedicoesManager() {
       return;
     }
     const detail = data as MedicaoDetail;
+    const inferredCobrancaMaterial = inferCobrancaMaterialFromDetail(detail);
     setSelectedMedicao(detail);
     setNextStatus(detail.status);
     setDetailObservacao(detail.observacao ?? "");
@@ -157,6 +216,16 @@ export function MedicoesManager() {
     setDetailDescontoValor(detail.descontoValor ?? "0");
     setDetailNumeroPedido(detail.numeroPedido ?? "");
     setDetailNumeroNotaFiscal(detail.numeroNotaFiscal ?? "");
+    setDetailCobrancaMaterial(inferredCobrancaMaterial);
+
+    if (canEditMedicao(detail)) {
+      await loadEligibleLancamentos(detail.id, inferredCobrancaMaterial);
+      return;
+    }
+
+    setDetailEligibleItems([]);
+    setDetailEligibleResumo(null);
+    setDetailSelectedLancamentoIds([]);
   }
 
   useEffect(() => {
@@ -168,6 +237,9 @@ export function MedicoesManager() {
       void loadDetail(selectedMedicaoId);
     } else {
       setSelectedMedicao(null);
+      setDetailEligibleItems([]);
+      setDetailEligibleResumo(null);
+      setDetailSelectedLancamentoIds([]);
     }
   }, [selectedMedicaoId]);
 
@@ -226,6 +298,11 @@ export function MedicoesManager() {
         return Number.isFinite(parsedValue) && parsedValue >= 0;
       }),
     [previewItemValues, previewItems]
+  );
+
+  const selectedMedicaoCanEdit = useMemo(
+    () => canEditMedicao(selectedMedicao),
+    [selectedMedicao]
   );
 
   function updateForm<K extends keyof MedicaoFormState>(
@@ -558,6 +635,62 @@ export function MedicoesManager() {
     });
   }
 
+  function toggleDetailLancamentoSelection(lancamentoId: string) {
+    setDetailSelectedLancamentoIds((current) =>
+      current.includes(lancamentoId)
+        ? current.filter((id) => id !== lancamentoId)
+        : [...current, lancamentoId]
+    );
+  }
+
+  function toggleSelectAllDetailLancamentos() {
+    setDetailSelectedLancamentoIds((current) =>
+      current.length === detailEligibleItems.length
+        ? []
+        : detailEligibleItems.map((item) => item.id)
+    );
+  }
+
+  function handleRefreshEligibleLancamentos() {
+    if (!selectedMedicaoId) return;
+
+    startTransition(async () => {
+      await loadEligibleLancamentos(selectedMedicaoId, detailCobrancaMaterial);
+    });
+  }
+
+  function handleAddLancamentosToSelectedMedicao() {
+    if (!selectedMedicaoId) return;
+
+    startTransition(async () => {
+      const { response, data } = await adicionarLancamentosNaMedicao(
+        selectedMedicaoId,
+        detailSelectedLancamentoIds,
+        detailCobrancaMaterial
+      );
+
+      if (!response.ok) {
+        setMessage(
+          "message" in data
+            ? data.message ?? "Nao foi possivel inserir os lancamentos na medicao."
+            : "Nao foi possivel inserir os lancamentos na medicao."
+        );
+        return;
+      }
+
+      setSelectedMedicao(data as MedicaoDetail);
+      setDetailObservacao((data as MedicaoDetail).observacao ?? "");
+      setDetailObservacaoInterna((data as MedicaoDetail).observacaoInterna ?? "");
+      setDetailDescontoValor((data as MedicaoDetail).descontoValor ?? "0");
+      setDetailNumeroPedido((data as MedicaoDetail).numeroPedido ?? "");
+      setDetailNumeroNotaFiscal((data as MedicaoDetail).numeroNotaFiscal ?? "");
+      setDetailSelectedLancamentoIds([]);
+      setMessage("Lancamentos inseridos na medicao.");
+      await loadBase(filters);
+      await loadEligibleLancamentos(selectedMedicaoId, detailCobrancaMaterial);
+    });
+  }
+
   return (
     <main className="page-stack">
       <section className="page-header">
@@ -649,9 +782,19 @@ export function MedicoesManager() {
       {selectedMedicao ? (
         <MedicaoDetailSection
           detail={selectedMedicao}
+          canEditContent={selectedMedicaoCanEdit}
+          detailCobrancaMaterial={detailCobrancaMaterial}
+          eligibleItems={detailEligibleItems}
+          eligibleResumo={detailEligibleResumo}
+          selectedLancamentoIds={detailSelectedLancamentoIds}
           nextStatus={nextStatus}
           upload={upload}
           isPending={isPending}
+          onChangeDetailCobrancaMaterial={setDetailCobrancaMaterial}
+          onRefreshEligibleLancamentos={handleRefreshEligibleLancamentos}
+          onToggleEligibleLancamento={toggleDetailLancamentoSelection}
+          onToggleAllEligibleLancamentos={toggleSelectAllDetailLancamentos}
+          onAddEligibleLancamentos={handleAddLancamentosToSelectedMedicao}
           onChangeStatus={setNextStatus}
           onUpdateStatus={handleStatusUpdate}
           onChangeUpload={setUpload}

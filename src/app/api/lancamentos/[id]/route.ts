@@ -3,6 +3,7 @@ import { StatusCadastro, StatusLancamento, TipoAlteracao } from "@prisma/client"
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
+import { canEditMedicaoContent } from "@/lib/utils/medicao-status";
 import { lancamentoSchema } from "@/lib/validators/lancamento";
 import {
   recalcularAcumuladoEquipamento,
@@ -80,6 +81,30 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   if (!existing || existing.deletedAt) {
     return NextResponse.json({ message: "Lancamento nao encontrado." }, { status: 404 });
+  }
+
+  const medicoesAtivas = await prisma.medicaoItem.findMany({
+    where: {
+      lancamentoId: id,
+      deletedAt: null,
+      medicao: {
+        deletedAt: null
+      }
+    },
+    select: {
+      medicao: {
+        select: {
+          status: true
+        }
+      }
+    }
+  });
+
+  if (medicoesAtivas.some((item) => !canEditMedicaoContent(item.medicao.status))) {
+    return NextResponse.json(
+      { message: "O lancamento esta vinculado a uma medicao com conteudo bloqueado." },
+      { status: 409 }
+    );
   }
 
   const dataReferencia = normalizeDate(parsed.data.data);

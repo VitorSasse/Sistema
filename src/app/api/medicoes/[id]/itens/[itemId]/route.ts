@@ -71,6 +71,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     return NextResponse.json(medicao);
   } catch (error) {
+    if (error instanceof Error && error.message === "MEDICAO_BLOQUEADA_PARA_EDICAO") {
+      return NextResponse.json(
+        { message: "Esta medicao nao pode mais ter conteudo alterado neste status." },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json(
       {
         message:

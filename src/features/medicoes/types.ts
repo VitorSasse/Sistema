@@ -204,3 +204,9 @@ export type MedicaoPreviewResumo = {
 };
 
 export type MedicaoPreviewValueMap = Record<string, string>;
+
+export type MedicaoEligiblePayload = {
+  cobrancaMaterial: MedicaoCobrancaMaterial;
+  items: PreviewItem[];
+  resumo: MedicaoPreviewResumo;
+};

@@ -70,6 +70,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ message: "Medicao nao encontrada." }, { status: 404 });
     }
 
+    if (error instanceof Error && error.message === "MEDICAO_BLOQUEADA_PARA_EDICAO") {
+      return NextResponse.json(
+        { message: "Esta medicao nao pode mais ter conteudo alterado neste status." },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json(
       { message: "Nao foi possivel atualizar os dados da medicao." },
       { status: 400 }

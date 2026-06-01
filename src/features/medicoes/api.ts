@@ -2,6 +2,7 @@ import { loadOperationalOptions } from "@/lib/client/operational-options";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import type {
   MedicaoDetail,
+  MedicaoEligiblePayload,
   MedicaoEditState,
   MedicaoFilters,
   MedicaoFormState,
@@ -93,6 +94,41 @@ export async function gerarMedicaoComValores(
 
 export async function carregarDetalheMedicao(id: string) {
   const response = await fetch(`/api/medicoes/${id}`, { cache: "no-store" });
+  return {
+    response,
+    data: (await response.json()) as MedicaoDetail | { message?: string }
+  };
+}
+
+export async function carregarLancamentosElegiveisDaMedicao(
+  id: string,
+  cobrancaMaterial?: MedicaoFormState["cobrancaMaterial"]
+) {
+  const query = cobrancaMaterial
+    ? `?cobrancaMaterial=${encodeURIComponent(cobrancaMaterial)}`
+    : "";
+  const response = await fetch(`/api/medicoes/${id}/lancamentos${query}`, {
+    cache: "no-store"
+  });
+  return {
+    response,
+    data: (await response.json()) as MedicaoEligiblePayload | { message?: string }
+  };
+}
+
+export async function adicionarLancamentosNaMedicao(
+  id: string,
+  lancamentoIds: string[],
+  cobrancaMaterial: MedicaoFormState["cobrancaMaterial"]
+) {
+  const response = await fetch(`/api/medicoes/${id}/lancamentos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      lancamentoIds,
+      cobrancaMaterial
+    })
+  });
   return {
     response,
     data: (await response.json()) as MedicaoDetail | { message?: string }

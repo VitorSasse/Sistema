@@ -10,9 +10,12 @@ import { MedicaoField, MedicaoInfoCard } from "@/features/medicoes/components/sh
 import { formatQuantidadeComUnidade, formatUnidade } from "@/lib/utils/unidades";
 import { formatCurrency } from "@/lib/utils/formatters";
 import type {
+  MedicaoCobrancaMaterial,
   MedicaoDetail,
+  MedicaoPreviewResumo,
   MedicaoStatus,
-  MedicaoUploadState
+  MedicaoUploadState,
+  PreviewItem
 } from "@/features/medicoes/types";
 
 function formatDate(value: string | null) {
@@ -49,9 +52,19 @@ function buildWarnings(detail: MedicaoDetail, descontoValor: string) {
 
 export function MedicaoDetailSection(props: {
   detail: MedicaoDetail;
+  canEditContent: boolean;
+  detailCobrancaMaterial: MedicaoCobrancaMaterial;
+  eligibleItems: PreviewItem[];
+  eligibleResumo: MedicaoPreviewResumo | null;
+  selectedLancamentoIds: string[];
   nextStatus: MedicaoStatus;
   upload: MedicaoUploadState;
   isPending: boolean;
+  onChangeDetailCobrancaMaterial: (value: MedicaoCobrancaMaterial) => void;
+  onRefreshEligibleLancamentos: () => void;
+  onToggleEligibleLancamento: (lancamentoId: string) => void;
+  onToggleAllEligibleLancamentos: () => void;
+  onAddEligibleLancamentos: () => void;
   onChangeStatus: (status: MedicaoStatus) => void;
   onUpdateStatus: () => void;
   onChangeUpload: (next: MedicaoUploadState) => void;
@@ -84,9 +97,19 @@ export function MedicaoDetailSection(props: {
 }) {
   const {
     detail,
+    canEditContent,
+    detailCobrancaMaterial,
+    eligibleItems,
+    eligibleResumo,
+    selectedLancamentoIds,
     nextStatus,
     upload,
     isPending,
+    onChangeDetailCobrancaMaterial,
+    onRefreshEligibleLancamentos,
+    onToggleEligibleLancamento,
+    onToggleAllEligibleLancamentos,
+    onAddEligibleLancamentos,
     onChangeStatus,
     onUpdateStatus,
     onChangeUpload,
@@ -157,6 +180,8 @@ export function MedicaoDetailSection(props: {
   const descontoAtual = Math.max(0, Number(descontoValor.replace(",", ".") || 0));
   const valorFinalAtual = Math.max(0, valorTotalAtual - descontoAtual);
   const warnings = buildWarnings(detail, descontoValor);
+  const allEligibleSelected =
+    eligibleItems.length > 0 && selectedLancamentoIds.length === eligibleItems.length;
 
   return (
     <section className="surface section-card surface-strong">
@@ -245,6 +270,13 @@ export function MedicaoDetailSection(props: {
         </div>
       ) : null}
 
+      {!canEditContent ? (
+        <div className="message-inline" style={{ marginBottom: 20 }}>
+          O conteudo desta medicao esta bloqueado para edicao neste status. Os itens,
+          observacoes e lancamentos vinculados nao podem mais ser alterados.
+        </div>
+      ) : null}
+
       <div className="split-grid" style={{ display: "grid", gap: 16, gridTemplateColumns: "1.1fr 0.9fr" }}>
         <article className="tile-card">
           <h3 style={{ marginTop: 0, marginBottom: 16 }}>Controle de status</h3>
@@ -291,6 +323,7 @@ export function MedicaoDetailSection(props: {
                 className="field-control textarea-lg"
                 value={observacao}
                 onChange={(e) => onChangeObservacao(e.target.value)}
+                disabled={!canEditContent || isPending}
               />
             </MedicaoField>
             <MedicaoField label="Observacao interna">
@@ -299,6 +332,7 @@ export function MedicaoDetailSection(props: {
                 value={observacaoInterna}
                 onChange={(e) => onChangeObservacaoInterna(e.target.value)}
                 placeholder="Use para observacoes internas da medicao."
+                disabled={!canEditContent || isPending}
               />
             </MedicaoField>
             <div className="form-grid-2">
@@ -309,6 +343,7 @@ export function MedicaoDetailSection(props: {
                   value={numeroPedido}
                   onChange={(e) => onChangeNumeroPedido(e.target.value)}
                   placeholder="Ex.: PED-2026-014"
+                  disabled={!canEditContent || isPending}
                 />
               </MedicaoField>
               <MedicaoField label="Numero da nota">
@@ -318,6 +353,7 @@ export function MedicaoDetailSection(props: {
                   value={numeroNotaFiscal}
                   onChange={(e) => onChangeNumeroNotaFiscal(e.target.value)}
                   placeholder="Ex.: NF-001254"
+                  disabled={!canEditContent || isPending}
                 />
               </MedicaoField>
             </div>
@@ -329,6 +365,7 @@ export function MedicaoDetailSection(props: {
                 step="0.01"
                 value={descontoValor}
                 onChange={(e) => onChangeDescontoValor(e.target.value)}
+                disabled={!canEditContent || isPending}
               />
             </MedicaoField>
             <div className="timeline-card">
@@ -342,7 +379,7 @@ export function MedicaoDetailSection(props: {
             <div className="toolbar-actions">
               <button
                 type="button"
-                disabled={isPending}
+                disabled={!canEditContent || isPending}
                 className="button-secondary"
                 onClick={onSaveObservacao}
               >
@@ -372,6 +409,148 @@ export function MedicaoDetailSection(props: {
           </form>
         </article>
       </div>
+
+      {canEditContent ? (
+        <article className="tile-card" style={{ marginTop: 20 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 16,
+              flexWrap: "wrap",
+              alignItems: "end",
+              marginBottom: 16
+            }}
+          >
+            <div>
+              <h3 style={{ marginTop: 0, marginBottom: 8 }}>Lancamentos elegiveis</h3>
+              <p className="subtle" style={{ margin: 0 }}>
+                Use esta area para inserir novos lancamentos na mesma medicao sem
+                gerar outra consolidacao.
+              </p>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(180px, 220px) auto auto",
+                gap: 10,
+                alignItems: "end"
+              }}
+            >
+              <MedicaoField label="Cobranca material">
+                <select
+                  className="field-control"
+                  value={detailCobrancaMaterial}
+                  onChange={(event) =>
+                    onChangeDetailCobrancaMaterial(
+                      event.target.value as MedicaoCobrancaMaterial
+                    )
+                  }
+                  disabled={isPending}
+                >
+                  <option value="CARGA">Por carga</option>
+                  <option value="M3">Por m3</option>
+                </select>
+              </MedicaoField>
+              <button
+                type="button"
+                className="button-ghost"
+                disabled={isPending}
+                onClick={onRefreshEligibleLancamentos}
+              >
+                Atualizar elegiveis
+              </button>
+              <button
+                type="button"
+                className="button-primary"
+                disabled={isPending || selectedLancamentoIds.length === 0}
+                onClick={onAddEligibleLancamentos}
+              >
+                Inserir selecionados
+              </button>
+            </div>
+          </div>
+
+          {eligibleResumo ? (
+            <div className="timeline-card" style={{ marginBottom: 16 }}>
+              <span>{eligibleResumo.totalLancamentos} lancamento(s) elegiveis.</span>
+              {Object.entries(eligibleResumo.totaisPorUnidade).map(([unidade, quantidade]) => (
+                <span key={unidade}>
+                  {Number(quantidade).toFixed(2)} {formatUnidade(itemUnidade(unidade))}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {eligibleItems.length === 0 ? (
+            <p className="subtle" style={{ margin: 0 }}>
+              Nenhum lancamento elegivel encontrado para esse periodo e essa configuracao.
+            </p>
+          ) : (
+            <>
+              <div className="toolbar-actions" style={{ marginBottom: 12 }}>
+                <button
+                  type="button"
+                  className="button-ghost"
+                  disabled={isPending}
+                  onClick={onToggleAllEligibleLancamentos}
+                >
+                  {allEligibleSelected ? "Limpar selecao" : "Selecionar todos"}
+                </button>
+                <span className="subtle">
+                  {selectedLancamentoIds.length} de {eligibleItems.length} selecionado(s)
+                </span>
+              </div>
+              <div className="data-table-wrap">
+                <table className="data-table data-table-compact">
+                  <thead>
+                    <tr>
+                      <th />
+                      <th>Data</th>
+                      <th>Ficha</th>
+                      <th>Recurso</th>
+                      <th>Servico</th>
+                      <th>Material</th>
+                      <th>Faturado</th>
+                      <th>Colaborador</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {eligibleItems.map((item) => {
+                      const checked = selectedLancamentoIds.includes(item.id);
+
+                      return (
+                        <tr key={item.id}>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => onToggleEligibleLancamento(item.id)}
+                              disabled={isPending}
+                            />
+                          </td>
+                          <td>{formatDate(item.data)}</td>
+                          <td>{item.ficha.numero}</td>
+                          <td>{item.equipamento.placaOuTag}</td>
+                          <td>{item.servico.tipoServico}</td>
+                          <td>{item.material?.descricao ?? "-"}</td>
+                          <td>
+                            {formatQuantidadeComUnidade(
+                              item.quantidadeFaturada,
+                              item.unidadeFaturada
+                            )}
+                          </td>
+                          <td>{item.colaborador.nome}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </article>
+      ) : null}
 
       <div className="split-grid" style={{ display: "grid", gap: 16, gridTemplateColumns: "0.95fr 1.05fr", marginTop: 20 }}>
         <article className="tile-card">
@@ -439,6 +618,7 @@ export function MedicaoDetailSection(props: {
                           type="number"
                           min="0"
                           step="0.01"
+                          disabled={!canEditContent || isPending}
                           value={
                             itemDrafts[item.id]?.quantidadeFaturada ?? item.quantidadeFaturada
                           }
@@ -464,6 +644,7 @@ export function MedicaoDetailSection(props: {
                     <td style={{ minWidth: 140 }}>
                       <select
                         className="field-control"
+                        disabled={!canEditContent || isPending}
                         value={itemDrafts[item.id]?.unidadeFaturada ?? item.unidadeFaturada}
                         onChange={(event) =>
                           setItemDrafts((current) => ({
@@ -489,6 +670,7 @@ export function MedicaoDetailSection(props: {
                           className="field-control"
                           type="number"
                           step="0.01"
+                          disabled={!canEditContent || isPending}
                           value={itemDrafts[item.id]?.valorUnitario ?? item.valorUnitario}
                           onChange={(event) =>
                             setItemDrafts((current) => ({
@@ -505,6 +687,7 @@ export function MedicaoDetailSection(props: {
                         <button
                           type="button"
                           className="button-ghost"
+                          disabled={!canEditContent || isPending}
                           onClick={() => {
                             const draft = itemDrafts[item.id];
                             const valorUnitario = Number(draft?.valorUnitario ?? item.valorUnitario ?? 0);
@@ -544,6 +727,7 @@ export function MedicaoDetailSection(props: {
                       <button
                         type="button"
                         className="button-secondary"
+                        disabled={!canEditContent || isPending}
                         onClick={() => onStartDetailEdit(item)}
                       >
                         Editar
