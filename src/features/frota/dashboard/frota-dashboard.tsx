@@ -211,7 +211,7 @@ function SectionPanel({
                 <span className="badge badge-info">{chartData.length} equipamento(s)</span>
               </div>
 
-              <div className="fleet-chart-shell">
+              <div className="fleet-chart-shell" style={{ height: `${chartHeight}px` }}>
                 <ResponsiveContainer width="100%" height={chartHeight}>
                   <BarChart
                     data={chartData}

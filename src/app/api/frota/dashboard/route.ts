@@ -258,6 +258,7 @@ export async function GET(request: NextRequest) {
   const [equipamentos, medicoesPeriodo] = await Promise.all([
     prisma.equipamento.findMany({
       where: {
+        status: "ATIVO",
         tipoRecurso: {
           in: ["CAMINHAO", "MAQUINA"]
         }
@@ -334,17 +335,6 @@ export async function GET(request: NextRequest) {
   const caminhoes = equipamentos.filter((item) => item.tipoRecurso === "CAMINHAO");
   const maquinas = equipamentos.filter((item) => item.tipoRecurso === "MAQUINA");
 
-  if (selectedCaminhaoIds.some((id) => !caminhoes.some((item) => item.id === id))) {
-    return NextResponse.json({ message: "Caminhao invalido para o filtro." }, { status: 400 });
-  }
-
-  if (selectedMaquinaIds.some((id) => !maquinas.some((item) => item.id === id))) {
-    return NextResponse.json({ message: "Maquina invalida para o filtro." }, { status: 400 });
-  }
-
-  const selectedCaminhaoSet = selectedCaminhaoIds.length > 0 ? new Set(selectedCaminhaoIds) : null;
-  const selectedMaquinaSet = selectedMaquinaIds.length > 0 ? new Set(selectedMaquinaIds) : null;
-
   const rawItems: RawItem[] = [];
   const itemsByMedicao = new Map<string, typeof items>();
 
@@ -401,6 +391,22 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const relevantEquipmentIds = new Set(rawItems.map((item) => item.equipamento.id));
+  const caminhoesDisponiveis = caminhoes.filter((item) => relevantEquipmentIds.has(item.id));
+  const maquinasDisponiveis = maquinas.filter((item) => relevantEquipmentIds.has(item.id));
+
+  const sanitizedSelectedCaminhaoIds = selectedCaminhaoIds.filter((id) =>
+    caminhoesDisponiveis.some((item) => item.id === id)
+  );
+  const sanitizedSelectedMaquinaIds = selectedMaquinaIds.filter((id) =>
+    maquinasDisponiveis.some((item) => item.id === id)
+  );
+
+  const selectedCaminhaoSet =
+    sanitizedSelectedCaminhaoIds.length > 0 ? new Set(sanitizedSelectedCaminhaoIds) : null;
+  const selectedMaquinaSet =
+    sanitizedSelectedMaquinaIds.length > 0 ? new Set(sanitizedSelectedMaquinaIds) : null;
+
   const caminhaoSection = buildSection(rawItems, selectedCaminhaoSet, "CAMINHAO");
   const maquinaSection = buildSection(rawItems, selectedMaquinaSet, "MAQUINA");
 
@@ -419,13 +425,13 @@ export async function GET(request: NextRequest) {
       label: period.label
     },
     filters: {
-      caminhaoIds: selectedCaminhaoIds,
-      maquinaIds: selectedMaquinaIds,
-      caminhoes: caminhoes.map((item) => ({
+      caminhaoIds: sanitizedSelectedCaminhaoIds,
+      maquinaIds: sanitizedSelectedMaquinaIds,
+      caminhoes: caminhoesDisponiveis.map((item) => ({
         id: item.id,
         label: `${item.placaOuTag} - ${item.descricao}`
       })),
-      maquinas: maquinas.map((item) => ({
+      maquinas: maquinasDisponiveis.map((item) => ({
         id: item.id,
         label: `${item.placaOuTag} - ${item.descricao}`
       }))

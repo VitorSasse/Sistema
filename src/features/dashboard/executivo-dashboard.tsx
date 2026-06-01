@@ -331,6 +331,7 @@ export function ExecutivoDashboard() {
   const financialTop = useMemo(() => data?.financial.ranking ?? [], [data]);
   const utilizationChartHeight = Math.max(360, utilizationTop.length * 42);
   const mechanicalChartHeight = Math.max(360, mechanicalTop.length * 42);
+  const lossChartHeight = Math.max(320, lossTop.length * 42);
   const financialChartHeight = Math.max(320, financialTop.length * 42);
 
   if (loading && !data) {
@@ -503,7 +504,7 @@ export function ExecutivoDashboard() {
               <span className="badge badge-warn">{data?.utilization.summary.idle ?? 0} ocioso</span>
             </div>
           </div>
-          <div className="executive-chart-shell">
+          <div className="executive-chart-shell" style={{ height: `${utilizationChartHeight}px` }}>
             <ResponsiveContainer width="100%" height={utilizationChartHeight}>
               <BarChart
                 data={utilizationTop}
@@ -553,7 +554,7 @@ export function ExecutivoDashboard() {
               <span className="badge badge-danger">{data?.mechanical.summary.critical ?? 0} critico</span>
             </div>
           </div>
-          <div className="executive-chart-shell">
+          <div className="executive-chart-shell" style={{ height: `${mechanicalChartHeight}px` }}>
             <ResponsiveContainer width="100%" height={mechanicalChartHeight}>
               <BarChart
                 data={mechanicalTop}
@@ -622,8 +623,8 @@ export function ExecutivoDashboard() {
             </div>
             <strong className="executive-panel-highlight">{formatHours(data?.losses.totalHours ?? 0)}</strong>
           </div>
-          <div className="executive-chart-shell">
-            <ResponsiveContainer width="100%" height={Math.max(320, lossTop.length * 42)}>
+          <div className="executive-chart-shell" style={{ height: `${lossChartHeight}px` }}>
+            <ResponsiveContainer width="100%" height={lossChartHeight}>
               <BarChart
                 data={lossTop}
                 layout="vertical"
@@ -668,7 +669,7 @@ export function ExecutivoDashboard() {
               {formatCurrency(data?.financial.totalEstimatedLoss ?? 0)}
             </strong>
           </div>
-          <div className="executive-chart-shell">
+          <div className="executive-chart-shell" style={{ height: `${financialChartHeight}px` }}>
             <ResponsiveContainer width="100%" height={financialChartHeight}>
               <BarChart
                 data={financialTop}
@@ -710,20 +711,27 @@ export function ExecutivoDashboard() {
               <h2>Obras com maior hora apontada</h2>
             </div>
           </div>
-          <div className="executive-list">
-            {(data?.worksites ?? []).map((item) => (
-              <article key={item.obraId} className="executive-list-item">
-                <div>
-                  <strong>{item.label}</strong>
-                  <span>{item.equipmentsCount} equipamento(s)</span>
-                </div>
-                <div className="executive-list-metrics">
-                  <strong>{formatHours(item.productiveHours)} apontadas</strong>
-                  <span>{formatCurrency(item.measuredValue)}</span>
-                </div>
-              </article>
-            ))}
-          </div>
+          {(data?.worksites?.length ?? 0) > 0 ? (
+            <div className="executive-list">
+              {(data?.worksites ?? []).map((item) => (
+                <article key={item.obraId} className="executive-list-item">
+                  <div>
+                    <strong>{item.label}</strong>
+                    <span>{item.equipmentsCount} equipamento(s)</span>
+                  </div>
+                  <div className="executive-list-metrics">
+                    <strong>{formatHours(item.productiveHours)} apontadas</strong>
+                    <span>{formatCurrency(item.measuredValue)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="executive-empty-state">
+              <strong>Sem consumo no periodo</strong>
+              <p>Nao houve horas apontadas por obra para os equipamentos filtrados.</p>
+            </div>
+          )}
         </article>
 
         <article className="executive-panel">
@@ -733,7 +741,13 @@ export function ExecutivoDashboard() {
               <h2>Recorrencia mecanica</h2>
             </div>
           </div>
-          <div className="executive-list">
+          {(data?.failures?.length ?? 0) === 0 ? (
+            <div className="executive-empty-state">
+              <strong>Sem falhas no periodo</strong>
+              <p>Nao houve manutencao executada para os equipamentos filtrados.</p>
+            </div>
+          ) : null}
+          <div className="executive-list" hidden={(data?.failures?.length ?? 0) === 0}>
             {(data?.failures ?? []).map((item) => (
               <article key={item.equipamentoId} className="executive-list-item">
                 <div>
@@ -758,8 +772,15 @@ export function ExecutivoDashboard() {
           </div>
         </div>
 
+        {(data?.heatmap.rows?.length ?? 0) === 0 ? (
+          <div className="executive-empty-state">
+            <strong>Sem leitura operacional</strong>
+            <p>O heatmap aparece quando existem programacoes ou medicoes para os equipamentos filtrados.</p>
+          </div>
+        ) : null}
         <div
           className="executive-heatmap"
+          hidden={(data?.heatmap.rows?.length ?? 0) === 0}
           style={
             {
               ["--executive-heatmap-cols" as string]: data?.heatmap.days.length ?? 0

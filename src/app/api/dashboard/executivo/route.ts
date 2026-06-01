@@ -593,8 +593,28 @@ export async function GET(request: NextRequest) {
     })
   ]);
 
+  const relevantEquipmentIds = new Set<string>();
+
+  for (const item of medicaoItems) {
+    relevantEquipmentIds.add(item.lancamento.equipamento.id);
+  }
+
+  for (const item of programacoes) {
+    relevantEquipmentIds.add(item.equipamentoId);
+  }
+
+  for (const item of manutencoesExecutadas) {
+    relevantEquipmentIds.add(item.equipamentoId);
+  }
+
+  for (const item of lancamentosHora) {
+    relevantEquipmentIds.add(item.equipamentoId);
+  }
+
+  const equipamentosDisponiveis = equipamentos.filter((item) => relevantEquipmentIds.has(item.id));
+
   const equipamentoMap = new Map(
-    equipamentos.map((item) => [
+    equipamentosDisponiveis.map((item) => [
       item.id,
       {
         ...item,
@@ -603,15 +623,13 @@ export async function GET(request: NextRequest) {
     ])
   );
 
-  if (selectedEquipmentIds.some((id) => !equipamentoMap.has(id))) {
-    return NextResponse.json({ message: "Equipamento invalido para o filtro." }, { status: 400 });
-  }
+  const sanitizedSelectedEquipmentIds = selectedEquipmentIds.filter((id) => equipamentoMap.has(id));
 
   const selectedEquipmentSet =
-    selectedEquipmentIds.length > 0 ? new Set(selectedEquipmentIds) : null;
+    sanitizedSelectedEquipmentIds.length > 0 ? new Set(sanitizedSelectedEquipmentIds) : null;
   const equipamentosFiltrados = selectedEquipmentSet
-    ? equipamentos.filter((item) => selectedEquipmentSet.has(item.id))
-    : equipamentos;
+    ? equipamentosDisponiveis.filter((item) => selectedEquipmentSet.has(item.id))
+    : equipamentosDisponiveis;
 
   const scheduleEntries: ScheduleEntry[] = programacoes
     .filter(
@@ -1147,7 +1165,6 @@ export async function GET(request: NextRequest) {
       if (b.concernHours !== a.concernHours) return b.concernHours - a.concernHours;
       return a.label.localeCompare(b.label);
     })
-    .slice(0, 12)
     .map(({ concernHours: _concernHours, ...item }) => item);
 
   const utilizationAverage =
@@ -1212,8 +1229,8 @@ export async function GET(request: NextRequest) {
       monthKey: formatMonthShort(period.end)
     },
     filters: {
-      equipmentIds: selectedEquipmentIds,
-      equipments: equipamentos.map((item) => ({
+      equipmentIds: sanitizedSelectedEquipmentIds,
+      equipments: equipamentosDisponiveis.map((item) => ({
         id: item.id,
         label: `${item.placaOuTag} - ${item.descricao}`,
         type: item.tipoRecurso

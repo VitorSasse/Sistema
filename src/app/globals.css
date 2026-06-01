@@ -1893,11 +1893,13 @@ button {
 
 .fleet-chart-shell {
   margin-top: 10px;
+  min-height: 360px;
   padding: 12px 6px 0;
   border-radius: 22px;
   background:
     radial-gradient(circle at top right, rgba(240, 213, 143, 0.12), transparent 28%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 239, 225, 0.7));
+  overflow: visible;
 }
 
 .fleet-ranking-list {
@@ -2608,7 +2610,9 @@ button {
 }
 
 .executive-chart-shell {
-  height: 360px;
+  min-height: 360px;
+  height: auto;
+  overflow: visible;
 }
 
 .executive-list {
@@ -2631,6 +2635,24 @@ button {
 .executive-list-metrics {
   justify-items: end;
   text-align: right;
+}
+
+.executive-empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  gap: 8px;
+  padding: 24px;
+  border-radius: 18px;
+  border: 1px dashed rgba(145, 163, 180, 0.18);
+  background: rgba(9, 18, 29, 0.42);
+  color: #91a3b4;
+  text-align: center;
+}
+
+.executive-empty-state strong {
+  color: #f5efe5;
+  font-size: 1.04rem;
 }
 
 .executive-heatmap {
