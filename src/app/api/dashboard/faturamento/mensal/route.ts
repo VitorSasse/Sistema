@@ -6,7 +6,11 @@ import { prisma } from "@/lib/prisma";
 type MonthlyRow = {
   monthNumber: number;
   totalFaturado: Prisma.Decimal | null;
+  totalAFaturar: Prisma.Decimal | null;
+  totalGeral: Prisma.Decimal | null;
   totalMedicoes: bigint;
+  totalMedicoesConcluidas: bigint;
+  totalMedicoesAFaturar: bigint;
 };
 
 type AvailableYearRow = {
@@ -39,6 +43,7 @@ export async function GET(request: NextRequest) {
       WITH medicoes_periodo AS (
         SELECT
           medicao.id,
+          medicao.status,
           DATE_TRUNC('month', MAX(item."data")) AS competencia,
           COALESCE(medicao."valorTotal", 0) - COALESCE(medicao."descontoValor", 0) AS "valorLiquido"
         FROM "Medicao" medicao
@@ -46,15 +51,19 @@ export async function GET(request: NextRequest) {
           ON item."medicaoId" = medicao.id
          AND item."deletedAt" IS NULL
         WHERE medicao."deletedAt" IS NULL
-          AND medicao.status = 'CONCLUIDA'::"StatusMedicao"
-        GROUP BY medicao.id
+          AND medicao.status <> 'CANCELADA'::"StatusMedicao"
+        GROUP BY medicao.id, medicao.status
         HAVING MAX(item."data") >= ${period.start}
            AND MAX(item."data") <= ${period.end}
       )
       SELECT
         EXTRACT(MONTH FROM competencia)::int AS "monthNumber",
-        COALESCE(SUM("valorLiquido"), 0) AS "totalFaturado",
-        COUNT(*) AS "totalMedicoes"
+        COALESCE(SUM(CASE WHEN status = 'CONCLUIDA'::"StatusMedicao" THEN "valorLiquido" ELSE 0 END), 0) AS "totalFaturado",
+        COALESCE(SUM(CASE WHEN status <> 'CONCLUIDA'::"StatusMedicao" THEN "valorLiquido" ELSE 0 END), 0) AS "totalAFaturar",
+        COALESCE(SUM("valorLiquido"), 0) AS "totalGeral",
+        COUNT(*) AS "totalMedicoes",
+        COUNT(CASE WHEN status = 'CONCLUIDA'::"StatusMedicao" THEN 1 END) AS "totalMedicoesConcluidas",
+        COUNT(CASE WHEN status <> 'CONCLUIDA'::"StatusMedicao" THEN 1 END) AS "totalMedicoesAFaturar"
       FROM medicoes_periodo
       GROUP BY EXTRACT(MONTH FROM competencia)
       ORDER BY "monthNumber" ASC
@@ -68,7 +77,7 @@ export async function GET(request: NextRequest) {
           ON item."medicaoId" = medicao.id
          AND item."deletedAt" IS NULL
         WHERE medicao."deletedAt" IS NULL
-          AND medicao.status = 'CONCLUIDA'::"StatusMedicao"
+          AND medicao.status <> 'CANCELADA'::"StatusMedicao"
         GROUP BY medicao.id
       )
       SELECT DISTINCT EXTRACT(YEAR FROM competencia)::int AS year
@@ -85,21 +94,37 @@ export async function GET(request: NextRequest) {
       monthNumber,
       label,
       totalFaturado: Number(row?.totalFaturado ?? 0),
-      totalMedicoes: Number(row?.totalMedicoes ?? 0)
+      totalAFaturar: Number(row?.totalAFaturar ?? 0),
+      totalGeral: Number(row?.totalGeral ?? 0),
+      totalMedicoes: Number(row?.totalMedicoes ?? 0),
+      totalMedicoesConcluidas: Number(row?.totalMedicoesConcluidas ?? 0),
+      totalMedicoesAFaturar: Number(row?.totalMedicoesAFaturar ?? 0)
     };
   });
 
   const totalFaturadoAno = Number(
     months.reduce((acc, item) => acc + item.totalFaturado, 0).toFixed(2)
   );
+  const totalAFaturarAno = Number(
+    months.reduce((acc, item) => acc + item.totalAFaturar, 0).toFixed(2)
+  );
+  const totalGeralAno = Number(
+    months.reduce((acc, item) => acc + item.totalGeral, 0).toFixed(2)
+  );
   const totalMedicoes = months.reduce((acc, item) => acc + item.totalMedicoes, 0);
+  const totalMedicoesConcluidas = months.reduce((acc, item) => acc + item.totalMedicoesConcluidas, 0);
+  const totalMedicoesAFaturar = months.reduce((acc, item) => acc + item.totalMedicoesAFaturar, 0);
   const monthsConsidered = selectedYear === currentYear ? new Date().getMonth() + 1 : 12;
-  const mediaMensal = monthsConsidered > 0 ? Number((totalFaturadoAno / monthsConsidered).toFixed(2)) : 0;
-  const melhorMes = [...months].sort((a, b) => b.totalFaturado - a.totalFaturado)[0] ?? {
+  const mediaMensal = monthsConsidered > 0 ? Number((totalGeralAno / monthsConsidered).toFixed(2)) : 0;
+  const melhorMes = [...months].sort((a, b) => b.totalGeral - a.totalGeral)[0] ?? {
     monthNumber: 1,
     label: "JAN",
     totalFaturado: 0,
-    totalMedicoes: 0
+    totalAFaturar: 0,
+    totalGeral: 0,
+    totalMedicoes: 0,
+    totalMedicoesConcluidas: 0,
+    totalMedicoesAFaturar: 0
   };
 
   const availableYears = yearRows.map((item) => item.year);
@@ -119,12 +144,18 @@ export async function GET(request: NextRequest) {
     },
     summary: {
       totalFaturadoAno,
+      totalAFaturarAno,
+      totalGeralAno,
       mediaMensal,
       totalMedicoes,
+      totalMedicoesConcluidas,
+      totalMedicoesAFaturar,
       monthsConsidered,
       melhorMes: {
         label: melhorMes.label,
         totalFaturado: melhorMes.totalFaturado,
+        totalAFaturar: melhorMes.totalAFaturar,
+        totalGeral: melhorMes.totalGeral,
         totalMedicoes: melhorMes.totalMedicoes
       }
     },

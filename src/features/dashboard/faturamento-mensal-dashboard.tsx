@@ -25,12 +25,18 @@ type DashboardPayload = {
   };
   summary: {
     totalFaturadoAno: number;
+    totalAFaturarAno: number;
+    totalGeralAno: number;
     mediaMensal: number;
     totalMedicoes: number;
+    totalMedicoesConcluidas: number;
+    totalMedicoesAFaturar: number;
     monthsConsidered: number;
     melhorMes: {
       label: string;
       totalFaturado: number;
+      totalAFaturar: number;
+      totalGeral: number;
       totalMedicoes: number;
     };
   };
@@ -38,7 +44,11 @@ type DashboardPayload = {
     monthNumber: number;
     label: string;
     totalFaturado: number;
+    totalAFaturar: number;
+    totalGeral: number;
     totalMedicoes: number;
+    totalMedicoesConcluidas: number;
+    totalMedicoesAFaturar: number;
     mediaMensal: number;
   }>;
 };
@@ -60,7 +70,10 @@ function CustomTooltip({
     <div className="billing-tooltip">
       <strong>{item.label}</strong>
       <span>Faturado: {formatCurrency(item.totalFaturado)}</span>
-      <span>Medicoes concluidas: {item.totalMedicoes}</span>
+      <span>A faturar: {formatCurrency(item.totalAFaturar)}</span>
+      <span>Total: {formatCurrency(item.totalGeral)}</span>
+      <span>Concluidas: {item.totalMedicoesConcluidas}</span>
+      <span>A faturar: {item.totalMedicoesAFaturar}</span>
       <span>Media de referencia: {formatCurrency(item.mediaMensal)}</span>
     </div>
   );
@@ -141,7 +154,7 @@ export function FaturamentoMensalDashboard() {
   }, []);
 
   const monthlyRows = useMemo(() => data?.monthly ?? [], [data]);
-  const hasMonthlyBilling = (data?.summary.totalFaturadoAno ?? 0) > 0;
+  const hasMonthlyBilling = (data?.summary.totalGeralAno ?? 0) > 0;
 
   if (loading && !data) {
     return <DashboardSkeleton />;
@@ -154,8 +167,8 @@ export function FaturamentoMensalDashboard() {
           <span className="billing-kicker">Faturamento mensal</span>
           <h1 className="page-title">Historico mensal de faturamento</h1>
           <p className="page-copy">
-            Evolucao do faturamento concluido por mes, usando a mesma competencia liquida da
-            dashboard financeira principal.
+            Evolucao mensal do faturado e do valor ainda a faturar, usando a mesma competencia
+            liquida da dashboard financeira principal.
           </p>
         </div>
 
@@ -199,7 +212,16 @@ export function FaturamentoMensalDashboard() {
             {formatCurrency(data?.summary.totalFaturadoAno ?? 0)}
           </strong>
           <p className="billing-summary-meta">
-            {data?.summary.totalMedicoes ?? 0} medicao(oes) concluidas no ano.
+            {data?.summary.totalMedicoesConcluidas ?? 0} medicao(oes) concluidas no ano.
+          </p>
+        </article>
+        <article className="billing-summary-card">
+          <span className="billing-summary-label">A faturar no ano</span>
+          <strong className="billing-summary-main">
+            {formatCurrency(data?.summary.totalAFaturarAno ?? 0)}
+          </strong>
+          <p className="billing-summary-meta">
+            {data?.summary.totalMedicoesAFaturar ?? 0} medicao(oes) ainda nao concluidas.
           </p>
         </article>
         <article className="billing-summary-card">
@@ -217,20 +239,16 @@ export function FaturamentoMensalDashboard() {
             {data?.summary.melhorMes.label ?? "-"}
           </strong>
           <p className="billing-summary-meta">
-            {formatCurrency(data?.summary.melhorMes.totalFaturado ?? 0)} em{" "}
+            {formatCurrency(data?.summary.melhorMes.totalGeral ?? 0)} em{" "}
             {data?.summary.melhorMes.totalMedicoes ?? 0} medicao(oes).
           </p>
         </article>
         <article className="billing-summary-card is-count">
-          <span className="billing-summary-label">Media por medicao</span>
+          <span className="billing-summary-label">Faturamento total</span>
           <strong className="billing-summary-main">
-            {formatCurrency(
-              (data?.summary.totalMedicoes ?? 0) > 0
-                ? (data?.summary.totalFaturadoAno ?? 0) / (data?.summary.totalMedicoes ?? 1)
-                : 0
-            )}
+            {formatCurrency(data?.summary.totalGeralAno ?? 0)}
           </strong>
-          <p className="billing-summary-meta">Baseada nas medicoes concluidas do ano filtrado.</p>
+          <p className="billing-summary-meta">Faturado somado ao valor ainda a faturar no ano.</p>
         </article>
       </section>
 
@@ -238,16 +256,21 @@ export function FaturamentoMensalDashboard() {
         <article className="billing-chart-card surface section-card">
           {!hasMonthlyBilling ? (
             <div className="billing-empty-state">
-              <strong>Nenhum faturamento encontrado</strong>
-              <p>Nao ha medicoes concluidas para o ano selecionado.</p>
+              <strong>Nenhum valor encontrado</strong>
+              <p>Nao ha medicoes faturadas ou pendentes para o ano selecionado.</p>
             </div>
           ) : (
             <div className="billing-chart-panel">
               <div className="billing-chart-summary">
                 <article className="billing-chart-summary-card is-success">
-                  <span>Total no ano</span>
+                  <span>Faturado no ano</span>
                   <strong>{formatCurrency(data?.summary.totalFaturadoAno ?? 0)}</strong>
-                  <small>Somatorio dos 12 meses do ano selecionado.</small>
+                  <small>{data?.summary.totalMedicoesConcluidas ?? 0} medicao(oes) concluidas.</small>
+                </article>
+                <article className="billing-chart-summary-card is-warn">
+                  <span>A faturar no ano</span>
+                  <strong>{formatCurrency(data?.summary.totalAFaturarAno ?? 0)}</strong>
+                  <small>{data?.summary.totalMedicoesAFaturar ?? 0} medicao(oes) pendentes.</small>
                 </article>
                 <article className="billing-chart-summary-card is-neutral">
                   <span>Media mensal</span>
@@ -257,7 +280,7 @@ export function FaturamentoMensalDashboard() {
                 <article className="billing-chart-summary-card is-total">
                   <span>Melhor mes</span>
                   <strong>{data?.summary.melhorMes.label ?? "-"}</strong>
-                  <small>{formatCurrency(data?.summary.melhorMes.totalFaturado ?? 0)}</small>
+                  <small>{formatCurrency(data?.summary.melhorMes.totalGeral ?? 0)}</small>
                 </article>
               </div>
 
@@ -265,6 +288,10 @@ export function FaturamentoMensalDashboard() {
                 <span className="billing-chart-legend-item">
                   <i className="billing-chart-dot is-faturado" />
                   Faturado no mes
+                </span>
+                <span className="billing-chart-legend-item">
+                  <i className="billing-chart-dot is-pendente" />
+                  A faturar no mes
                 </span>
                 <span className="billing-chart-legend-item">
                   <i className="billing-chart-dot is-share" />
@@ -279,6 +306,10 @@ export function FaturamentoMensalDashboard() {
                       <linearGradient id="billingMonthlyBar" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#1e8b7d" />
                         <stop offset="100%" stopColor="#155b52" />
+                      </linearGradient>
+                      <linearGradient id="billingBarPendente" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f0c15a" />
+                        <stop offset="100%" stopColor="#d4932d" />
                       </linearGradient>
                     </defs>
                     <CartesianGrid stroke="rgba(109, 92, 66, 0.12)" vertical={false} />
@@ -298,8 +329,16 @@ export function FaturamentoMensalDashboard() {
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(21, 91, 82, 0.06)" }} />
                     <Bar
                       dataKey="totalFaturado"
-                      radius={[12, 12, 0, 0]}
+                      stackId="monthly"
+                      radius={[0, 0, 0, 0]}
                       fill="url(#billingMonthlyBar)"
+                      maxBarSize={48}
+                    />
+                    <Bar
+                      dataKey="totalAFaturar"
+                      stackId="monthly"
+                      radius={[12, 12, 0, 0]}
+                      fill="url(#billingBarPendente)"
                       maxBarSize={48}
                     />
                     <Line
@@ -328,25 +367,35 @@ export function FaturamentoMensalDashboard() {
 
           {!hasMonthlyBilling ? (
             <div className="billing-empty-state billing-empty-state-compact">
-              <strong>Sem meses com faturamento</strong>
-              <p>Nao ha valores concluidos para listar.</p>
+              <strong>Sem meses com valor</strong>
+              <p>Nao ha valores faturados ou pendentes para listar.</p>
             </div>
           ) : (
             <div className="billing-ranking-list">
               {monthlyRows
                 .filter((item) => item.totalFaturado > 0 || item.totalMedicoes > 0)
-                .sort((a, b) => b.totalFaturado - a.totalFaturado)
+                .sort((a, b) => b.totalGeral - a.totalGeral)
                 .map((item, index) => (
                   <article key={item.monthNumber} className="billing-ranking-item">
                     <div className="billing-ranking-rank">#{String(index + 1).padStart(2, "0")}</div>
                     <div className="billing-ranking-copy">
                       <strong>{item.label}</strong>
-                      <span>{item.totalMedicoes} medicao(oes) concluidas</span>
+                      <span>{item.totalMedicoes} medicao(oes) no total</span>
                     </div>
                     <div className="billing-ranking-metrics">
-                      <strong>{formatCurrency(item.totalFaturado)}</strong>
+                      <strong>{formatCurrency(item.totalGeral)}</strong>
                       <span>
-                        {item.totalFaturado >= (data?.summary.mediaMensal ?? 0)
+                        {item.totalFaturado > 0
+                          ? `${formatCurrency(item.totalFaturado)} faturado`
+                          : "Sem faturado"}
+                      </span>
+                      <span>
+                        {item.totalAFaturar > 0
+                          ? `${formatCurrency(item.totalAFaturar)} a faturar`
+                          : "Sem pendencia"}
+                      </span>
+                      <span>
+                        {item.totalGeral >= (data?.summary.mediaMensal ?? 0)
                           ? "Acima da media"
                           : "Abaixo da media"}
                       </span>
