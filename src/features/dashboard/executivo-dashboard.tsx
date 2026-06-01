@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { SearchableMultiSelect } from "@/components/form/searchable-multi-select";
 import {
   Bar,
   BarChart,
@@ -23,6 +24,14 @@ type DashboardPayload = {
     end: string;
     label: string;
     monthKey: string;
+  };
+  filters: {
+    equipmentIds: string[];
+    equipments: Array<{
+      id: string;
+      label: string;
+      type: string;
+    }>;
   };
   summary: {
     totalEquipamentos: number;
@@ -264,11 +273,17 @@ export function ExecutivoDashboard() {
   const [preset, setPreset] = useState<PeriodPreset>("current_month");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [equipmentIds, setEquipmentIds] = useState<string[]>([]);
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function loadDashboard(nextPreset: PeriodPreset, start = customStart, end = customEnd) {
+  async function loadDashboard(
+    nextPreset: PeriodPreset,
+    start = customStart,
+    end = customEnd,
+    nextEquipmentIds = equipmentIds
+  ) {
     setLoading(true);
     setError("");
 
@@ -278,6 +293,10 @@ export function ExecutivoDashboard() {
       if (nextPreset === "custom") {
         if (start) params.set("start", start);
         if (end) params.set("end", end);
+      }
+
+      if (nextEquipmentIds.length > 0) {
+        params.set("equipmentIds", nextEquipmentIds.join(","));
       }
 
       const response = await fetch(`/api/dashboard/executivo?${params.toString()}`, {
@@ -293,6 +312,7 @@ export function ExecutivoDashboard() {
       }
 
       setData(payload);
+      setEquipmentIds(payload.filters.equipmentIds ?? []);
     } catch {
       setError("Nao foi possivel carregar o dashboard executivo.");
       setData(null);
@@ -305,16 +325,13 @@ export function ExecutivoDashboard() {
     void loadDashboard("current_month", "", "");
   }, []);
 
-  const utilizationTop = useMemo(
-    () => (data?.utilization.ranking ?? []).slice(0, 8),
-    [data]
-  );
-  const mechanicalTop = useMemo(
-    () => (data?.mechanical.ranking ?? []).slice(0, 8),
-    [data]
-  );
-  const lossTop = useMemo(() => (data?.losses.buckets ?? []).slice(0, 8), [data]);
-  const financialTop = useMemo(() => (data?.financial.ranking ?? []).slice(0, 8), [data]);
+  const utilizationTop = useMemo(() => data?.utilization.ranking ?? [], [data]);
+  const mechanicalTop = useMemo(() => data?.mechanical.ranking ?? [], [data]);
+  const lossTop = useMemo(() => data?.losses.buckets ?? [], [data]);
+  const financialTop = useMemo(() => data?.financial.ranking ?? [], [data]);
+  const utilizationChartHeight = Math.max(360, utilizationTop.length * 42);
+  const mechanicalChartHeight = Math.max(360, mechanicalTop.length * 42);
+  const financialChartHeight = Math.max(320, financialTop.length * 42);
 
   if (loading && !data) {
     return <DashboardSkeleton />;
@@ -342,7 +359,7 @@ export function ExecutivoDashboard() {
                 const nextPreset = event.target.value as PeriodPreset;
                 setPreset(nextPreset);
                 if (nextPreset !== "custom") {
-                  void loadDashboard(nextPreset, customStart, customEnd);
+                  void loadDashboard(nextPreset, customStart, customEnd, equipmentIds);
                 }
               }}
             >
@@ -377,12 +394,31 @@ export function ExecutivoDashboard() {
               <button
                 type="button"
                 className="button-primary"
-                onClick={() => void loadDashboard("custom", customStart, customEnd)}
+                onClick={() => void loadDashboard("custom", customStart, customEnd, equipmentIds)}
               >
                 Aplicar
               </button>
             </div>
           ) : null}
+
+          <label className="field executive-filter-field">
+            <span className="field-label">Equipamentos exibidos</span>
+            <SearchableMultiSelect
+              values={equipmentIds}
+              options={(data?.filters.equipments ?? []).map((item) => ({
+                value: item.id,
+                label: `${item.label} [${item.type}]`
+              }))}
+              placeholder="Buscar equipamentos"
+              onChange={(values) => {
+                setEquipmentIds(values);
+                if (preset === "custom" && (!customStart || !customEnd)) {
+                  return;
+                }
+                void loadDashboard(preset, customStart, customEnd, values);
+              }}
+            />
+          </label>
 
           <div className="executive-period-chip">
             <strong>Janela</strong>
@@ -468,7 +504,7 @@ export function ExecutivoDashboard() {
             </div>
           </div>
           <div className="executive-chart-shell">
-            <ResponsiveContainer width="100%" height={360}>
+            <ResponsiveContainer width="100%" height={utilizationChartHeight}>
               <BarChart
                 data={utilizationTop}
                 layout="vertical"
@@ -518,7 +554,7 @@ export function ExecutivoDashboard() {
             </div>
           </div>
           <div className="executive-chart-shell">
-            <ResponsiveContainer width="100%" height={360}>
+            <ResponsiveContainer width="100%" height={mechanicalChartHeight}>
               <BarChart
                 data={mechanicalTop}
                 layout="vertical"
@@ -587,7 +623,7 @@ export function ExecutivoDashboard() {
             <strong className="executive-panel-highlight">{formatHours(data?.losses.totalHours ?? 0)}</strong>
           </div>
           <div className="executive-chart-shell">
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={Math.max(320, lossTop.length * 42)}>
               <BarChart
                 data={lossTop}
                 layout="vertical"
@@ -633,7 +669,7 @@ export function ExecutivoDashboard() {
             </strong>
           </div>
           <div className="executive-chart-shell">
-            <ResponsiveContainer width="100%" height={320}>
+            <ResponsiveContainer width="100%" height={financialChartHeight}>
               <BarChart
                 data={financialTop}
                 layout="vertical"
@@ -671,18 +707,18 @@ export function ExecutivoDashboard() {
           <div className="executive-panel-header">
             <div>
               <span className="executive-section-kicker">Consumo</span>
-              <h2>Obras que mais consomem recurso</h2>
+              <h2>Obras com maior hora apontada</h2>
             </div>
           </div>
           <div className="executive-list">
-            {(data?.worksites ?? []).slice(0, 6).map((item) => (
+            {(data?.worksites ?? []).map((item) => (
               <article key={item.obraId} className="executive-list-item">
                 <div>
                   <strong>{item.label}</strong>
                   <span>{item.equipmentsCount} equipamento(s)</span>
                 </div>
                 <div className="executive-list-metrics">
-                  <strong>{formatHours(item.productiveHours)}</strong>
+                  <strong>{formatHours(item.productiveHours)} apontadas</strong>
                   <span>{formatCurrency(item.measuredValue)}</span>
                 </div>
               </article>
@@ -698,7 +734,7 @@ export function ExecutivoDashboard() {
             </div>
           </div>
           <div className="executive-list">
-            {(data?.failures ?? []).slice(0, 6).map((item) => (
+            {(data?.failures ?? []).map((item) => (
               <article key={item.equipamentoId} className="executive-list-item">
                 <div>
                   <strong>{item.placaOuTag}</strong>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { SearchableMultiSelect } from "@/components/form/searchable-multi-select";
 import {
   Bar,
   BarChart,
@@ -43,8 +44,8 @@ type DashboardPayload = {
     label: string;
   };
   filters: {
-    caminhaoId: string | null;
-    maquinaId: string | null;
+    caminhaoIds: string[];
+    maquinaIds: string[];
     caminhoes: Array<{ id: string; label: string }>;
     maquinas: Array<{ id: string; label: string }>;
   };
@@ -75,13 +76,6 @@ const chartPalette = ["#155b52", "#1d7266", "#25897b", "#34a18f", "#4fb9a0", "#7
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("pt-BR");
-}
-
-function formatNumber(value: number, digits = 0) {
-  return new Intl.NumberFormat("pt-BR", {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits
-  }).format(value);
 }
 
 function CustomTooltip({
@@ -135,8 +129,8 @@ function SectionPanel({
   title,
   kicker,
   valueLabel,
-  valuePlaceholder,
-  filterValue,
+  filterPlaceholder,
+  filterValues,
   filterOptions,
   onFilterChange,
   summary,
@@ -145,10 +139,10 @@ function SectionPanel({
   title: string;
   kicker: string;
   valueLabel: string;
-  valuePlaceholder: string;
-  filterValue: string;
+  filterPlaceholder: string;
+  filterValues: string[];
   filterOptions: Array<{ id: string; label: string }>;
-  onFilterChange: (value: string) => void;
+  onFilterChange: (values: string[]) => void;
   summary: EquipmentSectionSummary;
   ranking: EquipmentRankingItem[];
 }) {
@@ -161,6 +155,8 @@ function SectionPanel({
     [ranking]
   );
 
+  const chartHeight = Math.max(360, chartData.length * 44);
+
   return (
     <section className="fleet-section surface section-card fade-up">
       <div className="fleet-section-header">
@@ -170,18 +166,15 @@ function SectionPanel({
         </div>
         <label className="field fleet-filter-field fleet-section-filter">
           <span className="field-label">{valueLabel}</span>
-          <select
-            className="field-control"
-            value={filterValue}
-            onChange={(event) => onFilterChange(event.target.value)}
-          >
-            <option value="">{valuePlaceholder}</option>
-            {filterOptions.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.label}
-              </option>
-            ))}
-          </select>
+          <SearchableMultiSelect
+            values={filterValues}
+            options={filterOptions.map((item) => ({
+              value: item.id,
+              label: item.label
+            }))}
+            placeholder={filterPlaceholder}
+            onChange={onFilterChange}
+          />
         </label>
       </div>
 
@@ -219,7 +212,7 @@ function SectionPanel({
               </div>
 
               <div className="fleet-chart-shell">
-                <ResponsiveContainer width="100%" height={360}>
+                <ResponsiveContainer width="100%" height={chartHeight}>
                   <BarChart
                     data={chartData}
                     layout="vertical"
@@ -268,7 +261,7 @@ function SectionPanel({
             </div>
           ) : (
             <div className="fleet-ranking-list">
-              {chartData.slice(0, 6).map((item, index) => (
+              {chartData.map((item, index) => (
                 <article key={item.equipamentoId} className="fleet-ranking-item">
                   <div className="fleet-ranking-rank">#{String(index + 1).padStart(2, "0")}</div>
                   <div className="fleet-ranking-copy">
@@ -299,16 +292,16 @@ export function FrotaDashboard() {
   const [preset, setPreset] = useState<PeriodPreset>("current_month");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
-  const [caminhaoId, setCaminhaoId] = useState("");
-  const [maquinaId, setMaquinaId] = useState("");
+  const [caminhaoIds, setCaminhaoIds] = useState<string[]>([]);
+  const [maquinaIds, setMaquinaIds] = useState<string[]>([]);
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   async function loadDashboard(
     nextPreset: PeriodPreset,
-    nextCaminhaoId = caminhaoId,
-    nextMaquinaId = maquinaId,
+    nextCaminhaoIds = caminhaoIds,
+    nextMaquinaIds = maquinaIds,
     start = customStart,
     end = customEnd
   ) {
@@ -323,12 +316,12 @@ export function FrotaDashboard() {
         if (end) params.set("end", end);
       }
 
-      if (nextCaminhaoId) {
-        params.set("caminhaoId", nextCaminhaoId);
+      if (nextCaminhaoIds.length > 0) {
+        params.set("caminhaoIds", nextCaminhaoIds.join(","));
       }
 
-      if (nextMaquinaId) {
-        params.set("maquinaId", nextMaquinaId);
+      if (nextMaquinaIds.length > 0) {
+        params.set("maquinaIds", nextMaquinaIds.join(","));
       }
 
       const response = await fetch(`/api/frota/dashboard?${params.toString()}`, {
@@ -343,8 +336,8 @@ export function FrotaDashboard() {
       }
 
       setData(payload);
-      setCaminhaoId(payload.filters.caminhaoId ?? "");
-      setMaquinaId(payload.filters.maquinaId ?? "");
+      setCaminhaoIds(payload.filters.caminhaoIds ?? []);
+      setMaquinaIds(payload.filters.maquinaIds ?? []);
     } catch {
       setError("Nao foi possivel carregar o dashboard da frota.");
       setData(null);
@@ -354,7 +347,7 @@ export function FrotaDashboard() {
   }
 
   useEffect(() => {
-    void loadDashboard("current_month", "", "", "", "");
+    void loadDashboard("current_month", [], [], "", "");
   }, []);
 
   if (loading && !data) {
@@ -379,7 +372,7 @@ export function FrotaDashboard() {
                 const nextPreset = event.target.value as PeriodPreset;
                 setPreset(nextPreset);
                 if (nextPreset !== "custom") {
-                  void loadDashboard(nextPreset, caminhaoId, maquinaId, customStart, customEnd);
+                  void loadDashboard(nextPreset, caminhaoIds, maquinaIds, customStart, customEnd);
                 }
               }}
             >
@@ -414,7 +407,7 @@ export function FrotaDashboard() {
               <button
                 type="button"
                 className="button-primary"
-                onClick={() => void loadDashboard("custom", caminhaoId, maquinaId, customStart, customEnd)}
+                onClick={() => void loadDashboard("custom", caminhaoIds, maquinaIds, customStart, customEnd)}
               >
                 Aplicar
               </button>
@@ -457,16 +450,16 @@ export function FrotaDashboard() {
       <SectionPanel
         title="Caminhoes"
         kicker="Resumo por valor"
-        valueLabel="Caminhao"
-        valuePlaceholder="Todos os caminhoes"
-        filterValue={caminhaoId}
+        valueLabel="Caminhoes exibidos"
+        filterPlaceholder="Buscar caminhoes"
+        filterValues={caminhaoIds}
         filterOptions={data?.filters.caminhoes ?? []}
-        onFilterChange={(value) => {
-          setCaminhaoId(value);
+        onFilterChange={(values) => {
+          setCaminhaoIds(values);
           if (preset === "custom" && (!customStart || !customEnd)) {
             return;
           }
-          void loadDashboard(preset, value, maquinaId, customStart, customEnd);
+          void loadDashboard(preset, values, maquinaIds, customStart, customEnd);
         }}
         summary={
           data?.caminhoes.summary ?? {
@@ -484,16 +477,16 @@ export function FrotaDashboard() {
       <SectionPanel
         title="Maquinas"
         kicker="Resumo por valor"
-        valueLabel="Maquina"
-        valuePlaceholder="Todas as maquinas"
-        filterValue={maquinaId}
+        valueLabel="Maquinas exibidas"
+        filterPlaceholder="Buscar maquinas"
+        filterValues={maquinaIds}
         filterOptions={data?.filters.maquinas ?? []}
-        onFilterChange={(value) => {
-          setMaquinaId(value);
+        onFilterChange={(values) => {
+          setMaquinaIds(values);
           if (preset === "custom" && (!customStart || !customEnd)) {
             return;
           }
-          void loadDashboard(preset, caminhaoId, value, customStart, customEnd);
+          void loadDashboard(preset, caminhaoIds, values, customStart, customEnd);
         }}
         summary={
           data?.maquinas.summary ?? {

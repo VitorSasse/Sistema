@@ -13,6 +13,14 @@ const allowedPresets = [
 type PeriodPreset = (typeof allowedPresets)[number];
 type SectionType = "CAMINHAO" | "MAQUINA";
 
+function parseIdList(value: string | null) {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
 }
@@ -129,13 +137,13 @@ type MedicaoPeriodRow = {
 
 function buildSection(
   items: RawItem[],
-  selectedEquipamentoId: string | null,
+  selectedEquipamentoIds: Set<string> | null,
   type: SectionType
 ) {
   const filteredItems = items.filter(
     (item) =>
       item.equipamento.tipoRecurso === type &&
-      (!selectedEquipamentoId || item.equipamento.id === selectedEquipamentoId)
+      (!selectedEquipamentoIds || selectedEquipamentoIds.has(item.equipamento.id))
   );
 
   const rankingMap = new Map<
@@ -244,8 +252,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const selectedCaminhaoId = request.nextUrl.searchParams.get("caminhaoId");
-  const selectedMaquinaId = request.nextUrl.searchParams.get("maquinaId");
+  const selectedCaminhaoIds = parseIdList(request.nextUrl.searchParams.get("caminhaoIds"));
+  const selectedMaquinaIds = parseIdList(request.nextUrl.searchParams.get("maquinaIds"));
 
   const [equipamentos, medicoesPeriodo] = await Promise.all([
     prisma.equipamento.findMany({
@@ -326,13 +334,16 @@ export async function GET(request: NextRequest) {
   const caminhoes = equipamentos.filter((item) => item.tipoRecurso === "CAMINHAO");
   const maquinas = equipamentos.filter((item) => item.tipoRecurso === "MAQUINA");
 
-  if (selectedCaminhaoId && !caminhoes.some((item) => item.id === selectedCaminhaoId)) {
+  if (selectedCaminhaoIds.some((id) => !caminhoes.some((item) => item.id === id))) {
     return NextResponse.json({ message: "Caminhao invalido para o filtro." }, { status: 400 });
   }
 
-  if (selectedMaquinaId && !maquinas.some((item) => item.id === selectedMaquinaId)) {
+  if (selectedMaquinaIds.some((id) => !maquinas.some((item) => item.id === id))) {
     return NextResponse.json({ message: "Maquina invalida para o filtro." }, { status: 400 });
   }
+
+  const selectedCaminhaoSet = selectedCaminhaoIds.length > 0 ? new Set(selectedCaminhaoIds) : null;
+  const selectedMaquinaSet = selectedMaquinaIds.length > 0 ? new Set(selectedMaquinaIds) : null;
 
   const rawItems: RawItem[] = [];
   const itemsByMedicao = new Map<string, typeof items>();
@@ -390,8 +401,8 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const caminhaoSection = buildSection(rawItems, selectedCaminhaoId, "CAMINHAO");
-  const maquinaSection = buildSection(rawItems, selectedMaquinaId, "MAQUINA");
+  const caminhaoSection = buildSection(rawItems, selectedCaminhaoSet, "CAMINHAO");
+  const maquinaSection = buildSection(rawItems, selectedMaquinaSet, "MAQUINA");
 
   const overallItems = [...caminhaoSection.filteredItems, ...maquinaSection.filteredItems];
   const overallDays = new Set(overallItems.map((item) => toDayKey(item.data)));
@@ -408,8 +419,8 @@ export async function GET(request: NextRequest) {
       label: period.label
     },
     filters: {
-      caminhaoId: selectedCaminhaoId,
-      maquinaId: selectedMaquinaId,
+      caminhaoIds: selectedCaminhaoIds,
+      maquinaIds: selectedMaquinaIds,
       caminhoes: caminhoes.map((item) => ({
         id: item.id,
         label: `${item.placaOuTag} - ${item.descricao}`

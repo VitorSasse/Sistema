@@ -30,6 +30,14 @@ type MedicaoPeriodRow = {
   id: string;
 };
 
+function parseIdList(value: string | null) {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 type ScheduleEntry = {
   id: string;
   equipamentoId: string;
@@ -366,6 +374,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const selectedEquipmentIds = parseIdList(request.nextUrl.searchParams.get("equipmentIds"));
+
   const days = enumerateDays(period.start, period.end);
   const businessDays = days.filter((day) => !isWeekend(day));
   const heatmapDays = days.map((day) => ({
@@ -396,7 +406,8 @@ export async function GET(request: NextRequest) {
     programacoes,
     manutencoesExecutadas,
     precosHora,
-    medicaoItems
+    medicaoItems,
+    lancamentosHora
   ] = await Promise.all([
     prisma.equipamento.findMany({
       where: {
@@ -546,7 +557,40 @@ export async function GET(request: NextRequest) {
             }
           },
           orderBy: [{ data: "desc" }, { createdAt: "desc" }]
-        })
+        }),
+    prisma.lancamentoDiario.findMany({
+      where: {
+        deletedAt: null,
+        statusValidacao: {
+          not: "CANCELADO"
+        },
+        data: {
+          gte: period.start,
+          lte: period.end
+        },
+        obraId: {
+          not: null
+        },
+        unidadeApontada: "HORA",
+        equipamento: {
+          tipoRecurso: {
+            in: ["CAMINHAO", "MAQUINA"]
+          }
+        }
+      },
+      select: {
+        obraId: true,
+        quantidadeApontada: true,
+        equipamentoId: true,
+        obra: {
+          select: {
+            id: true,
+            codigo: true,
+            nome: true
+          }
+        }
+      }
+    })
   ]);
 
   const equipamentoMap = new Map(
@@ -559,8 +603,22 @@ export async function GET(request: NextRequest) {
     ])
   );
 
+  if (selectedEquipmentIds.some((id) => !equipamentoMap.has(id))) {
+    return NextResponse.json({ message: "Equipamento invalido para o filtro." }, { status: 400 });
+  }
+
+  const selectedEquipmentSet =
+    selectedEquipmentIds.length > 0 ? new Set(selectedEquipmentIds) : null;
+  const equipamentosFiltrados = selectedEquipmentSet
+    ? equipamentos.filter((item) => selectedEquipmentSet.has(item.id))
+    : equipamentos;
+
   const scheduleEntries: ScheduleEntry[] = programacoes
-    .filter((item) => equipamentoMap.has(item.equipamentoId))
+    .filter(
+      (item) =>
+        equipamentoMap.has(item.equipamentoId) &&
+        (!selectedEquipmentSet || selectedEquipmentSet.has(item.equipamentoId))
+    )
     .map((item) => ({
       id: item.id,
       equipamentoId: item.equipamentoId,
@@ -634,6 +692,9 @@ export async function GET(request: NextRequest) {
       allocated = Number((allocated + allocatedValue).toFixed(2));
 
       const equipamentoId = item.lancamento.equipamento.id;
+      if (selectedEquipmentSet && !selectedEquipmentSet.has(equipamentoId)) {
+        return;
+      }
       const currentValue = measuredValueByEquipment.get(equipamentoId) ?? 0;
       measuredValueByEquipment.set(
         equipamentoId,
@@ -674,7 +735,7 @@ export async function GET(request: NextRequest) {
   const worksiteMap = new Map<string, WorksiteAggregate>();
   const equipmentAggregates = new Map<string, EquipmentAggregate>();
 
-  for (const equipamento of equipamentos) {
+  for (const equipamento of equipamentosFiltrados) {
     const aggregate: EquipmentAggregate = {
       equipamentoId: equipamento.id,
       descricao: equipamento.descricao,
@@ -791,19 +852,6 @@ export async function GET(request: NextRequest) {
           if (segment.status === "OPERANDO") {
             aggregate.operatedHours += segment.hours;
             aggregate.productiveDays.add(dayKey);
-
-            if (segment.obraId && segment.obraLabel) {
-              const worksite = worksiteMap.get(segment.obraId) ?? {
-                obraId: segment.obraId,
-                label: segment.obraLabel,
-                productiveHours: 0,
-                measuredValue: 0,
-                equipamentos: new Set<string>()
-              };
-              worksite.productiveHours += segment.hours;
-              worksite.equipamentos.add(equipamento.id);
-              worksiteMap.set(segment.obraId, worksite);
-            }
           } else if (meta.group === "CONTROLAVEL") {
             aggregate.controllableIdleHours += segment.hours;
           } else if (meta.group === "TECNICO") {
@@ -891,6 +939,25 @@ export async function GET(request: NextRequest) {
     equipmentAggregates.set(equipamento.id, aggregate);
   }
 
+  for (const lancamento of lancamentosHora) {
+    if (selectedEquipmentSet && !selectedEquipmentSet.has(lancamento.equipamentoId)) continue;
+    if (!lancamento.obraId || !lancamento.obra) continue;
+
+    const worksite = worksiteMap.get(lancamento.obraId) ?? {
+      obraId: lancamento.obraId,
+      label: `${lancamento.obra.codigo} - ${lancamento.obra.nome}`,
+      productiveHours: 0,
+      measuredValue: 0,
+      equipamentos: new Set<string>()
+    };
+
+    worksite.productiveHours = Number(
+      (worksite.productiveHours + Number(lancamento.quantidadeApontada ?? 0)).toFixed(2)
+    );
+    worksite.equipamentos.add(lancamento.equipamentoId);
+    worksiteMap.set(lancamento.obraId, worksite);
+  }
+
   for (const [obraId, value] of measuredValueByWorksite.entries()) {
     const worksite = worksiteMap.get(obraId);
     if (!worksite) continue;
@@ -901,6 +968,7 @@ export async function GET(request: NextRequest) {
   const failuresMap = new Map<string, FailureAggregate>();
 
   for (const item of manutencoesExecutadas) {
+    if (selectedEquipmentSet && !selectedEquipmentSet.has(item.equipamentoId)) continue;
     const current = failuresMap.get(item.equipamentoId) ?? {
       equipamentoId: item.equipamentoId,
       descricao: item.equipamento.descricao,
@@ -1119,7 +1187,7 @@ export async function GET(request: NextRequest) {
 
   if (topWorksite) {
     insights.push(
-      `${topWorksite.label} e a frente com maior consumo operacional (${topWorksite.productiveHours.toFixed(1).replace(".", ",")} h).`
+      `${topWorksite.label} e a frente com maior consumo operacional (${topWorksite.productiveHours.toFixed(1).replace(".", ",")} h apontadas).`
     );
   }
 
@@ -1143,8 +1211,16 @@ export async function GET(request: NextRequest) {
       label: period.label,
       monthKey: formatMonthShort(period.end)
     },
+    filters: {
+      equipmentIds: selectedEquipmentIds,
+      equipments: equipamentos.map((item) => ({
+        id: item.id,
+        label: `${item.placaOuTag} - ${item.descricao}`,
+        type: item.tipoRecurso
+      }))
+    },
     summary: {
-      totalEquipamentos: equipamentos.length,
+      totalEquipamentos: equipamentosFiltrados.length,
       totalHorasCalendario: totalCalendarHours,
       totalHorasDisponiveis: totalAvailableHours,
       totalHorasOperadas: totalOperatedHours,
