@@ -107,6 +107,8 @@ type FailureAggregate = {
   types: Set<string>;
 };
 
+const CARGA_EQUIVALENT_HOURS = 0.75;
+
 const turnHours: Record<string, number> = {
   MANHA: 4,
   TARDE: 4,
@@ -407,7 +409,7 @@ export async function GET(request: NextRequest) {
     manutencoesExecutadas,
     precosHora,
     medicaoItems,
-    lancamentosHora
+    lancamentosProdutivos
   ] = await Promise.all([
     prisma.equipamento.findMany({
       where: {
@@ -571,7 +573,6 @@ export async function GET(request: NextRequest) {
         obraId: {
           not: null
         },
-        unidadeApontada: "HORA",
         equipamento: {
           tipoRecurso: {
             in: ["CAMINHAO", "MAQUINA"]
@@ -581,7 +582,13 @@ export async function GET(request: NextRequest) {
       select: {
         obraId: true,
         quantidadeApontada: true,
+        unidadeApontada: true,
         equipamentoId: true,
+        equipamento: {
+          select: {
+            tipoRecurso: true
+          }
+        },
         obra: {
           select: {
             id: true,
@@ -607,7 +614,7 @@ export async function GET(request: NextRequest) {
     relevantEquipmentIds.add(item.equipamentoId);
   }
 
-  for (const item of lancamentosHora) {
+  for (const item of lancamentosProdutivos) {
     relevantEquipmentIds.add(item.equipamentoId);
   }
 
@@ -957,9 +964,20 @@ export async function GET(request: NextRequest) {
     equipmentAggregates.set(equipamento.id, aggregate);
   }
 
-  for (const lancamento of lancamentosHora) {
+  for (const lancamento of lancamentosProdutivos) {
     if (selectedEquipmentSet && !selectedEquipmentSet.has(lancamento.equipamentoId)) continue;
     if (!lancamento.obraId || !lancamento.obra) continue;
+
+    const quantidade = Number(lancamento.quantidadeApontada ?? 0);
+    const productiveHours =
+      lancamento.unidadeApontada === "HORA"
+        ? quantidade
+        : lancamento.unidadeApontada === "CARGA" &&
+            lancamento.equipamento.tipoRecurso === "CAMINHAO"
+          ? quantidade * CARGA_EQUIVALENT_HOURS
+          : 0;
+
+    if (productiveHours <= 0) continue;
 
     const worksite = worksiteMap.get(lancamento.obraId) ?? {
       obraId: lancamento.obraId,
@@ -970,7 +988,7 @@ export async function GET(request: NextRequest) {
     };
 
     worksite.productiveHours = Number(
-      (worksite.productiveHours + Number(lancamento.quantidadeApontada ?? 0)).toFixed(2)
+      (worksite.productiveHours + productiveHours).toFixed(2)
     );
     worksite.equipamentos.add(lancamento.equipamentoId);
     worksiteMap.set(lancamento.obraId, worksite);
@@ -1204,7 +1222,7 @@ export async function GET(request: NextRequest) {
 
   if (topWorksite) {
     insights.push(
-      `${topWorksite.label} e a frente com maior consumo operacional (${topWorksite.productiveHours.toFixed(1).replace(".", ",")} h apontadas).`
+      `${topWorksite.label} e a frente com maior consumo operacional (${topWorksite.productiveHours.toFixed(1).replace(".", ",")} h equivalentes).`
     );
   }
 

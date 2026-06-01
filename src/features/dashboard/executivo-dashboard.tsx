@@ -471,7 +471,7 @@ export function ExecutivoDashboard() {
         <article className="executive-card">
           <span className="executive-card-label">Frentes ativas</span>
           <strong className="executive-card-value">{data?.summary.frentesAtivas ?? 0}</strong>
-          <p className="executive-card-copy">Obras com horas produtivas no periodo.</p>
+          <p className="executive-card-copy">Obras com horas equivalentes no periodo.</p>
         </article>
         <article className="executive-card">
           <span className="executive-card-label">Valor medido relacionado</span>
@@ -708,7 +708,7 @@ export function ExecutivoDashboard() {
           <div className="executive-panel-header">
             <div>
               <span className="executive-section-kicker">Consumo</span>
-              <h2>Obras com maior hora apontada</h2>
+              <h2>Obras com maior hora equivalente</h2>
             </div>
           </div>
           {(data?.worksites?.length ?? 0) > 0 ? (
@@ -720,7 +720,7 @@ export function ExecutivoDashboard() {
                     <span>{item.equipmentsCount} equipamento(s)</span>
                   </div>
                   <div className="executive-list-metrics">
-                    <strong>{formatHours(item.productiveHours)} apontadas</strong>
+                    <strong>{formatHours(item.productiveHours)} equivalentes</strong>
                     <span>{formatCurrency(item.measuredValue)}</span>
                   </div>
                 </article>
@@ -729,7 +729,7 @@ export function ExecutivoDashboard() {
           ) : (
             <div className="executive-empty-state">
               <strong>Sem consumo no periodo</strong>
-              <p>Nao houve horas apontadas por obra para os equipamentos filtrados.</p>
+              <p>Nao houve horas equivalentes por obra para os equipamentos filtrados.</p>
             </div>
           )}
         </article>
