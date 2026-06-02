@@ -414,6 +414,7 @@ export async function GET(request: NextRequest) {
     prisma.equipamento.findMany({
       where: {
         status: "ATIVO",
+        complementar: false,
         tipoRecurso: {
           in: ["CAMINHAO", "MAQUINA"]
         }
@@ -431,6 +432,7 @@ export async function GET(request: NextRequest) {
       where: {
         deletedAt: null,
         equipamento: {
+          complementar: false,
           tipoRecurso: {
             in: ["CAMINHAO", "MAQUINA"]
           }
@@ -465,6 +467,7 @@ export async function GET(request: NextRequest) {
     prisma.manutencaoExecutada.findMany({
       where: {
         equipamento: {
+          complementar: false,
           tipoRecurso: {
             in: ["CAMINHAO", "MAQUINA"]
           }
@@ -495,6 +498,12 @@ export async function GET(request: NextRequest) {
         equipamentoId: {
           not: null
         },
+        equipamento: {
+          complementar: false,
+          tipoRecurso: {
+            in: ["CAMINHAO", "MAQUINA"]
+          }
+        },
         unidadeFaturamento: "HORA"
       },
       select: {
@@ -513,6 +522,7 @@ export async function GET(request: NextRequest) {
             lancamento: {
               deletedAt: null,
               equipamento: {
+                complementar: false,
                 tipoRecurso: {
                   in: ["CAMINHAO", "MAQUINA"]
                 }
@@ -574,6 +584,7 @@ export async function GET(request: NextRequest) {
           not: null
         },
         equipamento: {
+          complementar: false,
           tipoRecurso: {
             in: ["CAMINHAO", "MAQUINA"]
           }
