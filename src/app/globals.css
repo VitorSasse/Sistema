@@ -2038,6 +2038,8 @@ button {
 
 .billing-header-copy,
 .billing-header-controls,
+.billing-month-filter,
+.billing-month-filter-copy,
 .billing-custom-range,
 .billing-summary-card,
 .billing-chart-header,
@@ -2091,6 +2093,66 @@ button {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.billing-month-filter {
+  grid-column: 1 / -1;
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.1);
+  background: rgba(255, 255, 255, 0.64);
+}
+
+.billing-month-filter-copy strong {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.billing-month-filter-copy span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.billing-month-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.billing-month-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.billing-month-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 66px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.billing-month-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(21, 91, 82, 0.22);
+}
+
+.billing-month-chip.is-active {
+  border-color: rgba(21, 91, 82, 0.22);
+  background: rgba(21, 91, 82, 0.12);
+  color: var(--primary);
 }
 
 .billing-summary-grid {

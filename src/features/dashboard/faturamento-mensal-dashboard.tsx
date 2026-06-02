@@ -22,6 +22,11 @@ type DashboardPayload = {
   };
   filters: {
     availableYears: number[];
+    selectedMonths: number[];
+    availableMonths: Array<{
+      monthNumber: number;
+      label: string;
+    }>;
   };
   summary: {
     totalFaturadoAno: number;
@@ -52,6 +57,8 @@ type DashboardPayload = {
     mediaMensal: number;
   }>;
 };
+
+const allMonthNumbers = Array.from({ length: 12 }, (_, index) => index + 1);
 
 function CustomTooltip({
   active,
@@ -118,18 +125,22 @@ function DashboardSkeleton() {
 
 export function FaturamentoMensalDashboard() {
   const [year, setYear] = useState(new Date().getFullYear());
+  const [selectedMonths, setSelectedMonths] = useState<number[]>(allMonthNumbers);
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function loadDashboard(nextYear: number) {
+  async function loadDashboard(nextYear: number, nextMonths: number[]) {
     setLoading(true);
     setError("");
 
     try {
-      const response = await fetch(`/api/dashboard/faturamento/mensal?year=${nextYear}`, {
-        cache: "no-store"
-      });
+      const response = await fetch(
+        `/api/dashboard/faturamento/mensal?year=${nextYear}&months=${nextMonths.join(",")}`,
+        {
+          cache: "no-store"
+        }
+      );
 
       const payload = (await response.json()) as DashboardPayload & { message?: string };
 
@@ -141,6 +152,7 @@ export function FaturamentoMensalDashboard() {
 
       setData(payload);
       setYear(payload.period.year);
+      setSelectedMonths(payload.filters.selectedMonths);
     } catch {
       setError("Nao foi possivel carregar o faturamento mensal.");
       setData(null);
@@ -150,11 +162,29 @@ export function FaturamentoMensalDashboard() {
   }
 
   useEffect(() => {
-    void loadDashboard(new Date().getFullYear());
+    void loadDashboard(new Date().getFullYear(), allMonthNumbers);
   }, []);
 
   const monthlyRows = useMemo(() => data?.monthly ?? [], [data]);
   const hasMonthlyBilling = (data?.summary.totalGeralAno ?? 0) > 0;
+
+  function toggleMonth(monthNumber: number) {
+    const nextMonths = selectedMonths.includes(monthNumber)
+      ? selectedMonths.filter((item) => item !== monthNumber)
+      : [...selectedMonths, monthNumber].sort((a, b) => a - b);
+
+    if (nextMonths.length === 0) {
+      return;
+    }
+
+    setSelectedMonths(nextMonths);
+    void loadDashboard(year, nextMonths);
+  }
+
+  function selectAllMonths() {
+    setSelectedMonths(allMonthNumbers);
+    void loadDashboard(year, allMonthNumbers);
+  }
 
   if (loading && !data) {
     return <DashboardSkeleton />;
@@ -181,7 +211,7 @@ export function FaturamentoMensalDashboard() {
               onChange={(event) => {
                 const nextYear = Number(event.target.value);
                 setYear(nextYear);
-                void loadDashboard(nextYear);
+                void loadDashboard(nextYear, selectedMonths);
               }}
             >
               {(data?.filters.availableYears ?? [year]).map((option) => (
@@ -195,6 +225,41 @@ export function FaturamentoMensalDashboard() {
           <div className="billing-period-badge">
             <strong>Janela analisada</strong>
             <span>{data?.period.label ?? String(year)}</span>
+          </div>
+        </div>
+
+        <div className="billing-month-filter">
+          <div className="billing-month-filter-copy">
+            <strong>Meses do grafico</strong>
+            <span>
+              A media mensal considera apenas os meses selecionados abaixo.
+            </span>
+          </div>
+          <div className="billing-month-filter-actions">
+            <button
+              type="button"
+              className="button-ghost"
+              disabled={selectedMonths.length === allMonthNumbers.length}
+              onClick={selectAllMonths}
+            >
+              Todos os meses
+            </button>
+          </div>
+          <div className="billing-month-chip-grid">
+            {(data?.filters.availableMonths ?? []).map((month) => {
+              const active = selectedMonths.includes(month.monthNumber);
+
+              return (
+                <button
+                  key={month.monthNumber}
+                  type="button"
+                  className={active ? "billing-month-chip is-active" : "billing-month-chip"}
+                  onClick={() => toggleMonth(month.monthNumber)}
+                >
+                  {month.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -344,10 +409,10 @@ export function FaturamentoMensalDashboard() {
                     <Line
                       type="monotone"
                       dataKey="mediaMensal"
-                      stroke="#d4932d"
+                      stroke="#8f4fd1"
                       strokeWidth={3}
                       dot={false}
-                      activeDot={{ r: 6, fill: "#f0b544" }}
+                      activeDot={{ r: 6, fill: "#8f4fd1" }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>

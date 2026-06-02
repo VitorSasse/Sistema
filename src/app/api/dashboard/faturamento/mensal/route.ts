@@ -17,6 +17,8 @@ type AvailableYearRow = {
   year: number;
 };
 
+const allMonthNumbers = Array.from({ length: 12 }, (_, index) => index + 1);
+
 function buildYearRange(year: number) {
   return {
     start: new Date(year, 0, 1, 0, 0, 0, 0),
@@ -25,6 +27,23 @@ function buildYearRange(year: number) {
 }
 
 const monthLabels = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+
+function parseSelectedMonths(value: string | null) {
+  if (!value?.trim()) {
+    return allMonthNumbers;
+  }
+
+  const months = Array.from(
+    new Set(
+      value
+        .split(",")
+        .map((item) => Number(item.trim()))
+        .filter((item) => Number.isInteger(item) && item >= 1 && item <= 12)
+    )
+  ).sort((a, b) => a - b);
+
+  return months.length > 0 ? months : allMonthNumbers;
+}
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -36,6 +55,7 @@ export async function GET(request: NextRequest) {
   const currentYear = new Date().getFullYear();
   const yearParam = Number(request.nextUrl.searchParams.get("year"));
   const selectedYear = Number.isInteger(yearParam) && yearParam > 2000 ? yearParam : currentYear;
+  const selectedMonths = parseSelectedMonths(request.nextUrl.searchParams.get("months"));
   const period = buildYearRange(selectedYear);
 
   const [rows, yearRows] = await Promise.all([
@@ -102,21 +122,29 @@ export async function GET(request: NextRequest) {
     };
   });
 
+  const filteredMonths = months.filter((item) => selectedMonths.includes(item.monthNumber));
+
   const totalFaturadoAno = Number(
-    months.reduce((acc, item) => acc + item.totalFaturado, 0).toFixed(2)
+    filteredMonths.reduce((acc, item) => acc + item.totalFaturado, 0).toFixed(2)
   );
   const totalAFaturarAno = Number(
-    months.reduce((acc, item) => acc + item.totalAFaturar, 0).toFixed(2)
+    filteredMonths.reduce((acc, item) => acc + item.totalAFaturar, 0).toFixed(2)
   );
   const totalGeralAno = Number(
-    months.reduce((acc, item) => acc + item.totalGeral, 0).toFixed(2)
+    filteredMonths.reduce((acc, item) => acc + item.totalGeral, 0).toFixed(2)
   );
-  const totalMedicoes = months.reduce((acc, item) => acc + item.totalMedicoes, 0);
-  const totalMedicoesConcluidas = months.reduce((acc, item) => acc + item.totalMedicoesConcluidas, 0);
-  const totalMedicoesAFaturar = months.reduce((acc, item) => acc + item.totalMedicoesAFaturar, 0);
-  const monthsConsidered = selectedYear === currentYear ? new Date().getMonth() + 1 : 12;
+  const totalMedicoes = filteredMonths.reduce((acc, item) => acc + item.totalMedicoes, 0);
+  const totalMedicoesConcluidas = filteredMonths.reduce(
+    (acc, item) => acc + item.totalMedicoesConcluidas,
+    0
+  );
+  const totalMedicoesAFaturar = filteredMonths.reduce(
+    (acc, item) => acc + item.totalMedicoesAFaturar,
+    0
+  );
+  const monthsConsidered = filteredMonths.length;
   const mediaMensal = monthsConsidered > 0 ? Number((totalGeralAno / monthsConsidered).toFixed(2)) : 0;
-  const melhorMes = [...months].sort((a, b) => b.totalGeral - a.totalGeral)[0] ?? {
+  const melhorMes = [...filteredMonths].sort((a, b) => b.totalGeral - a.totalGeral)[0] ?? {
     monthNumber: 1,
     label: "JAN",
     totalFaturado: 0,
@@ -140,7 +168,12 @@ export async function GET(request: NextRequest) {
       label: String(selectedYear)
     },
     filters: {
-      availableYears: Array.from(new Set(availableYears)).sort((a, b) => b - a)
+      availableYears: Array.from(new Set(availableYears)).sort((a, b) => b - a),
+      selectedMonths,
+      availableMonths: monthLabels.map((label, index) => ({
+        monthNumber: index + 1,
+        label
+      }))
     },
     summary: {
       totalFaturadoAno,
@@ -159,7 +192,7 @@ export async function GET(request: NextRequest) {
         totalMedicoes: melhorMes.totalMedicoes
       }
     },
-    monthly: months.map((item) => ({
+    monthly: filteredMonths.map((item) => ({
       ...item,
       mediaMensal
     }))
