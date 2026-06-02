@@ -16,6 +16,7 @@ import {
 import { formatCurrency } from "@/lib/utils/formatters";
 
 type PeriodPreset = "current_month" | "previous_month" | "last_30_days" | "custom";
+type ExecutiveScope = "fixos" | "complementares";
 
 type DashboardPayload = {
   period: {
@@ -26,6 +27,7 @@ type DashboardPayload = {
     monthKey: string;
   };
   filters: {
+    scope: ExecutiveScope;
     equipmentIds: string[];
     equipments: Array<{
       id: string;
@@ -269,7 +271,8 @@ function FinancialTooltip({
   );
 }
 
-export function ExecutivoDashboard() {
+export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
+  const { scope = "fixos" } = props;
   const [preset, setPreset] = useState<PeriodPreset>("current_month");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
@@ -288,7 +291,7 @@ export function ExecutivoDashboard() {
     setError("");
 
     try {
-      const params = new URLSearchParams({ period: nextPreset });
+      const params = new URLSearchParams({ period: nextPreset, scope });
 
       if (nextPreset === "custom") {
         if (start) params.set("start", start);
@@ -322,13 +325,23 @@ export function ExecutivoDashboard() {
   }
 
   useEffect(() => {
-    void loadDashboard("current_month", "", "");
-  }, []);
+    void loadDashboard("current_month", "", "", []);
+  }, [scope]);
 
   const utilizationTop = useMemo(() => data?.utilization.ranking ?? [], [data]);
   const mechanicalTop = useMemo(() => data?.mechanical.ranking ?? [], [data]);
   const lossTop = useMemo(() => data?.losses.buckets ?? [], [data]);
   const financialTop = useMemo(() => data?.financial.ranking ?? [], [data]);
+  const scopeTitle =
+    scope === "complementares"
+      ? "Inteligencia operacional dos complementares"
+      : "Inteligencia operacional da frota";
+  const scopeCopy =
+    scope === "complementares"
+      ? "Leitura executiva isolada dos equipamentos complementares para acompanhar utilizacao, perdas e impacto no periodo."
+      : "Camada analitica independente para enxergar utilizacao real, disponibilidade mecanica, perdas operacionais, impacto financeiro e consumo de recursos no periodo.";
+  const scopeKicker =
+    scope === "complementares" ? "Dashboard complementar" : "Dashboard executivo";
   const utilizationChartHeight = Math.max(360, utilizationTop.length * 42);
   const mechanicalChartHeight = Math.max(360, mechanicalTop.length * 42);
   const lossChartHeight = Math.max(320, lossTop.length * 42);
@@ -342,12 +355,9 @@ export function ExecutivoDashboard() {
     <main className="executive-dashboard">
       <section className="executive-hero fade-up">
         <div className="executive-hero-copy">
-          <span className="executive-kicker">Dashboard executivo</span>
-          <h1 className="executive-title">Inteligencia operacional da frota</h1>
-          <p className="executive-copy">
-            Camada analitica independente para enxergar utilizacao real, disponibilidade mecanica,
-            perdas operacionais, impacto financeiro e consumo de recursos no periodo.
-          </p>
+          <span className="executive-kicker">{scopeKicker}</span>
+          <h1 className="executive-title">{scopeTitle}</h1>
+          <p className="executive-copy">{scopeCopy}</p>
         </div>
 
         <div className="executive-hero-controls">

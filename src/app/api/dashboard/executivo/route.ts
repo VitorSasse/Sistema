@@ -25,6 +25,7 @@ type PeriodPreset = (typeof allowedPresets)[number];
 type DashboardStatus = (typeof dashboardStatuses)[number];
 type MaintenanceClass = "preventiva" | "corretiva" | "externa";
 type LossGroup = "PRODUTIVO" | "CONTROLAVEL" | "TECNICO" | "ADMINISTRATIVO" | "EXTERNO";
+type ExecutiveScope = "fixos" | "complementares";
 
 type MedicaoPeriodRow = {
   id: string;
@@ -36,6 +37,10 @@ function parseIdList(value: string | null) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseScope(value: string | null): ExecutiveScope {
+  return value === "complementares" ? "complementares" : "fixos";
 }
 
 type ScheduleEntry = {
@@ -377,6 +382,8 @@ export async function GET(request: NextRequest) {
   }
 
   const selectedEquipmentIds = parseIdList(request.nextUrl.searchParams.get("equipmentIds"));
+  const scope = parseScope(request.nextUrl.searchParams.get("scope"));
+  const complementar = scope === "complementares";
 
   const days = enumerateDays(period.start, period.end);
   const businessDays = days.filter((day) => !isWeekend(day));
@@ -414,7 +421,7 @@ export async function GET(request: NextRequest) {
     prisma.equipamento.findMany({
       where: {
         status: "ATIVO",
-        complementar: false,
+        complementar,
         tipoRecurso: {
           in: ["CAMINHAO", "MAQUINA"]
         }
@@ -432,7 +439,7 @@ export async function GET(request: NextRequest) {
       where: {
         deletedAt: null,
         equipamento: {
-          complementar: false,
+          complementar,
           tipoRecurso: {
             in: ["CAMINHAO", "MAQUINA"]
           }
@@ -467,7 +474,7 @@ export async function GET(request: NextRequest) {
     prisma.manutencaoExecutada.findMany({
       where: {
         equipamento: {
-          complementar: false,
+          complementar,
           tipoRecurso: {
             in: ["CAMINHAO", "MAQUINA"]
           }
@@ -499,7 +506,7 @@ export async function GET(request: NextRequest) {
           not: null
         },
         equipamento: {
-          complementar: false,
+          complementar,
           tipoRecurso: {
             in: ["CAMINHAO", "MAQUINA"]
           }
@@ -522,7 +529,7 @@ export async function GET(request: NextRequest) {
             lancamento: {
               deletedAt: null,
               equipamento: {
-                complementar: false,
+                complementar,
                 tipoRecurso: {
                   in: ["CAMINHAO", "MAQUINA"]
                 }
@@ -584,7 +591,7 @@ export async function GET(request: NextRequest) {
           not: null
         },
         equipamento: {
-          complementar: false,
+          complementar,
           tipoRecurso: {
             in: ["CAMINHAO", "MAQUINA"]
           }
@@ -1258,6 +1265,7 @@ export async function GET(request: NextRequest) {
       monthKey: formatMonthShort(period.end)
     },
     filters: {
+      scope,
       equipmentIds: sanitizedSelectedEquipmentIds,
       equipments: equipamentosDisponiveis.map((item) => ({
         id: item.id,

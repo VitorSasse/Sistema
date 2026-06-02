@@ -342,6 +342,7 @@ model Equipamento {
   @@index([descricao])
   @@index([tipoRecurso, status])
   @@index([statusOperacional, status])
+  @@index([complementar, status, tipoRecurso])
 }
 
 model Material {
@@ -494,6 +495,7 @@ model LancamentoDiario {
   @@index([equipamentoId, data])
   @@index([colaboradorId, data])
   @@index([statusValidacao, data])
+  @@index([clienteId, obraId, deletedAt, statusValidacao, data])
 }
 
 model LeituraEquipamento {
@@ -591,6 +593,7 @@ model AgendaProgramacao {
   obra          Obra?                   @relation(fields: [obraId], references: [id])
 
   @@index([equipamentoId, dataInicio, dataFim])
+  @@index([equipamentoId, deletedAt, dataInicio, dataFim])
   @@index([obraId, dataInicio])
   @@index([status, dataInicio])
   @@index([deletedAt])
@@ -727,6 +730,7 @@ model MedicaoItem {
   lancamento       LancamentoDiario  @relation(fields: [lancamentoId], references: [id])
 
   @@index([medicaoId, data])
+  @@index([medicaoId, deletedAt, data])
   @@index([lancamentoId])
   @@index([deletedAt])
 }

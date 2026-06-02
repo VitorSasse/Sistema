@@ -49,33 +49,25 @@ export function endOfDay(value: string) {
 export async function buildCodigoMedicao(db: DbClient) {
   const rows = await db.$queryRaw<Array<{ numero: number }>>(
     Prisma.sql`
-      SELECT CAST(SUBSTRING("codigoMedicao" FROM 'MED-([0-9]+)$') AS INTEGER) AS "numero"
-      FROM "Medicao"
-      WHERE "codigoMedicao" ~ '^MED-[0-9]+$'
-        AND "deletedAt" IS NULL
-      ORDER BY "numero" ASC
+      WITH numeros AS (
+        SELECT CAST(SUBSTRING("codigoMedicao" FROM 'MED-([0-9]+)$') AS INTEGER) AS numero
+        FROM "Medicao"
+        WHERE "codigoMedicao" ~ '^MED-[0-9]+$'
+          AND "deletedAt" IS NULL
+      ),
+      candidatos AS (
+        SELECT 1 AS numero
+        UNION
+        SELECT numero + 1
+        FROM numeros
+      )
+      SELECT COALESCE(MIN(candidatos.numero), 1) AS numero
+      FROM candidatos
+      LEFT JOIN numeros ON numeros.numero = candidatos.numero
+      WHERE numeros.numero IS NULL
     `
   );
-
-  let nextNumero = 1;
-
-  for (const row of rows) {
-    const numero = Number(row.numero);
-
-    if (Number.isNaN(numero) || numero < nextNumero) {
-      continue;
-    }
-
-    if (numero === nextNumero) {
-      nextNumero += 1;
-      continue;
-    }
-
-    if (numero > nextNumero) {
-      break;
-    }
-  }
-
+  const nextNumero = Number(rows[0]?.numero ?? 1);
   return `MED-${String(nextNumero).padStart(3, "0")}`;
 }
 
@@ -390,55 +382,53 @@ export async function adicionarLancamentosNaMedicao(
     throw new Error("LANCAMENTOS_NAO_ELEGIVEIS");
   }
 
-  for (const item of itensSelecionados) {
+  const novosItens = itensSelecionados.map((item) => {
     const valorUnitario = sugerirValorUnitarioParaLancamento(item, medicao.itens);
     const valorTotalItem = Number(item.quantidadeFaturada) * valorUnitario;
 
-    await db.medicaoItem.create({
-      data: {
-        medicaoId: medicao.id,
-        lancamentoId: item.id,
-        data: item.data,
-        ficha: item.ficha.numero,
-        placaOuTag: item.equipamento.placaOuTag,
-        tipoServico: item.servico.tipoServico,
-        material: item.material?.descricao ?? null,
-        unidadeFaturada: item.unidadeFaturada,
-        quantidadeFaturada: item.quantidadeFaturada,
-        m3SeAplicavel: item.unidadeFaturada === "M3" ? item.quantidadeFaturada : null,
-        valorUnitario,
-        valorTotalItem,
-        origem: item.origem
-      }
-    });
-
-    await db.lancamentoDiario.update({
-      where: { id: item.id },
-      data: {
-        statusValidacao: StatusLancamento.MEDIDO
-      }
-    });
-  }
-
-  const itensDaMedicao = await db.medicaoItem.findMany({
-    where: {
+    return {
       medicaoId: medicao.id,
-      deletedAt: null
-    },
-    select: {
-      valorTotalItem: true
-    }
+      lancamentoId: item.id,
+      data: item.data,
+      ficha: item.ficha.numero,
+      placaOuTag: item.equipamento.placaOuTag,
+      tipoServico: item.servico.tipoServico,
+      material: item.material?.descricao ?? null,
+      unidadeFaturada: item.unidadeFaturada,
+      quantidadeFaturada: item.quantidadeFaturada,
+      m3SeAplicavel: item.unidadeFaturada === "M3" ? item.quantidadeFaturada : null,
+      valorUnitario,
+      valorTotalItem,
+      origem: item.origem
+    };
   });
 
-  const valorTotal = itensDaMedicao.reduce(
+  const valorTotalAdicionado = novosItens.reduce(
     (acc, item) => acc + Number(item.valorTotalItem),
     0
   );
 
+  await db.medicaoItem.createMany({
+    data: novosItens
+  });
+
+  await db.lancamentoDiario.updateMany({
+    where: {
+      id: {
+        in: itensSelecionados.map((item) => item.id)
+      }
+    },
+    data: {
+      statusValidacao: StatusLancamento.MEDIDO
+    }
+  });
+
   await db.medicao.update({
     where: { id: medicao.id },
     data: {
-      valorTotal
+      valorTotal: {
+        increment: valorTotalAdicionado
+      }
     }
   });
 
@@ -532,33 +522,35 @@ export async function criarMedicao(
     throw createError ?? new Error("CODIGO_MEDICAO_NAO_GERADO");
   }
 
-  for (const medicaoItem of itensMedicao) {
-    await db.medicaoItem.create({
-      data: {
-        medicaoId: created.id,
-        lancamentoId: medicaoItem.item.id,
-        data: medicaoItem.item.data,
-        ficha: medicaoItem.item.ficha.numero,
-        placaOuTag: medicaoItem.item.equipamento.placaOuTag,
-        tipoServico: medicaoItem.item.servico.tipoServico,
-        material: medicaoItem.item.material?.descricao ?? null,
-        unidadeFaturada: medicaoItem.item.unidadeFaturada,
-        quantidadeFaturada: medicaoItem.item.quantidadeFaturada,
-        m3SeAplicavel:
-          medicaoItem.item.unidadeFaturada === "M3"
-            ? medicaoItem.item.quantidadeFaturada
-            : null,
-        valorUnitario: medicaoItem.valorUnitario,
-        valorTotalItem: medicaoItem.valorTotalItem,
-        origem: medicaoItem.item.origem
-      }
-    });
+  await db.medicaoItem.createMany({
+    data: itensMedicao.map((medicaoItem) => ({
+      medicaoId: created.id,
+      lancamentoId: medicaoItem.item.id,
+      data: medicaoItem.item.data,
+      ficha: medicaoItem.item.ficha.numero,
+      placaOuTag: medicaoItem.item.equipamento.placaOuTag,
+      tipoServico: medicaoItem.item.servico.tipoServico,
+      material: medicaoItem.item.material?.descricao ?? null,
+      unidadeFaturada: medicaoItem.item.unidadeFaturada,
+      quantidadeFaturada: medicaoItem.item.quantidadeFaturada,
+      m3SeAplicavel:
+        medicaoItem.item.unidadeFaturada === "M3"
+          ? medicaoItem.item.quantidadeFaturada
+          : null,
+      valorUnitario: medicaoItem.valorUnitario,
+      valorTotalItem: medicaoItem.valorTotalItem,
+      origem: medicaoItem.item.origem
+    }))
+  });
 
-    await db.lancamentoDiario.update({
-      where: { id: medicaoItem.item.id },
-      data: { statusValidacao: "MEDIDO" }
-    });
-  }
+  await db.lancamentoDiario.updateMany({
+    where: {
+      id: {
+        in: itensMedicao.map((medicaoItem) => medicaoItem.item.id)
+      }
+    },
+    data: { statusValidacao: "MEDIDO" }
+  });
 
   return db.medicao.findUniqueOrThrow({
     where: { id: created.id },
@@ -600,6 +592,7 @@ export async function atualizarValorItemMedicao(
       lancamentoId: true,
       quantidadeFaturada: true,
       unidadeFaturada: true,
+      valorTotalItem: true,
       medicao: {
         select: {
           status: true
@@ -618,6 +611,7 @@ export async function atualizarValorItemMedicao(
 
   const quantidadeFaturada = params.quantidadeFaturada ?? Number(item.quantidadeFaturada);
   const valorTotalItem = quantidadeFaturada * params.valorUnitario;
+  const deltaValorTotal = Number((valorTotalItem - Number(item.valorTotalItem)).toFixed(2));
 
   await db.medicaoItem.update({
     where: { id: item.id },
@@ -637,19 +631,13 @@ export async function atualizarValorItemMedicao(
     }
   });
 
-  const itens = await db.medicaoItem.findMany({
-    where: {
-      medicaoId: params.medicaoId,
-      deletedAt: null
-    },
-    select: { valorTotalItem: true }
-  });
-
-  const valorTotal = itens.reduce((acc, current) => acc + Number(current.valorTotalItem), 0);
-
   await db.medicao.update({
     where: { id: params.medicaoId },
-    data: { valorTotal }
+    data: {
+      valorTotal: {
+        increment: deltaValorTotal
+      }
+    }
   });
 
   return buscarDetalheMedicao(db, params.medicaoId);
