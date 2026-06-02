@@ -8,6 +8,7 @@ const editableMedicaoStatuses: StatusMedicao[] = [
   "CRIADA",
   "EM_ABERTO",
   "ENVIADA_AO_CLIENTE",
+  "ENVIADA_PARA_FATURAMENTO",
   "ENVIADA"
 ];
 
