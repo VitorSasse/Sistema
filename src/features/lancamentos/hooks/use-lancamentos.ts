@@ -30,6 +30,16 @@ import {
 } from "@/features/lancamentos/utils/horario-apontamento";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
+const unidadeLancamentoValida = ["CARGA", "HORA", "M3", "DIARIA"] as const;
+
+function isUnidadeLancamentoValida(value: string | null | undefined): value is (typeof unidadeLancamentoValida)[number] {
+  return Boolean(value && unidadeLancamentoValida.includes(value as (typeof unidadeLancamentoValida)[number]));
+}
+
+function isRecursoTecnico(tipoRecurso?: string) {
+  return tipoRecurso === "OUTRO" || tipoRecurso === "EQUIPAMENTO_APOIO";
+}
+
 function buildDuplicatedState(
   current: LancamentoFormState,
   lancamento: LancamentoItem,
@@ -143,6 +153,16 @@ export function useLancamentos() {
     [servicoSelecionado]
   );
 
+  const servicoTecnicoSelecionado = Boolean(servicoSelecionado?.servicoTecnico);
+
+  const equipamentosDisponiveis = useMemo(() => {
+    if (!servicoTecnicoSelecionado) {
+      return options.equipamentos;
+    }
+
+    return options.equipamentos.filter((equipamento) => isRecursoTecnico(equipamento.tipoRecurso));
+  }, [options.equipamentos, servicoTecnicoSelecionado]);
+
   const resumoOperacional = useMemo(() => {
     const total = lancamentos.length;
     const validos = lancamentos.filter(
@@ -172,6 +192,39 @@ export function useLancamentos() {
         : { ...current, unidadeApontada: "HORA" }
     );
   }, [servicoUsaCalculoHoras]);
+
+  useEffect(() => {
+    if (!servicoSelecionado) {
+      return;
+    }
+
+    setForm((current) => {
+      const next = { ...current };
+
+      if (isUnidadeLancamentoValida(servicoSelecionado.unidadeApontamento)) {
+        next.unidadeApontada = servicoSelecionado.unidadeApontamento;
+      }
+
+      if (isUnidadeLancamentoValida(servicoSelecionado.unidadeFaturamento)) {
+        next.unidadeFaturada = servicoSelecionado.unidadeFaturamento;
+      }
+
+      if (servicoSelecionado.servicoTecnico) {
+        next.materialId = "";
+        next.horimetroInformado = "";
+        next.kmInformado = "";
+
+        if (
+          next.equipamentoId &&
+          !equipamentosDisponiveis.some((equipamento) => equipamento.id === next.equipamentoId)
+        ) {
+          next.equipamentoId = "";
+        }
+      }
+
+      return next;
+    });
+  }, [servicoSelecionado, equipamentosDisponiveis]);
 
   function updateField<K extends keyof LancamentoFormState>(
     key: K,
@@ -357,6 +410,8 @@ export function useLancamentos() {
     obrasDisponiveis,
     servicoSelecionado,
     servicoUsaCalculoHoras,
+    servicoTecnicoSelecionado,
+    equipamentosDisponiveis,
     horarios,
     horarioFeedback,
     resumoOperacional,

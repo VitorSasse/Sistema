@@ -4,6 +4,7 @@ import { z } from "zod";
 export const servicoSchema = z.object({
   tipoServico: z.string().trim().min(3).max(160),
   categoria: z.string().trim().max(80).optional().or(z.literal("")),
+  servicoTecnico: z.boolean().default(false),
   formaMedicao: z.string().trim().min(2).max(80),
   unidadeApontamento: z.string().trim().max(20).optional().or(z.literal("")),
   unidadeFaturamento: z.string().trim().min(1).max(20),

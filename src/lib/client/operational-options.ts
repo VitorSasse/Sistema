@@ -6,10 +6,14 @@ export type OperationalOption = {
   descricao?: string;
   tipoServico?: string;
   placaOuTag?: string;
+  tipoRecurso?: string;
   status: "ATIVO" | "INATIVO";
   clienteId?: string;
   liberadaParaLancamento?: boolean;
   exigeMaterial?: boolean;
+  servicoTecnico?: boolean;
+  unidadeApontamento?: string | null;
+  unidadeFaturamento?: string | null;
 };
 
 export type OperationalOptionsPayload = {

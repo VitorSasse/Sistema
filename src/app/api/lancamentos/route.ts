@@ -176,6 +176,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Servico invalido ou inativo." }, { status: 400 });
   }
 
+  if (servico.servicoTecnico && parsed.data.materialId) {
+    return NextResponse.json(
+      { message: "Servicos tecnicos nao devem ser lancados com material vinculado." },
+      { status: 400 }
+    );
+  }
+
   if (servico.exigeMaterial && !material) {
     return NextResponse.json({ message: "Este servico exige material vinculado." }, { status: 400 });
   }
@@ -188,9 +195,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Equipamento invalido ou inativo." }, { status: 400 });
   }
 
+  if (
+    servico.servicoTecnico &&
+    equipamento.tipoRecurso !== "OUTRO" &&
+    equipamento.tipoRecurso !== "EQUIPAMENTO_APOIO"
+  ) {
+    return NextResponse.json(
+      {
+        message:
+          "Servicos tecnicos devem usar um recurso tecnico cadastrado como OUTRO ou EQUIPAMENTO_APOIO."
+      },
+      { status: 400 }
+    );
+  }
+
   if (!colaborador || colaborador.status !== StatusCadastro.ATIVO) {
     return NextResponse.json({ message: "Colaborador invalido ou inativo." }, { status: 400 });
   }
+
+  const horimetroInformado = servico.servicoTecnico
+    ? null
+    : parsed.data.horimetroInformado ?? null;
+  const kmInformado = servico.servicoTecnico ? null : parsed.data.kmInformado ?? null;
 
   const duplicate = await prisma.lancamentoDiario.findFirst({
     where: {
@@ -268,8 +294,8 @@ export async function POST(request: NextRequest) {
           unidadeApontada: parsed.data.unidadeApontada,
           quantidadeFaturada: parsed.data.quantidadeFaturada,
           unidadeFaturada: parsed.data.unidadeFaturada,
-          horimetroInformado: parsed.data.horimetroInformado ?? null,
-          kmInformado: parsed.data.kmInformado ?? null,
+          horimetroInformado,
+          kmInformado,
           observacao: parsed.data.observacao || null,
           statusValidacao,
           criadoPorId: session.user.id
@@ -290,14 +316,8 @@ export async function POST(request: NextRequest) {
         lancamentoDiarioId: lancamento.id,
         usuarioId: session.user.id,
         dataLeitura: dataReferencia,
-        horimetroInformado:
-          parsed.data.horimetroInformado === null || parsed.data.horimetroInformado === undefined
-            ? null
-            : Number(parsed.data.horimetroInformado),
-        kmInformado:
-          parsed.data.kmInformado === null || parsed.data.kmInformado === undefined
-            ? null
-            : Number(parsed.data.kmInformado),
+        horimetroInformado: horimetroInformado === null ? null : Number(horimetroInformado),
+        kmInformado: kmInformado === null ? null : Number(kmInformado),
         observacao: parsed.data.observacao || null
       });
 

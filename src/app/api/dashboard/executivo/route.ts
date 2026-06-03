@@ -636,7 +636,10 @@ export async function GET(request: NextRequest) {
     relevantEquipmentIds.add(item.equipamentoId);
   }
 
-  const equipamentosDisponiveis = equipamentos.filter((item) => relevantEquipmentIds.has(item.id));
+  const equipamentosDisponiveis =
+    scope === "complementares"
+      ? equipamentos
+      : equipamentos.filter((item) => relevantEquipmentIds.has(item.id));
 
   const equipamentoMap = new Map(
     equipamentosDisponiveis.map((item) => [

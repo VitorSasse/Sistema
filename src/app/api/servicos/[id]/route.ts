@@ -31,6 +31,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       data: {
         tipoServico: parsed.data.tipoServico,
         categoria: parsed.data.categoria || null,
+        servicoTecnico: parsed.data.servicoTecnico,
         formaMedicao: parsed.data.formaMedicao,
         unidadeApontamento: parsed.data.unidadeApontamento || null,
         unidadeFaturamento: parsed.data.unidadeFaturamento,

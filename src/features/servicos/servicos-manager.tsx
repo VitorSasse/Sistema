@@ -9,6 +9,7 @@ type Servico = {
   codigo: string;
   tipoServico: string;
   categoria: string | null;
+  servicoTecnico: boolean;
   formaMedicao: string;
   unidadeApontamento: string | null;
   unidadeFaturamento: string;
@@ -22,6 +23,7 @@ type FormState = {
   id?: string;
   tipoServico: string;
   categoria: string;
+  servicoTecnico: boolean;
   formaMedicao: string;
   unidadeApontamento: string;
   unidadeFaturamento: string;
@@ -34,6 +36,7 @@ type FormState = {
 const initialForm: FormState = {
   tipoServico: "",
   categoria: "",
+  servicoTecnico: false,
   formaMedicao: "",
   unidadeApontamento: "",
   unidadeFaturamento: "",
@@ -72,6 +75,7 @@ export function ServicosManager() {
           servico.codigo,
           servico.tipoServico,
           servico.categoria ?? "",
+          servico.servicoTecnico ? "tecnico" : "",
           servico.formaMedicao,
           servico.unidadeFaturamento
         ]
@@ -119,6 +123,7 @@ export function ServicosManager() {
       id: servico.id,
       tipoServico: servico.tipoServico,
       categoria: servico.categoria ?? "",
+      servicoTecnico: servico.servicoTecnico,
       formaMedicao: servico.formaMedicao,
       unidadeApontamento: servico.unidadeApontamento ?? "",
       unidadeFaturamento: servico.unidadeFaturamento,
@@ -207,6 +212,16 @@ export function ServicosManager() {
                 onChange={(event) => updateField("formaMedicao", event.target.value)}
                 style={fieldStyle}
               />
+            </Field>
+            <Field label="Servico tecnico faturavel">
+              <select
+                value={form.servicoTecnico ? "SIM" : "NAO"}
+                onChange={(event) => updateField("servicoTecnico", event.target.value === "SIM")}
+                style={fieldStyle}
+              >
+                <option value="NAO">NAO</option>
+                <option value="SIM">SIM</option>
+              </select>
             </Field>
             <Field label="Unidade de apontamento">
               <input
@@ -314,6 +329,7 @@ export function ServicosManager() {
                 <th style={thStyle}>Codigo</th>
                 <th style={thStyle}>Servico</th>
                 <th style={thStyle}>Forma medicao</th>
+                <th style={thStyle}>Tecnico</th>
                 <th style={thStyle}>Unidade</th>
                 <th style={thStyle}>Material</th>
                 <th style={thStyle}>Medicao</th>
@@ -330,6 +346,11 @@ export function ServicosManager() {
                     <div style={subtleTextStyle}>{servico.categoria ?? "-"}</div>
                   </td>
                   <td style={tdStyle}>{servico.formaMedicao}</td>
+                  <td style={tdStyle}>
+                    <span style={servico.servicoTecnico ? statusActiveStyle : neutralStyle}>
+                      {servico.servicoTecnico ? "SIM" : "NAO"}
+                    </span>
+                  </td>
                   <td style={tdStyle}>
                     {servico.unidadeApontamento || servico.unidadeFaturamento
                       ? `${servico.unidadeApontamento ?? "-"} / ${servico.unidadeFaturamento}`

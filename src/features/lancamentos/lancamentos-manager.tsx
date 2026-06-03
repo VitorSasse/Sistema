@@ -33,6 +33,8 @@ export function LancamentosManager() {
     obrasDisponiveis,
     servicoSelecionado,
     servicoUsaCalculoHoras,
+    servicoTecnicoSelecionado,
+    equipamentosDisponiveis,
     horarios,
     horarioFeedback,
     resumoOperacional,
@@ -121,6 +123,15 @@ export function LancamentosManager() {
           </span>
         </div>
 
+        {servicoTecnicoSelecionado ? (
+          <div className="glass-band" style={{ marginTop: 16 }}>
+            <strong>Servico tecnico:</strong>
+            <span className="subtle">
+              use um recurso tecnico cadastrado como apoio/outro. Esse tipo de lancamento entra na medicao normalmente, mas nao usa horimetro nem KM.
+            </span>
+          </div>
+        ) : null}
+
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 24, marginTop: 20 }}>
           <div className="form-grid-4">
             <SectionField label="Data">
@@ -193,14 +204,14 @@ export function LancamentosManager() {
                 ))}
               </select>
             </SectionField>
-            <SectionField label="Equipamento / recurso">
+            <SectionField label={servicoTecnicoSelecionado ? "Recurso tecnico" : "Equipamento / recurso"}>
               <select
                 className="field-control"
                 value={form.equipamentoId}
                 onChange={(e) => updateField("equipamentoId", e.target.value)}
               >
                 <option value="">Selecione</option>
-                {options.equipamentos.map((equipamento) => (
+                {equipamentosDisponiveis.map((equipamento) => (
                   <option key={equipamento.id} value={equipamento.id}>
                     {(equipamento.descricao ?? "") + " - " + (equipamento.placaOuTag ?? "")}
                   </option>
@@ -221,26 +232,30 @@ export function LancamentosManager() {
                 ))}
               </select>
             </SectionField>
-            <SectionField label="Horimetro da ficha">
-              <input
-                className="field-control"
-                type="number"
-                step="0.01"
-                value={form.horimetroInformado}
-                onChange={(e) => updateField("horimetroInformado", e.target.value)}
-                placeholder="0.00"
-              />
-            </SectionField>
-            <SectionField label="KM da ficha">
-              <input
-                className="field-control"
-                type="number"
-                step="0.1"
-                value={form.kmInformado}
-                onChange={(e) => updateField("kmInformado", e.target.value)}
-                placeholder="Opcional"
-              />
-            </SectionField>
+            {!servicoTecnicoSelecionado ? (
+              <>
+                <SectionField label="Horimetro da ficha">
+                  <input
+                    className="field-control"
+                    type="number"
+                    step="0.01"
+                    value={form.horimetroInformado}
+                    onChange={(e) => updateField("horimetroInformado", e.target.value)}
+                    placeholder="0.00"
+                  />
+                </SectionField>
+                <SectionField label="KM da ficha">
+                  <input
+                    className="field-control"
+                    type="number"
+                    step="0.1"
+                    value={form.kmInformado}
+                    onChange={(e) => updateField("kmInformado", e.target.value)}
+                    placeholder="Opcional"
+                  />
+                </SectionField>
+              </>
+            ) : null}
           </div>
 
           <div

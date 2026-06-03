@@ -45,7 +45,10 @@ export async function GET() {
         codigo: true,
         tipoServico: true,
         status: true,
-        exigeMaterial: true
+        exigeMaterial: true,
+        servicoTecnico: true,
+        unidadeApontamento: true,
+        unidadeFaturamento: true
       },
       orderBy: [{ tipoServico: "asc" }]
     }),
@@ -69,6 +72,7 @@ export async function GET() {
         id: true,
         descricao: true,
         placaOuTag: true,
+        tipoRecurso: true,
         status: true
       },
       orderBy: [{ descricao: "asc" }]

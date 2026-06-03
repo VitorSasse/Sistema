@@ -368,6 +368,7 @@ model Servico {
   codigo             String            @unique
   tipoServico        String
   categoria          String?
+  servicoTecnico     Boolean           @default(false)
   formaMedicao       String
   unidadeApontamento String?
   unidadeFaturamento String
