@@ -9,6 +9,7 @@ import {
   unidadeFaturadaOptions
 } from "@/features/lancamentos/constants";
 import { useLancamentos } from "@/features/lancamentos/hooks/use-lancamentos";
+import { isRecursoTecnicoPadrao } from "@/lib/constants/recurso-tecnico";
 import { formatQuantidadeComUnidade } from "@/lib/utils/unidades";
 
 function SectionField({ label, children }: { label: string; children: ReactNode }) {
@@ -128,7 +129,8 @@ export function LancamentosManager() {
           <div className="glass-band" style={{ marginTop: 16 }}>
             <strong>Servico tecnico:</strong>
             <span className="subtle">
-              use um recurso tecnico cadastrado como apoio/outro. Esse tipo de lancamento entra na medicao normalmente, mas nao usa horimetro nem KM.
+              o recurso tecnico agora e opcional. Se nada for selecionado, o sistema usa um apoio
+              generico interno sem poluir os equipamentos operacionais.
             </span>
           </div>
         ) : null}
@@ -214,13 +216,21 @@ export function LancamentosManager() {
                 ))}
               </select>
             </SectionField>
-            <SectionField label={servicoTecnicoSelecionado ? "Recurso tecnico" : "Equipamento / recurso"}>
+            <SectionField
+              label={
+                servicoTecnicoSelecionado
+                  ? "Recurso tecnico (opcional)"
+                  : "Equipamento / recurso"
+              }
+            >
               <select
                 className="field-control"
                 value={form.equipamentoId}
                 onChange={(e) => updateField("equipamentoId", e.target.value)}
               >
-                <option value="">Selecione</option>
+                <option value="">
+                  {servicoTecnicoSelecionado ? "Sem recurso tecnico especifico" : "Selecione"}
+                </option>
                 {equipamentosDisponiveis.map((equipamento) => (
                   <option key={equipamento.id} value={equipamento.id}>
                     {(equipamento.descricao ?? "") + " - " + (equipamento.placaOuTag ?? "")}
@@ -449,8 +459,17 @@ export function LancamentosManager() {
                     <div className="subtle">{item.material?.descricao ?? "-"}</div>
                   </td>
                   <td>
-                    <div>{item.equipamento.descricao}</div>
-                    <div className="subtle">{item.equipamento.placaOuTag}</div>
+                    {isRecursoTecnicoPadrao(item.equipamento.placaOuTag) ? (
+                      <>
+                        <div>Sem recurso tecnico especifico</div>
+                        <div className="subtle">Apoio generico</div>
+                      </>
+                    ) : (
+                      <>
+                        <div>{item.equipamento.descricao}</div>
+                        <div className="subtle">{item.equipamento.placaOuTag}</div>
+                      </>
+                    )}
                   </td>
                   <td>{item.colaborador.nome}</td>
                   <td>

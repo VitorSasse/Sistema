@@ -28,6 +28,7 @@ import {
   hasAnyHorarioFilled,
   isServicoMedidoPorHorario
 } from "@/features/lancamentos/utils/horario-apontamento";
+import { isRecursoTecnicoPadrao } from "@/lib/constants/recurso-tecnico";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
 const unidadeLancamentoValida = ["CARGA", "HORA", "M3", "DIARIA", "SERVICO"] as const;
@@ -69,7 +70,8 @@ function buildDuplicatedState(
     obraId: obra?.id ?? "",
     servicoId: servico?.id ?? "",
     materialId: material?.id ?? "",
-    equipamentoId: equipamento?.id ?? "",
+    equipamentoId:
+      equipamento && !isRecursoTecnicoPadrao(equipamento.placaOuTag) ? equipamento.id : "",
     colaboradorId: colaborador?.id ?? "",
     quantidadeApontada: String(lancamento.quantidadeApontada),
     unidadeApontada: lancamento.unidadeApontada,
@@ -158,10 +160,16 @@ export function useLancamentos() {
 
   const equipamentosDisponiveis = useMemo(() => {
     if (!servicoTecnicoSelecionado) {
-      return options.equipamentos;
+      return options.equipamentos.filter(
+        (equipamento) => equipamento.tipoRecurso !== "EQUIPAMENTO_APOIO"
+      );
     }
 
-    return options.equipamentos.filter((equipamento) => isRecursoTecnico(equipamento.tipoRecurso));
+    return options.equipamentos.filter(
+      (equipamento) =>
+        isRecursoTecnico(equipamento.tipoRecurso) &&
+        !isRecursoTecnicoPadrao(equipamento.placaOuTag)
+    );
   }, [options.equipamentos, servicoTecnicoSelecionado]);
 
   const resumoOperacional = useMemo(() => {
@@ -345,7 +353,9 @@ export function useLancamentos() {
       setMessage(
         editingLancamentoId
           ? "Lancamento atualizado com sucesso."
-          : "Lancamento salvo com sucesso e leitura do equipamento sincronizada."
+          : servicoTecnicoSelecionado
+            ? "Lancamento tecnico salvo com sucesso."
+            : "Lancamento salvo com sucesso e leitura do equipamento sincronizada."
       );
       const snapshot = { ...formToSubmit };
       resetForm();

@@ -10,6 +10,7 @@ import {
   removerLeituraPorCancelamento,
   sincronizarLeituraPorLancamento
 } from "@/server/services/frota/leitura-sync";
+import { obterOuCriarRecursoTecnicoPadrao } from "@/server/services/lancamentos/recurso-tecnico";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -60,6 +61,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     ...payload,
     obraId: payload.obraId || null,
     materialId: payload.materialId || null,
+    equipamentoId: payload.equipamentoId || null,
     quantidadeApontada: parseDecimalInput(payload.quantidadeApontada),
     quantidadeFaturada: parseDecimalInput(payload.quantidadeFaturada),
     horimetroInformado: parseNullableNumber(payload.horimetroInformado),
@@ -109,14 +111,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const dataReferencia = normalizeDate(parsed.data.data);
 
-  const [cliente, obra, servico, material, equipamento, colaborador] = await Promise.all([
+  const [cliente, obra, servico, material, colaborador] = await Promise.all([
     prisma.cliente.findUnique({ where: { id: parsed.data.clienteId } }),
     parsed.data.obraId ? prisma.obra.findUnique({ where: { id: parsed.data.obraId } }) : Promise.resolve(null),
     prisma.servico.findUnique({ where: { id: parsed.data.servicoId } }),
     parsed.data.materialId
       ? prisma.material.findUnique({ where: { id: parsed.data.materialId } })
       : Promise.resolve(null),
-    prisma.equipamento.findUnique({ where: { id: parsed.data.equipamentoId } }),
     prisma.colaborador.findUnique({ where: { id: parsed.data.colaboradorId } })
   ]);
 
@@ -166,19 +167,34 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ message: "Material invalido ou inativo." }, { status: 400 });
   }
 
-  if (!equipamento || equipamento.status !== StatusCadastro.ATIVO) {
+  const equipamento = parsed.data.equipamentoId
+    ? await prisma.equipamento.findUnique({ where: { id: parsed.data.equipamentoId } })
+    : null;
+
+  const equipamentoResolvido = servico.servicoTecnico
+    ? equipamento ?? (await obterOuCriarRecursoTecnicoPadrao(prisma))
+    : equipamento;
+
+  if (!equipamentoResolvido || equipamentoResolvido.status !== StatusCadastro.ATIVO) {
     return NextResponse.json({ message: "Equipamento invalido ou inativo." }, { status: 400 });
   }
 
   if (
     servico.servicoTecnico &&
-    equipamento.tipoRecurso !== "EQUIPAMENTO_APOIO"
+    equipamentoResolvido.tipoRecurso !== "EQUIPAMENTO_APOIO"
   ) {
     return NextResponse.json(
       {
         message:
           "Servicos tecnicos devem usar um recurso tecnico cadastrado como EQUIPAMENTO_APOIO."
       },
+      { status: 400 }
+    );
+  }
+
+  if (!servico.servicoTecnico && !parsed.data.equipamentoId) {
+    return NextResponse.json(
+      { message: "Selecione um equipamento valido para o lancamento operacional." },
       { status: 400 }
     );
   }
@@ -200,7 +216,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       obraId: parsed.data.obraId ?? null,
       servicoId: servico.id,
       materialId: parsed.data.materialId ?? null,
-      equipamentoId: equipamento.id,
+      equipamentoId: equipamentoResolvido.id,
       colaboradorId: colaborador.id,
       quantidadeApontada: parsed.data.quantidadeApontada,
       unidadeApontada: parsed.data.unidadeApontada,
@@ -295,7 +311,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           obraId: parsed.data.obraId ?? null,
           servicoId: servico.id,
           materialId: parsed.data.materialId ?? null,
-          equipamentoId: equipamento.id,
+          equipamentoId: equipamentoResolvido.id,
           colaboradorId: colaborador.id,
           quantidadeApontada: parsed.data.quantidadeApontada,
           unidadeApontada: parsed.data.unidadeApontada,
@@ -343,7 +359,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             data: {
               data: dataReferencia,
               ficha: fichaAtualizada.numero,
-              placaOuTag: equipamento.placaOuTag,
+              placaOuTag: equipamentoResolvido.placaOuTag,
               tipoServico: servico.tipoServico,
               material: material?.descricao ?? null,
               unidadeFaturada: parsed.data.unidadeFaturada,
@@ -380,17 +396,23 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         }
       }
 
-      await sincronizarLeituraPorLancamento(tx, {
-        equipamentoId: equipamento.id,
-        lancamentoDiarioId: id,
-        usuarioId: session.user.id,
-        dataLeitura: dataReferencia,
-        horimetroInformado: horimetroInformado === null ? null : Number(horimetroInformado),
-        kmInformado: kmInformado === null ? null : Number(kmInformado),
-        observacao: parsed.data.observacao || null
-      });
+      if (!servico.servicoTecnico) {
+        await sincronizarLeituraPorLancamento(tx, {
+          equipamentoId: equipamentoResolvido.id,
+          lancamentoDiarioId: id,
+          usuarioId: session.user.id,
+          dataLeitura: dataReferencia,
+          horimetroInformado: horimetroInformado === null ? null : Number(horimetroInformado),
+          kmInformado: kmInformado === null ? null : Number(kmInformado),
+          observacao: parsed.data.observacao || null
+        });
+      } else {
+        await tx.leituraEquipamento.deleteMany({
+          where: { lancamentoDiarioId: id }
+        });
+      }
 
-      if (existing.equipamentoId !== equipamento.id) {
+      if (existing.equipamentoId !== equipamentoResolvido.id) {
         await recalcularAcumuladoEquipamento(tx, existing.equipamentoId);
       }
 
@@ -401,7 +423,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         ["obraId", existing.obraId, parsed.data.obraId ?? null],
         ["servicoId", existing.servicoId, servico.id],
         ["materialId", existing.materialId, parsed.data.materialId ?? null],
-        ["equipamentoId", existing.equipamentoId, equipamento.id],
+        ["equipamentoId", existing.equipamentoId, equipamentoResolvido.id],
         ["colaboradorId", existing.colaboradorId, colaborador.id],
         ["quantidadeApontada", existing.quantidadeApontada, parsed.data.quantidadeApontada],
         ["unidadeApontada", existing.unidadeApontada, parsed.data.unidadeApontada],

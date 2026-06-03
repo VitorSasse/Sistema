@@ -10,7 +10,7 @@ export const lancamentoSchema = z.object({
   obraId: z.string().uuid().optional().nullable(),
   servicoId: z.string().uuid(),
   materialId: z.string().uuid().optional().nullable(),
-  equipamentoId: z.string().uuid(),
+  equipamentoId: z.string().uuid().optional().nullable(),
   colaboradorId: z.string().uuid(),
   quantidadeApontada: z.union([z.number().positive(), z.string().trim().min(1)]),
   unidadeApontada: unidadeApontadaSchema,

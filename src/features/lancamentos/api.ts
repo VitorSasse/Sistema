@@ -5,7 +5,8 @@ function buildPayload(form: LancamentoFormState) {
   return {
     ...form,
     obraId: form.obraId || null,
-    materialId: form.materialId || null
+    materialId: form.materialId || null,
+    equipamentoId: form.equipamentoId || null
   };
 }
 
