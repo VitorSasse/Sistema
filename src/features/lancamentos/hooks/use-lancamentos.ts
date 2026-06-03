@@ -29,6 +29,7 @@ import {
   isServicoMedidoPorHorario
 } from "@/features/lancamentos/utils/horario-apontamento";
 import { isRecursoTecnicoPadrao } from "@/lib/constants/recurso-tecnico";
+import { romaneiosToTextarea } from "@/lib/utils/romaneios";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
 const unidadeLancamentoValida = ["CARGA", "HORA", "M3", "DIARIA", "SERVICO"] as const;
@@ -66,6 +67,7 @@ function buildDuplicatedState(
   return {
     ...current,
     fichaNumero: lancamento.ficha.numero,
+    romaneios: romaneiosToTextarea(lancamento.ficha.romaneios),
     clienteId: cliente?.id ?? "",
     obraId: obra?.id ?? "",
     servicoId: servico?.id ?? "",

@@ -451,10 +451,23 @@ model Ficha {
   obra        Obra?            @relation(fields: [obraId], references: [id])
   criadoPor   Usuario          @relation("FichaCriadaPor", fields: [criadoPorId], references: [id])
   lancamentos LancamentoDiario[]
+  romaneios   FichaRomaneio[]
   anexos      Anexo[]
 
   @@unique([numero, data, clienteId, obraId])
   @@index([clienteId, obraId, data])
+}
+
+model FichaRomaneio {
+  id        String   @id @default(uuid())
+  fichaId   String
+  numero    String
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+  ficha     Ficha    @relation(fields: [fichaId], references: [id], onDelete: Cascade)
+
+  @@unique([fichaId, numero])
+  @@index([fichaId, deletedAt, numero])
 }
 
 model LancamentoDiario {

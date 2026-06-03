@@ -4,7 +4,9 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { SearchableSelect } from "@/components/form/searchable-select";
 import { loadOperationalOptions } from "@/lib/client/operational-options";
+import { isRecursoTecnicoPadrao } from "@/lib/constants/recurso-tecnico";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
+import { romaneiosToTextarea } from "@/lib/utils/romaneios";
 import { formatQuantidadeComUnidade } from "@/lib/utils/unidades";
 
 type Option = {
@@ -34,7 +36,7 @@ type Lancamento = {
   unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
   statusValidacao: "VALIDO" | "NAO_MEDIDO" | "PENDENTE_OBRA" | "PENDENTE_PRECO" | "DIVERGENTE" | "MEDIDO" | "CANCELADO";
   observacao: string | null;
-  ficha: { numero: string; observacao?: string | null };
+  ficha: { numero: string; observacao?: string | null; romaneios: Array<{ numero: string }> };
   cliente: { nome: string };
   obra: { nome: string } | null;
   servico: { tipoServico: string };
@@ -105,6 +107,7 @@ export function HistoricoManager() {
     data: "",
     fichaNumero: "",
     fichaObservacao: "",
+    romaneios: "",
     clienteId: "",
     obraId: "",
     servicoId: "",
@@ -204,6 +207,13 @@ export function HistoricoManager() {
     window.open(targetUrl, "_blank", "noopener,noreferrer");
   }
 
+  function handleGenerateRomaneiosReport() {
+    const query = buildSearchParams();
+    query.set("modo", "romaneios");
+    const targetUrl = `/api/lancamentos/relatorio?${query.toString()}`;
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
+  }
+
   async function loadHistorico(entidadeId: string) {
     const response = await fetch(
       `/api/historico-alteracoes?entidade=lancamento_diario&entidadeId=${entidadeId}`,
@@ -230,6 +240,7 @@ export function HistoricoManager() {
       data: item.data.slice(0, 10),
       fichaNumero: item.ficha.numero,
       fichaObservacao: item.ficha.observacao ?? "",
+      romaneios: romaneiosToTextarea(item.ficha.romaneios),
       clienteId: item.clienteId ?? cliente?.id ?? "",
       obraId: item.obraId ?? obra?.id ?? "",
       servicoId: item.servicoId ?? servico?.id ?? "",
@@ -253,6 +264,7 @@ export function HistoricoManager() {
       data: "",
       fichaNumero: "",
       fichaObservacao: "",
+      romaneios: "",
       clienteId: "",
       obraId: "",
       servicoId: "",
@@ -438,6 +450,14 @@ export function HistoricoManager() {
             >
               Gerar relatorio
             </button>
+            <button
+              type="button"
+              onClick={handleGenerateRomaneiosReport}
+              disabled={!hasActiveFilters || isPending}
+              style={secondaryButtonStyle}
+            >
+              Relatorio de romaneios
+            </button>
             <button type="button" onClick={resetFilters} style={secondaryButtonStyle}>
               Limpar filtros
             </button>
@@ -479,8 +499,17 @@ export function HistoricoManager() {
                     <div style={subtleTextStyle}>{item.material?.descricao ?? "-"}</div>
                   </td>
                   <td style={tdStyle}>
-                    <div>{item.equipamento.descricao}</div>
-                    <div style={subtleTextStyle}>{item.equipamento.placaOuTag}</div>
+                    {isRecursoTecnicoPadrao(item.equipamento.placaOuTag) ? (
+                      <>
+                        <div>Sem recurso tecnico especifico</div>
+                        <div style={subtleTextStyle}>Apoio generico</div>
+                      </>
+                    ) : (
+                      <>
+                        <div>{item.equipamento.descricao}</div>
+                        <div style={subtleTextStyle}>{item.equipamento.placaOuTag}</div>
+                      </>
+                    )}
                   </td>
                   <td style={tdStyle}>{item.colaborador.nome}</td>
                   <td style={tdStyle}>
@@ -629,6 +658,9 @@ export function HistoricoManager() {
             </Field>
             <Field label="Observacao da ficha">
               <textarea value={editForm.fichaObservacao} onChange={(e) => updateEditField("fichaObservacao", e.target.value)} style={{ ...fieldStyle, minHeight: 72, resize: "vertical" as const }} />
+            </Field>
+            <Field label="Romaneios da ficha">
+              <textarea value={editForm.romaneios} onChange={(e) => updateEditField("romaneios", e.target.value)} style={{ ...fieldStyle, minHeight: 72, resize: "vertical" as const }} placeholder="Informe um romaneio por linha" />
             </Field>
             <Field label="Motivo da alteracao">
               <textarea value={editForm.motivoAlteracao} onChange={(e) => updateEditField("motivoAlteracao", e.target.value)} style={{ ...fieldStyle, minHeight: 72, resize: "vertical" as const }} placeholder="Descreva o motivo da correcao" />

@@ -373,6 +373,17 @@ export function LancamentosManager() {
                 placeholder="Observacao geral da ficha"
               />
             </SectionField>
+            <SectionField label="Romaneios da ficha">
+              <textarea
+                className="field-control textarea-lg"
+                value={form.romaneios}
+                onChange={(e) => updateField("romaneios", e.target.value)}
+                placeholder="Informe um romaneio por linha"
+              />
+            </SectionField>
+          </div>
+
+          <div className="form-grid-2">
             <SectionField label="Observacao do lancamento">
               <textarea
                 className="field-control textarea-lg"

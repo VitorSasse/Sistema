@@ -4,12 +4,14 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { canEditMedicaoContent } from "@/lib/utils/medicao-status";
+import { parseRomaneiosInput } from "@/lib/utils/romaneios";
 import { lancamentoSchema } from "@/lib/validators/lancamento";
 import {
   recalcularAcumuladoEquipamento,
   removerLeituraPorCancelamento,
   sincronizarLeituraPorLancamento
 } from "@/server/services/frota/leitura-sync";
+import { substituirRomaneiosDaFicha } from "@/server/services/lancamentos/romaneios";
 import { obterOuCriarRecursoTecnicoPadrao } from "@/server/services/lancamentos/recurso-tecnico";
 
 type RouteContext = {
@@ -62,6 +64,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     obraId: payload.obraId || null,
     materialId: payload.materialId || null,
     equipamentoId: payload.equipamentoId || null,
+    romaneios: parseRomaneiosInput(payload.romaneios),
     quantidadeApontada: parseDecimalInput(payload.quantidadeApontada),
     quantidadeFaturada: parseDecimalInput(payload.quantidadeFaturada),
     horimetroInformado: parseNullableNumber(payload.horimetroInformado),
@@ -284,6 +287,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
                 observacao: parsed.data.fichaObservacao || null
               }
             });
+
+      await substituirRomaneiosDaFicha(tx, fichaAtualizada.id, parsed.data.romaneios);
 
       const possuiMedicaoAtiva = await tx.medicaoItem.count({
         where: {

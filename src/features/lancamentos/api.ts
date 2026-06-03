@@ -1,12 +1,14 @@
 import { loadOperationalOptions } from "@/lib/client/operational-options";
 import type { LancamentoFormState, LancamentoItem } from "@/features/lancamentos/types";
+import { parseRomaneiosInput } from "@/lib/utils/romaneios";
 
 function buildPayload(form: LancamentoFormState) {
   return {
     ...form,
     obraId: form.obraId || null,
     materialId: form.materialId || null,
-    equipamentoId: form.equipamentoId || null
+    equipamentoId: form.equipamentoId || null,
+    romaneios: parseRomaneiosInput(form.romaneios)
   };
 }
 

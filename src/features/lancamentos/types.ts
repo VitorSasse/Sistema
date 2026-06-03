@@ -20,7 +20,7 @@ export type LancamentoItem = {
   kmInformado: string | null;
   statusValidacao: LancamentoStatus;
   observacao: string | null;
-  ficha: { numero: string };
+  ficha: { numero: string; observacao?: string | null; romaneios: Array<{ numero: string }> };
   cliente: { nome: string };
   obra: { nome: string } | null;
   servico: { tipoServico: string };
@@ -33,6 +33,7 @@ export type LancamentoFormState = {
   data: string;
   fichaNumero: string;
   fichaObservacao: string;
+  romaneios: string;
   clienteId: string;
   obraId: string;
   servicoId: string;

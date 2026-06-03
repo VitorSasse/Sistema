@@ -3,8 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
+import { parseRomaneiosInput } from "@/lib/utils/romaneios";
 import { lancamentoSchema } from "@/lib/validators/lancamento";
 import { sincronizarLeituraPorLancamento } from "@/server/services/frota/leitura-sync";
+import { adicionarRomaneiosNaFichaSeAusentes } from "@/server/services/lancamentos/romaneios";
 import { obterOuCriarRecursoTecnicoPadrao } from "@/server/services/lancamentos/recurso-tecnico";
 
 function normalizeDate(value: string) {
@@ -103,7 +105,15 @@ export async function GET(request: NextRequest) {
       deletedAt: includeDeleted || status === StatusLancamento.CANCELADO ? undefined : null
     },
     include: {
-      ficha: true,
+      ficha: {
+        include: {
+          romaneios: {
+            where: { deletedAt: null },
+            orderBy: { numero: "asc" },
+            select: { numero: true }
+          }
+        }
+      },
       cliente: true,
       obra: true,
       servico: true,
@@ -130,6 +140,7 @@ export async function POST(request: NextRequest) {
     obraId: payload.obraId || null,
     materialId: payload.materialId || null,
     equipamentoId: payload.equipamentoId || null,
+    romaneios: parseRomaneiosInput(payload.romaneios),
     quantidadeApontada: parseDecimalInput(payload.quantidadeApontada),
     quantidadeFaturada: parseDecimalInput(payload.quantidadeFaturada),
     horimetroInformado: parseNullableNumber(payload.horimetroInformado),
@@ -300,6 +311,8 @@ export async function POST(request: NextRequest) {
           }
         });
       }
+
+      await adicionarRomaneiosNaFichaSeAusentes(tx, ficha.id, parsed.data.romaneios);
 
       const statusValidacao = parsed.data.obraId
         ? StatusLancamento.NAO_MEDIDO
