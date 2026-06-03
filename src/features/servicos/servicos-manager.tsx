@@ -10,6 +10,8 @@ type Servico = {
   tipoServico: string;
   categoria: string | null;
   servicoTecnico: boolean;
+  faturamentoFechado: boolean;
+  valorFechadoPadrao: string | null;
   formaMedicao: string;
   unidadeApontamento: string | null;
   unidadeFaturamento: string;
@@ -24,6 +26,8 @@ type FormState = {
   tipoServico: string;
   categoria: string;
   servicoTecnico: boolean;
+  faturamentoFechado: boolean;
+  valorFechadoPadrao: string;
   formaMedicao: string;
   unidadeApontamento: string;
   unidadeFaturamento: string;
@@ -37,6 +41,8 @@ const initialForm: FormState = {
   tipoServico: "",
   categoria: "",
   servicoTecnico: false,
+  faturamentoFechado: false,
+  valorFechadoPadrao: "",
   formaMedicao: "",
   unidadeApontamento: "",
   unidadeFaturamento: "",
@@ -76,8 +82,10 @@ export function ServicosManager() {
           servico.tipoServico,
           servico.categoria ?? "",
           servico.servicoTecnico ? "tecnico" : "",
+          servico.faturamentoFechado ? "fechado" : "",
           servico.formaMedicao,
-          servico.unidadeFaturamento
+          servico.unidadeFaturamento,
+          servico.valorFechadoPadrao ?? ""
         ]
           .join(" ")
           .toLowerCase()
@@ -88,7 +96,19 @@ export function ServicosManager() {
   }, [servicos, search, statusFilter]);
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      if (key === "faturamentoFechado") {
+        const enabled = value as boolean;
+        return {
+          ...current,
+          [key]: value,
+          unidadeApontamento: enabled ? "SERVICO" : current.unidadeApontamento,
+          unidadeFaturamento: enabled ? "SERVICO" : current.unidadeFaturamento
+        };
+      }
+
+      return { ...current, [key]: value };
+    });
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -124,6 +144,8 @@ export function ServicosManager() {
       tipoServico: servico.tipoServico,
       categoria: servico.categoria ?? "",
       servicoTecnico: servico.servicoTecnico,
+      faturamentoFechado: servico.faturamentoFechado,
+      valorFechadoPadrao: servico.valorFechadoPadrao ?? "",
       formaMedicao: servico.formaMedicao,
       unidadeApontamento: servico.unidadeApontamento ?? "",
       unidadeFaturamento: servico.unidadeFaturamento,
@@ -223,11 +245,22 @@ export function ServicosManager() {
                 <option value="SIM">SIM</option>
               </select>
             </Field>
+            <Field label="Faturamento fechado">
+              <select
+                value={form.faturamentoFechado ? "SIM" : "NAO"}
+                onChange={(event) => updateField("faturamentoFechado", event.target.value === "SIM")}
+                style={fieldStyle}
+              >
+                <option value="NAO">NAO</option>
+                <option value="SIM">SIM</option>
+              </select>
+            </Field>
             <Field label="Unidade de apontamento">
               <input
                 placeholder="h, viagem, m3"
                 value={form.unidadeApontamento}
                 onChange={(event) => updateField("unidadeApontamento", event.target.value)}
+                disabled={form.faturamentoFechado}
                 style={fieldStyle}
               />
             </Field>
@@ -236,6 +269,16 @@ export function ServicosManager() {
                 placeholder="h, viagem, m3"
                 value={form.unidadeFaturamento}
                 onChange={(event) => updateField("unidadeFaturamento", event.target.value)}
+                disabled={form.faturamentoFechado}
+                style={fieldStyle}
+              />
+            </Field>
+            <Field label="Valor fechado padrao">
+              <input
+                placeholder="0,00"
+                value={form.valorFechadoPadrao}
+                onChange={(event) => updateField("valorFechadoPadrao", event.target.value)}
+                disabled={!form.faturamentoFechado}
                 style={fieldStyle}
               />
             </Field>
@@ -270,6 +313,13 @@ export function ServicosManager() {
               </select>
             </Field>
           </div>
+
+          {form.faturamentoFechado ? (
+            <p style={{ margin: "-8px 0 0", color: "#6e6457" }}>
+              Esse servico sera tratado como item fechado de medicao, usando a unidade
+              <strong> SERVICO</strong> e o valor padrao informado acima.
+            </p>
+          ) : null}
 
           <Field label="Observacao">
             <textarea
@@ -330,7 +380,9 @@ export function ServicosManager() {
                 <th style={thStyle}>Servico</th>
                 <th style={thStyle}>Forma medicao</th>
                 <th style={thStyle}>Tecnico</th>
+                <th style={thStyle}>Fechado</th>
                 <th style={thStyle}>Unidade</th>
+                <th style={thStyle}>Valor fechado</th>
                 <th style={thStyle}>Material</th>
                 <th style={thStyle}>Medicao</th>
                 <th style={thStyle}>Status</th>
@@ -352,10 +404,16 @@ export function ServicosManager() {
                     </span>
                   </td>
                   <td style={tdStyle}>
+                    <span style={servico.faturamentoFechado ? statusActiveStyle : neutralStyle}>
+                      {servico.faturamentoFechado ? "SIM" : "NAO"}
+                    </span>
+                  </td>
+                  <td style={tdStyle}>
                     {servico.unidadeApontamento || servico.unidadeFaturamento
                       ? `${servico.unidadeApontamento ?? "-"} / ${servico.unidadeFaturamento}`
                       : servico.unidadeFaturamento}
                   </td>
+                  <td style={tdStyle}>{servico.valorFechadoPadrao ?? "-"}</td>
                   <td style={tdStyle}>
                     <span style={servico.exigeMaterial ? statusActiveStyle : neutralStyle}>
                       {servico.exigeMaterial ? "EXIGE" : "NAO"}

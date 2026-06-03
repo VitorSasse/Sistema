@@ -28,6 +28,8 @@ export function MedicaoEditForm(props: {
   onCancel: () => void;
 }) {
   const { editing, servicos, materiais, equipamentos, colaboradores, exigeMaterial, isPending, onChange, onSubmit, onCancel } = props;
+  const servicoSelecionado = servicos.find((item) => item.id === editing.servicoId) ?? null;
+  const servicoFechadoSelecionado = Boolean(servicoSelecionado?.faturamentoFechado);
 
   return (
     <section className="surface section-card">
@@ -93,22 +95,24 @@ export function MedicaoEditForm(props: {
             <input className="field-control" type="number" step="0.01" value={editing.quantidadeApontada} onChange={(e) => onChange("quantidadeApontada", e.target.value)} />
           </MedicaoField>
           <MedicaoField label="Unidade apontada">
-            <select className="field-control" value={editing.unidadeApontada} onChange={(e) => onChange("unidadeApontada", e.target.value as MedicaoEditState["unidadeApontada"])}>
+            <select className="field-control" value={editing.unidadeApontada} disabled={servicoFechadoSelecionado} onChange={(e) => onChange("unidadeApontada", e.target.value as MedicaoEditState["unidadeApontada"])}>
               <option value="CARGA">CARGA</option>
               <option value="HORA">HORA</option>
               <option value="M3">M3</option>
               <option value="DIARIA">DIARIA</option>
+              <option value="SERVICO">SERVICO</option>
             </select>
           </MedicaoField>
           <MedicaoField label="Quantidade faturada">
             <input className="field-control" type="number" step="0.01" value={editing.quantidadeFaturada} onChange={(e) => onChange("quantidadeFaturada", e.target.value)} />
           </MedicaoField>
           <MedicaoField label="Unidade faturada">
-            <select className="field-control" value={editing.unidadeFaturada} onChange={(e) => onChange("unidadeFaturada", e.target.value as MedicaoEditState["unidadeFaturada"])}>
+            <select className="field-control" value={editing.unidadeFaturada} disabled={servicoFechadoSelecionado} onChange={(e) => onChange("unidadeFaturada", e.target.value as MedicaoEditState["unidadeFaturada"])}>
               <option value="CARGA">CARGA</option>
               <option value="HORA">HORA</option>
               <option value="M3">M3</option>
               <option value="DIARIA">DIARIA</option>
+              <option value="SERVICO">SERVICO</option>
             </select>
           </MedicaoField>
           <MedicaoField label="Horimetro">

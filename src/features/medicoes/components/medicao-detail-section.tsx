@@ -74,7 +74,7 @@ export function MedicaoDetailSection(props: {
     itemId: string,
     valorUnitario: number,
     quantidadeFaturada: number,
-    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA"
+    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO"
   ) => void;
   editingLancamentoId: string | null;
   onStartDetailEdit: (item: MedicaoDetail["itens"][number]) => void;
@@ -141,7 +141,7 @@ export function MedicaoDetailSection(props: {
       {
         valorUnitario: string;
         quantidadeFaturada: string;
-        unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
+        unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
       }
     >
   >({});
@@ -653,7 +653,7 @@ export function MedicaoDetailSection(props: {
                               valorUnitario: current[item.id]?.valorUnitario ?? item.valorUnitario,
                               quantidadeFaturada:
                                 current[item.id]?.quantidadeFaturada ?? item.quantidadeFaturada,
-                              unidadeFaturada: event.target.value as "CARGA" | "HORA" | "M3" | "DIARIA"
+                              unidadeFaturada: event.target.value as "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO"
                             }
                           }))
                         }
@@ -662,6 +662,7 @@ export function MedicaoDetailSection(props: {
                         <option value="HORA">HORA</option>
                         <option value="M3">M3</option>
                         <option value="DIARIA">DIARIA</option>
+                        <option value="SERVICO">SERVICO</option>
                       </select>
                     </td>
                     <td style={{ minWidth: 140 }}>
@@ -744,8 +745,8 @@ export function MedicaoDetailSection(props: {
   );
 }
 
-function itemUnidade(value: string): "CARGA" | "HORA" | "M3" | "DIARIA" {
-  if (value === "CARGA" || value === "HORA" || value === "M3" || value === "DIARIA") {
+function itemUnidade(value: string): "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO" {
+  if (value === "CARGA" || value === "HORA" || value === "M3" || value === "DIARIA" || value === "SERVICO") {
     return value;
   }
   return "HORA";

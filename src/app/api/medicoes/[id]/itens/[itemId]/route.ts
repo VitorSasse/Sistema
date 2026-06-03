@@ -19,7 +19,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const payload = (await request.json()) as {
     valorUnitario?: number;
     quantidadeFaturada?: number;
-    unidadeFaturada?: "CARGA" | "HORA" | "M3" | "DIARIA";
+    unidadeFaturada?: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
   };
   const valorUnitario = Number(payload.valorUnitario);
   const quantidadeFaturada =
@@ -50,7 +50,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     unidadeFaturada !== "CARGA" &&
     unidadeFaturada !== "HORA" &&
     unidadeFaturada !== "M3" &&
-    unidadeFaturada !== "DIARIA"
+    unidadeFaturada !== "DIARIA" &&
+    unidadeFaturada !== "SERVICO"
   ) {
     return NextResponse.json(
       { message: "Unidade faturada invalida." },

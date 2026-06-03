@@ -34,6 +34,7 @@ export function LancamentosManager() {
     servicoSelecionado,
     servicoUsaCalculoHoras,
     servicoTecnicoSelecionado,
+    servicoFechadoSelecionado,
     equipamentosDisponiveis,
     horarios,
     horarioFeedback,
@@ -128,6 +129,15 @@ export function LancamentosManager() {
             <strong>Servico tecnico:</strong>
             <span className="subtle">
               use um recurso tecnico cadastrado como apoio/outro. Esse tipo de lancamento entra na medicao normalmente, mas nao usa horimetro nem KM.
+            </span>
+          </div>
+        ) : null}
+
+        {servicoFechadoSelecionado ? (
+          <div className="glass-band" style={{ marginTop: 16 }}>
+            <strong>Servico fechado:</strong>
+            <span className="subtle">
+              esse lancamento sera tratado como item fechado de medicao. O sistema usa a unidade SERVICO e sugere quantidade 1 por padrao.
             </span>
           </div>
         ) : null}
@@ -290,7 +300,7 @@ export function LancamentosManager() {
                   <select
                     className="field-control"
                     value={form.unidadeApontada}
-                    disabled={servicoUsaCalculoHoras}
+                    disabled={servicoUsaCalculoHoras || servicoFechadoSelecionado}
                     onChange={(e) =>
                       updateField("unidadeApontada", e.target.value as typeof form.unidadeApontada)
                     }
@@ -326,6 +336,7 @@ export function LancamentosManager() {
                   <select
                     className="field-control"
                     value={form.unidadeFaturada}
+                    disabled={servicoFechadoSelecionado}
                     onChange={(e) =>
                       updateField("unidadeFaturada", e.target.value as typeof form.unidadeFaturada)
                     }

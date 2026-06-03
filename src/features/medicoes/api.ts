@@ -180,7 +180,7 @@ export async function atualizarValorItemMedicao(params: {
   itemId: string;
   valorUnitario: number;
   quantidadeFaturada?: number;
-  unidadeFaturada?: "CARGA" | "HORA" | "M3" | "DIARIA";
+  unidadeFaturada?: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
 }) {
   const response = await fetch(`/api/medicoes/${params.medicaoId}/itens/${params.itemId}`, {
     method: "PATCH",

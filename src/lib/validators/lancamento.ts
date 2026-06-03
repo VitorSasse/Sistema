@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-const unidadeApontadaSchema = z.enum(["CARGA", "HORA", "M3", "DIARIA"]);
-const unidadeFaturadaSchema = z.enum(["CARGA", "HORA", "M3", "DIARIA"]);
+const unidadeApontadaSchema = z.enum(["CARGA", "HORA", "M3", "DIARIA", "SERVICO"]);
+const unidadeFaturadaSchema = z.enum(["CARGA", "HORA", "M3", "DIARIA", "SERVICO"]);
 
 export const lancamentoSchema = z.object({
   data: z.string().trim().min(1),

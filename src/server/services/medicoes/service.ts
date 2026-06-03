@@ -29,7 +29,7 @@ type MedicaoEditavelSnapshot = {
     id: string;
     tipoServico: string;
     material: string | null;
-    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
+    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
     valorUnitario: Prisma.Decimal;
   }>;
 };
@@ -328,7 +328,15 @@ function sugerirValorUnitarioParaLancamento(
       referencia.unidadeFaturada === item.unidadeFaturada
   );
 
-  return referenciaParcial ? Number(referenciaParcial.valorUnitario) : 0;
+  if (referenciaParcial) {
+    return Number(referenciaParcial.valorUnitario);
+  }
+
+  if (item.servico.faturamentoFechado && item.servico.valorFechadoPadrao !== null) {
+    return Number(item.servico.valorFechadoPadrao);
+  }
+
+  return 0;
 }
 
 export async function buscarLancamentosElegiveisParaMedicao(
@@ -575,7 +583,7 @@ export async function atualizarValorItemMedicao(
     itemId: string;
     valorUnitario: number;
     quantidadeFaturada?: number;
-    unidadeFaturada?: "CARGA" | "HORA" | "M3" | "DIARIA";
+    unidadeFaturada?: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
   }
 ) {
   const item = await db.medicaoItem.findFirst({

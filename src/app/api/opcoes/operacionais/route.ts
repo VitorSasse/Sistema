@@ -47,6 +47,8 @@ export async function GET() {
         status: true,
         exigeMaterial: true,
         servicoTecnico: true,
+        faturamentoFechado: true,
+        valorFechadoPadrao: true,
         unidadeApontamento: true,
         unidadeFaturamento: true
       },

@@ -30,7 +30,7 @@ import {
 } from "@/features/lancamentos/utils/horario-apontamento";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
-const unidadeLancamentoValida = ["CARGA", "HORA", "M3", "DIARIA"] as const;
+const unidadeLancamentoValida = ["CARGA", "HORA", "M3", "DIARIA", "SERVICO"] as const;
 
 function isUnidadeLancamentoValida(value: string | null | undefined): value is (typeof unidadeLancamentoValida)[number] {
   return Boolean(value && unidadeLancamentoValida.includes(value as (typeof unidadeLancamentoValida)[number]));
@@ -154,6 +154,7 @@ export function useLancamentos() {
   );
 
   const servicoTecnicoSelecionado = Boolean(servicoSelecionado?.servicoTecnico);
+  const servicoFechadoSelecionado = Boolean(servicoSelecionado?.faturamentoFechado);
 
   const equipamentosDisponiveis = useMemo(() => {
     if (!servicoTecnicoSelecionado) {
@@ -220,6 +221,19 @@ export function useLancamentos() {
         ) {
           next.equipamentoId = "";
         }
+      }
+
+      if (servicoSelecionado.faturamentoFechado) {
+        next.quantidadeApontada =
+          current.quantidadeApontada.trim() && current.unidadeApontada === "SERVICO"
+            ? current.quantidadeApontada
+            : "1";
+        next.unidadeApontada = "SERVICO";
+        next.quantidadeFaturada =
+          current.quantidadeFaturada.trim() && current.unidadeFaturada === "SERVICO"
+            ? current.quantidadeFaturada
+            : "1";
+        next.unidadeFaturada = "SERVICO";
       }
 
       return next;
@@ -411,6 +425,7 @@ export function useLancamentos() {
     servicoSelecionado,
     servicoUsaCalculoHoras,
     servicoTecnicoSelecionado,
+    servicoFechadoSelecionado,
     equipamentosDisponiveis,
     horarios,
     horarioFeedback,

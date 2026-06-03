@@ -28,14 +28,16 @@ export const unidadeApontadaOptions = [
   { value: "CARGA", label: "Carga" },
   { value: "HORA", label: "Hora" },
   { value: "M3", label: "M3" },
-  { value: "DIARIA", label: "Diaria" }
+  { value: "DIARIA", label: "Diaria" },
+  { value: "SERVICO", label: "Servico fechado" }
 ] as const;
 
 export const unidadeFaturadaOptions = [
   { value: "CARGA", label: "Carga" },
   { value: "HORA", label: "Hora" },
   { value: "M3", label: "M3" },
-  { value: "DIARIA", label: "Diaria" }
+  { value: "DIARIA", label: "Diaria" },
+  { value: "SERVICO", label: "Servico fechado" }
 ] as const;
 
 export const lancamentoStatusConfig: Record<

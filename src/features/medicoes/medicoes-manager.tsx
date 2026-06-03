@@ -98,6 +98,19 @@ function inferCobrancaMaterialFromDetail(detail: MedicaoDetail) {
     : "CARGA";
 }
 
+function buildSuggestedPreviewValue(
+  item: PreviewItem,
+  servicos: MedicaoOptionsState["servicos"]
+) {
+  const servico = servicos.find((entry) => entry.id === item.servicoId);
+
+  if (!servico?.faturamentoFechado || !servico.valorFechadoPadrao) {
+    return "";
+  }
+
+  return String(servico.valorFechadoPadrao);
+}
+
 export function MedicoesManager() {
   const [options, setOptions] = useState<MedicaoOptionsState>(emptyOptions);
   const [medicoes, setMedicoes] = useState<MedicaoListItem[]>([]);
@@ -161,7 +174,12 @@ export function MedicoesManager() {
     const nextItems = data.items ?? [];
     setPreviewItems(nextItems);
     setPreviewItemValues((current) =>
-      Object.fromEntries(nextItems.map((item) => [item.id, current[item.id] ?? ""]))
+      Object.fromEntries(
+        nextItems.map((item) => [
+          item.id,
+          current[item.id] ?? buildSuggestedPreviewValue(item, options.servicos)
+        ])
+      )
     );
     setPreviewResumo(data.resumo ?? null);
     setEditing(null);
@@ -267,6 +285,33 @@ export function MedicoesManager() {
     () => options.servicos.find((item) => item.id === editing?.servicoId) ?? null,
     [options.servicos, editing?.servicoId]
   );
+
+  useEffect(() => {
+    if (!editing || !servicoEditado?.faturamentoFechado) {
+      return;
+    }
+
+    setEditing((current) =>
+      current
+        ? current.unidadeApontada === "SERVICO" &&
+          current.unidadeFaturada === "SERVICO" &&
+          current.quantidadeApontada.trim() &&
+          current.quantidadeFaturada.trim()
+          ? current
+          : {
+              ...current,
+              unidadeApontada: "SERVICO",
+              unidadeFaturada: "SERVICO",
+              quantidadeApontada: current.quantidadeApontada.trim()
+                ? current.quantidadeApontada
+                : "1",
+              quantidadeFaturada: current.quantidadeFaturada.trim()
+                ? current.quantidadeFaturada
+                : "1"
+            }
+        : current
+    );
+  }, [editing, servicoEditado]);
 
   const resumo = useMemo(
     () => ({
@@ -574,7 +619,7 @@ export function MedicoesManager() {
     itemId: string,
     valorUnitario: number,
     quantidadeFaturada: number,
-    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA"
+    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO"
   ) {
     if (!selectedMedicaoId) return;
 

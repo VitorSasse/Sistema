@@ -141,6 +141,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ message: "Servico invalido ou inativo." }, { status: 400 });
   }
 
+  if (
+    servico.faturamentoFechado &&
+    (parsed.data.unidadeApontada !== "SERVICO" || parsed.data.unidadeFaturada !== "SERVICO")
+  ) {
+    return NextResponse.json(
+      { message: "Servicos com faturamento fechado devem usar a unidade SERVICO." },
+      { status: 400 }
+    );
+  }
+
   if (servico.servicoTecnico && parsed.data.materialId) {
     return NextResponse.json(
       { message: "Servicos tecnicos nao devem ser lancados com material vinculado." },

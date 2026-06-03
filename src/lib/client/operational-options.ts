@@ -12,6 +12,8 @@ export type OperationalOption = {
   liberadaParaLancamento?: boolean;
   exigeMaterial?: boolean;
   servicoTecnico?: boolean;
+  faturamentoFechado?: boolean;
+  valorFechadoPadrao?: string | null;
   unidadeApontamento?: string | null;
   unidadeFaturamento?: string | null;
 };

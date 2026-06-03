@@ -27,9 +27,9 @@ export type PreviewItem = {
   equipamentoId: string;
   colaboradorId: string;
   quantidadeApontada: string;
-  unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA";
+  unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
   quantidadeFaturada: string;
-  unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
+  unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
   observacao: string | null;
   horimetroInformado: string | null;
   kmInformado: string | null;
@@ -107,7 +107,7 @@ export type MedicaoDetail = {
     placaOuTag: string;
     tipoServico: string;
     material: string | null;
-    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
+    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
     quantidadeFaturada: string;
     valorUnitario: string;
     valorTotalItem: string;
@@ -120,9 +120,9 @@ export type MedicaoDetail = {
       equipamentoId: string;
       colaboradorId: string;
       quantidadeApontada: string;
-      unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA";
+      unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
       quantidadeFaturada: string;
-      unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
+      unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
       horimetroInformado: string | null;
       kmInformado: string | null;
       observacao: string | null;
@@ -179,9 +179,9 @@ export type MedicaoEditState = {
   equipamentoId: string;
   colaboradorId: string;
   quantidadeApontada: string;
-  unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA";
+  unidadeApontada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
   quantidadeFaturada: string;
-  unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA";
+  unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
   observacao: string;
   horimetroInformado: string;
   kmInformado: string;
@@ -200,7 +200,7 @@ export type MedicaoOptionsState = {
 export type MedicaoPreviewResumo = {
   totalLancamentos: number;
   quantidadeTotal: number;
-  totaisPorUnidade: Partial<Record<"CARGA" | "HORA" | "M3" | "DIARIA", number>>;
+  totaisPorUnidade: Partial<Record<"CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO", number>>;
 };
 
 export type MedicaoPreviewValueMap = Record<string, string>;

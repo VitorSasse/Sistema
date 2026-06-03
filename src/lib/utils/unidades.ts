@@ -1,11 +1,12 @@
-export type UnidadeApontada = "CARGA" | "HORA" | "M3" | "DIARIA";
+export type UnidadeApontada = "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
 export type UnidadeFaturada = UnidadeApontada;
 
 export const unidadeLabels: Record<UnidadeFaturada, string> = {
   CARGA: "Carga",
   HORA: "Hora",
   M3: "M3",
-  DIARIA: "Diaria"
+  DIARIA: "Diaria",
+  SERVICO: "Servico"
 };
 
 export function formatUnidade(unidade: UnidadeFaturada) {

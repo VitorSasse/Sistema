@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { servicoSchema } from "@/lib/validators/servico";
 
 type RouteContext = {
@@ -16,7 +17,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params;
   const payload = await request.json();
-  const parsed = servicoSchema.safeParse(payload);
+  const normalizedPayload = {
+    ...payload,
+    valorFechadoPadrao:
+      payload.valorFechadoPadrao === "" || payload.valorFechadoPadrao === undefined
+        ? null
+        : parseDecimalInput(payload.valorFechadoPadrao)
+  };
+  const parsed = servicoSchema.safeParse(normalizedPayload);
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -32,9 +40,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         tipoServico: parsed.data.tipoServico,
         categoria: parsed.data.categoria || null,
         servicoTecnico: parsed.data.servicoTecnico,
+        faturamentoFechado: parsed.data.faturamentoFechado,
+        valorFechadoPadrao: parsed.data.faturamentoFechado
+          ? parsed.data.valorFechadoPadrao
+          : null,
         formaMedicao: parsed.data.formaMedicao,
-        unidadeApontamento: parsed.data.unidadeApontamento || null,
-        unidadeFaturamento: parsed.data.unidadeFaturamento,
+        unidadeApontamento: parsed.data.faturamentoFechado
+          ? "SERVICO"
+          : parsed.data.unidadeApontamento || null,
+        unidadeFaturamento: parsed.data.faturamentoFechado
+          ? "SERVICO"
+          : parsed.data.unidadeFaturamento,
         exigeMaterial: parsed.data.exigeMaterial,
         ativoParaMedicao: parsed.data.ativoParaMedicao,
         observacao: parsed.data.observacao || null,
