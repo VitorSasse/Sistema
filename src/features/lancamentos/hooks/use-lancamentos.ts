@@ -37,7 +37,7 @@ function isUnidadeLancamentoValida(value: string | null | undefined): value is (
 }
 
 function isRecursoTecnico(tipoRecurso?: string) {
-  return tipoRecurso === "OUTRO" || tipoRecurso === "EQUIPAMENTO_APOIO";
+  return tipoRecurso === "EQUIPAMENTO_APOIO";
 }
 
 function buildDuplicatedState(

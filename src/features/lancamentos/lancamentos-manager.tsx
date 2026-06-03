@@ -228,7 +228,9 @@ export function LancamentosManager() {
                 ))}
               </select>
             </SectionField>
-            <SectionField label="Operador / motorista">
+            <SectionField
+              label={servicoTecnicoSelecionado ? "Responsavel tecnico" : "Operador / motorista"}
+            >
               <select
                 className="field-control"
                 value={form.colaboradorId}

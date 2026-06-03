@@ -98,6 +98,10 @@ const statusOperacionalOptions: StatusEquipamentoOperacional[] = [
 
 const tipoControleOptions: TipoControleEquipamento[] = ["HORIMETRO", "KM"];
 
+function isRecursoApoio(tipoRecurso: TipoRecurso) {
+  return tipoRecurso === "EQUIPAMENTO_APOIO";
+}
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="field">
@@ -133,6 +137,7 @@ export function EquipamentosManager() {
     "TODOS" | StatusEquipamentoOperacional
   >("TODOS");
   const [isPending, startTransition] = useTransition();
+  const recursoApoioSelecionado = isRecursoApoio(form.tipoRecurso);
 
   async function loadEquipamentos() {
     const response = await fetch("/api/equipamentos", { cache: "no-store" });
@@ -171,6 +176,28 @@ export function EquipamentosManager() {
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateTipoRecurso(tipoRecurso: TipoRecurso) {
+    setForm((current) => {
+      if (!isRecursoApoio(tipoRecurso)) {
+        return { ...current, tipoRecurso };
+      }
+
+      return {
+        ...current,
+        tipoRecurso,
+        complementar: false,
+        tipoControle: "HORIMETRO",
+        horimetroAtual: "",
+        kmAtual: "",
+        statusOperacional: "ATIVO",
+        periodicidadeManutencaoHoras: "",
+        periodicidadeManutencaoKm: "",
+        capacidadeM3: "",
+        unidadeCapacidade: ""
+      };
+    });
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -285,18 +312,26 @@ export function EquipamentosManager() {
           <div>
             <h2 className="section-title">{form.id ? "Editar equipamento" : "Novo equipamento"}</h2>
             <p className="section-copy">
-              Cadastro simplificado com tipo de controle por horimetro ou KM.
+              {recursoApoioSelecionado
+                ? "Cadastro generico para recursos de apoio tecnico usados em servicos de engenharia e topografia."
+                : "Cadastro simplificado com tipo de controle por horimetro ou KM."}
             </p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 24 }}>
+          {recursoApoioSelecionado ? (
+            <p className="section-copy" style={{ margin: 0 }}>
+              Recursos de apoio nao entram na agenda operacional nem nos KPIs das dashboards. Eles
+              ficam disponiveis apenas para lancamentos tecnicos e medicoes.
+            </p>
+          ) : null}
           <div className="form-grid-4">
             <Field label="Tipo de recurso">
               <select
                 className="field-control"
                 value={form.tipoRecurso}
-                onChange={(event) => updateField("tipoRecurso", event.target.value as TipoRecurso)}
+                onChange={(event) => updateTipoRecurso(event.target.value as TipoRecurso)}
               >
                 {tipoRecursoOptions.map((option) => (
                   <option key={option} value={option}>
@@ -309,6 +344,7 @@ export function EquipamentosManager() {
               <select
                 className="field-control"
                 value={form.tipoControle}
+                disabled={recursoApoioSelecionado}
                 onChange={(event) =>
                   updateField("tipoControle", event.target.value as TipoControleEquipamento)
                 }
@@ -320,24 +356,29 @@ export function EquipamentosManager() {
                 ))}
               </select>
             </Field>
-            <Field label="Descricao">
+            <Field label={recursoApoioSelecionado ? "Nome do recurso" : "Descricao"}>
               <input
                 className="field-control"
                 value={form.descricao}
                 onChange={(event) => updateField("descricao", event.target.value)}
+                placeholder={
+                  recursoApoioSelecionado ? "Ex.: ENGENHARIA / TOPOGRAFIA / APOIO TECNICO" : ""
+                }
               />
             </Field>
-            <Field label="Placa ou tag">
+            <Field label={recursoApoioSelecionado ? "Tag / identificador" : "Placa ou tag"}>
               <input
                 className="field-control"
                 value={form.placaOuTag}
                 onChange={(event) => updateField("placaOuTag", event.target.value.toUpperCase())}
+                placeholder={recursoApoioSelecionado ? "Ex.: ENG / TOPO / APOIO01" : ""}
               />
             </Field>
             <Field label="Equipamento complementar">
               <select
                 className="field-control"
                 value={form.complementar ? "SIM" : "NAO"}
+                disabled={recursoApoioSelecionado}
                 onChange={(event) => updateField("complementar", event.target.value === "SIM")}
               >
                 <option value="NAO">NAO</option>
@@ -387,6 +428,7 @@ export function EquipamentosManager() {
                 type="number"
                 step="0.01"
                 value={form.horimetroAtual}
+                disabled={recursoApoioSelecionado}
                 onChange={(event) => updateField("horimetroAtual", event.target.value)}
               />
             </Field>
@@ -396,6 +438,7 @@ export function EquipamentosManager() {
                 type="number"
                 step="0.1"
                 value={form.kmAtual}
+                disabled={recursoApoioSelecionado}
                 onChange={(event) => updateField("kmAtual", event.target.value)}
               />
             </Field>
@@ -403,6 +446,7 @@ export function EquipamentosManager() {
               <select
                 className="field-control"
                 value={form.statusOperacional}
+                disabled={recursoApoioSelecionado}
                 onChange={(event) =>
                   updateField(
                     "statusOperacional",
@@ -422,6 +466,7 @@ export function EquipamentosManager() {
                 className="field-control"
                 type="number"
                 value={form.periodicidadeManutencaoHoras}
+                disabled={recursoApoioSelecionado}
                 onChange={(event) => updateField("periodicidadeManutencaoHoras", event.target.value)}
               />
             </Field>
@@ -430,6 +475,7 @@ export function EquipamentosManager() {
                 className="field-control"
                 type="number"
                 value={form.periodicidadeManutencaoKm}
+                disabled={recursoApoioSelecionado}
                 onChange={(event) => updateField("periodicidadeManutencaoKm", event.target.value)}
               />
             </Field>
@@ -439,6 +485,7 @@ export function EquipamentosManager() {
                 type="number"
                 step="0.01"
                 value={form.capacidadeM3}
+                disabled={recursoApoioSelecionado}
                 onChange={(event) => updateField("capacidadeM3", event.target.value)}
               />
             </Field>
@@ -446,6 +493,7 @@ export function EquipamentosManager() {
               <input
                 className="field-control"
                 value={form.unidadeCapacidade}
+                disabled={recursoApoioSelecionado}
                 onChange={(event) => updateField("unidadeCapacidade", event.target.value)}
               />
             </Field>

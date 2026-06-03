@@ -1,7 +1,18 @@
-import { Prisma, PrismaClient, StatusAgendaProgramacao, TurnoAgendaProgramacao } from "@prisma/client";
+import {
+  Prisma,
+  PrismaClient,
+  StatusAgendaProgramacao,
+  TipoRecurso,
+  TurnoAgendaProgramacao
+} from "@prisma/client";
 import type { ProgramacaoInput } from "@/lib/validators/programacao";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
+const programacaoTiposPermitidos = ["CAMINHAO", "MAQUINA", "CARRETA"] as const;
+
+function isTipoPermitidoProgramacao(tipoRecurso: TipoRecurso) {
+  return (programacaoTiposPermitidos as readonly TipoRecurso[]).includes(tipoRecurso);
+}
 
 export function startOfDay(value: string) {
   const date = new Date(`${value}T00:00:00`);
@@ -31,6 +42,11 @@ export function buildProgramacaoWhere(filters: {
 
   return {
     deletedAt: null,
+    equipamento: {
+      tipoRecurso: {
+        in: [...programacaoTiposPermitidos]
+      }
+    },
     obra: filters.clienteId
       ? {
           clienteId: filters.clienteId
@@ -101,7 +117,7 @@ export async function validarRelacionamentosProgramacao(db: DbClient, input: Pro
   const [equipamento, obra] = await Promise.all([
     db.equipamento.findUnique({
       where: { id: input.equipamentoId },
-      select: { id: true, status: true }
+      select: { id: true, status: true, tipoRecurso: true }
     }),
     input.obraId
       ? db.obra.findUnique({
@@ -113,6 +129,10 @@ export async function validarRelacionamentosProgramacao(db: DbClient, input: Pro
 
   if (!equipamento || equipamento.status !== "ATIVO") {
     throw new Error("EQUIPAMENTO_INVALIDO");
+  }
+
+  if (!isTipoPermitidoProgramacao(equipamento.tipoRecurso)) {
+    throw new Error("EQUIPAMENTO_NAO_OPERACIONAL");
   }
 
   if (input.obraId) {

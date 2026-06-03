@@ -207,13 +207,12 @@ export async function POST(request: NextRequest) {
 
   if (
     servico.servicoTecnico &&
-    equipamento.tipoRecurso !== "OUTRO" &&
     equipamento.tipoRecurso !== "EQUIPAMENTO_APOIO"
   ) {
     return NextResponse.json(
       {
         message:
-          "Servicos tecnicos devem usar um recurso tecnico cadastrado como OUTRO ou EQUIPAMENTO_APOIO."
+          "Servicos tecnicos devem usar um recurso tecnico cadastrado como EQUIPAMENTO_APOIO."
       },
       { status: 400 }
     );

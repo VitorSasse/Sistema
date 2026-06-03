@@ -229,6 +229,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (error.message === "EQUIPAMENTO_NAO_OPERACIONAL") {
+        return NextResponse.json(
+          { message: "Recursos de apoio tecnico nao podem ser usados na agenda operacional." },
+          { status: 400 }
+        );
+      }
+
       if (error.message === "OBRA_INVALIDA") {
         return NextResponse.json(
           { message: "Selecione uma obra ativa e valida para programacao." },

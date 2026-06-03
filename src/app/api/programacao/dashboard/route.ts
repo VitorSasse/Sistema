@@ -292,7 +292,10 @@ export async function GET(request: NextRequest) {
     }),
     prisma.equipamento.findMany({
       where: {
-        status: "ATIVO"
+        status: "ATIVO",
+        tipoRecurso: {
+          in: ["CAMINHAO", "MAQUINA", "CARRETA"]
+        }
       },
       select: {
         id: true,
