@@ -291,7 +291,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               }
             });
 
-      if (fichaAtualizada.id === existing.fichaId) {
+      const quantidadeLancamentosNaFicha = await tx.lancamentoDiario.count({
+        where: {
+          fichaId: fichaAtualizada.id,
+          deletedAt: null
+        }
+      });
+
+      if (fichaAtualizada.id === existing.fichaId && quantidadeLancamentosNaFicha <= 1) {
         await substituirRomaneiosDaFicha(tx, fichaAtualizada.id, parsed.data.romaneios);
       } else {
         await adicionarRomaneiosNaFichaSeAusentes(tx, fichaAtualizada.id, parsed.data.romaneios);
