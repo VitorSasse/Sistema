@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     columnGap: 12
   },
   filterItem: {
-    width: "31%"
+    width: "47%"
   },
   filterLabel: {
     fontSize: 7.5,
@@ -143,10 +143,10 @@ const styles = StyleSheet.create({
     width: "20%"
   },
   romaneioColFicha: {
-    width: "18%"
+    width: "16%"
   },
   romaneioColLancamento: {
-    width: "32%"
+    width: "34%"
   },
   romaneioColNumero: {
     width: "30%"
@@ -249,10 +249,17 @@ export function RomaneiosRelatorioPdfDocument(props: RomaneiosRelatorioPdfProps)
     (acc, lancamento) => acc + lancamento.romaneios.length,
     0
   );
+  const resumoPorCarga = Array.from(
+    props.lancamentos.reduce((acc, lancamento) => {
+      const label = lancamento.materialNome?.trim() || lancamento.servicoNome;
+      acc.set(label, (acc.get(label) ?? 0) + lancamento.romaneios.length);
+      return acc;
+    }, new Map<string, number>())
+  ).sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
 
   return (
     <Document>
-      <Page size="A4" orientation="landscape" style={styles.page}>
+      <Page size="A4" orientation="portrait" style={styles.page}>
         <View style={styles.header}>
           <View style={styles.headerBrand}>
             {props.logoPath ? <Image style={styles.logo} src={props.logoPath} /> : null}
@@ -354,21 +361,12 @@ export function RomaneiosRelatorioPdfDocument(props: RomaneiosRelatorioPdfProps)
             <Text style={styles.summaryValue}>{totalRomaneios}</Text>
           </View>
 
-          {fichas.map((ficha) => {
-            const totalRomaneiosDaFicha = ficha.lancamentos.reduce(
-              (acc, lancamento) => acc + lancamento.romaneios.length,
-              0
-            );
-
-            return (
-              <View key={`resumo-${ficha.fichaKey}`} style={styles.summaryRow} wrap={false}>
-                <Text style={styles.summaryLabel}>
-                  Ficha {ficha.fichaNumero} - {ficha.clienteNome}
-                </Text>
-                <Text style={styles.summaryValue}>{totalRomaneiosDaFicha} romaneio(s)</Text>
-              </View>
-            );
-          })}
+          {resumoPorCarga.map(([carga, total]) => (
+            <View key={`resumo-carga-${carga}`} style={styles.summaryRow} wrap={false}>
+              <Text style={styles.summaryLabel}>{carga}</Text>
+              <Text style={styles.summaryValue}>{total} romaneio(s)</Text>
+            </View>
+          ))}
         </View>
 
         <View style={styles.footer}>
