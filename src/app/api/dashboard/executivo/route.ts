@@ -938,7 +938,7 @@ export async function GET(request: NextRequest) {
             aggregate.externalHours += segment.hours;
           }
 
-          if (meta.group !== "PRODUTIVO") {
+          if (meta.group !== "PRODUTIVO" && !segment.inferred) {
             const bucket = lossBucketMap.get(meta.key) ?? {
               key: meta.key,
               label: meta.label,
@@ -1161,12 +1161,18 @@ export async function GET(request: NextRequest) {
       return a.placaOuTag.localeCompare(b.placaOuTag);
     });
 
+  const totalLossHours = Number(
+    Array.from(lossBucketMap.values())
+      .reduce((acc, item) => acc + item.hours, 0)
+      .toFixed(2)
+  );
+
   const losses = Array.from(lossBucketMap.values())
     .map((item) => ({
       ...item,
       hours: Number(item.hours.toFixed(2)),
       percent:
-        totalCalendarHours > 0 ? Number(((item.hours / totalCalendarHours) * 100).toFixed(2)) : 0
+        totalLossHours > 0 ? Number(((item.hours / totalLossHours) * 100).toFixed(2)) : 0
     }))
     .sort((a, b) => b.hours - a.hours);
 
@@ -1343,7 +1349,7 @@ export async function GET(request: NextRequest) {
       ranking: mechanicalRanking
     },
     losses: {
-      totalHours: Number(losses.reduce((acc, item) => acc + item.hours, 0).toFixed(2)),
+      totalHours: totalLossHours,
       buckets: losses
     },
     financial: {
