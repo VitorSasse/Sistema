@@ -2,52 +2,34 @@ import { Prisma } from "@prisma/client";
 
 type PrismaTx = Prisma.TransactionClient;
 
-export async function substituirRomaneiosDaFicha(
+export async function substituirRomaneiosDoLancamento(
   tx: PrismaTx,
-  fichaId: string,
+  lancamentoId: string,
   numeros: string[]
 ) {
-  await tx.fichaRomaneio.deleteMany({
-    where: { fichaId }
+  await tx.lancamentoRomaneio.deleteMany({
+    where: { lancamentoId }
   });
 
   if (numeros.length === 0) {
     return;
   }
 
-  await tx.fichaRomaneio.createMany({
+  await tx.lancamentoRomaneio.createMany({
     data: numeros.map((numero) => ({
-      fichaId,
+      lancamentoId,
       numero
     }))
   });
 }
 
-export async function adicionarRomaneiosNaFichaSeAusentes(
+export async function listarRomaneiosLegadosDaFicha(
   tx: PrismaTx,
-  fichaId: string,
-  numeros: string[]
+  fichaId: string
 ) {
-  if (numeros.length === 0) {
-    return;
-  }
-
-  const existentes = await tx.fichaRomaneio.findMany({
-    where: { fichaId },
+  return tx.fichaRomaneio.findMany({
+    where: { fichaId, deletedAt: null },
+    orderBy: { numero: "asc" },
     select: { numero: true }
-  });
-
-  const usados = new Set(existentes.map((item) => item.numero));
-  const novos = numeros.filter((numero) => !usados.has(numero));
-
-  if (novos.length === 0) {
-    return;
-  }
-
-  await tx.fichaRomaneio.createMany({
-    data: novos.map((numero) => ({
-      fichaId,
-      numero
-    }))
   });
 }

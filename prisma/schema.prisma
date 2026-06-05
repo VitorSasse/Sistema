@@ -507,6 +507,7 @@ model LancamentoDiario {
   atualizadoPor      Usuario?         @relation("LancamentoAtualizadoPor", fields: [atualizadoPorId], references: [id])
   medicaoItens       MedicaoItem[]
   leituraEquipamento LeituraEquipamento?
+  romaneios          LancamentoRomaneio[]
 
   @@index([data, clienteId, obraId])
   @@index([fichaId])
@@ -514,6 +515,18 @@ model LancamentoDiario {
   @@index([colaboradorId, data])
   @@index([statusValidacao, data])
   @@index([clienteId, obraId, deletedAt, statusValidacao, data])
+}
+
+model LancamentoRomaneio {
+  id           String           @id @default(uuid())
+  lancamentoId String
+  numero       String
+  createdAt    DateTime         @default(now())
+  deletedAt    DateTime?
+  lancamento   LancamentoDiario @relation(fields: [lancamentoId], references: [id], onDelete: Cascade)
+
+  @@unique([lancamentoId, numero])
+  @@index([lancamentoId, deletedAt, numero])
 }
 
 model LeituraEquipamento {

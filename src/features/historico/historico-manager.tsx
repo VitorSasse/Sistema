@@ -36,7 +36,8 @@ type Lancamento = {
   unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
   statusValidacao: "VALIDO" | "NAO_MEDIDO" | "PENDENTE_OBRA" | "PENDENTE_PRECO" | "DIVERGENTE" | "MEDIDO" | "CANCELADO";
   observacao: string | null;
-  ficha: { numero: string; observacao?: string | null; romaneios: Array<{ numero: string }> };
+  romaneios: Array<{ numero: string }>;
+  ficha: { numero: string; observacao?: string | null };
   cliente: { nome: string };
   obra: { nome: string } | null;
   servico: { tipoServico: string };
@@ -240,7 +241,7 @@ export function HistoricoManager() {
       data: item.data.slice(0, 10),
       fichaNumero: item.ficha.numero,
       fichaObservacao: item.ficha.observacao ?? "",
-      romaneios: romaneiosToTextarea(item.ficha.romaneios),
+      romaneios: romaneiosToTextarea(item.romaneios),
       clienteId: item.clienteId ?? cliente?.id ?? "",
       obraId: item.obraId ?? obra?.id ?? "",
       servicoId: item.servicoId ?? servico?.id ?? "",

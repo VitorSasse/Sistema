@@ -12,8 +12,7 @@ import {
   sincronizarLeituraPorLancamento
 } from "@/server/services/frota/leitura-sync";
 import {
-  adicionarRomaneiosNaFichaSeAusentes,
-  substituirRomaneiosDaFicha
+  substituirRomaneiosDoLancamento
 } from "@/server/services/lancamentos/romaneios";
 import { obterOuCriarRecursoTecnicoPadrao } from "@/server/services/lancamentos/recurso-tecnico";
 
@@ -291,19 +290,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               }
             });
 
-      const quantidadeLancamentosNaFicha = await tx.lancamentoDiario.count({
-        where: {
-          fichaId: fichaAtualizada.id,
-          deletedAt: null
-        }
-      });
-
-      if (fichaAtualizada.id === existing.fichaId && quantidadeLancamentosNaFicha <= 1) {
-        await substituirRomaneiosDaFicha(tx, fichaAtualizada.id, parsed.data.romaneios);
-      } else {
-        await adicionarRomaneiosNaFichaSeAusentes(tx, fichaAtualizada.id, parsed.data.romaneios);
-      }
-
       const possuiMedicaoAtiva = await tx.medicaoItem.count({
         where: {
           lancamentoId: id,
@@ -343,6 +329,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           atualizadoPorId: session.user.id
         },
         include: {
+          romaneios: true,
           ficha: true,
           cliente: true,
           obra: true,
@@ -352,6 +339,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           colaborador: true
         }
       });
+
+      await substituirRomaneiosDoLancamento(tx, id, parsed.data.romaneios);
 
       const medicaoItensAtivos = await tx.medicaoItem.findMany({
         where: {

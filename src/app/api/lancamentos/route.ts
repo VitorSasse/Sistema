@@ -6,7 +6,7 @@ import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { parseRomaneiosInput } from "@/lib/utils/romaneios";
 import { lancamentoSchema } from "@/lib/validators/lancamento";
 import { sincronizarLeituraPorLancamento } from "@/server/services/frota/leitura-sync";
-import { adicionarRomaneiosNaFichaSeAusentes } from "@/server/services/lancamentos/romaneios";
+import { substituirRomaneiosDoLancamento } from "@/server/services/lancamentos/romaneios";
 import { obterOuCriarRecursoTecnicoPadrao } from "@/server/services/lancamentos/recurso-tecnico";
 
 function normalizeDate(value: string) {
@@ -105,12 +105,22 @@ export async function GET(request: NextRequest) {
       deletedAt: includeDeleted || status === StatusLancamento.CANCELADO ? undefined : null
     },
     include: {
+      romaneios: {
+        where: { deletedAt: null },
+        orderBy: { numero: "asc" },
+        select: { numero: true }
+      },
       ficha: {
         include: {
           romaneios: {
             where: { deletedAt: null },
             orderBy: { numero: "asc" },
             select: { numero: true }
+          },
+          _count: {
+            select: {
+              lancamentos: true
+            }
           }
         }
       },
@@ -124,7 +134,17 @@ export async function GET(request: NextRequest) {
     orderBy: [{ data: "desc" }, { createdAt: "desc" }]
   });
 
-  return NextResponse.json({ items });
+  const normalizedItems = items.map((item) => ({
+    ...item,
+    romaneios:
+      item.romaneios.length > 0
+        ? item.romaneios
+        : item.ficha._count.lancamentos <= 1
+          ? item.ficha.romaneios
+          : []
+  }));
+
+  return NextResponse.json({ items: normalizedItems });
 }
 
 export async function POST(request: NextRequest) {
@@ -312,8 +332,6 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      await adicionarRomaneiosNaFichaSeAusentes(tx, ficha.id, parsed.data.romaneios);
-
       const statusValidacao = parsed.data.obraId
         ? StatusLancamento.NAO_MEDIDO
         : StatusLancamento.PENDENTE_OBRA;
@@ -339,6 +357,7 @@ export async function POST(request: NextRequest) {
           criadoPorId: session.user.id
         },
         include: {
+          romaneios: true,
           ficha: true,
           cliente: true,
           obra: true,
@@ -347,7 +366,9 @@ export async function POST(request: NextRequest) {
           equipamento: true,
           colaborador: true
         }
-      });
+        });
+
+      await substituirRomaneiosDoLancamento(tx, lancamento.id, parsed.data.romaneios);
 
       if (!servico.servicoTecnico) {
         await sincronizarLeituraPorLancamento(tx, {

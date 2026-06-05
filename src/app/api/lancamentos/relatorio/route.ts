@@ -99,12 +99,22 @@ export async function GET(request: NextRequest) {
       deletedAt: includeDeleted || status === StatusLancamento.CANCELADO ? undefined : null
     },
     include: {
+      romaneios: {
+        where: { deletedAt: null },
+        orderBy: { numero: "asc" },
+        select: { numero: true }
+      },
       ficha: {
         include: {
           romaneios: {
             where: { deletedAt: null },
             orderBy: { numero: "asc" },
             select: { numero: true }
+          },
+          _count: {
+            select: {
+              lancamentos: true
+            }
           }
         }
       },
@@ -157,6 +167,16 @@ export async function GET(request: NextRequest) {
     { label: "Status", value: status || "Todos" }
   ];
 
+  const normalizedItems = items.map((item) => ({
+    ...item,
+    romaneiosResolvidos:
+      item.romaneios.length > 0
+        ? item.romaneios.map((romaneio) => romaneio.numero)
+        : item.ficha._count.lancamentos <= 1
+          ? item.ficha.romaneios.map((romaneio) => romaneio.numero)
+          : []
+  }));
+
   const buffer =
     modo === "romaneios"
       ? await renderToBuffer(
@@ -165,37 +185,17 @@ export async function GET(request: NextRequest) {
             filtros,
             emitidoEm: new Date(),
             logoPath: resolveReportLogoSource(),
-            fichas: Array.from(
-              items.reduce(
-                (acc, item) => {
-                  if (acc.has(item.fichaId)) {
-                    return acc;
-                  }
-
-                  acc.set(item.fichaId, {
-                    fichaId: item.fichaId,
-                    data: item.data,
-                    fichaNumero: item.ficha.numero,
-                    clienteNome: item.cliente.nome,
-                    obraNome: item.obra?.nome ?? null,
-                    romaneios: item.ficha.romaneios.map((romaneio) => romaneio.numero)
-                  });
-
-                  return acc;
-                },
-                new Map<
-                  string,
-                  {
-                    fichaId: string;
-                    data: Date;
-                    fichaNumero: string;
-                    clienteNome: string;
-                    obraNome: string | null;
-                    romaneios: string[];
-                  }
-                >()
-              )
-            ).map(([, value]) => value)
+            lancamentos: normalizedItems.map((item) => ({
+              lancamentoId: item.id,
+              fichaKey: `${item.fichaId}:${item.clienteId}:${item.obraId ?? "sem-obra"}`,
+              data: item.data,
+              fichaNumero: item.ficha.numero,
+              clienteNome: item.cliente.nome,
+              obraNome: item.obra?.nome ?? null,
+              servicoNome: item.servico.tipoServico,
+              materialNome: item.material?.descricao ?? null,
+              romaneios: item.romaneiosResolvidos
+            }))
           })
         )
       : await renderToBuffer(
@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
             filtros,
             emitidoEm: new Date(),
             logoPath: resolveReportLogoSource(),
-            itens: items.map((item) => ({
+            itens: normalizedItems.map((item) => ({
               id: item.id,
               data: item.data,
               fichaNumero: item.ficha.numero,

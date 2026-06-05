@@ -5,19 +5,22 @@ type RelatorioFiltro = {
   value: string;
 };
 
-type FichaRomaneioGroup = {
-  fichaId: string;
+type LancamentoRomaneioGroup = {
+  lancamentoId: string;
+  fichaKey: string;
   data: Date;
   fichaNumero: string;
   clienteNome: string;
   obraNome: string | null;
+  servicoNome: string;
+  materialNome: string | null;
   romaneios: string[];
 };
 
 type RomaneiosRelatorioPdfProps = {
   titulo: string;
   filtros: RelatorioFiltro[];
-  fichas: FichaRomaneioGroup[];
+  lancamentos: LancamentoRomaneioGroup[];
   emitidoEm: Date;
   logoPath?: string | null;
 };
@@ -116,27 +119,45 @@ const styles = StyleSheet.create({
     color: "#6e6457",
     marginBottom: 6
   },
+  lancamentoBlock: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "#ece5d9",
+    borderRadius: 8,
+    overflow: "hidden"
+  },
+  lancamentoHeader: {
+    backgroundColor: "#fffaf0",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    fontSize: 8.5
+  },
   romaneioRow: {
     flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1ebdf",
-    paddingVertical: 3
+    borderTopWidth: 1,
+    borderTopColor: "#f1ebdf",
+    paddingVertical: 3,
+    paddingHorizontal: 8
   },
   romaneioColData: {
     width: "20%"
   },
   romaneioColFicha: {
-    width: "20%"
+    width: "18%"
+  },
+  romaneioColLancamento: {
+    width: "32%"
   },
   romaneioColNumero: {
-    width: "60%"
+    width: "30%"
   },
   compactHeader: {
     flexDirection: "row",
     backgroundColor: "#fffaf0",
-    borderBottomWidth: 1,
-    borderBottomColor: "#ece5d9",
-    paddingVertical: 4
+    borderTopWidth: 1,
+    borderTopColor: "#ece5d9",
+    paddingVertical: 4,
+    paddingHorizontal: 8
   },
   totalFicha: {
     marginTop: 6,
@@ -144,7 +165,8 @@ const styles = StyleSheet.create({
     color: "#6e6457"
   },
   emptyState: {
-    paddingVertical: 3,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     color: "#6e6457"
   },
   summarySection: {
@@ -187,19 +209,46 @@ function formatDate(value: Date) {
 }
 
 export function RomaneiosRelatorioPdfDocument(props: RomaneiosRelatorioPdfProps) {
+  const fichas = Array.from(
+    props.lancamentos.reduce((acc, lancamento) => {
+      const current = acc.get(lancamento.fichaKey) ?? {
+        fichaKey: lancamento.fichaKey,
+        data: lancamento.data,
+        fichaNumero: lancamento.fichaNumero,
+        clienteNome: lancamento.clienteNome,
+        obraNome: lancamento.obraNome,
+        lancamentos: [] as LancamentoRomaneioGroup[]
+      };
+
+      current.lancamentos.push(lancamento);
+      acc.set(lancamento.fichaKey, current);
+      return acc;
+    }, new Map<string, {
+      fichaKey: string;
+      data: Date;
+      fichaNumero: string;
+      clienteNome: string;
+      obraNome: string | null;
+      lancamentos: LancamentoRomaneioGroup[];
+    }>())
+  ).map(([, value]) => value);
+
   const gruposPorData = Array.from(
-    props.fichas.reduce((acc, ficha) => {
+    fichas.reduce((acc, ficha) => {
       const key = formatDate(ficha.data);
       const current = acc.get(key) ?? [];
       current.push(ficha);
       acc.set(key, current);
       return acc;
-    }, new Map<string, FichaRomaneioGroup[]>())
+    }, new Map<string, typeof fichas>())
   );
 
   const totalDias = gruposPorData.length;
-  const totalFichas = props.fichas.length;
-  const totalRomaneios = props.fichas.reduce((acc, ficha) => acc + ficha.romaneios.length, 0);
+  const totalFichas = fichas.length;
+  const totalRomaneios = props.lancamentos.reduce(
+    (acc, lancamento) => acc + lancamento.romaneios.length,
+    0
+  );
 
   return (
     <Document>
@@ -231,41 +280,62 @@ export function RomaneiosRelatorioPdfDocument(props: RomaneiosRelatorioPdfProps)
           <Text>Emitido em: {formatDate(props.emitidoEm)}</Text>
         </View>
 
-        {gruposPorData.map(([dataLabel, fichas]) => (
-          <View key={dataLabel} style={styles.dateSection} wrap={false}>
+        {gruposPorData.map(([dataLabel, fichasDoDia]) => (
+          <View key={dataLabel} style={styles.dateSection}>
             <Text style={styles.dateHeading}>DATA: {dataLabel}</Text>
 
-            {fichas.map((ficha) => (
-              <View key={ficha.fichaId} style={styles.fichaBlock}>
-                <Text style={styles.fichaHeading}>FICHA: {ficha.fichaNumero}</Text>
-                <Text style={styles.fichaMeta}>
-                  Cliente: {ficha.clienteNome}
-                  {ficha.obraNome ? ` | Obra: ${ficha.obraNome}` : ""}
-                </Text>
+            {fichasDoDia.map((ficha) => {
+              const totalRomaneiosDaFicha = ficha.lancamentos.reduce(
+                (acc, lancamento) => acc + lancamento.romaneios.length,
+                0
+              );
 
-                <View style={styles.compactHeader}>
-                  <Text style={styles.romaneioColData}>Data</Text>
-                  <Text style={styles.romaneioColFicha}>Ficha</Text>
-                  <Text style={styles.romaneioColNumero}>Romaneio</Text>
+              return (
+                <View key={ficha.fichaKey} style={styles.fichaBlock}>
+                  <Text style={styles.fichaHeading}>FICHA: {ficha.fichaNumero}</Text>
+                  <Text style={styles.fichaMeta}>
+                    Cliente: {ficha.clienteNome}
+                    {ficha.obraNome ? ` | Obra: ${ficha.obraNome}` : ""}
+                  </Text>
+
+                  <View style={styles.compactHeader}>
+                    <Text style={styles.romaneioColData}>Data</Text>
+                    <Text style={styles.romaneioColFicha}>Ficha</Text>
+                    <Text style={styles.romaneioColLancamento}>Lancamento</Text>
+                    <Text style={styles.romaneioColNumero}>Romaneio</Text>
+                  </View>
+
+                  {ficha.lancamentos.map((lancamento) => {
+                    const lancamentoLabel = lancamento.materialNome
+                      ? `${lancamento.servicoNome} / ${lancamento.materialNome}`
+                      : lancamento.servicoNome;
+
+                    return (
+                      <View key={lancamento.lancamentoId} style={styles.lancamentoBlock} wrap={false}>
+                        <Text style={styles.lancamentoHeader}>{lancamentoLabel}</Text>
+
+                        {lancamento.romaneios.length > 0 ? (
+                          lancamento.romaneios.map((romaneio) => (
+                            <View key={`${lancamento.lancamentoId}-${romaneio}`} style={styles.romaneioRow}>
+                              <Text style={styles.romaneioColData}>{dataLabel}</Text>
+                              <Text style={styles.romaneioColFicha}>{ficha.fichaNumero}</Text>
+                              <Text style={styles.romaneioColLancamento}>{lancamentoLabel}</Text>
+                              <Text style={styles.romaneioColNumero}>{romaneio}</Text>
+                            </View>
+                          ))
+                        ) : (
+                          <Text style={styles.emptyState}>Sem romaneio informado neste lancamento.</Text>
+                        )}
+                      </View>
+                    );
+                  })}
+
+                  <Text style={styles.totalFicha}>
+                    Total de Romaneios da Ficha: {totalRomaneiosDaFicha}
+                  </Text>
                 </View>
-
-                {ficha.romaneios.length > 0 ? (
-                  ficha.romaneios.map((romaneio) => (
-                    <View key={`${ficha.fichaId}-${romaneio}`} style={styles.romaneioRow}>
-                      <Text style={styles.romaneioColData}>{dataLabel}</Text>
-                      <Text style={styles.romaneioColFicha}>{ficha.fichaNumero}</Text>
-                      <Text style={styles.romaneioColNumero}>{romaneio}</Text>
-                    </View>
-                  ))
-                ) : (
-                  <Text style={styles.emptyState}>Sem romaneio informado nesta ficha.</Text>
-                )}
-
-                <Text style={styles.totalFicha}>
-                  Total de Romaneios da Ficha: {ficha.romaneios.length}
-                </Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         ))}
 
@@ -284,14 +354,21 @@ export function RomaneiosRelatorioPdfDocument(props: RomaneiosRelatorioPdfProps)
             <Text style={styles.summaryValue}>{totalRomaneios}</Text>
           </View>
 
-          {props.fichas.map((ficha) => (
-            <View key={`resumo-${ficha.fichaId}`} style={styles.summaryRow} wrap={false}>
-              <Text style={styles.summaryLabel}>
-                Ficha {ficha.fichaNumero} - {ficha.clienteNome}
-              </Text>
-              <Text style={styles.summaryValue}>{ficha.romaneios.length} romaneio(s)</Text>
-            </View>
-          ))}
+          {fichas.map((ficha) => {
+            const totalRomaneiosDaFicha = ficha.lancamentos.reduce(
+              (acc, lancamento) => acc + lancamento.romaneios.length,
+              0
+            );
+
+            return (
+              <View key={`resumo-${ficha.fichaKey}`} style={styles.summaryRow} wrap={false}>
+                <Text style={styles.summaryLabel}>
+                  Ficha {ficha.fichaNumero} - {ficha.clienteNome}
+                </Text>
+                <Text style={styles.summaryValue}>{totalRomaneiosDaFicha} romaneio(s)</Text>
+              </View>
+            );
+          })}
         </View>
 
         <View style={styles.footer}>

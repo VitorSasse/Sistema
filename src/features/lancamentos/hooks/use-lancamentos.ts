@@ -67,7 +67,7 @@ function buildDuplicatedState(
   return {
     ...current,
     fichaNumero: lancamento.ficha.numero,
-    romaneios: romaneiosToTextarea(lancamento.ficha.romaneios),
+    romaneios: romaneiosToTextarea(lancamento.romaneios),
     clienteId: cliente?.id ?? "",
     obraId: obra?.id ?? "",
     servicoId: servico?.id ?? "",
