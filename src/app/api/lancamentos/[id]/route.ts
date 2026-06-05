@@ -11,7 +11,10 @@ import {
   removerLeituraPorCancelamento,
   sincronizarLeituraPorLancamento
 } from "@/server/services/frota/leitura-sync";
-import { substituirRomaneiosDaFicha } from "@/server/services/lancamentos/romaneios";
+import {
+  adicionarRomaneiosNaFichaSeAusentes,
+  substituirRomaneiosDaFicha
+} from "@/server/services/lancamentos/romaneios";
 import { obterOuCriarRecursoTecnicoPadrao } from "@/server/services/lancamentos/recurso-tecnico";
 
 type RouteContext = {
@@ -288,7 +291,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               }
             });
 
-      await substituirRomaneiosDaFicha(tx, fichaAtualizada.id, parsed.data.romaneios);
+      if (fichaAtualizada.id === existing.fichaId) {
+        await substituirRomaneiosDaFicha(tx, fichaAtualizada.id, parsed.data.romaneios);
+      } else {
+        await adicionarRomaneiosNaFichaSeAusentes(tx, fichaAtualizada.id, parsed.data.romaneios);
+      }
 
       const possuiMedicaoAtiva = await tx.medicaoItem.count({
         where: {
