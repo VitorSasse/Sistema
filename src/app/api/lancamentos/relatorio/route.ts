@@ -76,12 +76,31 @@ export async function GET(request: NextRequest) {
   const equipamentoId = searchParams.get("equipamentoId");
   const colaboradorId = searchParams.get("colaboradorId");
   const status = searchParams.get("status");
+  const medicaoId = searchParams.get("medicaoId");
   const includeDeleted = searchParams.get("includeDeleted") === "true";
   const modo = searchParams.get("modo");
+
+  const medicao = medicaoId
+    ? await prisma.medicao.findUnique({
+        where: { id: medicaoId },
+        select: { codigoMedicao: true }
+      })
+    : null;
 
   const items = await prisma.lancamentoDiario.findMany({
     where: {
       data: getDataFilter(searchParams),
+      medicaoItens: medicaoId
+        ? {
+            some: {
+              medicaoId,
+              deletedAt: null,
+              medicao: {
+                deletedAt: null
+              }
+            }
+          }
+        : undefined,
       clienteId: clienteId || undefined,
       obraId: obraId || undefined,
       servicoId: servicoId || undefined,
@@ -141,6 +160,7 @@ export async function GET(request: NextRequest) {
   const filtros = [
     { label: "Periodo inicial", value: searchParams.get("periodoInicial") || "Todos" },
     { label: "Periodo final", value: searchParams.get("periodoFinal") || "Todos" },
+    { label: "Medicao", value: medicao?.codigoMedicao ?? (medicaoId ? "Selecionada" : "Todas") },
     { label: "Ficha", value: fichaNumero || "Todas" },
     {
       label: "Cliente",

@@ -437,6 +437,14 @@ export function MedicoesManager() {
     }
   }
 
+  function openRomaneiosReport(medicaoId: string) {
+    window.open(
+      `/api/lancamentos/relatorio?modo=romaneios&medicaoId=${encodeURIComponent(medicaoId)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
+
   function handlePreviewSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
@@ -863,6 +871,7 @@ export function MedicoesManager() {
           onChangeNumeroNotaFiscal={setDetailNumeroNotaFiscal}
           onSaveObservacao={handleSaveObservacao}
           onOpenPdf={openPdf}
+          onOpenRomaneiosReport={openRomaneiosReport}
           onRequestDelete={handleRequestDelete}
           onClose={() => setSelectedMedicaoId(null)}
         />

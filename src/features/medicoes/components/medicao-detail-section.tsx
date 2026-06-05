@@ -92,6 +92,7 @@ export function MedicaoDetailSection(props: {
   onChangeNumeroNotaFiscal: (value: string) => void;
   onSaveObservacao: () => void;
   onOpenPdf: (id: string, tipo: "DETALHADO" | "RESUMIDO") => void;
+  onOpenRomaneiosReport: (id: string) => void;
   onRequestDelete: (detail: MedicaoDetail) => void;
   onClose: () => void;
 }) {
@@ -132,6 +133,7 @@ export function MedicaoDetailSection(props: {
     onChangeNumeroNotaFiscal,
     onSaveObservacao,
     onOpenPdf,
+    onOpenRomaneiosReport,
     onRequestDelete,
     onClose
   } = props;
@@ -214,6 +216,13 @@ export function MedicaoDetailSection(props: {
             onClick={() => onOpenPdf(detail.id, "RESUMIDO")}
           >
             PDF para cliente
+          </button>
+          <button
+            type="button"
+            className="button-ghost"
+            onClick={() => onOpenRomaneiosReport(detail.id)}
+          >
+            Relatorio de romaneios
           </button>
           <span
             title=""
