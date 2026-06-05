@@ -80,13 +80,17 @@ type EquipmentAggregate = {
   availableHours: number;
   operatedHours: number;
   controllableIdleHours: number;
+  impactControllableIdleHours: number;
   technicalHours: number;
+  impactTechnicalHours: number;
   adminHours: number;
   externalHours: number;
   preventiveHours: number;
   correctiveHours: number;
   externalMaintenanceHours: number;
   measuredValue: number;
+  measuredDays: Set<string>;
+  dailyReferenceValue: number;
   hourlyReferenceValue: number;
   estimatedLoss: number;
   productiveDays: Set<string>;
@@ -708,6 +712,7 @@ export async function GET(request: NextRequest) {
 
   const measuredValueByEquipment = new Map<string, number>();
   const measuredValueByWorksite = new Map<string, number>();
+  const measuredDaysByEquipment = new Map<string, Set<string>>();
   const medicaoItemsByMedicao = new Map<string, typeof medicaoItems>();
 
   for (const item of medicaoItems) {
@@ -746,6 +751,9 @@ export async function GET(request: NextRequest) {
         equipamentoId,
         Number((currentValue + allocatedValue).toFixed(2))
       );
+      const measuredDays = measuredDaysByEquipment.get(equipamentoId) ?? new Set<string>();
+      measuredDays.add(toDateKey(item.data));
+      measuredDaysByEquipment.set(equipamentoId, measuredDays);
 
       const obra = item.lancamento.obra ?? item.medicao.obra;
       if (obra) {
@@ -791,13 +799,17 @@ export async function GET(request: NextRequest) {
       availableHours: 0,
       operatedHours: 0,
       controllableIdleHours: 0,
+      impactControllableIdleHours: 0,
       technicalHours: 0,
+      impactTechnicalHours: 0,
       adminHours: 0,
       externalHours: 0,
       preventiveHours: 0,
       correctiveHours: 0,
       externalMaintenanceHours: 0,
       measuredValue: Number(measuredValueByEquipment.get(equipamento.id) ?? 0),
+      measuredDays: new Set(measuredDaysByEquipment.get(equipamento.id) ?? []),
+      dailyReferenceValue: 0,
       hourlyReferenceValue: 0,
       estimatedLoss: 0,
       productiveDays: new Set<string>(),
@@ -817,6 +829,7 @@ export async function GET(request: NextRequest) {
           obraId: string | null;
           obraLabel: string | null;
           maintenanceClass: MaintenanceClass | null;
+          inferred: boolean;
         }> = [];
 
         const integralCandidates = candidates.filter(
@@ -834,7 +847,8 @@ export async function GET(request: NextRequest) {
               hours: 8,
               obraId: chosen.obraId,
               obraLabel: chosen.obraLabel,
-              maintenanceClass: chosen.maintenanceClass
+              maintenanceClass: chosen.maintenanceClass,
+              inferred: false
             });
           }
         } else {
@@ -862,7 +876,8 @@ export async function GET(request: NextRequest) {
               hours: clampedHours,
               obraId: candidate.obraId,
               obraLabel: candidate.obraLabel,
-              maintenanceClass: candidate.maintenanceClass
+              maintenanceClass: candidate.maintenanceClass,
+              inferred: false
             });
 
             assignedHours += clampedHours;
@@ -874,7 +889,8 @@ export async function GET(request: NextRequest) {
               hours: 8 - assignedHours,
               obraId: null,
               obraLabel: null,
-              maintenanceClass: fallbackStatus === "MANUTENCAO" ? "corretiva" : null
+              maintenanceClass: fallbackStatus === "MANUTENCAO" ? "corretiva" : null,
+              inferred: true
             });
           }
         }
@@ -900,8 +916,14 @@ export async function GET(request: NextRequest) {
             aggregate.productiveDays.add(dayKey);
           } else if (meta.group === "CONTROLAVEL") {
             aggregate.controllableIdleHours += segment.hours;
+            if (!segment.inferred) {
+              aggregate.impactControllableIdleHours += segment.hours;
+            }
           } else if (meta.group === "TECNICO") {
             aggregate.technicalHours += segment.hours;
+            if (!segment.inferred) {
+              aggregate.impactTechnicalHours += segment.hours;
+            }
 
             if (segment.maintenanceClass === "preventiva") {
               aggregate.preventiveHours += segment.hours;
@@ -971,15 +993,20 @@ export async function GET(request: NextRequest) {
       Math.max(0, aggregate.calendarHours - aggregate.technicalHours).toFixed(2)
     );
 
+    const explicitImpactHours = Number(
+      (aggregate.impactControllableIdleHours + aggregate.impactTechnicalHours).toFixed(2)
+    );
+    const dailyReference =
+      aggregate.measuredDays.size > 0
+        ? Number((aggregate.measuredValue / aggregate.measuredDays.size).toFixed(2))
+        : Number(((averageHourlyPriceByEquipment.get(equipamento.id) ?? 0) * 8).toFixed(2));
     const hourlyReference =
-      averageHourlyPriceByEquipment.get(equipamento.id) ??
-      (aggregate.operatedHours > 0
-        ? Number((aggregate.measuredValue / aggregate.operatedHours).toFixed(2))
-        : 0);
+      dailyReference > 0 ? Number((dailyReference / 8).toFixed(2)) : 0;
 
+    aggregate.dailyReferenceValue = dailyReference;
     aggregate.hourlyReferenceValue = hourlyReference;
     aggregate.estimatedLoss = Number(
-      (((aggregate.controllableIdleHours + aggregate.technicalHours) * hourlyReference) || 0).toFixed(2)
+      (((explicitImpactHours / 8) * dailyReference) || 0).toFixed(2)
     );
 
     equipmentAggregates.set(equipamento.id, aggregate);
@@ -1149,8 +1176,13 @@ export async function GET(request: NextRequest) {
       descricao: item.descricao,
       placaOuTag: item.placaOuTag,
       tipoRecurso: item.tipoRecurso,
-      idleHours: Number((item.controllableIdleHours + item.technicalHours).toFixed(2)),
-      hourlyReferenceValue: item.hourlyReferenceValue,
+      controllableIdleHours: Number(item.impactControllableIdleHours.toFixed(2)),
+      technicalHours: Number(item.impactTechnicalHours.toFixed(2)),
+      idleHours: Number((item.impactControllableIdleHours + item.impactTechnicalHours).toFixed(2)),
+      equivalentLostDays: Number(
+        ((item.impactControllableIdleHours + item.impactTechnicalHours) / 8).toFixed(2)
+      ),
+      dailyReferenceValue: item.dailyReferenceValue,
       estimatedLoss: item.estimatedLoss
     }))
     .filter((item) => item.idleHours > 0)

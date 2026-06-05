@@ -110,8 +110,11 @@ type DashboardPayload = {
       descricao: string;
       placaOuTag: string;
       tipoRecurso: string;
+      controllableIdleHours: number;
+      technicalHours: number;
       idleHours: number;
-      hourlyReferenceValue: number;
+      equivalentLostDays: number;
+      dailyReferenceValue: number;
       estimatedLoss: number;
     }>;
   };
@@ -264,8 +267,12 @@ function FinancialTooltip({
     <div className="executive-tooltip">
       <strong>{item.placaOuTag}</strong>
       <span>{item.descricao}</span>
-      <span>Horas paradas: {formatHours(item.idleHours)}</span>
-      <span>Valor/h estimado: {formatCurrency(item.hourlyReferenceValue)}</span>
+      <span>Horas improdutivas: {formatHours(item.idleHours)}</span>
+      <span>
+        Tecnica {formatHours(item.technicalHours)} | Controlavel {formatHours(item.controllableIdleHours)}
+      </span>
+      <span>Dias equivalentes: {item.equivalentLostDays.toFixed(2).replace(".", ",")}</span>
+      <span>Valor/dia estimado: {formatCurrency(item.dailyReferenceValue)}</span>
       <span>Impacto: {formatCurrency(item.estimatedLoss)}</span>
     </div>
   );
