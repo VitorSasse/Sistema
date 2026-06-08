@@ -168,23 +168,23 @@ const utilizationBandPalette: Record<
   DashboardPayload["utilization"]["ranking"][number]["band"],
   string
 > = {
-  EXCELENTE: "#155b52",
-  BOM: "#2f6db3",
-  OCIOSO: "#a36e00"
+  EXCELENTE: "#F97316",
+  BOM: "#0F2A44",
+  OCIOSO: "#F59E0B"
 };
 const mechanicalBandPalette: Record<
   DashboardPayload["mechanical"]["ranking"][number]["band"],
   string
 > = {
-  EXCELENTE: "#155b52",
-  ATENCAO: "#a36e00",
-  CRITICO: "#b14c32"
+  EXCELENTE: "#F97316",
+  ATENCAO: "#F59E0B",
+  CRITICO: "#EF4444"
 };
 const lossPalette: Record<string, string> = {
-  CONTROLAVEL: "#f0b544",
+  CONTROLAVEL: "#F97316",
   TECNICO: "#ef4444",
-  ADMINISTRATIVO: "#a78bfa",
-  EXTERNO: "#38bdf8",
+  ADMINISTRATIVO: "#0F2A44",
+  EXTERNO: "#2F6EA8",
   PRODUTIVO: "#36d399"
 };
 

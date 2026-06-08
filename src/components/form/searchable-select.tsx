@@ -162,9 +162,10 @@ export function SearchableSelect(props: {
             right: 0,
             maxHeight: 220,
             overflowY: "auto",
-            border: "1px solid rgba(44, 72, 90, 0.16)",
+            border: "1px solid var(--line-strong)",
             borderRadius: 14,
-            boxShadow: "0 18px 40px rgba(18, 28, 45, 0.12)"
+            boxShadow: "var(--shadow-md)",
+            background: "var(--surface)"
           }}
         >
           {filteredOptions.length > 0 ? (
@@ -185,17 +186,17 @@ export function SearchableSelect(props: {
                   border: "none",
                   background:
                     option.value === value || highlightedIndex === index
-                      ? "rgba(19, 94, 85, 0.08)"
+                      ? "rgba(249, 115, 22, 0.16)"
                       : "transparent",
                   cursor: "pointer",
-                  color: "#1f2f2c"
+                  color: "var(--text)"
                 }}
               >
                 {option.label}
               </button>
             ))
           ) : (
-            <div style={{ padding: "10px 12px", color: "#6e6457" }}>{emptyLabel}</div>
+            <div style={{ padding: "10px 12px", color: "var(--muted)" }}>{emptyLabel}</div>
           )}
         </div>
       ) : null}

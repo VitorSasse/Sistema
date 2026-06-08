@@ -150,10 +150,10 @@ export function SearchableMultiSelect(props: {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 6,
-                  border: "1px solid rgba(19, 94, 85, 0.16)",
+                  border: "1px solid rgba(249, 115, 22, 0.28)",
                   borderRadius: 999,
-                  background: "rgba(19, 94, 85, 0.08)",
-                  color: "#135e55",
+                  background: "rgba(249, 115, 22, 0.14)",
+                  color: "var(--primary)",
                   padding: "5px 10px",
                   cursor: disabled ? "default" : "pointer",
                   fontSize: 12,
@@ -202,9 +202,9 @@ export function SearchableMultiSelect(props: {
             right: 0,
             maxHeight: 260,
             overflowY: "auto",
-            border: "1px solid rgba(44, 72, 90, 0.16)",
+            border: "1px solid var(--line-strong)",
             borderRadius: 14,
-            boxShadow: "0 18px 40px rgba(18, 28, 45, 0.12)",
+            boxShadow: "var(--shadow-md)",
             background: "var(--surface)"
           }}
         >
@@ -232,9 +232,9 @@ export function SearchableMultiSelect(props: {
                       padding: "10px 12px",
                       border: "none",
                       background:
-                        highlightedIndex === index ? "rgba(19, 94, 85, 0.08)" : "transparent",
+                        highlightedIndex === index ? "rgba(249, 115, 22, 0.16)" : "transparent",
                       cursor: "pointer",
-                      color: "#1f2f2c"
+                      color: "var(--text)"
                     }}
                   >
                     <span
@@ -243,12 +243,12 @@ export function SearchableMultiSelect(props: {
                         width: 16,
                         height: 16,
                         borderRadius: 4,
-                        border: "1px solid rgba(44, 72, 90, 0.2)",
-                        background: selected ? "rgba(19, 94, 85, 0.18)" : "transparent",
+                        border: "1px solid var(--line-strong)",
+                        background: selected ? "rgba(249, 115, 22, 0.18)" : "transparent",
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        color: "#135e55",
+                        color: "var(--primary)",
                         fontSize: 11,
                         fontWeight: 800
                       }}
@@ -259,34 +259,9 @@ export function SearchableMultiSelect(props: {
                   </button>
                 );
               })}
-              {values.length > 0 ? (
-                <div
-                  style={{
-                    padding: "8px 12px",
-                    borderTop: "1px solid rgba(44, 72, 90, 0.08)",
-                    display: "flex",
-                    justifyContent: "flex-end"
-                  }}
-                >
-                  <button
-                    type="button"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => onChange([])}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      color: "#135e55",
-                      fontWeight: 700,
-                      cursor: "pointer"
-                    }}
-                  >
-                    Limpar filtro
-                  </button>
-                </div>
-              ) : null}
             </>
           ) : (
-            <div style={{ padding: "10px 12px", color: "#6e6457" }}>{emptyLabel}</div>
+            <div style={{ padding: "10px 12px", color: "var(--muted)" }}>{emptyLabel}</div>
           )}
         </div>
       ) : null}

@@ -54,14 +54,14 @@ const periodOptions: Array<{ value: PeriodPreset; label: string }> = [
 ];
 
 const chartPalette = [
-  "#155b52",
-  "#1a7468",
-  "#258c7e",
-  "#35a58f",
-  "#50bba0",
-  "#78cdb3",
-  "#9fdcc9",
-  "#c1ebe0"
+  "#F97316",
+  "#FB923C",
+  "#FDBA74",
+  "#0F2A44",
+  "#173F68",
+  "#25598A",
+  "#2F6EA8",
+  "#8FB0D5"
 ];
 
 function formatPercent(value: number) {

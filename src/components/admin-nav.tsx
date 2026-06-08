@@ -61,7 +61,7 @@ export function AdminNav({ groups }: AdminNavProps) {
           >
             <span className="admin-nav-group-trigger-label">{group.label}</span>
             <span className={`admin-nav-group-trigger-icon${openGroups[group.label] ? " is-open" : ""}`}>
-              ‹
+              &lsaquo;
             </span>
           </button>
 

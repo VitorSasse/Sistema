@@ -16,13 +16,20 @@ export function SimpleTable<T extends Record<string, unknown>>({
   data
 }: SimpleTableProps<T>) {
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", background: "#fffdf8" }}>
+    <table
+      style={{
+        width: "100%",
+        borderCollapse: "collapse",
+        background: "var(--surface)",
+        color: "var(--text)"
+      }}
+    >
       <thead>
         <tr>
           {columns.map((column) => (
             <th
               key={String(column.key)}
-              style={{ textAlign: "left", padding: 12, borderBottom: "1px solid #d7cfbf" }}
+              style={{ textAlign: "left", padding: 12, borderBottom: "1px solid var(--line-strong)" }}
             >
               {column.header}
             </th>
@@ -35,7 +42,7 @@ export function SimpleTable<T extends Record<string, unknown>>({
             {columns.map((column) => (
               <td
                 key={String(column.key)}
-                style={{ padding: 12, borderBottom: "1px solid #ece5d9" }}
+                style={{ padding: 12, borderBottom: "1px solid var(--line)" }}
               >
                 {column.render ? column.render(row[column.key], row) : String(row[column.key] ?? "")}
               </td>

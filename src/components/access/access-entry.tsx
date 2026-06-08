@@ -1,19 +1,19 @@
-import Image from "next/image";
 import Link from "next/link";
 import { LoginForm } from "@/app/(auth)/login/login-form";
+import { BaseproLogo } from "@/components/branding/basepro-logo";
 
 const highlights = [
   {
-    title: "LANCAMENTOS",
-    copy: "Fichas, apontamentos e recursos em um fluxo centralizado para o escritorio."
+    title: "OPERACAO",
+    copy: "Fichas de bordo, agenda de servicos e producao em uma unica torre de controle."
   },
   {
-    title: "CONFERENCIA",
-    copy: "Historico filtravel, rastreabilidade e leitura rapida para validar o dia."
+    title: "MANUTENCAO",
+    copy: "Controle de equipamentos, alertas e preventivas sem perder janela operacional."
   },
   {
-    title: "MEDICAO",
-    copy: "Fechamento com PDF, status, anexos e controle pronto para seguir operando."
+    title: "FATURAMENTO",
+    copy: "Medicoes, financeiro e relatorios para transformar producao em lucro real."
   }
 ];
 
@@ -26,18 +26,17 @@ export function AccessEntry({ mode = "home" }: AccessEntryProps) {
     <main className="access-shell">
       <section className="access-showcase fade-up">
         <div className="access-showcase-topline">
-          <span className="access-chip">Sistema interno</span>
-          <span className="access-kicker">Terraplenagem e medicao</span>
+          <span className="access-chip">BASEPRO</span>
+          <span className="access-kicker">Sistema completo para terraplenagem</span>
         </div>
 
         <div className="access-copy">
           <h1>
-            Entre no ambiente que concentra <span>lancamentos</span>, <span>historico</span> e{" "}
-            <span>medicoes</span>.
+            Controle total da sua operacao de <span>terraplenagem</span>, da <span>frente de servico</span>{" "}
+            ao <span>faturamento</span>.
           </h1>
           <p>
-            Uma entrada mais direta para a equipe do escritorio: menos vitrine, mais acesso rapido ao sistema
-            que organiza a operacao real do dia a dia.
+            Sua operacao pesada, agora sob controle. Gestao completa para quem nao pode parar.
           </p>
         </div>
 
@@ -51,27 +50,20 @@ export function AccessEntry({ mode = "home" }: AccessEntryProps) {
         </div>
 
         <div className="access-footer-note">
-          <strong>Acesso controlado</strong>
-          <span>Somente usuarios cadastrados e ativos conseguem entrar no sistema operacional.</span>
+          <strong>Produtividade com comando central</strong>
+          <span>Pare de perder dinheiro por falta de controle. Informacao certa. Decisao inteligente.</span>
         </div>
       </section>
 
       <section className="access-auth-panel fade-up fade-up-delay-1">
         <div className="access-brand">
-          <Image
-            src="/assets/logo-jtbjmx.png"
-            alt="JTB JMX Terraplenagem"
-            width={360}
-            height={120}
-            className="access-brand-image"
-            priority
-          />
+          <BaseproLogo theme="light" />
         </div>
 
         <div className="access-auth-copy">
           <h2>{mode === "home" ? "Acesso ao sistema" : "Login administrativo"}</h2>
           <p>
-            Entre com sua conta para acessar a base operacional, os lancamentos, a conferencia e o fechamento.
+            Entre com sua conta para acessar operacao, manutencao, medicoes, RH e financeiro na mesma base.
           </p>
         </div>
 
@@ -83,8 +75,7 @@ export function AccessEntry({ mode = "home" }: AccessEntryProps) {
               Ir para o login
             </Link>
             <p className="subtle access-home-subtle">
-              O acesso ao sistema acontece pela tela dedicada de login para evitar erros de sessao na entrada
-              inicial.
+              Controle total da sua operacao de terraplenagem.
             </p>
           </div>
         )}

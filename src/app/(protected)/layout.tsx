@@ -2,46 +2,54 @@ import type { Route } from "next";
 import { ReactNode } from "react";
 import { logout } from "./actions";
 import { AdminNav } from "@/components/admin-nav";
+import { BaseproLogo } from "@/components/branding/basepro-logo";
 import { hasRoleAccess, requireSession } from "@/lib/auth-guards";
 
 const navigationGroups = [
   {
-    label: "Dashboards",
-    description: "Painel financeiro e acompanhamento consolidado da frota.",
+    label: "Dashboard",
+    description: "Visao executiva, financeira e acompanhamento consolidado.",
     items: [
-      { href: "/dashboard", label: "Dashboard de faturamento" },
-      { href: "/frota/dashboard", label: "Dashboard da frota" },
-      { href: "/dashboard/executivo", label: "Dashboard executivo" }
-    ]
-  },
-  {
-    label: "Cadastros",
-    description: "Base mestre para cliente, obra, recurso e equipe.",
-    items: [
-      { href: "/clientes", label: "Cadastro de clientes" },
-      { href: "/obras", label: "Cadastro de obras" },
-      { href: "/equipamentos", label: "Cadastro de equipamentos" },
-      { href: "/materiais", label: "Cadastro de materiais" },
-      { href: "/servicos", label: "Cadastro de servicos" },
-      { href: "/colaboradores", label: "Cadastro de colaboradores" }
+      { href: "/dashboard", label: "Dashboard" },
+      { href: "/dashboard/executivo", label: "Painel executivo" },
+      { href: "/frota/dashboard", label: "Frota e operacao" }
     ]
   },
   {
     label: "Operacao",
-    description: "Lancamento diario, consulta e medicao operacional.",
+    description: "Fichas de bordo, agenda e historico operacional.",
     items: [
-      { href: "/programacao", label: "Agenda de programacao" },
-      { href: "/lancamentos", label: "Lancamentos" },
-      { href: "/historico", label: "Historico" },
-      { href: "/medicoes", label: "Medicoes" }
+      { href: "/lancamentos", label: "Fichas de bordo" },
+      { href: "/programacao", label: "Agenda de servicos" },
+      { href: "/historico", label: "Historico operacional" }
     ]
   },
   {
-    label: "Frota",
-    description: "Leituras, manutencao e acompanhamento dos recursos.",
+    label: "Producao",
+    description: "Medicoes, volumes e fechamento de producao.",
     items: [
+      { href: "/medicoes", label: "Medicoes e volumes" },
+      { href: "/dashboard/mensal", label: "Receita mensal" }
+    ]
+  },
+  {
+    label: "Equipamentos",
+    description: "Cadastros, manutencao e leituras dos recursos.",
+    items: [
+      { href: "/equipamentos", label: "Equipamentos" },
       { href: "/frota/leituras", label: "Leituras de horimetro/KM" },
-      { href: "/frota/planos", label: "Plano preventivo" }
+      { href: "/frota/planos", label: "Controle de manutencao" }
+    ]
+  },
+  {
+    label: "Gestao",
+    description: "Base mestre, equipe e apoio financeiro/comercial.",
+    items: [
+      { href: "/obras", label: "Obras" },
+      { href: "/clientes", label: "Clientes" },
+      { href: "/colaboradores", label: "RH" },
+      { href: "/servicos", label: "Financeiro e servicos" },
+      { href: "/materiais", label: "Relatorios e materiais" }
     ]
   }
 ] satisfies {
@@ -74,10 +82,11 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
       <aside className="admin-sidebar">
         <div className="admin-sidebar-scroll">
           <div className="admin-brand">
-            <span className="admin-brand-badge">Terraplenagem ERP</span>
-            <h2 className="admin-brand-title">Operacao e medicao</h2>
+            <span className="admin-brand-badge">Sistema completo para terraplenagem</span>
+            <BaseproLogo theme="dark" />
+            <h2 className="admin-brand-title">Controle, produtividade e confianca</h2>
             <p className="admin-brand-copy">
-              Controle diario de fichas, obras, recursos e fechamento operacional em uma unica base.
+              Sua operacao pesada, agora sob controle. Do campo ao faturamento, sem erros.
             </p>
           </div>
 
@@ -99,12 +108,12 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
       <div className="admin-main">
         <header className="admin-topbar">
           <div>
-            <h1 className="admin-topbar-title">Gestao operacional de fichas e medicao</h1>
+            <h1 className="admin-topbar-title">BASEPRO | Plataforma industrial de operacao pesada</h1>
             <p className="admin-topbar-copy">
-              Ambiente de escritorio para cadastro mestre, apontamento diario, conferencia e fechamento.
+              Lancamento de fichas de bordo, manutencao, agenda de servicos, producao, RH, financeiro e relatorios.
             </p>
           </div>
-          <div className="badge badge-success">Ambiente local</div>
+          <div className="badge badge-success">BASEPRO local</div>
         </header>
 
         <div className="admin-content">{children}</div>
