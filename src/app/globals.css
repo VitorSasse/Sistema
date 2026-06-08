@@ -311,6 +311,40 @@ h3,
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.theme-toggle {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 14px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.theme-toggle-button {
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.theme-toggle-button:hover {
+  transform: translateY(-1px);
+  color: var(--text);
+}
+
+.theme-toggle-button.is-active {
+  background: rgba(249, 115, 22, 0.16);
+  color: var(--text-on-brand);
+  box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.24);
+}
+
 .admin-nav-link-active {
   background: rgba(249, 115, 22, 0.16);
   border-color: rgba(249, 115, 22, 0.26);
@@ -1087,6 +1121,20 @@ h3,
 .billing-dashboard .recharts-cartesian-grid line,
 .fleet-dashboard .recharts-cartesian-grid line {
   stroke: rgba(148, 163, 184, 0.28) !important;
+}
+
+.basepro-overview {
+  margin-bottom: 20px;
+}
+
+.basepro-kpi-grid {
+  margin-bottom: 4px;
+}
+
+.page-subnav {
+  margin: 0 0 24px !important;
+  position: relative;
+  z-index: 0;
 }
 
 .billing-hero,

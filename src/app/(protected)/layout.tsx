@@ -4,6 +4,7 @@ import { logout } from "./actions";
 import { AdminNav } from "@/components/admin-nav";
 import { BaseproLogo } from "@/components/branding/basepro-logo";
 import { SidebarScrollArea } from "@/components/layout/sidebar-scroll-area";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { hasRoleAccess, requireSession } from "@/lib/auth-guards";
 
 const navigationGroups = [
@@ -87,6 +88,7 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
           <div className="admin-user-card">
             <p className="admin-user-label">Sessao ativa</p>
             <p className="admin-user-email">{session.user.email}</p>
+            <ThemeToggle />
           </div>
 
           <AdminNav groups={navigation} />
