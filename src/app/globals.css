@@ -769,6 +769,119 @@ h3,
   }
 }
 
+/* Final sidebar overrides to beat legacy admin styles declared later */
+
+.admin-sidebar {
+  padding-right: 14px !important;
+}
+
+.admin-sidebar-scroll {
+  padding: 4px 18px 10px 0 !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar-track,
+.admin-sidebar-scroll::-webkit-scrollbar-thumb,
+.admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.admin-brand {
+  margin-right: 4px !important;
+}
+
+.admin-brand .basepro-logo {
+  max-width: calc(100% - 4px) !important;
+}
+
+.admin-brand .basepro-logo-mark {
+  width: 48px !important;
+  height: 48px !important;
+}
+
+.admin-brand .basepro-logo-wordmark {
+  font-size: clamp(1.35rem, 1.55vw, 1.8rem) !important;
+}
+
+.admin-nav {
+  gap: 10px !important;
+}
+
+.admin-nav-group {
+  overflow: hidden !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(255, 255, 255, 0.035) !important;
+}
+
+.admin-nav-group-trigger {
+  min-height: 52px !important;
+  padding: 14px 16px !important;
+  background: transparent !important;
+}
+
+.admin-nav-group-trigger-label {
+  font-family: var(--font-body), "Segoe UI", sans-serif !important;
+  font-size: 0.94rem !important;
+  font-weight: 700 !important;
+  color: #f3f4f6 !important;
+}
+
+.admin-nav-group-trigger-icon {
+  transform: rotate(-90deg) !important;
+}
+
+.admin-nav-group-trigger-icon.is-open {
+  transform: rotate(90deg) !important;
+  color: #fdba74 !important;
+}
+
+.admin-nav-group-links {
+  display: grid !important;
+  gap: 6px !important;
+  max-height: 0 !important;
+  padding: 0 10px !important;
+  overflow: hidden !important;
+  transition: max-height 220ms ease, padding 220ms ease !important;
+}
+
+.admin-nav-group-links.is-open {
+  max-height: 520px !important;
+  padding: 0 10px 10px !important;
+}
+
+.admin-nav-link {
+  min-height: 42px !important;
+  padding: 10px 12px !important;
+  border-radius: 14px !important;
+  font-family: var(--font-body), "Segoe UI", sans-serif !important;
+  font-size: 0.92rem !important;
+  font-weight: 600 !important;
+  background: rgba(255, 255, 255, 0.025) !important;
+}
+
+@media (max-width: 640px) {
+  .admin-sidebar-scroll {
+    padding-right: 10px !important;
+  }
+
+  .admin-brand .basepro-logo {
+    gap: 8px !important;
+  }
+
+  .admin-brand .basepro-logo-wordmark {
+    font-size: 1.45rem !important;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
