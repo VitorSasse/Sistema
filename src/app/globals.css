@@ -882,6 +882,141 @@ h3,
   }
 }
 
+/* Light surface contrast fixes for legacy dashboard sections */
+
+.billing-dashboard,
+.fleet-dashboard,
+.page-subnav,
+.data-table-wrap,
+.stat-card,
+.tile-card,
+.list-item,
+.timeline-card {
+  --surface-light-text: #111827;
+  --surface-light-muted: #4b5563;
+}
+
+.billing-dashboard,
+.fleet-dashboard {
+  color: var(--surface-light-text);
+}
+
+.billing-dashboard .page-title,
+.billing-dashboard .page-copy,
+.billing-dashboard .field-label,
+.billing-dashboard .section-title,
+.billing-dashboard .section-copy,
+.billing-dashboard .billing-summary-main,
+.billing-dashboard .billing-ranking-copy strong,
+.billing-dashboard .billing-ranking-metrics strong,
+.billing-dashboard .billing-chart-summary-card strong,
+.billing-dashboard .billing-empty-state strong,
+.billing-dashboard .billing-period-badge span,
+.billing-dashboard .billing-chart-header-badge strong,
+.fleet-dashboard .page-title,
+.fleet-dashboard .page-copy,
+.fleet-dashboard .field-label,
+.fleet-dashboard .section-title,
+.fleet-dashboard .section-copy,
+.fleet-dashboard .fleet-card-value,
+.fleet-dashboard .fleet-section-value,
+.fleet-dashboard .fleet-ranking-copy strong,
+.fleet-dashboard .fleet-ranking-metrics strong,
+.fleet-dashboard .fleet-empty-state strong,
+.fleet-dashboard .fleet-period-badge span,
+.fleet-dashboard .badge-info,
+.data-table th,
+.data-table td,
+.tile-card,
+.list-item,
+.timeline-card,
+.stat-card-value {
+  color: var(--surface-light-text) !important;
+}
+
+.billing-dashboard .page-copy,
+.billing-dashboard .field-label,
+.billing-dashboard .billing-summary-label,
+.billing-dashboard .billing-summary-meta,
+.billing-dashboard .billing-ranking-copy span,
+.billing-dashboard .billing-ranking-metrics span,
+.billing-dashboard .billing-tooltip span,
+.billing-dashboard .billing-empty-state p,
+.billing-dashboard .billing-period-badge strong,
+.billing-dashboard .billing-month-filter-copy strong,
+.billing-dashboard .billing-month-filter-copy span,
+.billing-dashboard .billing-chart-header-badge span,
+.billing-dashboard .billing-chart-summary-card span,
+.billing-dashboard .billing-chart-summary-card small,
+.billing-dashboard .billing-chart-legend-item,
+.billing-dashboard .billing-month-chip,
+.fleet-dashboard .page-copy,
+.fleet-dashboard .field-label,
+.fleet-dashboard .fleet-card-label,
+.fleet-dashboard .fleet-card-copy,
+.fleet-dashboard .fleet-section-card small,
+.fleet-dashboard .fleet-ranking-copy span,
+.fleet-dashboard .fleet-ranking-chip,
+.fleet-dashboard .fleet-tooltip span,
+.fleet-dashboard .fleet-empty-state p,
+.fleet-dashboard .fleet-period-badge strong,
+.data-table th,
+.subtle,
+.stat-card-label,
+.stat-card-copy,
+.timeline-card,
+.page-subnav-link {
+  color: var(--surface-light-muted) !important;
+}
+
+.billing-dashboard .field-control,
+.billing-dashboard .billing-month-chip,
+.fleet-dashboard .field-control,
+.page-subnav-link,
+.data-table-wrap {
+  color: var(--surface-light-text) !important;
+}
+
+.billing-dashboard .field-control,
+.fleet-dashboard .field-control {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(148, 163, 184, 0.4) !important;
+}
+
+.billing-dashboard .field-control::placeholder,
+.fleet-dashboard .field-control::placeholder {
+  color: rgba(75, 85, 99, 0.7) !important;
+}
+
+.billing-dashboard .field-control:focus,
+.fleet-dashboard .field-control:focus {
+  border-color: rgba(249, 115, 22, 0.55) !important;
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12) !important;
+}
+
+.billing-dashboard .billing-tooltip,
+.fleet-dashboard .fleet-tooltip {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border-color: rgba(148, 163, 184, 0.25) !important;
+}
+
+.billing-dashboard .billing-tooltip strong,
+.fleet-dashboard .fleet-tooltip strong {
+  color: var(--surface-light-text) !important;
+}
+
+.billing-dashboard .recharts-cartesian-axis-tick-value,
+.billing-dashboard .recharts-legend-item-text,
+.fleet-dashboard .recharts-cartesian-axis-tick-value,
+.fleet-dashboard .recharts-legend-item-text {
+  fill: #374151 !important;
+}
+
+.billing-dashboard .recharts-cartesian-grid line,
+.fleet-dashboard .recharts-cartesian-grid line {
+  stroke: rgba(148, 163, 184, 0.28) !important;
+}
+
 * {
   box-sizing: border-box;
 }
