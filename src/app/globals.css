@@ -565,6 +565,217 @@ h3,
   }
 }
 
+/* BASEPRO shell refinement */
+
+.admin-shell {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 312px minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.admin-sidebar {
+  min-height: 0;
+  padding: 18px 10px 18px 18px;
+  background:
+    radial-gradient(circle at top left, rgba(249, 115, 22, 0.14), transparent 20%),
+    linear-gradient(180deg, #0b0b0b 0%, #0f1a1f 30%, #111827 100%);
+  border-right: 1px solid rgba(249, 115, 22, 0.12);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.admin-sidebar-scroll {
+  height: 100%;
+  padding: 4px 10px 6px 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.admin-sidebar-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.admin-brand {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 22px;
+  padding: 12px 14px 16px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.admin-brand-badge {
+  width: fit-content;
+  max-width: 100%;
+  line-height: 1.3;
+}
+
+.admin-brand .basepro-logo {
+  max-width: 100%;
+  align-items: center;
+}
+
+.admin-brand .basepro-logo-mark {
+  width: 54px;
+  height: 54px;
+}
+
+.admin-brand .basepro-logo-wordmark {
+  font-size: clamp(1.5rem, 1.8vw, 1.95rem);
+}
+
+.admin-brand-title {
+  margin: 0;
+  font-family: var(--font-body), "Segoe UI", sans-serif;
+  font-size: 1.95rem;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+}
+
+.admin-brand-copy {
+  margin: 0;
+  max-width: 24ch;
+  color: rgba(229, 231, 235, 0.72);
+}
+
+.admin-user-card {
+  margin-bottom: 18px;
+}
+
+.admin-nav {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-nav-section {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-nav-section-label {
+  margin: 0;
+  padding: 0 6px;
+  color: rgba(249, 115, 22, 0.88);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-nav-section-links {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-nav-link {
+  min-height: 44px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  color: rgba(229, 231, 235, 0.84);
+  background: rgba(255, 255, 255, 0.025);
+  font-family: var(--font-body), "Segoe UI", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease, transform 150ms ease;
+}
+
+.admin-nav-link:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  transform: translateX(2px);
+}
+
+.admin-nav-link-active {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.16), rgba(15, 42, 68, 0.18));
+  border-color: rgba(249, 115, 22, 0.24);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.admin-logout {
+  margin-top: 18px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.admin-main {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.admin-topbar {
+  background: rgba(11, 11, 11, 0.78);
+}
+
+.admin-topbar-title {
+  font-size: 1rem;
+}
+
+.admin-content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 1100px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .admin-sidebar {
+    min-height: auto;
+    padding-right: 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .admin-sidebar-scroll,
+  .admin-main,
+  .admin-content {
+    overflow: visible;
+  }
+
+  .admin-sidebar-scroll {
+    height: auto;
+    padding-right: 0;
+  }
+
+  .admin-main {
+    min-height: auto;
+    grid-template-rows: auto auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-brand {
+    padding: 12px;
+  }
+
+  .admin-brand-title {
+    font-size: 1.55rem;
+  }
+
+  .admin-brand .basepro-logo {
+    gap: 10px;
+  }
+
+  .admin-nav-link {
+    font-size: 0.92rem;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

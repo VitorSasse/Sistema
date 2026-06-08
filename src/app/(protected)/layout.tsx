@@ -3,16 +3,17 @@ import { ReactNode } from "react";
 import { logout } from "./actions";
 import { AdminNav } from "@/components/admin-nav";
 import { BaseproLogo } from "@/components/branding/basepro-logo";
+import { SidebarScrollArea } from "@/components/layout/sidebar-scroll-area";
 import { hasRoleAccess, requireSession } from "@/lib/auth-guards";
 
 const navigationGroups = [
   {
-    label: "Dashboard",
+    label: "Dashboards",
     description: "Visao executiva, financeira e acompanhamento consolidado.",
     items: [
-      { href: "/dashboard", label: "Dashboard" },
-      { href: "/dashboard/executivo", label: "Painel executivo" },
-      { href: "/frota/dashboard", label: "Frota e operacao" }
+      { href: "/dashboard", label: "Dashboard financeiro" },
+      { href: "/dashboard/executivo", label: "Dashboard executivo" },
+      { href: "/frota/dashboard", label: "Dashboard da frota" }
     ]
   },
   {
@@ -21,35 +22,35 @@ const navigationGroups = [
     items: [
       { href: "/lancamentos", label: "Fichas de bordo" },
       { href: "/programacao", label: "Agenda de servicos" },
-      { href: "/historico", label: "Historico operacional" }
+      { href: "/historico", label: "Historico" }
     ]
   },
   {
-    label: "Producao",
+    label: "Producao e medicoes",
     description: "Medicoes, volumes e fechamento de producao.",
     items: [
       { href: "/medicoes", label: "Medicoes e volumes" },
-      { href: "/dashboard/mensal", label: "Receita mensal" }
+      { href: "/dashboard/mensal", label: "Faturamento mensal" }
     ]
   },
   {
-    label: "Equipamentos",
+    label: "Equipamentos e manutencao",
     description: "Cadastros, manutencao e leituras dos recursos.",
     items: [
-      { href: "/equipamentos", label: "Equipamentos" },
+      { href: "/equipamentos", label: "Cadastro de equipamentos" },
       { href: "/frota/leituras", label: "Leituras de horimetro/KM" },
-      { href: "/frota/planos", label: "Controle de manutencao" }
+      { href: "/frota/planos", label: "Plano preventivo" }
     ]
   },
   {
-    label: "Gestao",
-    description: "Base mestre, equipe e apoio financeiro/comercial.",
+    label: "Cadastros",
+    description: "Base mestre para cliente, obra, recurso e equipe.",
     items: [
-      { href: "/obras", label: "Obras" },
-      { href: "/clientes", label: "Clientes" },
-      { href: "/colaboradores", label: "RH" },
-      { href: "/servicos", label: "Financeiro e servicos" },
-      { href: "/materiais", label: "Relatorios e materiais" }
+      { href: "/clientes", label: "Cadastro de clientes" },
+      { href: "/obras", label: "Cadastro de obras" },
+      { href: "/materiais", label: "Cadastro de materiais" },
+      { href: "/servicos", label: "Cadastro de servicos" },
+      { href: "/colaboradores", label: "Cadastro de colaboradores" }
     ]
   }
 ] satisfies {
@@ -80,10 +81,10 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
-        <div className="admin-sidebar-scroll">
+        <SidebarScrollArea>
           <div className="admin-brand">
             <span className="admin-brand-badge">Sistema completo para terraplenagem</span>
-            <BaseproLogo theme="dark" />
+            <BaseproLogo theme="dark" showTagline={false} />
             <h2 className="admin-brand-title">Controle, produtividade e confianca</h2>
             <p className="admin-brand-copy">
               Sua operacao pesada, agora sob controle. Do campo ao faturamento, sem erros.
@@ -102,13 +103,13 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
               Encerrar sessao
             </button>
           </form>
-        </div>
+        </SidebarScrollArea>
       </aside>
 
       <div className="admin-main">
         <header className="admin-topbar">
           <div>
-            <h1 className="admin-topbar-title">BASEPRO | Plataforma industrial de operacao pesada</h1>
+            <h1 className="admin-topbar-title">BASEPRO | Plataforma operacional de terraplenagem</h1>
             <p className="admin-topbar-copy">
               Lancamento de fichas de bordo, manutencao, agenda de servicos, producao, RH, financeiro e relatorios.
             </p>

@@ -1,11 +1,13 @@
 type BaseproLogoProps = {
   compact?: boolean;
+  showTagline?: boolean;
   theme?: "dark" | "light";
   className?: string;
 };
 
 export function BaseproLogo({
   compact = false,
+  showTagline = true,
   theme = "dark",
   className = ""
 }: BaseproLogoProps) {
@@ -36,7 +38,9 @@ export function BaseproLogo({
             <span className="basepro-logo-base">BASE</span>
             <span className="basepro-logo-pro">PRO</span>
           </span>
-          <span className="basepro-logo-tagline">Sua operacao pesada, agora sob controle.</span>
+          {showTagline ? (
+            <span className="basepro-logo-tagline">Sua operacao pesada, agora sob controle.</span>
+          ) : null}
         </span>
       )}
     </div>
