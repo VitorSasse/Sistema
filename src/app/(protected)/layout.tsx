@@ -9,37 +9,11 @@ import { hasRoleAccess, requireSession } from "@/lib/auth-guards";
 const navigationGroups = [
   {
     label: "Dashboards",
-    description: "Visao executiva, financeira e acompanhamento consolidado.",
+    description: "Painel financeiro e acompanhamento consolidado da frota.",
     items: [
-      { href: "/dashboard", label: "Dashboard financeiro" },
-      { href: "/dashboard/executivo", label: "Dashboard executivo" },
-      { href: "/frota/dashboard", label: "Dashboard da frota" }
-    ]
-  },
-  {
-    label: "Operacao",
-    description: "Fichas de bordo, agenda e historico operacional.",
-    items: [
-      { href: "/lancamentos", label: "Fichas de bordo" },
-      { href: "/programacao", label: "Agenda de servicos" },
-      { href: "/historico", label: "Historico" }
-    ]
-  },
-  {
-    label: "Producao e medicoes",
-    description: "Medicoes, volumes e fechamento de producao.",
-    items: [
-      { href: "/medicoes", label: "Medicoes e volumes" },
-      { href: "/dashboard/mensal", label: "Faturamento mensal" }
-    ]
-  },
-  {
-    label: "Equipamentos e manutencao",
-    description: "Cadastros, manutencao e leituras dos recursos.",
-    items: [
-      { href: "/equipamentos", label: "Cadastro de equipamentos" },
-      { href: "/frota/leituras", label: "Leituras de horimetro/KM" },
-      { href: "/frota/planos", label: "Plano preventivo" }
+      { href: "/dashboard", label: "Dashboard de faturamento" },
+      { href: "/frota/dashboard", label: "Dashboard da frota" },
+      { href: "/dashboard/executivo", label: "Dashboard executivo" }
     ]
   },
   {
@@ -48,9 +22,28 @@ const navigationGroups = [
     items: [
       { href: "/clientes", label: "Cadastro de clientes" },
       { href: "/obras", label: "Cadastro de obras" },
+      { href: "/equipamentos", label: "Cadastro de equipamentos" },
       { href: "/materiais", label: "Cadastro de materiais" },
       { href: "/servicos", label: "Cadastro de servicos" },
       { href: "/colaboradores", label: "Cadastro de colaboradores" }
+    ]
+  },
+  {
+    label: "Operacao",
+    description: "Lancamento diario, consulta e medicao operacional.",
+    items: [
+      { href: "/programacao", label: "Agenda de programacao" },
+      { href: "/lancamentos", label: "Lancamentos" },
+      { href: "/historico", label: "Historico" },
+      { href: "/medicoes", label: "Medicoes" }
+    ]
+  },
+  {
+    label: "Frota",
+    description: "Leituras, manutencao e acompanhamento dos recursos.",
+    items: [
+      { href: "/frota/leituras", label: "Leituras de horimetro/KM" },
+      { href: "/frota/planos", label: "Plano preventivo" }
     ]
   }
 ] satisfies {
@@ -107,16 +100,6 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
       </aside>
 
       <div className="admin-main">
-        <header className="admin-topbar">
-          <div>
-            <h1 className="admin-topbar-title">BASEPRO | Plataforma operacional de terraplenagem</h1>
-            <p className="admin-topbar-copy">
-              Lancamento de fichas de bordo, manutencao, agenda de servicos, producao, RH, financeiro e relatorios.
-            </p>
-          </div>
-          <div className="badge badge-success">BASEPRO local</div>
-        </header>
-
         <div className="admin-content">{children}</div>
       </div>
     </div>
