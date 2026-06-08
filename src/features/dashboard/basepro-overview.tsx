@@ -1,5 +1,4 @@
 import type { Route } from "next";
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
 const moneyFormatter = new Intl.NumberFormat("pt-BR", {
@@ -41,13 +40,6 @@ function formatQuantity(value: number) {
   return numberFormatter.format(value);
 }
 
-function formatDateTime(value: Date) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short"
-  }).format(value);
-}
-
 export async function BaseproOverview() {
   const todayStart = startOfToday();
   const todayEnd = endOfToday();
@@ -61,8 +53,7 @@ export async function BaseproOverview() {
     monthlyCosts,
     activeEquipmentCount,
     maintenancePendingCount,
-    openMeasurementCount,
-    latestActivities
+    openMeasurementCount
   ] = await Promise.all([
     prisma.lancamentoDiario.aggregate({
       where: {
@@ -138,28 +129,8 @@ export async function BaseproOverview() {
           in: ["EM_ABERTO", "ENVIADA_AO_CLIENTE", "ENVIADA_PARA_FATURAMENTO", "AGUARDANDO_APROVACAO"]
         }
       }
-    }),
-    prisma.historicoAlteracao.findMany({
-      orderBy: {
-        createdAt: "desc"
-      },
-      take: 4,
-      include: {
-        usuario: {
-          select: {
-            nome: true
-          }
-        }
-      }
     })
   ]);
-
-  const quickLinks = [
-    { href: "/lancamentos" as Route, title: "Fichas de bordo", copy: "Registrar e validar apontamentos diarios." },
-    { href: "/programacao" as Route, title: "Agenda de servicos", copy: "Organizar frente, equipamento e turno." },
-    { href: "/frota/planos" as Route, title: "Manutencao", copy: "Executar preventivas e controlar vencimentos." },
-    { href: "/medicoes" as Route, title: "Producoes e medicoes", copy: "Conferir quantidades e fechar faturamento." }
-  ];
 
   const insights = [
     {
@@ -229,51 +200,6 @@ export async function BaseproOverview() {
             <p className="basepro-kpi-note">{item.note}</p>
           </article>
         ))}
-      </div>
-
-      <div className="basepro-dashboard-grid fade-up fade-up-delay-2">
-        <article className="surface section-card basepro-activity-card">
-          <div className="section-header">
-            <div>
-              <p className="section-copy">Ultimas atividades</p>
-              <h2 className="section-title">Movimentacoes recentes</h2>
-            </div>
-          </div>
-
-          <div className="basepro-activity-list">
-            {latestActivities.length > 0 ? (
-              latestActivities.map((activity) => (
-                <div key={activity.id} className="basepro-activity-item">
-                  <strong>{activity.entidade}</strong>
-                  <span>
-                    {activity.tipoAlteracao} por {activity.usuario.nome}
-                  </span>
-                  <small>{formatDateTime(activity.createdAt)}</small>
-                </div>
-              ))
-            ) : (
-              <div className="basepro-empty-state">Nenhuma atividade recente encontrada.</div>
-            )}
-          </div>
-        </article>
-
-        <article className="surface section-card basepro-quick-card">
-          <div className="section-header">
-            <div>
-              <p className="section-copy">Acesso rapido</p>
-              <h2 className="section-title">Modulos principais</h2>
-            </div>
-          </div>
-
-          <div className="basepro-quick-grid">
-            {quickLinks.map((item) => (
-              <Link key={item.href} href={item.href} className="basepro-quick-link">
-                <strong>{item.title}</strong>
-                <span>{item.copy}</span>
-              </Link>
-            ))}
-          </div>
-        </article>
       </div>
     </section>
   );
