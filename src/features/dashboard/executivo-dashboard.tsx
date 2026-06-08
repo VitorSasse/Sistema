@@ -164,8 +164,22 @@ const periodOptions: Array<{ value: PeriodPreset; label: string }> = [
   { value: "custom", label: "Personalizado" }
 ];
 
-const utilizationPalette = ["#36d399", "#24c08b", "#f0b544", "#f97316", "#ef4444"];
-const mechanicalPalette = ["#8be9fd", "#60a5fa", "#2dd4bf", "#0f766e", "#0b3d39"];
+const utilizationBandPalette: Record<
+  DashboardPayload["utilization"]["ranking"][number]["band"],
+  string
+> = {
+  EXCELENTE: "#155b52",
+  BOM: "#2f6db3",
+  OCIOSO: "#a36e00"
+};
+const mechanicalBandPalette: Record<
+  DashboardPayload["mechanical"]["ranking"][number]["band"],
+  string
+> = {
+  EXCELENTE: "#155b52",
+  ATENCAO: "#a36e00",
+  CRITICO: "#b14c32"
+};
 const lossPalette: Record<string, string> = {
   CONTROLAVEL: "#f0b544",
   TECNICO: "#ef4444",
@@ -547,10 +561,10 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                 />
                 <Tooltip content={<UtilizationTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
                 <Bar dataKey="utilizationPercent" radius={[0, 12, 12, 0]} barSize={18}>
-                  {utilizationTop.map((item, index) => (
+                  {utilizationTop.map((item) => (
                     <Cell
                       key={item.equipamentoId}
-                      fill={utilizationPalette[index % utilizationPalette.length] ?? "#36d399"}
+                      fill={utilizationBandPalette[item.band] ?? "#155b52"}
                     />
                   ))}
                 </Bar>
@@ -613,10 +627,10 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                   cursor={{ fill: "rgba(255,255,255,0.04)" }}
                 />
                 <Bar dataKey="mechanicalPercent" radius={[0, 12, 12, 0]} barSize={18}>
-                  {mechanicalTop.map((item, index) => (
+                  {mechanicalTop.map((item) => (
                     <Cell
                       key={item.equipamentoId}
-                      fill={mechanicalPalette[index % mechanicalPalette.length] ?? "#8be9fd"}
+                      fill={mechanicalBandPalette[item.band] ?? "#155b52"}
                     />
                   ))}
                 </Bar>

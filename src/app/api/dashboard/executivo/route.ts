@@ -11,6 +11,8 @@ const allowedPresets = [
 ] as const;
 
 const dashboardStatuses = [
+  "PROGRAMADO",
+  "FINALIZADO",
   "OPERANDO",
   "DISPONIVEL",
   "SEM_FRENTE",
@@ -262,10 +264,6 @@ function isWeekend(value: Date) {
 }
 
 function normalizeProgramacaoStatus(status: StatusAgendaProgramacao): DashboardStatus {
-  if (status === "PROGRAMADO" || status === "FINALIZADO") {
-    return "DISPONIVEL";
-  }
-
   if (status === "EM_EXECUCAO") {
     return "OPERANDO";
   }
@@ -294,7 +292,9 @@ function getStatusPriority(status: DashboardStatus) {
     CHUVA: 4,
     FERIAS: 5,
     OPERANDO: 6,
-    DISPONIVEL: 7
+    FINALIZADO: 7,
+    PROGRAMADO: 8,
+    DISPONIVEL: 9
   };
 
   return statusWeight[status];
@@ -329,6 +329,10 @@ function resolveLossStatusMeta(status: DashboardStatus): {
   label: string;
 } {
   switch (status) {
+    case "PROGRAMADO":
+      return { group: "PRODUTIVO", key: "programado", label: "Programado" };
+    case "FINALIZADO":
+      return { group: "PRODUTIVO", key: "finalizado", label: "Finalizado" };
     case "OPERANDO":
       return { group: "PRODUTIVO", key: "operando", label: "Operando" };
     case "DISPONIVEL":
@@ -356,6 +360,17 @@ function resolveLossStatusMeta(status: DashboardStatus): {
     default:
       return { group: "CONTROLAVEL", key: "outros", label: "Outros" };
   }
+}
+
+function shouldCountAsOperationalLoss(segment: {
+  status: DashboardStatus;
+  obraId: string | null;
+}) {
+  if (segment.status === "DISPONIVEL" && segment.obraId) {
+    return false;
+  }
+
+  return true;
 }
 
 function formatMonthShort(value: Date) {
@@ -910,16 +925,17 @@ export async function GET(request: NextRequest) {
           }
 
           const meta = resolveLossStatusMeta(segment.status);
+          const countAsLoss = shouldCountAsOperationalLoss(segment);
 
           if (segment.status === "OPERANDO") {
             aggregate.operatedHours += segment.hours;
             aggregate.productiveDays.add(dayKey);
-          } else if (meta.group === "CONTROLAVEL") {
+          } else if (meta.group === "CONTROLAVEL" && countAsLoss) {
             aggregate.controllableIdleHours += segment.hours;
             if (!segment.inferred) {
               aggregate.impactControllableIdleHours += segment.hours;
             }
-          } else if (meta.group === "TECNICO") {
+          } else if (meta.group === "TECNICO" && countAsLoss) {
             aggregate.technicalHours += segment.hours;
             if (!segment.inferred) {
               aggregate.impactTechnicalHours += segment.hours;
@@ -932,13 +948,13 @@ export async function GET(request: NextRequest) {
             } else {
               aggregate.correctiveHours += segment.hours;
             }
-          } else if (meta.group === "ADMINISTRATIVO") {
+          } else if (meta.group === "ADMINISTRATIVO" && countAsLoss) {
             aggregate.adminHours += segment.hours;
-          } else if (meta.group === "EXTERNO") {
+          } else if (meta.group === "EXTERNO" && countAsLoss) {
             aggregate.externalHours += segment.hours;
           }
 
-          if (meta.group !== "PRODUTIVO" && !segment.inferred) {
+          if (meta.group !== "PRODUTIVO" && countAsLoss && !segment.inferred) {
             const bucket = lossBucketMap.get(meta.key) ?? {
               key: meta.key,
               label: meta.label,
@@ -958,7 +974,11 @@ export async function GET(request: NextRequest) {
           date: dayKey,
           label: toDayLabel(day),
           status:
-            heatStatus === "DISPONIVEL"
+            heatStatus === "PROGRAMADO"
+              ? "Programado"
+              : heatStatus === "FINALIZADO"
+                ? "Finalizado"
+                : heatStatus === "DISPONIVEL"
               ? "Disponivel"
               : heatStatus === "SEM_FRENTE"
                 ? "Sem frente"
