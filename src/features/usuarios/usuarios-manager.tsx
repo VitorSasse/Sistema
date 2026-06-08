@@ -170,7 +170,7 @@ export function UsuariosManager() {
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
           <div>
             <h2 style={{ margin: "0 0 8px" }}>{form.id ? "Editar acesso" : "Novo acesso"}</h2>
-            <p style={{ margin: 0, color: "#6e6457" }}>
+            <p style={{ margin: 0, color: "var(--muted)" }}>
               Cadastre quem pode entrar no sistema e defina o perfil de acesso de cada pessoa.
             </p>
           </div>
@@ -228,8 +228,9 @@ export function UsuariosManager() {
                       gap: 8,
                       padding: "10px 14px",
                       borderRadius: 14,
-                      border: checked ? "1px solid rgba(21, 91, 82, 0.35)" : "1px solid rgba(158, 143, 123, 0.35)",
-                      background: checked ? "rgba(21, 91, 82, 0.08)" : "rgba(255,255,255,0.72)"
+                      border: checked ? "1px solid rgba(249, 115, 22, 0.35)" : "1px solid var(--line-strong)",
+                      background: checked ? "rgba(249, 115, 22, 0.14)" : "var(--surface-strong)",
+                      color: "var(--text)"
                     }}
                   >
                     <input type="checkbox" checked={checked} onChange={() => toggleRole(role.value)} />
@@ -257,7 +258,7 @@ export function UsuariosManager() {
         <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
           <div>
             <h2 style={{ margin: "0 0 8px" }}>Acessos cadastrados</h2>
-            <p style={{ margin: 0, color: "#6e6457" }}>
+            <p style={{ margin: 0, color: "var(--muted)" }}>
               Veja quem esta ativo, quais perfis tem acesso e quando foi o ultimo login.
             </p>
           </div>
@@ -287,7 +288,7 @@ export function UsuariosManager() {
             </thead>
             <tbody>
               {filteredUsuarios.map((usuario) => (
-                <tr key={usuario.id} style={selectedUserId === usuario.id ? { background: "rgba(21, 91, 82, 0.05)" } : undefined}>
+                <tr key={usuario.id} style={selectedUserId === usuario.id ? { background: "rgba(249, 115, 22, 0.08)" } : undefined}>
                   <td>{usuario.nome}</td>
                   <td>{usuario.email}</td>
                   <td>{usuario.roles.join(", ")}</td>
@@ -302,7 +303,7 @@ export function UsuariosManager() {
               ))}
               {filteredUsuarios.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", color: "#6e6457" }}>
+                  <td colSpan={6} style={{ textAlign: "center", color: "var(--muted)" }}>
                     Nenhum usuario encontrado com os filtros atuais.
                   </td>
                 </tr>

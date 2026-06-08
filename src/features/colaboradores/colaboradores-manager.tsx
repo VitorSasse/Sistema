@@ -190,7 +190,7 @@ export function ColaboradoresManager() {
       <section style={panelStyle}>
         <h2 style={{ marginTop: 0 }}>{form.id ? "Editar colaborador" : "Novo colaborador"}</h2>
         {!form.id ? (
-          <p style={{ margin: "0 0 18px", color: "#6e6457" }}>
+          <p style={{ margin: "0 0 18px", color: "var(--muted)" }}>
             O codigo do colaborador sera gerado automaticamente no salvamento.
           </p>
         ) : null}
@@ -287,7 +287,7 @@ export function ColaboradoresManager() {
             </button>
           </div>
 
-          {message ? <p style={{ margin: 0, color: "#6e6457" }}>{message}</p> : null}
+          {message ? <p style={{ margin: 0, color: "var(--muted)" }}>{message}</p> : null}
         </form>
       </section>
 
@@ -295,7 +295,7 @@ export function ColaboradoresManager() {
         <div style={toolbarStyle}>
           <div>
             <h2 style={{ margin: "0 0 6px" }}>Colaboradores cadastrados</h2>
-            <p style={{ margin: 0, color: "#6e6457" }}>
+            <p style={{ margin: 0, color: "var(--muted)" }}>
               {filteredColaboradores.length} registro(s) exibido(s) de {colaboradores.length}.
             </p>
           </div>
@@ -390,17 +390,18 @@ export function ColaboradoresManager() {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label style={{ display: "grid", gap: 8 }}>
-      <span style={{ fontSize: 14, color: "#6e6457" }}>{label}</span>
+      <span style={{ fontSize: 14, color: "var(--muted)" }}>{label}</span>
       {children}
     </label>
   );
 }
 
 const panelStyle = {
-  padding: 20,
-  borderRadius: 20,
-  background: "#fffdf8",
-  border: "1px solid #d7cfbf"
+  padding: 24,
+  borderRadius: 22,
+  background: "var(--surface)",
+  border: "1px solid var(--line-strong)",
+  boxShadow: "var(--shadow-md)"
 };
 
 const formGridStyle = {
@@ -418,66 +419,69 @@ const toolbarStyle = {
 };
 
 const fieldStyle = {
-  padding: "12px 14px",
-  borderRadius: 12,
-  border: "1px solid #d7cfbf",
-  background: "#fffdf8",
+  padding: "13px 14px",
+  borderRadius: 14,
+  border: "1px solid var(--line-strong)",
+  background: "var(--surface-strong)",
+  color: "var(--text)",
   width: "100%"
 };
 
 const primaryButtonStyle = {
   padding: "12px 18px",
-  borderRadius: 12,
+  borderRadius: 14,
   border: "none",
-  background: "#125b50",
+  background: "linear-gradient(135deg, #fb923c, #f97316)",
   color: "var(--text-on-brand)"
 };
 
 const secondaryButtonStyle = {
   padding: "12px 18px",
-  borderRadius: 12,
-  border: "1px solid #d7cfbf",
-  background: "#fffdf8"
+  borderRadius: 14,
+  border: "1px solid rgba(15, 42, 68, 0.5)",
+  background: "rgba(15, 42, 68, 0.12)",
+  color: "var(--text)"
 };
 
 const secondaryInlineButton = {
   padding: "8px 10px",
   borderRadius: 10,
-  border: "1px solid #d7cfbf",
-  background: "#fffdf8"
+  border: "1px solid rgba(15, 42, 68, 0.42)",
+  background: "rgba(15, 42, 68, 0.14)",
+  color: "var(--text)"
 };
 
 const dangerInlineButton = {
   padding: "8px 10px",
   borderRadius: 10,
-  border: "1px solid #e2b6aa",
-  background: "#fff0eb",
-  color: "#bc4b2f"
+  border: "1px solid rgba(249, 115, 22, 0.28)",
+  background: "rgba(249, 115, 22, 0.14)",
+  color: "#fdba74"
 };
 
 const deleteInlineButton = {
   padding: "8px 10px",
   borderRadius: 10,
-  border: "1px solid #c79f94",
-  background: "#fbe5de",
-  color: "#9f2f1c"
+  border: "1px solid rgba(239, 68, 68, 0.32)",
+  background: "rgba(239, 68, 68, 0.14)",
+  color: "#fca5a5"
 };
 
 const thStyle = {
   textAlign: "left" as const,
   padding: 12,
-  borderBottom: "1px solid #d7cfbf",
+  borderBottom: "1px solid var(--line-strong)",
   whiteSpace: "nowrap" as const
 };
 
 const tdStyle = {
   padding: 12,
-  borderBottom: "1px solid #ece5d9",
+  borderBottom: "1px solid var(--line)",
   verticalAlign: "top" as const
 };
 
 const subtleTextStyle = {
-  color: "#6e6457",
+  color: "var(--muted)",
   fontSize: 13
 };
 
@@ -485,8 +489,8 @@ const statusActiveStyle = {
   display: "inline-block",
   padding: "6px 10px",
   borderRadius: 999,
-  background: "#dcefe9",
-  color: "#125b50",
+  background: "rgba(34, 197, 94, 0.14)",
+  color: "#86efac",
   fontSize: 12,
   fontWeight: 700
 };
@@ -495,8 +499,8 @@ const statusInactiveStyle = {
   display: "inline-block",
   padding: "6px 10px",
   borderRadius: 999,
-  background: "#f3e5e1",
-  color: "#bc4b2f",
+  background: "rgba(249, 115, 22, 0.14)",
+  color: "#fdba74",
   fontSize: 12,
   fontWeight: 700
 };

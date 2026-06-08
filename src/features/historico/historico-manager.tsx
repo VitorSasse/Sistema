@@ -464,7 +464,7 @@ export function HistoricoManager() {
             </button>
           </div>
 
-          {message ? <p style={{ margin: 0, color: "#6e6457" }}>{message}</p> : null}
+          {message ? <p style={{ margin: 0, color: "var(--muted)" }}>{message}</p> : null}
         </form>
       </section>
 
@@ -715,27 +715,28 @@ export function HistoricoManager() {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label style={{ display: "grid", gap: 8 }}>
-      <span style={{ fontSize: 14, color: "#6e6457" }}>{label}</span>
+      <span style={{ fontSize: 14, color: "var(--muted)" }}>{label}</span>
       {children}
     </label>
   );
 }
 
 const statusStyles: Record<Lancamento["statusValidacao"], { background: string; color: string }> = {
-  VALIDO: { background: "#dcefe9", color: "#125b50" },
-  NAO_MEDIDO: { background: "#dcefe9", color: "#125b50" },
-  PENDENTE_OBRA: { background: "#fff1cf", color: "#a36e00" },
-  PENDENTE_PRECO: { background: "#f8ddd6", color: "#bc4b2f" },
-  DIVERGENTE: { background: "#f8ddd6", color: "#bc4b2f" },
-  MEDIDO: { background: "#d9e9f8", color: "#2f6db3" },
-  CANCELADO: { background: "#ece5d9", color: "#6e6457" }
+  VALIDO: { background: "rgba(34, 197, 94, 0.14)", color: "#86efac" },
+  NAO_MEDIDO: { background: "rgba(34, 197, 94, 0.14)", color: "#86efac" },
+  PENDENTE_OBRA: { background: "rgba(249, 115, 22, 0.14)", color: "#fdba74" },
+  PENDENTE_PRECO: { background: "rgba(239, 68, 68, 0.14)", color: "#fca5a5" },
+  DIVERGENTE: { background: "rgba(239, 68, 68, 0.14)", color: "#fca5a5" },
+  MEDIDO: { background: "rgba(59, 130, 246, 0.14)", color: "#93c5fd" },
+  CANCELADO: { background: "rgba(148, 163, 184, 0.16)", color: "var(--muted)" }
 };
 
 const panelStyle = {
-  padding: 20,
-  borderRadius: 20,
-  background: "#fffdf8",
-  border: "1px solid #d7cfbf"
+  padding: 24,
+  borderRadius: 22,
+  background: "var(--surface)",
+  border: "1px solid var(--line-strong)",
+  boxShadow: "var(--shadow-md)"
 };
 
 const formGridStyle = {
@@ -745,51 +746,53 @@ const formGridStyle = {
 };
 
 const fieldStyle = {
-  padding: "12px 14px",
-  borderRadius: 12,
-  border: "1px solid #d7cfbf",
-  background: "#fffdf8",
+  padding: "13px 14px",
+  borderRadius: 14,
+  border: "1px solid var(--line-strong)",
+  background: "var(--surface-strong)",
+  color: "var(--text)",
   width: "100%"
 };
 
 const primaryButtonStyle = {
   padding: "12px 18px",
-  borderRadius: 12,
+  borderRadius: 14,
   border: "none",
-  background: "#125b50",
+  background: "linear-gradient(135deg, #fb923c, #f97316)",
   color: "var(--text-on-brand)"
 };
 
 const secondaryButtonStyle = {
   padding: "12px 18px",
-  borderRadius: 12,
-  border: "1px solid #d7cfbf",
-  background: "#fffdf8"
+  borderRadius: 14,
+  border: "1px solid rgba(15, 42, 68, 0.5)",
+  background: "rgba(15, 42, 68, 0.12)",
+  color: "var(--text)"
 };
 
 const dangerButtonStyle = {
   padding: "12px 18px",
-  borderRadius: 12,
-  border: "1px solid #e2b6aa",
-  background: "#fff0eb",
-  color: "#bc4b2f"
+  borderRadius: 14,
+  border: "1px solid rgba(239, 68, 68, 0.32)",
+  background: "rgba(239, 68, 68, 0.14)",
+  color: "#fca5a5"
 };
 
 const thStyle = {
   textAlign: "left" as const,
   padding: 12,
-  borderBottom: "1px solid #d7cfbf",
+  borderBottom: "1px solid var(--line-strong)",
   whiteSpace: "nowrap" as const
 };
 
 const tdStyle = {
   padding: 12,
-  borderBottom: "1px solid #ece5d9",
+  borderBottom: "1px solid var(--line)",
   verticalAlign: "top" as const
 };
 
 const subtleTextStyle = {
-  color: "#6e6457",
+  color: "var(--muted)",
   fontSize: 13
 };
 
