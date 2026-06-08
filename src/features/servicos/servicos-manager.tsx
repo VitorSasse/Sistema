@@ -495,7 +495,7 @@ const primaryButtonStyle = {
   borderRadius: 12,
   border: "none",
   background: "#125b50",
-  color: "#fff"
+  color: "var(--text-on-brand)"
 };
 
 const secondaryButtonStyle = {

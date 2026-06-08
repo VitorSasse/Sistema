@@ -489,7 +489,7 @@ const primaryButtonStyle = {
   borderRadius: 14,
   border: "none",
   background: "linear-gradient(135deg, #fb923c, #f97316)",
-  color: "#fff"
+  color: "var(--text-on-brand)"
 };
 
 const secondaryButtonStyle = {

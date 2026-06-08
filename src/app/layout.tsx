@@ -32,7 +32,9 @@ type RootLayoutProps = {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="pt-BR">
-      <body className={`${montserrat.variable} ${orbitron.variable}`}>{children}</body>
+      <body data-theme="dark" className={`${montserrat.variable} ${orbitron.variable}`}>
+        {children}
+      </body>
     </html>
   );
 }
