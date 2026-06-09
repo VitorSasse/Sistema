@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   CartesianGrid,
-  Cell,
   ComposedChart,
   Line,
   ResponsiveContainer,
@@ -51,17 +50,6 @@ const periodOptions: Array<{ value: PeriodPreset; label: string }> = [
   { value: "previous_month", label: "Mes anterior" },
   { value: "last_3_months", label: "Ultimos 3 meses" },
   { value: "custom", label: "Personalizado" }
-];
-
-const chartPalette = [
-  "#F97316",
-  "#FB923C",
-  "#FDBA74",
-  "#0F2A44",
-  "#173F68",
-  "#25598A",
-  "#2F6EA8",
-  "#8FB0D5"
 ];
 
 function formatPercent(value: number) {
@@ -396,18 +384,9 @@ export function FaturamentoDashboard() {
                       name="totalFaturado"
                       stackId="billing"
                       radius={[0, 0, 0, 0]}
+                      fill="url(#billingBarFaturado)"
                       maxBarSize={56}
-                    >
-                      {chartData.map((entry, index) => (
-                        <Cell
-                          key={entry.clienteId}
-                          fill={
-                            chartPalette[index % chartPalette.length] ??
-                            "url(#billingBarFaturado)"
-                          }
-                        />
-                      ))}
-                    </Bar>
+                    />
                     <Bar
                       yAxisId="currency"
                       dataKey="totalAFaturar"

@@ -81,8 +81,8 @@
   --dashboard-chart-cursor: rgba(249, 115, 22, 0.08);
   --dashboard-chart-faturado-start: #fb923c;
   --dashboard-chart-faturado-end: #f97316;
-  --dashboard-chart-pendente-start: #2f6ea8;
-  --dashboard-chart-pendente-end: #0f2a44;
+  --dashboard-chart-pendente-start: #60a5fa;
+  --dashboard-chart-pendente-end: #2563eb;
   --dashboard-chart-line-share: #60a5fa;
   --dashboard-chart-line-share-active: #93c5fd;
 }
