@@ -83,8 +83,8 @@
   --dashboard-chart-faturado-end: #f97316;
   --dashboard-chart-pendente-start: #60a5fa;
   --dashboard-chart-pendente-end: #2563eb;
-  --dashboard-chart-line-share: #60a5fa;
-  --dashboard-chart-line-share-active: #93c5fd;
+  --dashboard-chart-line-share: #f8fafc;
+  --dashboard-chart-line-share-active: #ffffff;
 }
 
 [data-theme="light"] {
