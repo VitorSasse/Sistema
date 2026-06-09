@@ -84,9 +84,6 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
         <SidebarScrollArea>
           <div className="admin-brand">
             <BaseproLogo theme="dark" showTagline={false} className="admin-brand-logo" />
-            <p className="admin-brand-copy">
-              Sua operacao pesada, agora sob controle.
-            </p>
           </div>
 
           <div className="admin-user-card">
