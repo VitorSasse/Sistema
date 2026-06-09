@@ -160,7 +160,7 @@ function SectionPanel({
   return (
     <section className="fleet-section surface section-card fade-up">
       <div className="fleet-section-header">
-        <div>
+        <div className="fleet-section-heading">
           <span className="fleet-kicker">{kicker}</span>
           <h2 className="section-title">{title}</h2>
         </div>

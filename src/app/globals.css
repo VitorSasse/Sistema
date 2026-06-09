@@ -532,9 +532,10 @@ h3,
 .basepro-kpi-card {
   padding: 20px;
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(11, 11, 11, 0.96));
+  background: linear-gradient(180deg, var(--screen-surface-start), var(--screen-surface-end));
   border: 1px solid var(--line-strong);
   box-shadow: var(--shadow-md);
+  color: var(--screen-text);
 }
 
 .basepro-kpi-card.tone-orange {
@@ -552,7 +553,7 @@ h3,
 .basepro-kpi-label {
   display: block;
   margin-bottom: 12px;
-  color: var(--muted);
+  color: var(--screen-muted);
   font-size: 0.82rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -561,13 +562,42 @@ h3,
 .basepro-kpi-value {
   display: block;
   font-size: clamp(1.4rem, 2vw, 2rem);
+  color: var(--screen-text);
 }
 
 .basepro-kpi-note {
   margin: 10px 0 0;
-  color: var(--muted);
+  color: var(--screen-muted);
   line-height: 1.55;
   font-size: 0.92rem;
+}
+
+[data-theme="light"] .basepro-kpi-card {
+  background: linear-gradient(180deg, #ffffff, #ffffff);
+  color: #111827;
+}
+
+[data-theme="light"] .basepro-kpi-value {
+  color: #111827;
+}
+
+[data-theme="light"] .basepro-kpi-label,
+[data-theme="light"] .basepro-kpi-note {
+  color: #4b5563;
+}
+
+[data-theme="dark"] .basepro-kpi-card {
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(11, 11, 11, 0.96));
+  color: #ffffff;
+}
+
+[data-theme="dark"] .basepro-kpi-value {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .basepro-kpi-label,
+[data-theme="dark"] .basepro-kpi-note {
+  color: rgba(226, 232, 240, 0.78);
 }
 
 .basepro-dashboard-grid {
@@ -3048,6 +3078,16 @@ button {
   align-items: end;
 }
 
+.fleet-section-heading {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.fleet-section-heading .section-title {
+  margin: 0;
+}
+
 .fleet-section-filter {
   justify-self: end;
 }
@@ -3065,6 +3105,11 @@ button {
   border-radius: 18px;
   border: 1px solid rgba(109, 92, 66, 0.12);
   background: rgba(255, 255, 255, 0.74);
+}
+
+[data-theme="light"] .fleet-summary-card,
+[data-theme="light"] .fleet-section-card {
+  background: linear-gradient(180deg, #ffffff, #ffffff) !important;
 }
 
 .fleet-section-card small {
