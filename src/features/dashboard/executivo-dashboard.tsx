@@ -168,8 +168,8 @@ const utilizationBandPalette: Record<
   DashboardPayload["utilization"]["ranking"][number]["band"],
   string
 > = {
-  EXCELENTE: "#F97316",
-  BOM: "#0F2A44",
+  EXCELENTE: "#16A34A",
+  BOM: "#3B82F6",
   OCIOSO: "#F59E0B"
 };
 const mechanicalBandPalette: Record<

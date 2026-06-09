@@ -10,6 +10,7 @@ import { hasRoleAccess, requireSession } from "@/lib/auth-guards";
 const navigationGroups = [
   {
     label: "Dashboards",
+    icon: "dashboard",
     description: "Painel financeiro e acompanhamento consolidado da frota.",
     items: [
       { href: "/dashboard", label: "Dashboard de faturamento" },
@@ -19,6 +20,7 @@ const navigationGroups = [
   },
   {
     label: "Cadastros",
+    icon: "cadastros",
     description: "Base mestre para cliente, obra, recurso e equipe.",
     items: [
       { href: "/clientes", label: "Cadastro de clientes" },
@@ -31,6 +33,7 @@ const navigationGroups = [
   },
   {
     label: "Operacao",
+    icon: "operacao",
     description: "Lancamento diario, consulta e medicao operacional.",
     items: [
       { href: "/programacao", label: "Agenda de programacao" },
@@ -41,6 +44,7 @@ const navigationGroups = [
   },
   {
     label: "Frota",
+    icon: "frota",
     description: "Leituras, manutencao e acompanhamento dos recursos.",
     items: [
       { href: "/frota/leituras", label: "Leituras de horimetro/KM" },
@@ -49,6 +53,7 @@ const navigationGroups = [
   }
 ] satisfies {
   label: string;
+  icon?: string;
   description: string;
   items: { href: Route; label: string }[];
 }[];
@@ -66,6 +71,7 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
         ...navigationGroups,
         {
           label: "Seguranca",
+          icon: "seguranca",
           description: "Controle administrativo de acessos e perfis.",
           items: [{ href: "/usuarios" as Route, label: "Usuarios e acessos" }]
         }
@@ -78,7 +84,7 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
         <SidebarScrollArea>
           <div className="admin-brand">
             <span className="admin-brand-badge">Sistema completo para terraplenagem</span>
-            <BaseproLogo theme="dark" showTagline={false} />
+            <BaseproLogo theme="dark" showTagline={false} className="admin-brand-logo" />
             <h2 className="admin-brand-title">Controle, produtividade e confianca</h2>
             <p className="admin-brand-copy">
               Sua operacao pesada, agora sob controle. Do campo ao faturamento, sem erros.

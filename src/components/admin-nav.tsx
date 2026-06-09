@@ -14,6 +14,7 @@ type NavigationGroup = {
   label: string;
   description: string;
   items: NavigationItem[];
+  icon?: string;
 };
 
 type AdminNavProps = {
@@ -59,7 +60,12 @@ export function AdminNav({ groups }: AdminNavProps) {
             onClick={() => toggleGroup(group.label)}
             aria-expanded={openGroups[group.label] ?? false}
           >
-            <span className="admin-nav-group-trigger-label">{group.label}</span>
+            <span className="admin-nav-group-trigger-heading">
+              <span className={`admin-nav-group-icon${group.icon ? ` is-${group.icon}` : ""}`} aria-hidden="true">
+                <span className="admin-nav-group-icon-shape" />
+              </span>
+              <span className="admin-nav-group-trigger-label">{group.label}</span>
+            </span>
             <span className={`admin-nav-group-trigger-icon${openGroups[group.label] ? " is-open" : ""}`}>
               &lsaquo;
             </span>

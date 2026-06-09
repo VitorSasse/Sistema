@@ -181,15 +181,6 @@ export async function BaseproOverview() {
             Controle total da sua operacao de terraplenagem. Do campo ao faturamento, sem erros.
           </p>
         </div>
-
-        <div className="basepro-hero-panel">
-          <strong>Gestao completa para quem nao pode parar.</strong>
-          <span>Producao medida. Lucro garantido.</span>
-          <p>
-            Pare de perder dinheiro por falta de controle. A BASEPRO conecta lancamento, manutencao,
-            agenda, RH operacional, financeiro e relatorios na mesma cabine de comando.
-          </p>
-        </div>
       </div>
 
       <div className="basepro-kpi-grid fade-up fade-up-delay-1">
