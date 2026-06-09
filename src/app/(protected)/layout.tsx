@@ -83,11 +83,9 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
       <aside className="admin-sidebar">
         <SidebarScrollArea>
           <div className="admin-brand">
-            <span className="admin-brand-badge">Sistema completo para terraplenagem</span>
             <BaseproLogo theme="dark" showTagline={false} className="admin-brand-logo" />
-            <h2 className="admin-brand-title">Controle, produtividade e confianca</h2>
             <p className="admin-brand-copy">
-              Sua operacao pesada, agora sob controle. Do campo ao faturamento, sem erros.
+              Sua operacao pesada, agora sob controle.
             </p>
           </div>
 
