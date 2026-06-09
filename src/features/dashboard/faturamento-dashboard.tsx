@@ -335,8 +335,6 @@ export function FaturamentoDashboard() {
                   <ComposedChart
                     data={chartData}
                     margin={{ top: 18, right: 24, left: 8, bottom: 32 }}
-                    barGap={6}
-                    barCategoryGap="22%"
                   >
                     <defs>
                       <linearGradient id="billingBarFaturado" x1="0" y1="0" x2="0" y2="1">
@@ -384,17 +382,19 @@ export function FaturamentoDashboard() {
                       yAxisId="currency"
                       dataKey="totalFaturado"
                       name="totalFaturado"
-                      radius={[10, 10, 0, 0]}
+                      stackId="billing"
+                      radius={[0, 0, 0, 0]}
                       fill="url(#billingBarFaturado)"
-                      maxBarSize={28}
+                      maxBarSize={56}
                     />
                     <Bar
                       yAxisId="currency"
                       dataKey="totalAFaturar"
                       name="totalAFaturar"
-                      radius={[10, 10, 0, 0]}
+                      stackId="billing"
+                      radius={[12, 12, 0, 0]}
                       fill="url(#billingBarPendente)"
-                      maxBarSize={28}
+                      maxBarSize={56}
                     />
                     <Line
                       yAxisId="share"

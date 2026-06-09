@@ -5714,7 +5714,7 @@ button {
 .billing-chart-dot.is-pendente,
 .executive-legend-dot.is-admin,
 .executive-legend-dot.is-externo {
-  background: var(--info) !important;
+  background: var(--dashboard-chart-pendente-start) !important;
 }
 
 .billing-chart-dot.is-share {
