@@ -22,7 +22,7 @@ export function BaseproLogo({
     >
       <span className={`basepro-logo-mark basepro-logo-mark-${theme}`} aria-hidden="true">
         <Image
-          src={compact ? "/assets/basepro-icon.svg" : "/branding/basepro-logo-horizontal.jpeg"}
+          src={compact ? "/assets/basepro-icon.svg" : "/branding/basepro-logo-horizontal-transparent.png"}
           alt=""
           width={compact ? 96 : 1600}
           height={compact ? 96 : 900}
