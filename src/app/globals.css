@@ -2442,17 +2442,53 @@ button {
 /* Sidebar refresh */
 
 .admin-sidebar {
+  position: relative !important;
   padding: 18px 12px 18px 18px !important;
   background:
-    radial-gradient(circle at 8% 0%, rgba(249, 115, 22, 0.18), transparent 22%),
-    radial-gradient(circle at 100% 100%, rgba(15, 42, 68, 0.24), transparent 34%),
-    linear-gradient(180deg, #123532 0%, #102a28 52%, #0f2228 100%) !important;
-  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+    radial-gradient(circle at 12% 0%, rgba(249, 115, 22, 0.22), transparent 18%),
+    radial-gradient(circle at 85% 100%, rgba(15, 42, 68, 0.28), transparent 34%),
+    linear-gradient(180deg, #0f2f2d 0%, #0c2527 44%, #0a1920 100%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.07) !important;
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.04),
+    18px 0 40px rgba(3, 10, 13, 0.22) !important;
+}
+
+.admin-sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 14px 10px 14px 14px;
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 22%);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  pointer-events: none;
+}
+
+.admin-sidebar::after {
+  content: "";
+  position: absolute;
+  top: 34px;
+  right: 8px;
+  bottom: 34px;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(249, 115, 22, 0.22) 18%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(15, 42, 68, 0.24) 82%,
+    transparent
+  );
+  pointer-events: none;
 }
 
 .admin-sidebar-scroll {
+  position: relative !important;
+  z-index: 1 !important;
   height: 100% !important;
-  padding: 2px 10px 8px 0 !important;
+  padding: 4px 12px 8px 0 !important;
   overflow-y: auto !important;
   overscroll-behavior: contain !important;
   scrollbar-width: none !important;
@@ -2473,26 +2509,40 @@ button {
 }
 
 .admin-brand {
+  position: relative !important;
   gap: 12px !important;
   margin: 0 2px 20px 0 !important;
-  padding: 14px 16px 16px !important;
-  border-radius: 24px !important;
+  padding: 16px 16px 18px !important;
+  border-radius: 26px !important;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.025)) !important;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.025)) !important;
   border: 1px solid rgba(255, 255, 255, 0.06) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 34px rgba(3, 10, 13, 0.18) !important;
+  overflow: hidden !important;
+}
+
+.admin-brand::after {
+  content: "";
+  position: absolute;
+  inset: auto -20% -55% 35%;
+  height: 130px;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.16), transparent 62%);
+  pointer-events: none;
 }
 
 .admin-brand-logo.basepro-logo {
   width: 100% !important;
   max-width: 100% !important;
-  gap: 10px !important;
+  gap: 12px !important;
   align-items: center !important;
 }
 
 .admin-brand-logo .basepro-logo-mark {
-  width: 42px !important;
-  height: 42px !important;
+  width: 48px !important;
+  height: 48px !important;
+  filter: drop-shadow(0 10px 18px rgba(5, 12, 18, 0.28));
 }
 
 .admin-brand-logo .basepro-logo-lockup {
@@ -2501,53 +2551,98 @@ button {
 }
 
 .admin-brand-logo .basepro-logo-wordmark {
-  font-size: clamp(1.1rem, 1.4vw, 1.7rem) !important;
-  line-height: 0.92 !important;
+  font-size: clamp(1.16rem, 1.45vw, 1.78rem) !important;
+  line-height: 0.9 !important;
   white-space: nowrap !important;
+  letter-spacing: 0.01em !important;
 }
 
 .admin-brand-title {
-  margin: 2px 0 0 !important;
-  font-size: 1.02rem !important;
-  line-height: 1.05 !important;
-  letter-spacing: -0.02em !important;
+  margin: 4px 0 0 !important;
+  max-width: 11ch !important;
+  font-size: 1.2rem !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.035em !important;
+  text-wrap: balance;
 }
 
 .admin-brand-copy {
   max-width: none !important;
-  font-size: 0.9rem !important;
-  line-height: 1.55 !important;
-  color: rgba(247, 243, 234, 0.74) !important;
+  font-size: 0.84rem !important;
+  line-height: 1.6 !important;
+  color: rgba(247, 243, 234, 0.72) !important;
 }
 
 .admin-user-card {
+  position: relative !important;
   margin-bottom: 16px !important;
   padding: 14px 16px !important;
-  border-radius: 20px !important;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.045)) !important;
+  border-radius: 22px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.04)) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 14px 28px rgba(4, 10, 14, 0.16) !important;
+  overflow: hidden !important;
+}
+
+.admin-user-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.06), transparent 32%);
+  pointer-events: none;
 }
 
 .admin-nav {
-  gap: 12px !important;
+  gap: 14px !important;
 }
 
 .admin-nav-group {
-  border-radius: 18px !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.035)) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03) !important;
+  position: relative !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(255, 255, 255, 0.075) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.028)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 12px 26px rgba(4, 10, 14, 0.14) !important;
+  overflow: hidden !important;
+}
+
+.admin-nav-group::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 16px;
+  bottom: 16px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(249, 115, 22, 0.9), rgba(15, 42, 68, 0.85));
+  opacity: 0.22;
+  transition: opacity 180ms ease, transform 180ms ease;
+  transform: scaleY(0.78);
 }
 
 .admin-nav-group-trigger {
-  min-height: 54px !important;
-  padding: 13px 16px !important;
+  min-height: 56px !important;
+  padding: 14px 16px 14px 18px !important;
+  transition: background 160ms ease, transform 160ms ease !important;
+}
+
+.admin-nav-group:hover .admin-nav-group-trigger {
+  background: rgba(255, 255, 255, 0.025) !important;
+}
+
+.admin-nav-group:hover::before,
+.admin-nav-group:focus-within::before {
+  opacity: 0.65;
+  transform: scaleY(1);
 }
 
 .admin-nav-group-trigger-heading {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 13px;
   min-width: 0;
 }
 
@@ -2556,12 +2651,27 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.22), rgba(15, 42, 68, 0.28));
-  border: 1px solid rgba(249, 115, 22, 0.18);
+  width: 32px;
+  height: 32px;
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(249, 115, 22, 0.22), rgba(15, 42, 68, 0.32)),
+    rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(249, 115, 22, 0.16);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 18px rgba(4, 10, 14, 0.18);
   flex: 0 0 auto;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.admin-nav-group:hover .admin-nav-group-icon,
+.admin-nav-group:focus-within .admin-nav-group-icon {
+  transform: translateY(-1px);
+  border-color: rgba(249, 115, 22, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 12px 22px rgba(4, 10, 14, 0.24);
 }
 
 .admin-nav-group-icon::before,
@@ -2663,16 +2773,30 @@ button {
 }
 
 .admin-nav-group-trigger-label {
-  font-size: 0.95rem !important;
-  letter-spacing: 0 !important;
+  font-size: 0.97rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
 }
 
 .admin-nav-group-trigger-icon {
-  color: rgba(247, 243, 234, 0.66) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  color: rgba(247, 243, 234, 0.68) !important;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease !important;
+}
+
+.admin-nav-group:hover .admin-nav-group-trigger-icon {
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 
 .admin-nav-group-trigger-icon.is-open {
   color: #f97316 !important;
+  background: rgba(249, 115, 22, 0.14) !important;
 }
 
 .admin-nav-group-links {
@@ -2685,26 +2809,74 @@ button {
 
 .admin-nav-link {
   min-height: 42px !important;
-  padding: 10px 12px 10px 14px !important;
-  border-radius: 14px !important;
+  padding: 10px 14px 10px 16px !important;
+  border-radius: 15px !important;
   color: rgba(247, 243, 234, 0.84) !important;
-  background: rgba(255, 255, 255, 0.02) !important;
+  background: rgba(255, 255, 255, 0.018) !important;
+  border: 1px solid transparent !important;
+  transition:
+    background 160ms ease,
+    transform 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease !important;
 }
 
 .admin-nav-link:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-  transform: translateX(3px) !important;
-}
-
-.admin-nav-link-active {
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.16), rgba(15, 42, 68, 0.3)) !important;
-  border: 1px solid rgba(249, 115, 22, 0.22) !important;
+  background: rgba(255, 255, 255, 0.085) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
   color: #ffffff !important;
+  transform: translateX(4px) !important;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
 }
 
+.admin-nav-link-active {
+  position: relative !important;
+  background:
+    linear-gradient(135deg, rgba(249, 115, 22, 0.2), rgba(15, 42, 68, 0.34)) !important;
+  border: 1px solid rgba(249, 115, 22, 0.24) !important;
+  color: #ffffff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 12px 24px rgba(9, 19, 27, 0.16) !important;
+}
+
+.admin-nav-link-active::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f97316, #fdba74);
+}
+
 .admin-logout {
-  margin-top: 18px !important;
+  margin-top: 22px !important;
+  min-height: 52px !important;
+  border-radius: 18px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.03)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 14px 26px rgba(4, 10, 14, 0.14) !important;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease !important;
+}
+
+.admin-logout:hover {
+  background:
+    linear-gradient(180deg, rgba(249, 115, 22, 0.14), rgba(255, 255, 255, 0.04)) !important;
+  border-color: rgba(249, 115, 22, 0.22) !important;
+  transform: translateY(-1px) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 30px rgba(4, 10, 14, 0.2) !important;
 }
 
 @media (max-width: 640px) {
@@ -2721,12 +2893,16 @@ button {
   }
 
   .admin-brand-logo .basepro-logo-mark {
-    width: 38px !important;
-    height: 38px !important;
+    width: 40px !important;
+    height: 40px !important;
   }
 
   .admin-brand-logo .basepro-logo-wordmark {
-    font-size: 1rem !important;
+    font-size: 1.02rem !important;
+  }
+
+  .admin-brand-title {
+    font-size: 1.08rem !important;
   }
 }
 
