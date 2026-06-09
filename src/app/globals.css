@@ -414,49 +414,24 @@ h3,
 .basepro-logo {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
   min-width: 0;
+  max-width: 100%;
 }
 
 .basepro-logo.is-compact {
-  gap: 0;
+  width: 60px;
 }
 
 .basepro-logo-mark {
-  width: 60px;
-  height: 60px;
-  flex: 0 0 auto;
+  display: block;
+  width: min(100%, 360px);
+  flex: 0 1 auto;
 }
 
-.basepro-logo-mark svg {
+.basepro-logo-image {
   display: block;
   width: 100%;
-  height: 100%;
-}
-
-.basepro-logo-lockup {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.basepro-logo-wordmark {
-  font-size: clamp(1.7rem, 2.4vw, 2.2rem);
-  line-height: 0.95;
-  font-weight: 800;
-}
-
-.basepro-logo-base {
-  color: #ffffff;
-}
-
-.basepro-logo-pro {
-  color: var(--primary);
-}
-
-.basepro-logo-tagline {
-  color: var(--muted);
-  font-size: 0.74rem;
+  height: auto;
 }
 
 .basepro-overview,
@@ -676,8 +651,8 @@ h3,
 }
 
 @media (max-width: 640px) {
-  .basepro-logo-lockup {
-    display: none;
+  .basepro-logo-mark {
+    width: min(100%, 280px);
   }
 
   .basepro-kpi-grid,
@@ -2535,26 +2510,12 @@ button {
 .admin-brand-logo.basepro-logo {
   width: 100% !important;
   max-width: 100% !important;
-  gap: 12px !important;
-  align-items: center !important;
+  justify-content: flex-start !important;
 }
 
 .admin-brand-logo .basepro-logo-mark {
-  width: 48px !important;
-  height: 48px !important;
+  width: min(100%, 250px) !important;
   filter: drop-shadow(0 10px 18px rgba(5, 12, 18, 0.28));
-}
-
-.admin-brand-logo .basepro-logo-lockup {
-  min-width: 0 !important;
-  flex: 1 1 auto !important;
-}
-
-.admin-brand-logo .basepro-logo-wordmark {
-  font-size: clamp(1.16rem, 1.45vw, 1.78rem) !important;
-  line-height: 0.9 !important;
-  white-space: nowrap !important;
-  letter-spacing: 0.01em !important;
 }
 
 .admin-brand-title {
@@ -2893,12 +2854,7 @@ button {
   }
 
   .admin-brand-logo .basepro-logo-mark {
-    width: 40px !important;
-    height: 40px !important;
-  }
-
-  .admin-brand-logo .basepro-logo-wordmark {
-    font-size: 1.02rem !important;
+    width: min(100%, 220px) !important;
   }
 
   .admin-brand-title {
