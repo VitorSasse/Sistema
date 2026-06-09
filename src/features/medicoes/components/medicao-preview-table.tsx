@@ -93,11 +93,7 @@ export function MedicaoPreviewTable(props: {
               return (
                 <tr
                   key={item.id}
-                  style={
-                    editingId === item.id
-                      ? { background: "rgba(18, 91, 80, 0.06)" }
-                      : undefined
-                  }
+                  className={editingId === item.id ? "table-row-highlight" : undefined}
                 >
                   <td>{item.data.slice(0, 10)}</td>
                   <td>{item.ficha.numero}</td>

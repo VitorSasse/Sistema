@@ -660,10 +660,18 @@ export function ProgramacaoManager() {
 
   return (
     <main className="page-stack">
+      <section className="page-header fade-up">
+        <span className="page-kicker">Agenda operacional</span>
+        <h1 className="page-title">Programacao</h1>
+        <p className="page-copy">
+          Visualize alocacoes, disponibilidade e manutencoes em um padrao unico para os dois temas.
+        </p>
+      </section>
+
       <section className="surface section-card programacao-hero-panel fade-up">
         <div className="programacao-hero-top">
           <div>
-            <h2 className="section-title programacao-hero-title">Agenda de programacao</h2>
+            <h2 className="section-title programacao-hero-title">Visao operacional</h2>
             <p className="section-copy">
               Painel rapido para entender alocacao, status da operacao e revisao por equipamento.
             </p>
@@ -766,8 +774,8 @@ export function ProgramacaoManager() {
             <strong>{view === "MES" ? "Visao mensal compacta" : "Visao detalhada"}</strong>
             <span className="subtle">
               {view === "MES"
-                ? "No mes inteiro a leitura fica mais compacta, com a coluna do equipamento fixa e navegação lateral reforçada."
-                : "Use a rolagem lateral ou os botões para navegar pelos dias sem perder a referencia do equipamento."}
+                ? "No mes inteiro a leitura fica mais compacta, com a coluna do equipamento fixa e navegacao lateral reforcada."
+                : "Use a rolagem lateral ou os botoes para navegar pelos dias sem perder a referencia do equipamento."}
             </span>
           </div>
           <div className="toolbar-actions">
@@ -876,7 +884,7 @@ export function ProgramacaoManager() {
                           {cell.entries
                             .slice(0, 2)
                             .map((entry) => `${getTurnoLabel(entry.turno)}: ${entry.obraCodigo ?? entry.obraNome ?? entry.local ?? "Sem obra"}`)
-                            .join(" · ")}
+                            .join(" | ")}
                         </span>
                       ) : (
                         <span>
@@ -949,7 +957,7 @@ export function ProgramacaoManager() {
                         />
                       </div>
                       <span className="programacao-analytics-row-value">
-                        {formatPercent(item.percent)}% · {item.count}
+                        {formatPercent(item.percent)}% | {item.count}
                       </span>
                     </div>
                   );
@@ -1079,7 +1087,7 @@ export function ProgramacaoManager() {
               <div>
                 <h3 className="section-title">Atualizar celula da agenda</h3>
                 <p className="section-copy">
-                  {modal.equipamentoNome} · {modal.equipamentoTag} · {formatDateOrRange(modal.date, modal.dateFim || modal.date)}
+                  {modal.equipamentoNome} | {modal.equipamentoTag} | {formatDateOrRange(modal.date, modal.dateFim || modal.date)}
                 </p>
               </div>
             </div>

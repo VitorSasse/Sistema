@@ -72,7 +72,7 @@ const periodOptions: Array<{ value: PeriodPreset; label: string }> = [
   { value: "custom", label: "Personalizado" }
 ];
 
-const chartPalette = ["#155b52", "#1d7266", "#25897b", "#34a18f", "#4fb9a0", "#7ed0b3"];
+const chartPalette = ["#F97316", "#FB923C", "#FDBA74", "#0F2A44", "#1D4ED8", "#60A5FA"];
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("pt-BR");
@@ -218,12 +218,12 @@ function SectionPanel({
                     layout="vertical"
                     margin={{ top: 8, right: 18, left: 8, bottom: 8 }}
                   >
-                    <CartesianGrid stroke="rgba(109, 92, 66, 0.12)" horizontal={false} />
+                    <CartesianGrid stroke="var(--line-soft)" horizontal={false} />
                     <XAxis
                       type="number"
                       tickLine={false}
                       axisLine={false}
-                      tick={{ fill: "#6f6455", fontSize: 12 }}
+                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
                       tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
                     />
                     <YAxis
@@ -232,17 +232,17 @@ function SectionPanel({
                       tickLine={false}
                       axisLine={false}
                       width={96}
-                      tick={{ fill: "#4c4338", fontSize: 12, fontWeight: 700 }}
+                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12, fontWeight: 700 }}
                     />
                     <Tooltip
                       content={<CustomTooltip />}
-                      cursor={{ fill: "rgba(21, 91, 82, 0.06)" }}
+                      cursor={{ fill: "rgba(249, 115, 22, 0.08)" }}
                     />
                     <Bar dataKey="totalValor" radius={[0, 14, 14, 0]} barSize={22}>
                       {chartData.map((item, index) => (
                         <Cell
                           key={item.equipamentoId}
-                          fill={chartPalette[index % chartPalette.length] ?? "#155b52"}
+                          fill={chartPalette[index % chartPalette.length] ?? "#F97316"}
                         />
                       ))}
                     </Bar>
@@ -356,10 +356,18 @@ export function FrotaDashboard() {
 
   return (
     <main className="fleet-dashboard">
+      <section className="page-header fade-up">
+        <span className="page-kicker">Frota</span>
+        <h1 className="page-title">Dashboard da frota</h1>
+        <p className="page-copy">
+          Valor medido por caminhoes e maquinas no periodo selecionado.
+        </p>
+      </section>
+
       <section className="fleet-toolbar surface section-card fade-up">
         <div className="fleet-toolbar-copy">
           <span className="fleet-kicker">Frota</span>
-          <h1 className="page-title">Valor medido por equipamento</h1>
+          <h2 className="section-title">Valor medido por equipamento</h2>
         </div>
 
         <div className="fleet-filter-row">

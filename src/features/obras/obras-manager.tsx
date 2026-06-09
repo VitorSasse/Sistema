@@ -218,19 +218,28 @@ export function ObrasManager() {
   }
 
   return (
-    <div style={{ display: "grid", gap: 28 }}>
-      <section style={panelStyle}>
-        <div style={headerBlockStyle}>
+    <main className="page-stack">
+      <section className="page-header">
+        <div>
+          <h1 className="page-title">Obras</h1>
+          <p className="page-copy">
+            Cadastro mestre de obras com cliente vinculado, dados contratuais e liberacao operacional.
+          </p>
+        </div>
+      </section>
+
+      <section className="surface section-card manager-panel">
+        <div className="manager-header-block">
           <div>
             <h2 style={{ margin: "0 0 6px" }}>{form.id ? "Editar obra" : "Nova obra"}</h2>
-            <p style={{ margin: 0, color: "var(--muted)" }}>
+            <p className="manager-panel-note">
               O codigo da obra e gerado automaticamente e o vinculo com cliente e obrigatorio.
             </p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 24 }}>
-          <div style={formGridStyle}>
+          <div className="manager-form-grid">
             <Field label="Cliente">
               <SearchableSelect
                 value={form.clienteId}
@@ -246,7 +255,7 @@ export function ObrasManager() {
                 placeholder="Nome operacional da obra"
                 value={form.nome}
                 onChange={(event) => updateField("nome", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
 
@@ -255,7 +264,7 @@ export function ObrasManager() {
                 placeholder="Contrato"
                 value={form.contratoNumero}
                 onChange={(event) => updateField("contratoNumero", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
 
@@ -264,7 +273,7 @@ export function ObrasManager() {
                 placeholder="Fazenda, trecho, bairro ou referencia"
                 value={form.localidade}
                 onChange={(event) => updateField("localidade", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
 
@@ -273,7 +282,7 @@ export function ObrasManager() {
                 placeholder="Cidade"
                 value={form.cidade}
                 onChange={(event) => updateField("cidade", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
 
@@ -283,7 +292,7 @@ export function ObrasManager() {
                 maxLength={2}
                 value={form.uf}
                 onChange={(event) => updateField("uf", event.target.value.toUpperCase())}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
 
@@ -292,7 +301,7 @@ export function ObrasManager() {
                 type="date"
                 value={form.dataInicio}
                 onChange={(event) => updateField("dataInicio", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
 
@@ -301,7 +310,7 @@ export function ObrasManager() {
                 type="date"
                 value={form.dataFim}
                 onChange={(event) => updateField("dataFim", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
 
@@ -309,7 +318,7 @@ export function ObrasManager() {
               <select
                 value={form.status}
                 onChange={(event) => updateField("status", event.target.value as FormState["status"])}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               >
                 <option value="ATIVO">ATIVO</option>
                 <option value="INATIVO">INATIVO</option>
@@ -320,7 +329,7 @@ export function ObrasManager() {
               <select
                 value={form.liberadaParaLancamento ? "SIM" : "NAO"}
                 onChange={(event) => updateField("liberadaParaLancamento", event.target.value === "SIM")}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               >
                 <option value="SIM">SIM</option>
                 <option value="NAO">NAO</option>
@@ -333,42 +342,42 @@ export function ObrasManager() {
               placeholder="Observacoes contratuais, operacionais ou administrativas"
               value={form.observacao}
               onChange={(event) => updateField("observacao", event.target.value)}
-              style={{ ...fieldStyle, minHeight: 96, resize: "vertical" as const }}
+              className="field-control textarea-lg manager-field-control"
             />
           </Field>
 
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button type="submit" disabled={isPending} style={primaryButtonStyle}>
+          <div className="manager-actions">
+            <button type="submit" disabled={isPending} className="button-primary">
               {isPending ? "Salvando..." : form.id ? "Atualizar obra" : "Salvar obra"}
             </button>
-            <button type="button" onClick={handleReset} style={secondaryButtonStyle}>
+            <button type="button" onClick={handleReset} className="button-secondary">
               Limpar formulario
             </button>
           </div>
 
-          {message ? <p style={{ margin: 0, color: "var(--muted)" }}>{message}</p> : null}
+          {message ? <p className="manager-panel-note">{message}</p> : null}
         </form>
       </section>
 
-      <section style={panelStyle}>
-        <div style={toolbarStyle}>
+      <section className="surface section-card manager-panel">
+        <div className="manager-toolbar">
           <div>
             <h2 style={{ margin: "0 0 6px" }}>Obras cadastradas</h2>
-            <p style={{ margin: 0, color: "var(--muted)" }}>
+            <p className="manager-panel-note">
               {filteredObras.length} registro(s) exibido(s) de {obras.length}.
             </p>
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div className="manager-actions">
             <input
               placeholder="Buscar por codigo, nome, cliente, cidade ou localidade"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              style={{ ...fieldStyle, width: 340 }}
+              className="field-control manager-field-control"
             />
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as "TODOS" | "ATIVO" | "INATIVO")}
-              style={{ ...fieldStyle, width: 160 }}
+              className="field-control manager-field-control"
             >
               <option value="TODOS">Todos os status</option>
               <option value="ATIVO">Ativas</option>
@@ -377,51 +386,51 @@ export function ObrasManager() {
           </div>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="manager-table-wrap">
+          <table className="manager-table">
             <thead>
               <tr>
-                <th style={thStyle}>Codigo</th>
-                <th style={thStyle}>Obra</th>
-                <th style={thStyle}>Cliente</th>
-                <th style={thStyle}>Cidade/UF</th>
-                <th style={thStyle}>Lancamento</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Acoes</th>
+                <th>Codigo</th>
+                <th>Obra</th>
+                <th>Cliente</th>
+                <th>Cidade/UF</th>
+                <th>Lancamento</th>
+                <th>Status</th>
+                <th>Acoes</th>
               </tr>
             </thead>
             <tbody>
               {filteredObras.map((obra) => (
                 <tr key={obra.id}>
-                  <td style={tdStyle}>{obra.codigo}</td>
-                  <td style={tdStyle}>
+                  <td>{obra.codigo}</td>
+                  <td>
                     <div>{obra.nome}</div>
-                    <div style={subtleTextStyle}>{obra.localidade ?? obra.contratoNumero ?? "-"}</div>
+                    <div className="manager-subtle">{obra.localidade ?? obra.contratoNumero ?? "-"}</div>
                   </td>
-                  <td style={tdStyle}>
+                  <td>
                     <div>{obra.cliente.nome}</div>
-                    <div style={subtleTextStyle}>{obra.cliente.codigo}</div>
+                    <div className="manager-subtle">{obra.cliente.codigo}</div>
                   </td>
-                  <td style={tdStyle}>{[obra.cidade, obra.uf].filter(Boolean).join("/") || "-"}</td>
-                  <td style={tdStyle}>
-                    <span style={obra.liberadaParaLancamento ? statusActiveStyle : statusInactiveStyle}>
+                  <td>{[obra.cidade, obra.uf].filter(Boolean).join("/") || "-"}</td>
+                  <td>
+                    <span className={obra.liberadaParaLancamento ? "manager-badge manager-badge-success" : "manager-badge manager-badge-warn"}>
                       {obra.liberadaParaLancamento ? "LIBERADA" : "BLOQUEADA"}
                     </span>
                   </td>
-                  <td style={tdStyle}>
-                    <span style={obra.status === "ATIVO" ? statusActiveStyle : statusInactiveStyle}>
+                  <td>
+                    <span className={obra.status === "ATIVO" ? "manager-badge manager-badge-success" : "manager-badge manager-badge-warn"}>
                       {obra.status}
                     </span>
                   </td>
-                  <td style={tdStyle}>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button type="button" onClick={() => handleEdit(obra)} style={secondaryInlineButton}>
+                  <td>
+                    <div className="manager-inline-actions">
+                      <button type="button" onClick={() => handleEdit(obra)} className="button-secondary">
                         Editar
                       </button>
-                      <button type="button" onClick={() => handleDisable(obra.id)} style={dangerInlineButton}>
+                      <button type="button" onClick={() => handleDisable(obra.id)} className="button-secondary manager-button-warn">
                         Inativar
                       </button>
-                      <button type="button" onClick={() => handleDelete(obra.id)} style={deleteInlineButton}>
+                      <button type="button" onClick={() => handleDelete(obra.id)} className="button-secondary manager-button-danger">
                         Excluir
                       </button>
                     </div>
@@ -432,132 +441,15 @@ export function ObrasManager() {
           </table>
         </div>
       </section>
-    </div>
+    </main>
   );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label style={{ display: "grid", gap: 8 }}>
-      <span style={{ fontSize: 14, color: "var(--muted)" }}>{label}</span>
+    <label className="manager-field">
+      <span className="manager-field-label">{label}</span>
       {children}
     </label>
   );
 }
-
-const panelStyle = {
-  padding: 24,
-  borderRadius: 22,
-  background: "var(--surface)",
-  border: "1px solid var(--line-strong)",
-  boxShadow: "var(--shadow-md)"
-};
-
-const headerBlockStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 16,
-  marginBottom: 24,
-  flexWrap: "wrap" as const
-};
-
-const formGridStyle = {
-  display: "grid",
-  gap: 14,
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))"
-};
-
-const toolbarStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 16,
-  marginBottom: 20,
-  flexWrap: "wrap" as const
-};
-
-const fieldStyle = {
-  padding: "13px 14px",
-  borderRadius: 14,
-  border: "1px solid var(--line-strong)",
-  background: "var(--surface-strong)",
-  color: "var(--text)",
-  width: "100%"
-};
-
-const primaryButtonStyle = {
-  padding: "12px 18px",
-  borderRadius: 14,
-  border: "none",
-  background: "linear-gradient(135deg, #fb923c, #f97316)",
-  color: "var(--text-on-brand)"
-};
-
-const secondaryButtonStyle = {
-  padding: "12px 18px",
-  borderRadius: 14,
-  border: "1px solid rgba(15, 42, 68, 0.5)",
-  background: "rgba(15, 42, 68, 0.12)",
-  color: "var(--text)"
-};
-
-const secondaryInlineButton = {
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid rgba(15, 42, 68, 0.42)",
-  background: "rgba(15, 42, 68, 0.14)",
-  color: "var(--text)"
-};
-
-const dangerInlineButton = {
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid rgba(249, 115, 22, 0.28)",
-  background: "rgba(249, 115, 22, 0.14)",
-  color: "#fdba74"
-};
-
-const deleteInlineButton = {
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid rgba(239, 68, 68, 0.32)",
-  background: "rgba(239, 68, 68, 0.14)",
-  color: "#fca5a5"
-};
-
-const thStyle = {
-  textAlign: "left" as const,
-  padding: 12,
-  borderBottom: "1px solid var(--line-strong)",
-  whiteSpace: "nowrap" as const
-};
-
-const tdStyle = {
-  padding: 12,
-  borderBottom: "1px solid var(--line)",
-  verticalAlign: "top" as const
-};
-
-const subtleTextStyle = {
-  color: "var(--muted)",
-  fontSize: 13
-};
-
-const statusActiveStyle = {
-  display: "inline-block",
-  padding: "6px 10px",
-  borderRadius: 999,
-  background: "rgba(34, 197, 94, 0.14)",
-  color: "#86efac",
-  fontSize: 12,
-  fontWeight: 700
-};
-
-const statusInactiveStyle = {
-  display: "inline-block",
-  padding: "6px 10px",
-  borderRadius: 999,
-  background: "rgba(249, 115, 22, 0.14)",
-  color: "#fdba74",
-  fontSize: 12,
-  fontWeight: 700
-};

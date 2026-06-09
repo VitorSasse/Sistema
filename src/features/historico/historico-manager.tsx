@@ -354,11 +354,20 @@ export function HistoricoManager() {
   }
 
   return (
-    <div style={{ display: "grid", gap: 24 }}>
-      <section style={panelStyle}>
+    <main className="page-stack">
+      <section className="page-header">
+        <div>
+          <h1 className="page-title">Historico</h1>
+          <p className="page-copy">
+            Consulta, auditoria e correcao de lancamentos com rastreabilidade completa.
+          </p>
+        </div>
+      </section>
+
+      <section className="surface section-card manager-panel">
         <h2 style={{ marginTop: 0 }}>Filtros de consulta</h2>
         <form onSubmit={handleSearch} style={{ display: "grid", gap: 24 }}>
-          <div style={formGridStyle}>
+          <div className="manager-form-grid">
             <Field label="Periodo inicial">
               <input type="date" value={filters.periodoInicial} onChange={(e) => updateFilter("periodoInicial", e.target.value)} style={fieldStyle} />
             </Field>
@@ -439,15 +448,15 @@ export function HistoricoManager() {
             </Field>
           </div>
 
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button type="submit" disabled={isPending} style={primaryButtonStyle}>
+          <div className="manager-actions">
+            <button type="submit" disabled={isPending} className="button-primary">
               {isPending ? "Consultando..." : "Consultar historico"}
             </button>
             <button
               type="button"
               onClick={handleGenerateReport}
               disabled={!hasActiveFilters || isPending}
-              style={secondaryButtonStyle}
+              className="button-secondary"
             >
               Gerar relatorio
             </button>
@@ -455,89 +464,89 @@ export function HistoricoManager() {
               type="button"
               onClick={handleGenerateRomaneiosReport}
               disabled={!hasActiveFilters || isPending}
-              style={secondaryButtonStyle}
+              className="button-secondary"
             >
               Relatorio de romaneios
             </button>
-            <button type="button" onClick={resetFilters} style={secondaryButtonStyle}>
+            <button type="button" onClick={resetFilters} className="button-secondary">
               Limpar filtros
             </button>
           </div>
 
-          {message ? <p style={{ margin: 0, color: "var(--muted)" }}>{message}</p> : null}
+          {message ? <p className="manager-panel-note">{message}</p> : null}
         </form>
       </section>
 
-      <section style={panelStyle}>
+      <section className="surface section-card manager-panel">
         <h2 style={{ marginTop: 0 }}>Resultado da consulta</h2>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="manager-table-wrap">
+          <table className="manager-table">
             <thead>
               <tr>
-                <th style={thStyle}>Data</th>
-                <th style={thStyle}>Ficha</th>
-                <th style={thStyle}>Cliente/Obra</th>
-                <th style={thStyle}>Servico</th>
-                <th style={thStyle}>Recurso</th>
-                <th style={thStyle}>Colaborador</th>
-                <th style={thStyle}>Apontado</th>
-                <th style={thStyle}>Faturado</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Acoes</th>
+                <th>Data</th>
+                <th>Ficha</th>
+                <th>Cliente/Obra</th>
+                <th>Servico</th>
+                <th>Recurso</th>
+                <th>Colaborador</th>
+                <th>Apontado</th>
+                <th>Faturado</th>
+                <th>Status</th>
+                <th>Acoes</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item) => (
                 <tr key={item.id}>
-                  <td style={tdStyle}>{item.data.slice(0, 10)}</td>
-                  <td style={tdStyle}>{item.ficha.numero}</td>
-                  <td style={tdStyle}>
+                  <td>{item.data.slice(0, 10)}</td>
+                  <td>{item.ficha.numero}</td>
+                  <td>
                     <div>{item.cliente.nome}</div>
-                    <div style={subtleTextStyle}>{item.obra?.nome ?? "Sem obra"}</div>
+                    <div className="manager-subtle">{item.obra?.nome ?? "Sem obra"}</div>
                   </td>
-                  <td style={tdStyle}>
+                  <td>
                     <div>{item.servico.tipoServico}</div>
-                    <div style={subtleTextStyle}>{item.material?.descricao ?? "-"}</div>
+                    <div className="manager-subtle">{item.material?.descricao ?? "-"}</div>
                   </td>
-                  <td style={tdStyle}>
+                  <td>
                     {isRecursoTecnicoPadrao(item.equipamento.placaOuTag) ? (
                       <>
                         <div>Sem recurso tecnico especifico</div>
-                        <div style={subtleTextStyle}>Apoio generico</div>
+                        <div className="manager-subtle">Apoio generico</div>
                       </>
                     ) : (
                       <>
                         <div>{item.equipamento.descricao}</div>
-                        <div style={subtleTextStyle}>{item.equipamento.placaOuTag}</div>
+                        <div className="manager-subtle">{item.equipamento.placaOuTag}</div>
                       </>
                     )}
                   </td>
-                  <td style={tdStyle}>{item.colaborador.nome}</td>
-                  <td style={tdStyle}>
+                  <td>{item.colaborador.nome}</td>
+                  <td>
                     {formatQuantidadeComUnidade(item.quantidadeApontada, item.unidadeApontada)}
                   </td>
-                  <td style={tdStyle}>
+                  <td>
                     {formatQuantidadeComUnidade(item.quantidadeFaturada, item.unidadeFaturada)}
                   </td>
-                  <td style={tdStyle}>
-                    <span style={{ ...badgeStyle, ...statusStyles[item.statusValidacao] }}>
+                  <td>
+                    <span style={statusStyles[item.statusValidacao]} className="manager-badge">
                       {item.statusValidacao}
                     </span>
                   </td>
-                  <td style={tdStyle}>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <td>
+                    <div className="manager-inline-actions">
                       <button
                         type="button"
                         onClick={() => startEdit(item)}
                         disabled={item.statusValidacao === "MEDIDO" || item.statusValidacao === "CANCELADO"}
-                        style={secondaryButtonStyle}
+                        className="button-secondary"
                       >
                         Editar
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(item.id)}
-                        style={dangerButtonStyle}
+                        className="button-secondary manager-button-danger"
                       >
                         Excluir
                       </button>
@@ -551,10 +560,10 @@ export function HistoricoManager() {
       </section>
 
       {selected ? (
-        <section style={panelStyle}>
+        <section className="surface section-card manager-panel">
           <h2 style={{ marginTop: 0 }}>Editar lancamento</h2>
           <form onSubmit={handleUpdate} style={{ display: "grid", gap: 24 }}>
-            <div style={formGridStyle}>
+            <div className="manager-form-grid">
               <Field label="Data">
                 <input type="date" value={editForm.data} onChange={(e) => updateEditField("data", e.target.value)} style={fieldStyle} />
               </Field>
@@ -667,11 +676,11 @@ export function HistoricoManager() {
               <textarea value={editForm.motivoAlteracao} onChange={(e) => updateEditField("motivoAlteracao", e.target.value)} style={{ ...fieldStyle, minHeight: 72, resize: "vertical" as const }} placeholder="Descreva o motivo da correcao" />
             </Field>
 
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <button type="submit" disabled={isPending} style={primaryButtonStyle}>
+            <div className="manager-actions">
+              <button type="submit" disabled={isPending} className="button-primary">
                 {isPending ? "Salvando..." : "Salvar alteracao"}
               </button>
-              <button type="button" onClick={closeEdit} style={secondaryButtonStyle}>
+              <button type="button" onClick={closeEdit} className="button-secondary">
                 Fechar
               </button>
             </div>
@@ -679,27 +688,27 @@ export function HistoricoManager() {
 
           <div style={{ marginTop: 24 }}>
             <h3>Historico de alteracoes</h3>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <div className="manager-table-wrap">
+              <table className="manager-table">
                 <thead>
                   <tr>
-                    <th style={thStyle}>Quando</th>
-                    <th style={thStyle}>Campo</th>
-                    <th style={thStyle}>Antes</th>
-                    <th style={thStyle}>Depois</th>
-                    <th style={thStyle}>Motivo</th>
-                    <th style={thStyle}>Usuario</th>
+                    <th>Quando</th>
+                    <th>Campo</th>
+                    <th>Antes</th>
+                    <th>Depois</th>
+                    <th>Motivo</th>
+                    <th>Usuario</th>
                   </tr>
                 </thead>
                 <tbody>
                   {historico.map((item) => (
                     <tr key={item.id}>
-                      <td style={tdStyle}>{item.createdAt.slice(0, 19).replace("T", " ")}</td>
-                      <td style={tdStyle}>{item.campo}</td>
-                      <td style={tdStyle}>{item.valorAnterior ?? "-"}</td>
-                      <td style={tdStyle}>{item.valorNovo ?? "-"}</td>
-                      <td style={tdStyle}>{item.motivo ?? "-"}</td>
-                      <td style={tdStyle}>{item.usuario.nome ?? item.usuario.email ?? "-"}</td>
+                      <td>{item.createdAt.slice(0, 19).replace("T", " ")}</td>
+                      <td>{item.campo}</td>
+                      <td>{item.valorAnterior ?? "-"}</td>
+                      <td>{item.valorNovo ?? "-"}</td>
+                      <td>{item.motivo ?? "-"}</td>
+                      <td>{item.usuario.nome ?? item.usuario.email ?? "-"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -708,43 +717,28 @@ export function HistoricoManager() {
           </div>
         </section>
       ) : null}
-    </div>
+    </main>
   );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label style={{ display: "grid", gap: 8 }}>
-      <span style={{ fontSize: 14, color: "var(--muted)" }}>{label}</span>
+    <label className="manager-field">
+      <span className="manager-field-label">{label}</span>
       {children}
     </label>
   );
 }
 
 const statusStyles: Record<Lancamento["statusValidacao"], { background: string; color: string }> = {
-  VALIDO: { background: "rgba(34, 197, 94, 0.14)", color: "#86efac" },
-  NAO_MEDIDO: { background: "rgba(34, 197, 94, 0.14)", color: "#86efac" },
-  PENDENTE_OBRA: { background: "rgba(249, 115, 22, 0.14)", color: "#fdba74" },
-  PENDENTE_PRECO: { background: "rgba(239, 68, 68, 0.14)", color: "#fca5a5" },
-  DIVERGENTE: { background: "rgba(239, 68, 68, 0.14)", color: "#fca5a5" },
-  MEDIDO: { background: "rgba(59, 130, 246, 0.14)", color: "#93c5fd" },
-  CANCELADO: { background: "rgba(148, 163, 184, 0.16)", color: "var(--muted)" }
+  VALIDO: { background: "var(--status-success-bg)", color: "var(--status-success-fg)" },
+  NAO_MEDIDO: { background: "var(--status-success-bg)", color: "var(--status-success-fg)" },
+  PENDENTE_OBRA: { background: "var(--status-warning-bg)", color: "var(--status-warning-fg)" },
+  PENDENTE_PRECO: { background: "var(--status-danger-bg)", color: "var(--status-danger-fg)" },
+  DIVERGENTE: { background: "var(--status-danger-bg)", color: "var(--status-danger-fg)" },
+  MEDIDO: { background: "var(--info-soft)", color: "var(--info)" },
+  CANCELADO: { background: "color-mix(in srgb, var(--screen-surface-strong) 70%, var(--screen-border))", color: "var(--muted)" }
 };
-
-const panelStyle = {
-  padding: 24,
-  borderRadius: 22,
-  background: "var(--surface)",
-  border: "1px solid var(--line-strong)",
-  boxShadow: "var(--shadow-md)"
-};
-
-const formGridStyle = {
-  display: "grid",
-  gap: 14,
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))"
-};
-
 const fieldStyle = {
   padding: "13px 14px",
   borderRadius: 14,
@@ -752,54 +746,4 @@ const fieldStyle = {
   background: "var(--surface-strong)",
   color: "var(--text)",
   width: "100%"
-};
-
-const primaryButtonStyle = {
-  padding: "12px 18px",
-  borderRadius: 14,
-  border: "none",
-  background: "linear-gradient(135deg, #fb923c, #f97316)",
-  color: "var(--text-on-brand)"
-};
-
-const secondaryButtonStyle = {
-  padding: "12px 18px",
-  borderRadius: 14,
-  border: "1px solid rgba(15, 42, 68, 0.5)",
-  background: "rgba(15, 42, 68, 0.12)",
-  color: "var(--text)"
-};
-
-const dangerButtonStyle = {
-  padding: "12px 18px",
-  borderRadius: 14,
-  border: "1px solid rgba(239, 68, 68, 0.32)",
-  background: "rgba(239, 68, 68, 0.14)",
-  color: "#fca5a5"
-};
-
-const thStyle = {
-  textAlign: "left" as const,
-  padding: 12,
-  borderBottom: "1px solid var(--line-strong)",
-  whiteSpace: "nowrap" as const
-};
-
-const tdStyle = {
-  padding: 12,
-  borderBottom: "1px solid var(--line)",
-  verticalAlign: "top" as const
-};
-
-const subtleTextStyle = {
-  color: "var(--muted)",
-  fontSize: 13
-};
-
-const badgeStyle = {
-  display: "inline-block",
-  padding: "6px 10px",
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 700
 };

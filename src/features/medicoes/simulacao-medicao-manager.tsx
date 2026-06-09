@@ -111,6 +111,14 @@ export function SimulacaoMedicaoManager() {
 
   return (
     <main className="page-stack">
+      <section className="page-header fade-up">
+        <span className="page-kicker">Medicoes comerciais</span>
+        <h1 className="page-title">Simulacao de medicao</h1>
+        <p className="page-copy">
+          Projete valores para o cliente sem comprometer a medicao real nem travar os lancamentos elegiveis.
+        </p>
+      </section>
+
       <section className="surface section-card">
         <div className="section-header">
           <div>

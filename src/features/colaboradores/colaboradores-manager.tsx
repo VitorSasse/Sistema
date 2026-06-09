@@ -186,22 +186,31 @@ export function ColaboradoresManager() {
   }
 
   return (
-    <div style={{ display: "grid", gap: 24 }}>
-      <section style={panelStyle}>
+    <main className="page-stack">
+      <section className="page-header">
+        <div>
+          <h1 className="page-title">Colaboradores</h1>
+          <p className="page-copy">
+            Cadastro da equipe operacional com funcao, documentos e situacao atual.
+          </p>
+        </div>
+      </section>
+
+      <section className="surface section-card manager-panel">
         <h2 style={{ marginTop: 0 }}>{form.id ? "Editar colaborador" : "Novo colaborador"}</h2>
         {!form.id ? (
-          <p style={{ margin: "0 0 18px", color: "var(--muted)" }}>
+          <p className="manager-panel-note" style={{ marginBottom: 18 }}>
             O codigo do colaborador sera gerado automaticamente no salvamento.
           </p>
         ) : null}
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 24 }}>
-          <div style={formGridStyle}>
+          <div className="manager-form-grid">
             <Field label="Nome completo">
               <input
                 placeholder="Nome do colaborador"
                 value={form.nome}
                 onChange={(event) => updateField("nome", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
             <Field label="Apelido">
@@ -209,14 +218,14 @@ export function ColaboradoresManager() {
                 placeholder="Nome operacional"
                 value={form.apelido}
                 onChange={(event) => updateField("apelido", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
             <Field label="Funcao">
               <select
                 value={form.funcao}
                 onChange={(event) => updateField("funcao", event.target.value as FuncaoColaborador)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               >
                 {funcaoOptions.map((option) => (
                   <option key={option} value={option}>
@@ -230,7 +239,7 @@ export function ColaboradoresManager() {
                 placeholder="000.000.000-00"
                 value={form.documento}
                 onChange={(event) => updateField("documento", formatCpf(event.target.value))}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
             <Field label="Telefone">
@@ -238,7 +247,7 @@ export function ColaboradoresManager() {
                 placeholder="(00) 00000-0000"
                 value={form.telefone}
                 onChange={(event) => updateField("telefone", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
             <Field label="Data de admissao">
@@ -246,7 +255,7 @@ export function ColaboradoresManager() {
                 type="date"
                 value={form.dataAdmissao}
                 onChange={(event) => updateField("dataAdmissao", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
             <Field label="Data de saida">
@@ -254,14 +263,14 @@ export function ColaboradoresManager() {
                 type="date"
                 value={form.dataSaida}
                 onChange={(event) => updateField("dataSaida", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
             <Field label="Status">
               <select
                 value={form.status}
                 onChange={(event) => updateField("status", event.target.value as FormState["status"])}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               >
                 <option value="ATIVO">ATIVO</option>
                 <option value="INATIVO">INATIVO</option>
@@ -274,44 +283,44 @@ export function ColaboradoresManager() {
               placeholder="Observacoes operacionais do colaborador"
               value={form.observacao}
               onChange={(event) => updateField("observacao", event.target.value)}
-              style={{ ...fieldStyle, minHeight: 96, resize: "vertical" as const }}
+              className="field-control textarea-lg manager-field-control"
             />
           </Field>
 
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button type="submit" disabled={isPending} style={primaryButtonStyle}>
+          <div className="manager-actions">
+            <button type="submit" disabled={isPending} className="button-primary">
               {isPending ? "Salvando..." : form.id ? "Atualizar colaborador" : "Salvar colaborador"}
             </button>
-            <button type="button" onClick={handleReset} style={secondaryButtonStyle}>
+            <button type="button" onClick={handleReset} className="button-secondary">
               Limpar formulario
             </button>
           </div>
 
-          {message ? <p style={{ margin: 0, color: "var(--muted)" }}>{message}</p> : null}
+          {message ? <p className="manager-panel-note">{message}</p> : null}
         </form>
       </section>
 
-      <section style={panelStyle}>
-        <div style={toolbarStyle}>
+      <section className="surface section-card manager-panel">
+        <div className="manager-toolbar">
           <div>
             <h2 style={{ margin: "0 0 6px" }}>Colaboradores cadastrados</h2>
-            <p style={{ margin: 0, color: "var(--muted)" }}>
+            <p className="manager-panel-note">
               {filteredColaboradores.length} registro(s) exibido(s) de {colaboradores.length}.
             </p>
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div className="manager-actions">
             <input
               placeholder="Buscar por codigo, nome, apelido ou CPF"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              style={{ ...fieldStyle, width: 320 }}
+              className="field-control manager-field-control"
             />
             <select
               value={funcaoFilter}
               onChange={(event) =>
                 setFuncaoFilter(event.target.value as "TODOS" | FuncaoColaborador)
               }
-              style={{ ...fieldStyle, width: 180 }}
+              className="field-control manager-field-control"
             >
               <option value="TODOS">Todas as funcoes</option>
               {funcaoOptions.map((option) => (
@@ -325,7 +334,7 @@ export function ColaboradoresManager() {
               onChange={(event) =>
                 setStatusFilter(event.target.value as "TODOS" | "ATIVO" | "INATIVO")
               }
-              style={{ ...fieldStyle, width: 160 }}
+              className="field-control manager-field-control"
             >
               <option value="TODOS">Todos os status</option>
               <option value="ATIVO">Ativos</option>
@@ -334,45 +343,45 @@ export function ColaboradoresManager() {
           </div>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="manager-table-wrap">
+          <table className="manager-table">
             <thead>
               <tr>
-                <th style={thStyle}>Codigo</th>
-                <th style={thStyle}>Nome</th>
-                <th style={thStyle}>Funcao</th>
-                <th style={thStyle}>CPF / Contato</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Acoes</th>
+                <th>Codigo</th>
+                <th>Nome</th>
+                <th>Funcao</th>
+                <th>CPF / Contato</th>
+                <th>Status</th>
+                <th>Acoes</th>
               </tr>
             </thead>
             <tbody>
               {filteredColaboradores.map((colaborador) => (
                 <tr key={colaborador.id}>
-                  <td style={tdStyle}>{colaborador.codigo}</td>
-                  <td style={tdStyle}>
+                  <td>{colaborador.codigo}</td>
+                  <td>
                     <div>{colaborador.nome}</div>
-                    <div style={subtleTextStyle}>{colaborador.apelido ?? "-"}</div>
+                    <div className="manager-subtle">{colaborador.apelido ?? "-"}</div>
                   </td>
-                  <td style={tdStyle}>{colaborador.funcao}</td>
-                  <td style={tdStyle}>
+                  <td>{colaborador.funcao}</td>
+                  <td>
                     <div>{formatCpf(colaborador.documento) || "-"}</div>
-                    <div style={subtleTextStyle}>{colaborador.telefone ?? "-"}</div>
+                    <div className="manager-subtle">{colaborador.telefone ?? "-"}</div>
                   </td>
-                  <td style={tdStyle}>
-                    <span style={colaborador.status === "ATIVO" ? statusActiveStyle : statusInactiveStyle}>
+                  <td>
+                    <span className={colaborador.status === "ATIVO" ? "manager-badge manager-badge-success" : "manager-badge manager-badge-warn"}>
                       {colaborador.status}
                     </span>
                   </td>
-                  <td style={tdStyle}>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button type="button" onClick={() => handleEdit(colaborador)} style={secondaryInlineButton}>
+                  <td>
+                    <div className="manager-inline-actions">
+                      <button type="button" onClick={() => handleEdit(colaborador)} className="button-secondary">
                         Editar
                       </button>
-                      <button type="button" onClick={() => handleDisable(colaborador.id)} style={dangerInlineButton}>
+                      <button type="button" onClick={() => handleDisable(colaborador.id)} className="button-secondary manager-button-warn">
                         Inativar
                       </button>
-                      <button type="button" onClick={() => handleDelete(colaborador.id)} style={deleteInlineButton}>
+                      <button type="button" onClick={() => handleDelete(colaborador.id)} className="button-secondary manager-button-danger">
                         Excluir
                       </button>
                     </div>
@@ -383,124 +392,15 @@ export function ColaboradoresManager() {
           </table>
         </div>
       </section>
-    </div>
+    </main>
   );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label style={{ display: "grid", gap: 8 }}>
-      <span style={{ fontSize: 14, color: "var(--muted)" }}>{label}</span>
+    <label className="manager-field">
+      <span className="manager-field-label">{label}</span>
       {children}
     </label>
   );
 }
-
-const panelStyle = {
-  padding: 24,
-  borderRadius: 22,
-  background: "var(--surface)",
-  border: "1px solid var(--line-strong)",
-  boxShadow: "var(--shadow-md)"
-};
-
-const formGridStyle = {
-  display: "grid",
-  gap: 14,
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))"
-};
-
-const toolbarStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 16,
-  marginBottom: 20,
-  flexWrap: "wrap" as const
-};
-
-const fieldStyle = {
-  padding: "13px 14px",
-  borderRadius: 14,
-  border: "1px solid var(--line-strong)",
-  background: "var(--surface-strong)",
-  color: "var(--text)",
-  width: "100%"
-};
-
-const primaryButtonStyle = {
-  padding: "12px 18px",
-  borderRadius: 14,
-  border: "none",
-  background: "linear-gradient(135deg, #fb923c, #f97316)",
-  color: "var(--text-on-brand)"
-};
-
-const secondaryButtonStyle = {
-  padding: "12px 18px",
-  borderRadius: 14,
-  border: "1px solid rgba(15, 42, 68, 0.5)",
-  background: "rgba(15, 42, 68, 0.12)",
-  color: "var(--text)"
-};
-
-const secondaryInlineButton = {
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid rgba(15, 42, 68, 0.42)",
-  background: "rgba(15, 42, 68, 0.14)",
-  color: "var(--text)"
-};
-
-const dangerInlineButton = {
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid rgba(249, 115, 22, 0.28)",
-  background: "rgba(249, 115, 22, 0.14)",
-  color: "#fdba74"
-};
-
-const deleteInlineButton = {
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid rgba(239, 68, 68, 0.32)",
-  background: "rgba(239, 68, 68, 0.14)",
-  color: "#fca5a5"
-};
-
-const thStyle = {
-  textAlign: "left" as const,
-  padding: 12,
-  borderBottom: "1px solid var(--line-strong)",
-  whiteSpace: "nowrap" as const
-};
-
-const tdStyle = {
-  padding: 12,
-  borderBottom: "1px solid var(--line)",
-  verticalAlign: "top" as const
-};
-
-const subtleTextStyle = {
-  color: "var(--muted)",
-  fontSize: 13
-};
-
-const statusActiveStyle = {
-  display: "inline-block",
-  padding: "6px 10px",
-  borderRadius: 999,
-  background: "rgba(34, 197, 94, 0.14)",
-  color: "#86efac",
-  fontSize: 12,
-  fontWeight: 700
-};
-
-const statusInactiveStyle = {
-  display: "inline-block",
-  padding: "6px 10px",
-  borderRadius: 999,
-  background: "rgba(249, 115, 22, 0.14)",
-  color: "#fdba74",
-  fontSize: 12,
-  fontWeight: 700
-};

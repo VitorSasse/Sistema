@@ -172,6 +172,15 @@ export function PlanosManager() {
 
   return (
     <main className="page-stack">
+      <section className="page-header">
+        <div>
+          <h1 className="page-title">Planos preventivos</h1>
+          <p className="page-copy">
+            Controle de manutencao preventiva por horimetro, KM ou data.
+          </p>
+        </div>
+      </section>
+
       <section className="surface section-card">
         <div className="glass-band">
           <strong>Previsao automatica:</strong>

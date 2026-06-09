@@ -193,7 +193,7 @@ export function MedicaoDetailSection(props: {
           <p className="section-copy">
             {detail.codigoMedicao} - {detail.cliente.nome}
           </p>
-          <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="section-inline-note">
             <span className={medicaoTipoClasses[detail.tipoMedicao]}>
               {medicaoTipoLabels[detail.tipoMedicao]}
             </span>
@@ -286,7 +286,7 @@ export function MedicaoDetailSection(props: {
         </div>
       ) : null}
 
-      <div className="split-grid" style={{ display: "grid", gap: 16, gridTemplateColumns: "1.1fr 0.9fr" }}>
+      <div className="content-split-detail">
         <article className="tile-card">
           <h3 style={{ marginTop: 0, marginBottom: 16 }}>Controle de status</h3>
           <div className="form-grid-2">
@@ -310,7 +310,7 @@ export function MedicaoDetailSection(props: {
             </MedicaoField>
           </div>
           {nextStatus === "CANCELADA" || detail.status === "CANCELADA" ? (
-            <div style={{ marginTop: 16 }}>
+            <div className="section-block">
               <MedicaoField label="Justificativa do cancelamento">
                 <textarea
                   className="field-control textarea-lg"
@@ -321,12 +321,12 @@ export function MedicaoDetailSection(props: {
               </MedicaoField>
             </div>
           ) : null}
-          <div className="toolbar-actions" style={{ marginTop: 16 }}>
+          <div className="toolbar-actions section-block">
             <button type="button" disabled={isPending} className="button-primary" onClick={onUpdateStatus}>
               {isPending ? "Atualizando..." : "Atualizar status"}
             </button>
           </div>
-          <div style={{ marginTop: 20, display: "grid", gap: 12 }}>
+          <div className="section-block section-stack-sm">
             <MedicaoField label="Observacao da medicao">
               <textarea
                 className="field-control textarea-lg"
@@ -420,17 +420,8 @@ export function MedicaoDetailSection(props: {
       </div>
 
       {canEditContent ? (
-        <article className="tile-card" style={{ marginTop: 20 }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: 16,
-              flexWrap: "wrap",
-              alignItems: "end",
-              marginBottom: 16
-            }}
-          >
+        <article className="tile-card section-block">
+          <div className="section-row-between" style={{ marginBottom: 16 }}>
             <div>
               <h3 style={{ marginTop: 0, marginBottom: 8 }}>Lancamentos elegiveis</h3>
               <p className="subtle" style={{ margin: 0 }}>
@@ -438,14 +429,7 @@ export function MedicaoDetailSection(props: {
                 gerar outra consolidacao.
               </p>
             </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(180px, 220px) auto auto",
-                gap: 10,
-                alignItems: "end"
-              }}
-            >
+            <div className="section-row-actions">
               <MedicaoField label="Cobranca material">
                 <select
                   className="field-control"
@@ -561,7 +545,7 @@ export function MedicaoDetailSection(props: {
         </article>
       ) : null}
 
-      <div className="split-grid" style={{ display: "grid", gap: 16, gridTemplateColumns: "0.95fr 1.05fr", marginTop: 20 }}>
+      <div className="content-split-detail-alt section-block">
         <article className="tile-card">
           <h3 style={{ marginTop: 0, marginBottom: 16 }}>Documentos vinculados</h3>
           <div className="list-stack">
@@ -609,11 +593,7 @@ export function MedicaoDetailSection(props: {
                 {detail.itens.map((item) => (
                   <tr
                     key={item.id}
-                    style={
-                      editingLancamentoId === item.lancamentoId
-                        ? { background: "rgba(18, 91, 80, 0.06)" }
-                        : undefined
-                    }
+                    className={editingLancamentoId === item.lancamentoId ? "table-row-highlight" : undefined}
                   >
                     <td>{formatDate(item.data)}</td>
                     <td>{item.ficha}</td>

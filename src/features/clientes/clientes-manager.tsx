@@ -523,7 +523,7 @@ export function ClientesManager() {
         </div>
 
         {selectedCliente ? (
-          <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid rgba(109, 92, 66, 0.12)" }}>
+          <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--line-strong)" }}>
             <h3 style={{ marginTop: 0, marginBottom: 8 }}>
               Obras vinculadas a {selectedCliente.codigo} - {selectedCliente.nome}
             </h3>
@@ -532,7 +532,7 @@ export function ClientesManager() {
             </p>
 
             {selectedCliente.obras.length === 0 ? (
-              <p className="subtle" style={{ margin: 0 }}>
+              <p className="manager-subtle" style={{ margin: 0 }}>
                 Nenhuma obra vinculada ate o momento.
               </p>
             ) : (
@@ -542,7 +542,7 @@ export function ClientesManager() {
                     <div>
                       <strong>{obra.codigo}</strong> - {obra.nome}
                     </div>
-                    <span className={obra.status === "ATIVO" ? "badge badge-success" : "badge badge-danger"}>
+                    <span className={obra.status === "ATIVO" ? "manager-badge manager-badge-success" : "manager-badge manager-badge-warn"}>
                       {obra.status}
                     </span>
                   </div>

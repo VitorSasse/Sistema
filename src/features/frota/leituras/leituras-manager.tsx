@@ -175,6 +175,15 @@ export function LeiturasManager() {
 
   return (
     <main className="page-stack">
+      <section className="page-header">
+        <div>
+          <h1 className="page-title">Leituras de horimetro e KM</h1>
+          <p className="page-copy">
+            Registro manual e historico das leituras para manter a base da frota consistente.
+          </p>
+        </div>
+      </section>
+
       <section className="surface section-card">
         <div className="section-header">
           <div>

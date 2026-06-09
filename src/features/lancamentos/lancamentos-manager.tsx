@@ -126,7 +126,7 @@ export function LancamentosManager() {
         </div>
 
         {servicoTecnicoSelecionado ? (
-          <div className="glass-band" style={{ marginTop: 16 }}>
+          <div className="glass-band section-block">
             <strong>Servico tecnico:</strong>
             <span className="subtle">
               o recurso tecnico agora e opcional. Se nada for selecionado, o sistema usa um apoio
@@ -136,7 +136,7 @@ export function LancamentosManager() {
         ) : null}
 
         {servicoFechadoSelecionado ? (
-          <div className="glass-band" style={{ marginTop: 16 }}>
+          <div className="glass-band section-block">
             <strong>Servico fechado:</strong>
             <span className="subtle">
               esse lancamento sera tratado como item fechado de medicao. O sistema usa a unidade SERVICO e sugere quantidade 1 por padrao.
@@ -280,10 +280,7 @@ export function LancamentosManager() {
             ) : null}
           </div>
 
-          <div
-            className="split-grid"
-            style={{ display: "grid", gap: 20, gridTemplateColumns: "1fr 1fr" }}
-          >
+          <div className="content-split-2">
             <article className="tile-card">
               <div className="section-header" style={{ marginBottom: 16 }}>
                 <div>

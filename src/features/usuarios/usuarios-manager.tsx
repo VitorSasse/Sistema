@@ -165,12 +165,21 @@ export function UsuariosManager() {
   }
 
   return (
-    <div style={{ display: "grid", gap: 24 }}>
-      <section className="panel-card" style={{ padding: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
+    <main className="page-stack">
+      <section className="page-header">
+        <div>
+          <h1 className="page-title">Usuarios e acessos</h1>
+          <p className="page-copy">
+            Controle quem entra no sistema e quais modulos cada perfil pode utilizar.
+          </p>
+        </div>
+      </section>
+
+      <section className="surface section-card">
+        <div className="section-header">
           <div>
-            <h2 style={{ margin: "0 0 8px" }}>{form.id ? "Editar acesso" : "Novo acesso"}</h2>
-            <p style={{ margin: 0, color: "var(--muted)" }}>
+            <h2 className="section-title">{form.id ? "Editar acesso" : "Novo acesso"}</h2>
+            <p className="section-copy">
               Cadastre quem pode entrar no sistema e defina o perfil de acesso de cada pessoa.
             </p>
           </div>
@@ -254,11 +263,11 @@ export function UsuariosManager() {
         </form>
       </section>
 
-      <section className="panel-card" style={{ padding: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
+      <section className="surface section-card">
+        <div className="section-header">
           <div>
-            <h2 style={{ margin: "0 0 8px" }}>Acessos cadastrados</h2>
-            <p style={{ margin: 0, color: "var(--muted)" }}>
+            <h2 className="section-title">Acessos cadastrados</h2>
+            <p className="section-copy">
               Veja quem esta ativo, quais perfis tem acesso e quando foi o ultimo login.
             </p>
           </div>
@@ -274,7 +283,7 @@ export function UsuariosManager() {
           </label>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
+        <div className="data-table-wrap">
           <table className="data-table">
             <thead>
               <tr>
@@ -292,7 +301,11 @@ export function UsuariosManager() {
                   <td>{usuario.nome}</td>
                   <td>{usuario.email}</td>
                   <td>{usuario.roles.join(", ")}</td>
-                  <td>{usuario.status}</td>
+                  <td>
+                    <span className={usuario.status === "ATIVO" ? "badge badge-success" : "badge badge-danger"}>
+                      {usuario.status}
+                    </span>
+                  </td>
                   <td>{formatDateTime(usuario.ultimoLoginEm)}</td>
                   <td>
                     <button type="button" className="button-secondary" onClick={() => handleEdit(usuario)}>
@@ -312,6 +325,6 @@ export function UsuariosManager() {
           </table>
         </div>
       </section>
-    </div>
+    </main>
   );
 }

@@ -307,6 +307,14 @@ export function EquipamentosManager() {
 
   return (
     <main className="page-stack">
+      <section className="page-header fade-up">
+        <span className="page-kicker">Cadastro mestre</span>
+        <h1 className="page-title">Equipamentos</h1>
+        <p className="page-copy">
+          Controle a frota operacional, recursos de apoio e regras de manutencao em um unico fluxo.
+        </p>
+      </section>
+
       <section className="surface section-card">
         <div className="section-header">
           <div>
@@ -320,6 +328,13 @@ export function EquipamentosManager() {
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 24 }}>
+          <div className="glass-band">
+            <strong>{form.id ? "Edicao em andamento" : "Cadastro operacional"}</strong>
+            <span className="subtle">
+              Padrao visual unificado para leitura clara no tema claro e no tema escuro.
+            </span>
+          </div>
+
           {recursoApoioSelecionado ? (
             <p className="section-copy" style={{ margin: 0 }}>
               Recursos de apoio nao entram na agenda operacional nem nos KPIs das dashboards. Eles
@@ -605,7 +620,7 @@ export function EquipamentosManager() {
                     <div className="subtle">
                       {[equipamento.placaOuTag, equipamento.fabricante, equipamento.modelo]
                         .filter(Boolean)
-                        .join(" · ") || "-"}
+                        .join(" | ") || "-"}
                     </div>
                   </td>
                   <td>

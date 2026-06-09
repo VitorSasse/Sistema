@@ -369,29 +369,29 @@ export function FaturamentoMensalDashboard() {
                   <ComposedChart data={monthlyRows} margin={{ top: 18, right: 24, left: 8, bottom: 12 }}>
                     <defs>
                       <linearGradient id="billingMonthlyBar" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#1e8b7d" />
-                        <stop offset="100%" stopColor="#155b52" />
+                        <stop offset="0%" stopColor="var(--dashboard-chart-faturado-start)" />
+                        <stop offset="100%" stopColor="var(--dashboard-chart-faturado-end)" />
                       </linearGradient>
                       <linearGradient id="billingBarPendente" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f0c15a" />
-                        <stop offset="100%" stopColor="#d4932d" />
+                        <stop offset="0%" stopColor="var(--dashboard-chart-pendente-start)" />
+                        <stop offset="100%" stopColor="var(--dashboard-chart-pendente-end)" />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid stroke="rgba(109, 92, 66, 0.12)" vertical={false} />
+                    <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
                     <XAxis
                       dataKey="label"
                       tickLine={false}
                       axisLine={false}
-                      tick={{ fill: "#6f6455", fontSize: 12 }}
+                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
                     />
                     <YAxis
                       tickLine={false}
                       axisLine={false}
                       tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                      tick={{ fill: "#6f6455", fontSize: 12 }}
+                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
                       width={110}
                     />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(21, 91, 82, 0.06)" }} />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--dashboard-chart-cursor)" }} />
                     <Bar
                       dataKey="totalFaturado"
                       stackId="monthly"
@@ -409,10 +409,10 @@ export function FaturamentoMensalDashboard() {
                     <Line
                       type="monotone"
                       dataKey="mediaMensal"
-                      stroke="#8f4fd1"
+                      stroke="var(--dashboard-chart-line-share)"
                       strokeWidth={3}
                       dot={false}
-                      activeDot={{ r: 6, fill: "#8f4fd1" }}
+                      activeDot={{ r: 6, fill: "var(--dashboard-chart-line-share-active)" }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>

@@ -201,22 +201,31 @@ export function ServicosManager() {
   }
 
   return (
-    <div style={{ display: "grid", gap: 24 }}>
-      <section style={panelStyle}>
+    <main className="page-stack">
+      <section className="page-header">
+        <div>
+          <h1 className="page-title">Servicos</h1>
+          <p className="page-copy">
+            Cadastro mestre de servicos, medicao, faturamento e regras operacionais.
+          </p>
+        </div>
+      </section>
+
+      <section className="surface section-card manager-panel">
         <h2 style={{ marginTop: 0 }}>{form.id ? "Editar servico" : "Novo servico"}</h2>
         {!form.id ? (
-          <p style={{ margin: "0 0 18px", color: "var(--muted)" }}>
+          <p className="manager-panel-note" style={{ marginBottom: 18 }}>
             O codigo do servico sera gerado automaticamente no salvamento.
           </p>
         ) : null}
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 24 }}>
-          <div style={formGridStyle}>
+          <div className="manager-form-grid">
             <Field label="Tipo de servico">
               <input
                 placeholder="Escavacao, transporte, carga"
                 value={form.tipoServico}
                 onChange={(event) => updateField("tipoServico", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
             <Field label="Categoria">
@@ -224,7 +233,7 @@ export function ServicosManager() {
                 placeholder="Terraplenagem, apoio, locacao"
                 value={form.categoria}
                 onChange={(event) => updateField("categoria", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
             <Field label="Forma de medicao">
@@ -232,14 +241,14 @@ export function ServicosManager() {
                 placeholder="Hora, viagem, m3, diaria"
                 value={form.formaMedicao}
                 onChange={(event) => updateField("formaMedicao", event.target.value)}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
             <Field label="Servico tecnico faturavel">
               <select
                 value={form.servicoTecnico ? "SIM" : "NAO"}
                 onChange={(event) => updateField("servicoTecnico", event.target.value === "SIM")}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               >
                 <option value="NAO">NAO</option>
                 <option value="SIM">SIM</option>
@@ -249,7 +258,7 @@ export function ServicosManager() {
               <select
                 value={form.faturamentoFechado ? "SIM" : "NAO"}
                 onChange={(event) => updateField("faturamentoFechado", event.target.value === "SIM")}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               >
                 <option value="NAO">NAO</option>
                 <option value="SIM">SIM</option>
@@ -261,7 +270,7 @@ export function ServicosManager() {
                 value={form.unidadeApontamento}
                 onChange={(event) => updateField("unidadeApontamento", event.target.value)}
                 disabled={form.faturamentoFechado}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
             <Field label="Unidade de faturamento">
@@ -270,7 +279,7 @@ export function ServicosManager() {
                 value={form.unidadeFaturamento}
                 onChange={(event) => updateField("unidadeFaturamento", event.target.value)}
                 disabled={form.faturamentoFechado}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
             <Field label="Valor fechado padrao">
@@ -279,14 +288,14 @@ export function ServicosManager() {
                 value={form.valorFechadoPadrao}
                 onChange={(event) => updateField("valorFechadoPadrao", event.target.value)}
                 disabled={!form.faturamentoFechado}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               />
             </Field>
             <Field label="Status">
               <select
                 value={form.status}
                 onChange={(event) => updateField("status", event.target.value as FormState["status"])}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               >
                 <option value="ATIVO">ATIVO</option>
                 <option value="INATIVO">INATIVO</option>
@@ -296,7 +305,7 @@ export function ServicosManager() {
               <select
                 value={form.exigeMaterial ? "SIM" : "NAO"}
                 onChange={(event) => updateField("exigeMaterial", event.target.value === "SIM")}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               >
                 <option value="NAO">NAO</option>
                 <option value="SIM">SIM</option>
@@ -306,7 +315,7 @@ export function ServicosManager() {
               <select
                 value={form.ativoParaMedicao ? "SIM" : "NAO"}
                 onChange={(event) => updateField("ativoParaMedicao", event.target.value === "SIM")}
-                style={fieldStyle}
+                className="field-control manager-field-control"
               >
                 <option value="SIM">SIM</option>
                 <option value="NAO">NAO</option>
@@ -315,7 +324,7 @@ export function ServicosManager() {
           </div>
 
           {form.faturamentoFechado ? (
-            <p style={{ margin: "-8px 0 0", color: "var(--muted)" }}>
+            <p className="manager-panel-note" style={{ marginTop: -8 }}>
               Esse servico sera tratado como item fechado de medicao, usando a unidade
               <strong> SERVICO</strong> e o valor padrao informado acima.
             </p>
@@ -326,44 +335,44 @@ export function ServicosManager() {
               placeholder="Regras ou observacoes do servico"
               value={form.observacao}
               onChange={(event) => updateField("observacao", event.target.value)}
-              style={{ ...fieldStyle, minHeight: 96, resize: "vertical" as const }}
+              className="field-control textarea-lg manager-field-control"
             />
           </Field>
 
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button type="submit" disabled={isPending} style={primaryButtonStyle}>
+          <div className="manager-actions">
+            <button type="submit" disabled={isPending} className="button-primary">
               {isPending ? "Salvando..." : form.id ? "Atualizar servico" : "Salvar servico"}
             </button>
-            <button type="button" onClick={handleReset} style={secondaryButtonStyle}>
+            <button type="button" onClick={handleReset} className="button-secondary">
               Limpar formulario
             </button>
           </div>
 
-          {message ? <p style={{ margin: 0, color: "var(--muted)" }}>{message}</p> : null}
+          {message ? <p className="manager-panel-note">{message}</p> : null}
         </form>
       </section>
 
-      <section style={panelStyle}>
-        <div style={toolbarStyle}>
+      <section className="surface section-card manager-panel">
+        <div className="manager-toolbar">
           <div>
             <h2 style={{ margin: "0 0 6px" }}>Servicos cadastrados</h2>
-            <p style={{ margin: 0, color: "var(--muted)" }}>
+            <p className="manager-panel-note">
               {filteredServicos.length} registro(s) exibido(s) de {servicos.length}.
             </p>
           </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div className="manager-actions">
             <input
               placeholder="Buscar por codigo, tipo, categoria ou unidade"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              style={{ ...fieldStyle, width: 320 }}
+              className="field-control manager-field-control"
             />
             <select
               value={statusFilter}
               onChange={(event) =>
                 setStatusFilter(event.target.value as "TODOS" | "ATIVO" | "INATIVO")
               }
-              style={{ ...fieldStyle, width: 160 }}
+              className="field-control manager-field-control"
             >
               <option value="TODOS">Todos os status</option>
               <option value="ATIVO">Ativos</option>
@@ -372,72 +381,72 @@ export function ServicosManager() {
           </div>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="manager-table-wrap">
+          <table className="manager-table">
             <thead>
               <tr>
-                <th style={thStyle}>Codigo</th>
-                <th style={thStyle}>Servico</th>
-                <th style={thStyle}>Forma medicao</th>
-                <th style={thStyle}>Tecnico</th>
-                <th style={thStyle}>Fechado</th>
-                <th style={thStyle}>Unidade</th>
-                <th style={thStyle}>Valor fechado</th>
-                <th style={thStyle}>Material</th>
-                <th style={thStyle}>Medicao</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Acoes</th>
+                <th>Codigo</th>
+                <th>Servico</th>
+                <th>Forma medicao</th>
+                <th>Tecnico</th>
+                <th>Fechado</th>
+                <th>Unidade</th>
+                <th>Valor fechado</th>
+                <th>Material</th>
+                <th>Medicao</th>
+                <th>Status</th>
+                <th>Acoes</th>
               </tr>
             </thead>
             <tbody>
               {filteredServicos.map((servico) => (
                 <tr key={servico.id}>
-                  <td style={tdStyle}>{servico.codigo}</td>
-                  <td style={tdStyle}>
+                  <td>{servico.codigo}</td>
+                  <td>
                     <div>{servico.tipoServico}</div>
-                    <div style={subtleTextStyle}>{servico.categoria ?? "-"}</div>
+                    <div className="manager-subtle">{servico.categoria ?? "-"}</div>
                   </td>
-                  <td style={tdStyle}>{servico.formaMedicao}</td>
-                  <td style={tdStyle}>
-                    <span style={servico.servicoTecnico ? statusActiveStyle : neutralStyle}>
+                  <td>{servico.formaMedicao}</td>
+                  <td>
+                    <span className={servico.servicoTecnico ? "manager-badge manager-badge-success" : "manager-badge manager-badge-neutral"}>
                       {servico.servicoTecnico ? "SIM" : "NAO"}
                     </span>
                   </td>
-                  <td style={tdStyle}>
-                    <span style={servico.faturamentoFechado ? statusActiveStyle : neutralStyle}>
+                  <td>
+                    <span className={servico.faturamentoFechado ? "manager-badge manager-badge-success" : "manager-badge manager-badge-neutral"}>
                       {servico.faturamentoFechado ? "SIM" : "NAO"}
                     </span>
                   </td>
-                  <td style={tdStyle}>
+                  <td>
                     {servico.unidadeApontamento || servico.unidadeFaturamento
                       ? `${servico.unidadeApontamento ?? "-"} / ${servico.unidadeFaturamento}`
                       : servico.unidadeFaturamento}
                   </td>
-                  <td style={tdStyle}>{servico.valorFechadoPadrao ?? "-"}</td>
-                  <td style={tdStyle}>
-                    <span style={servico.exigeMaterial ? statusActiveStyle : neutralStyle}>
+                  <td>{servico.valorFechadoPadrao ?? "-"}</td>
+                  <td>
+                    <span className={servico.exigeMaterial ? "manager-badge manager-badge-success" : "manager-badge manager-badge-neutral"}>
                       {servico.exigeMaterial ? "EXIGE" : "NAO"}
                     </span>
                   </td>
-                  <td style={tdStyle}>
-                    <span style={servico.ativoParaMedicao ? statusActiveStyle : statusInactiveStyle}>
+                  <td>
+                    <span className={servico.ativoParaMedicao ? "manager-badge manager-badge-success" : "manager-badge manager-badge-warn"}>
                       {servico.ativoParaMedicao ? "ATIVO" : "BLOQUEADO"}
                     </span>
                   </td>
-                  <td style={tdStyle}>
-                    <span style={servico.status === "ATIVO" ? statusActiveStyle : statusInactiveStyle}>
+                  <td>
+                    <span className={servico.status === "ATIVO" ? "manager-badge manager-badge-success" : "manager-badge manager-badge-warn"}>
                       {servico.status}
                     </span>
                   </td>
-                  <td style={tdStyle}>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button type="button" onClick={() => handleEdit(servico)} style={secondaryInlineButton}>
+                  <td>
+                    <div className="manager-inline-actions">
+                      <button type="button" onClick={() => handleEdit(servico)} className="button-secondary">
                         Editar
                       </button>
-                      <button type="button" onClick={() => handleDisable(servico.id)} style={dangerInlineButton}>
+                      <button type="button" onClick={() => handleDisable(servico.id)} className="button-secondary manager-button-warn">
                         Inativar
                       </button>
-                      <button type="button" onClick={() => handleDelete(servico.id)} style={deleteInlineButton}>
+                      <button type="button" onClick={() => handleDelete(servico.id)} className="button-secondary manager-button-danger">
                         Excluir
                       </button>
                     </div>
@@ -448,134 +457,15 @@ export function ServicosManager() {
           </table>
         </div>
       </section>
-    </div>
+    </main>
   );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label style={{ display: "grid", gap: 8 }}>
-      <span style={{ fontSize: 14, color: "var(--muted)" }}>{label}</span>
+    <label className="manager-field">
+      <span className="manager-field-label">{label}</span>
       {children}
     </label>
   );
 }
-
-const panelStyle = {
-  padding: 24,
-  borderRadius: 22,
-  background: "var(--surface)",
-  border: "1px solid var(--line-strong)",
-  boxShadow: "var(--shadow-md)"
-};
-
-const formGridStyle = {
-  display: "grid",
-  gap: 14,
-  gridTemplateColumns: "repeat(3, minmax(0, 1fr))"
-};
-
-const toolbarStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 16,
-  marginBottom: 20,
-  flexWrap: "wrap" as const
-};
-
-const fieldStyle = {
-  padding: "13px 14px",
-  borderRadius: 14,
-  border: "1px solid var(--line-strong)",
-  background: "var(--surface-strong)",
-  color: "var(--text)",
-  width: "100%"
-};
-
-const primaryButtonStyle = {
-  padding: "12px 18px",
-  borderRadius: 14,
-  border: "none",
-  background: "linear-gradient(135deg, #fb923c, #f97316)",
-  color: "var(--text-on-brand)"
-};
-
-const secondaryButtonStyle = {
-  padding: "12px 18px",
-  borderRadius: 14,
-  border: "1px solid rgba(15, 42, 68, 0.5)",
-  background: "rgba(15, 42, 68, 0.12)",
-  color: "var(--text)"
-};
-
-const secondaryInlineButton = {
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid rgba(15, 42, 68, 0.42)",
-  background: "rgba(15, 42, 68, 0.14)",
-  color: "var(--text)"
-};
-
-const dangerInlineButton = {
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid rgba(249, 115, 22, 0.28)",
-  background: "rgba(249, 115, 22, 0.14)",
-  color: "#fdba74"
-};
-
-const deleteInlineButton = {
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid rgba(239, 68, 68, 0.32)",
-  background: "rgba(239, 68, 68, 0.14)",
-  color: "#fca5a5"
-};
-
-const thStyle = {
-  textAlign: "left" as const,
-  padding: 12,
-  borderBottom: "1px solid var(--line-strong)",
-  whiteSpace: "nowrap" as const
-};
-
-const tdStyle = {
-  padding: 12,
-  borderBottom: "1px solid var(--line)",
-  verticalAlign: "top" as const
-};
-
-const subtleTextStyle = {
-  color: "var(--muted)",
-  fontSize: 13
-};
-
-const statusActiveStyle = {
-  display: "inline-block",
-  padding: "6px 10px",
-  borderRadius: 999,
-  background: "rgba(34, 197, 94, 0.14)",
-  color: "#86efac",
-  fontSize: 12,
-  fontWeight: 700
-};
-
-const statusInactiveStyle = {
-  display: "inline-block",
-  padding: "6px 10px",
-  borderRadius: 999,
-  background: "rgba(249, 115, 22, 0.14)",
-  color: "#fdba74",
-  fontSize: 12,
-  fontWeight: 700
-};
-
-const neutralStyle = {
-  display: "inline-block",
-  padding: "6px 10px",
-  borderRadius: 999,
-  background: "rgba(148, 163, 184, 0.16)",
-  color: "var(--muted)",
-  fontSize: 12,
-  fontWeight: 700
-};

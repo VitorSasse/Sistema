@@ -542,12 +542,12 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                 layout="vertical"
                 margin={{ top: 12, right: 16, left: 4, bottom: 12 }}
               >
-                <CartesianGrid stroke="rgba(255,255,255,0.08)" horizontal={false} />
+                <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
                 <XAxis
                   type="number"
                   domain={[0, 100]}
                   tickFormatter={(value) => `${value}%`}
-                  tick={{ fill: "#91a3b4", fontSize: 12 }}
+                  tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -555,16 +555,16 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                   type="category"
                   dataKey="placaOuTag"
                   width={86}
-                  tick={{ fill: "#f5efe5", fontSize: 12, fontWeight: 700 }}
+                  tick={{ fill: "var(--screen-text)", fontSize: 12, fontWeight: 700 }}
                   axisLine={false}
                   tickLine={false}
                 />
-                <Tooltip content={<UtilizationTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                <Tooltip content={<UtilizationTooltip />} cursor={{ fill: "var(--dashboard-chart-cursor)" }} />
                 <Bar dataKey="utilizationPercent" radius={[0, 12, 12, 0]} barSize={18}>
                   {utilizationTop.map((item) => (
                     <Cell
                       key={item.equipamentoId}
-                      fill={utilizationBandPalette[item.band] ?? "#155b52"}
+                      fill={utilizationBandPalette[item.band] ?? "#F97316"}
                     />
                   ))}
                 </Bar>
@@ -592,12 +592,12 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                 layout="vertical"
                 margin={{ top: 12, right: 16, left: 4, bottom: 12 }}
               >
-                <CartesianGrid stroke="rgba(255,255,255,0.08)" horizontal={false} />
+                <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
                 <XAxis
                   type="number"
                   domain={[0, 100]}
                   tickFormatter={(value) => `${value}%`}
-                  tick={{ fill: "#91a3b4", fontSize: 12 }}
+                  tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -605,7 +605,7 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                   type="category"
                   dataKey="placaOuTag"
                   width={86}
-                  tick={{ fill: "#f5efe5", fontSize: 12, fontWeight: 700 }}
+                  tick={{ fill: "var(--screen-text)", fontSize: 12, fontWeight: 700 }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -624,13 +624,13 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                       </div>
                     );
                   }}
-                  cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                  cursor={{ fill: "var(--dashboard-chart-cursor)" }}
                 />
                 <Bar dataKey="mechanicalPercent" radius={[0, 12, 12, 0]} barSize={18}>
                   {mechanicalTop.map((item) => (
                     <Cell
                       key={item.equipamentoId}
-                      fill={mechanicalBandPalette[item.band] ?? "#155b52"}
+                      fill={mechanicalBandPalette[item.band] ?? "#F97316"}
                     />
                   ))}
                 </Bar>
@@ -661,10 +661,10 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                 layout="vertical"
                 margin={{ top: 12, right: 16, left: 4, bottom: 12 }}
               >
-                <CartesianGrid stroke="rgba(255,255,255,0.08)" horizontal={false} />
+                <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
                 <XAxis
                   type="number"
-                  tick={{ fill: "#91a3b4", fontSize: 12 }}
+                  tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -672,11 +672,11 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                   type="category"
                   dataKey="label"
                   width={150}
-                  tick={{ fill: "#f5efe5", fontSize: 12, fontWeight: 700 }}
+                  tick={{ fill: "var(--screen-text)", fontSize: 12, fontWeight: 700 }}
                   axisLine={false}
                   tickLine={false}
                 />
-                <Tooltip content={<LossTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                <Tooltip content={<LossTooltip />} cursor={{ fill: "var(--dashboard-chart-cursor)" }} />
                 <Bar dataKey="hours" radius={[0, 12, 12, 0]} barSize={18}>
                   {lossTop.map((item) => (
                     <Cell
@@ -707,11 +707,11 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                 layout="vertical"
                 margin={{ top: 12, right: 16, left: 4, bottom: 12 }}
               >
-                <CartesianGrid stroke="rgba(255,255,255,0.08)" horizontal={false} />
+                <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
                 <XAxis
                   type="number"
                   tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                  tick={{ fill: "#91a3b4", fontSize: 12 }}
+                  tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -719,15 +719,15 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                   type="category"
                   dataKey="placaOuTag"
                   width={86}
-                  tick={{ fill: "#f5efe5", fontSize: 12, fontWeight: 700 }}
+                  tick={{ fill: "var(--screen-text)", fontSize: 12, fontWeight: 700 }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <Tooltip
                   content={<FinancialTooltip />}
-                  cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                  cursor={{ fill: "var(--dashboard-chart-cursor)" }}
                 />
-                <Bar dataKey="estimatedLoss" radius={[0, 12, 12, 0]} barSize={18} fill="#f97316" />
+                <Bar dataKey="estimatedLoss" radius={[0, 12, 12, 0]} barSize={18} fill="var(--primary)" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -783,11 +783,11 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
               <article key={item.equipamentoId} className="executive-list-item">
                 <div>
                   <strong>{item.placaOuTag}</strong>
-                  <span>{item.types.join(" • ") || item.descricao}</span>
+                  <span>{item.types.join(" | ") || item.descricao}</span>
                 </div>
                 <div className="executive-list-metrics">
                   <strong>{item.count} falha(s)</strong>
-                  <span>{formatCurrency(item.totalCost)} • {formatDate(item.lastExecution)}</span>
+                  <span>{formatCurrency(item.totalCost)} | {formatDate(item.lastExecution)}</span>
                 </div>
               </article>
             ))}
@@ -838,7 +838,7 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                 <div
                   key={`${row.equipamentoId}-${cell.date}`}
                   className={`executive-heatmap-cell is-${cell.tone}`}
-                  title={`${row.label} • ${cell.label} • ${cell.status}`}
+                  title={`${row.label} | ${cell.label} | ${cell.status}`}
                 />
               ))}
             </div>

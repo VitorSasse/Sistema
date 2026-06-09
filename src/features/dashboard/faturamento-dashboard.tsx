@@ -350,15 +350,15 @@ export function FaturamentoDashboard() {
                   >
                     <defs>
                       <linearGradient id="billingBarFaturado" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#1e8b7d" />
-                        <stop offset="100%" stopColor="#155b52" />
+                        <stop offset="0%" stopColor="var(--dashboard-chart-faturado-start)" />
+                        <stop offset="100%" stopColor="var(--dashboard-chart-faturado-end)" />
                       </linearGradient>
                       <linearGradient id="billingBarPendente" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#f0c15a" />
-                        <stop offset="100%" stopColor="#d4932d" />
+                        <stop offset="0%" stopColor="var(--dashboard-chart-pendente-start)" />
+                        <stop offset="100%" stopColor="var(--dashboard-chart-pendente-end)" />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid stroke="rgba(109, 92, 66, 0.12)" vertical={false} />
+                    <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
                     <XAxis
                       dataKey="label"
                       tickLine={false}
@@ -367,14 +367,14 @@ export function FaturamentoDashboard() {
                       angle={-24}
                       textAnchor="end"
                       height={72}
-                      tick={{ fill: "#6f6455", fontSize: 12 }}
+                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
                     />
                     <YAxis
                       yAxisId="currency"
                       tickLine={false}
                       axisLine={false}
                       tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                      tick={{ fill: "#6f6455", fontSize: 12 }}
+                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
                       width={110}
                     />
                     <YAxis
@@ -383,12 +383,12 @@ export function FaturamentoDashboard() {
                       tickLine={false}
                       axisLine={false}
                       tickFormatter={(value) => `${value}%`}
-                      tick={{ fill: "#6f6455", fontSize: 12 }}
+                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
                       width={56}
                     />
                     <Tooltip
                       content={<CustomTooltip />}
-                      cursor={{ fill: "rgba(21, 91, 82, 0.06)" }}
+                      cursor={{ fill: "var(--dashboard-chart-cursor)" }}
                     />
                     <Bar
                       yAxisId="currency"
@@ -422,11 +422,11 @@ export function FaturamentoDashboard() {
                       type="monotone"
                       dataKey="sharePercent"
                       name="sharePercent"
-                      stroke="#d4932d"
+                      stroke="var(--dashboard-chart-line-share)"
                       strokeWidth={3}
                       strokeDasharray="0"
-                      dot={{ r: 4, strokeWidth: 0, fill: "#d4932d" }}
-                      activeDot={{ r: 6, fill: "#f0b544" }}
+                      dot={{ r: 4, strokeWidth: 0, fill: "var(--dashboard-chart-line-share)" }}
+                      activeDot={{ r: 6, fill: "var(--dashboard-chart-line-share-active)" }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -461,7 +461,7 @@ export function FaturamentoDashboard() {
                   <div className="billing-ranking-metrics">
                     <strong>{formatCurrency(item.totalGeral)}</strong>
                     <span>
-                      {formatCurrency(item.totalFaturado)} faturado •{" "}
+                      {formatCurrency(item.totalFaturado)} faturado |{" "}
                       {formatCurrency(item.totalAFaturar)} a faturar
                     </span>
                     <span>{formatPercent(item.sharePercent)} do total</span>
