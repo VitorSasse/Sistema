@@ -188,6 +188,44 @@ const lossPalette: Record<string, string> = {
   PRODUTIVO: "#36d399"
 };
 
+function toRgba(hex: string, alpha: number) {
+  const normalized = hex.replace("#", "");
+  const fullHex =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((character) => `${character}${character}`)
+          .join("")
+      : normalized;
+  const numeric = Number.parseInt(fullHex, 16);
+  const red = (numeric >> 16) & 255;
+  const green = (numeric >> 8) & 255;
+  const blue = numeric & 255;
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+function createBandBadgeStyle(color: string): CSSProperties {
+  return {
+    color,
+    backgroundColor: toRgba(color, 0.16),
+    border: `1px solid ${toRgba(color, 0.42)}`,
+    boxShadow: `inset 0 0 0 1px ${toRgba(color, 0.1)}`
+  };
+}
+
+const utilizationBadgeStyles = {
+  EXCELENTE: createBandBadgeStyle(utilizationBandPalette.EXCELENTE),
+  BOM: createBandBadgeStyle(utilizationBandPalette.BOM),
+  OCIOSO: createBandBadgeStyle(utilizationBandPalette.OCIOSO)
+} satisfies Record<DashboardPayload["utilization"]["ranking"][number]["band"], CSSProperties>;
+
+const mechanicalBadgeStyles = {
+  EXCELENTE: createBandBadgeStyle(mechanicalBandPalette.EXCELENTE),
+  ATENCAO: createBandBadgeStyle(mechanicalBandPalette.ATENCAO),
+  CRITICO: createBandBadgeStyle(mechanicalBandPalette.CRITICO)
+} satisfies Record<DashboardPayload["mechanical"]["ranking"][number]["band"], CSSProperties>;
+
 function formatPercent(value: number) {
   return `${value.toFixed(1).replace(".", ",")}%`;
 }
@@ -530,9 +568,15 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
               <h2>Utilizacao real da frota</h2>
             </div>
             <div className="executive-panel-bands">
-              <span className="badge badge-success">{data?.utilization.summary.excellent ?? 0} excelente</span>
-              <span className="badge badge-info">{data?.utilization.summary.good ?? 0} bom</span>
-              <span className="badge badge-warn">{data?.utilization.summary.idle ?? 0} ocioso</span>
+              <span className="badge" style={utilizationBadgeStyles.EXCELENTE}>
+                {data?.utilization.summary.excellent ?? 0} excelente
+              </span>
+              <span className="badge" style={utilizationBadgeStyles.BOM}>
+                {data?.utilization.summary.good ?? 0} bom
+              </span>
+              <span className="badge" style={utilizationBadgeStyles.OCIOSO}>
+                {data?.utilization.summary.idle ?? 0} ocioso
+              </span>
             </div>
           </div>
           <div className="executive-chart-shell" style={{ height: `${utilizationChartHeight}px` }}>
@@ -580,9 +624,15 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
               <h2>Disponibilidade mecanica</h2>
             </div>
             <div className="executive-panel-bands">
-              <span className="badge badge-success">{data?.mechanical.summary.excellent ?? 0} excelente</span>
-              <span className="badge badge-warn">{data?.mechanical.summary.warning ?? 0} atencao</span>
-              <span className="badge badge-danger">{data?.mechanical.summary.critical ?? 0} critico</span>
+              <span className="badge" style={mechanicalBadgeStyles.EXCELENTE}>
+                {data?.mechanical.summary.excellent ?? 0} excelente
+              </span>
+              <span className="badge" style={mechanicalBadgeStyles.ATENCAO}>
+                {data?.mechanical.summary.warning ?? 0} atencao
+              </span>
+              <span className="badge" style={mechanicalBadgeStyles.CRITICO}>
+                {data?.mechanical.summary.critical ?? 0} critico
+              </span>
             </div>
           </div>
           <div className="executive-chart-shell" style={{ height: `${mechanicalChartHeight}px` }}>
