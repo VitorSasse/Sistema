@@ -207,10 +207,10 @@ function toRgba(hex: string, alpha: number) {
 
 function createBandBadgeStyle(color: string): CSSProperties {
   return {
-    color,
-    backgroundColor: toRgba(color, 0.16),
-    border: `1px solid ${toRgba(color, 0.42)}`,
-    boxShadow: `inset 0 0 0 1px ${toRgba(color, 0.1)}`
+    color: "#f8fafc",
+    backgroundColor: color,
+    border: `1px solid ${color}`,
+    boxShadow: `0 8px 18px ${toRgba(color, 0.28)}`
   };
 }
 
