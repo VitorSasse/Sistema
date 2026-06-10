@@ -176,7 +176,7 @@ const mechanicalBandPalette: Record<
   DashboardPayload["mechanical"]["ranking"][number]["band"],
   string
 > = {
-  EXCELENTE: "#F97316",
+  EXCELENTE: "#16A34A",
   ATENCAO: "#F59E0B",
   CRITICO: "#EF4444"
 };
