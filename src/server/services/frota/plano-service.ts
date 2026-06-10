@@ -32,8 +32,7 @@ function toNullableNumber(value: Prisma.Decimal | number | null | undefined) {
 }
 
 function getPlanoGroupKey(input: PlanoManutencaoSnapshot) {
-  const tipoManutencao = input.tipoManutencao?.trim().toLocaleLowerCase("pt-BR") || "sem-tipo";
-  return `${tipoManutencao}::${input.criterioControle}`;
+  return input.criterioControle;
 }
 
 function getPlanoRecencyScore(input: PlanoManutencaoSnapshot) {
