@@ -57,6 +57,26 @@ export function MedicaoListSection(props: {
       filters.numeroNotaFiscal
   );
   const visibleItems = hasActiveFilters ? items : items.slice(0, 5);
+  const statusLabel = filters.status
+    ? medicaoStatusLabels[filters.status as keyof typeof medicaoStatusLabels] ?? filters.status
+    : "";
+  const emptyStateTitle = filters.numeroPedido || filters.numeroNotaFiscal
+    ? "Nenhuma medicao encontrada para pedido ou nota"
+    : filters.status
+      ? "Nenhuma medicao encontrada para o status informado"
+      : "Nenhuma medicao encontrada";
+  const emptyStateDescription = filters.numeroPedido || filters.numeroNotaFiscal
+    ? [
+        filters.numeroPedido ? `Pedido: ${filters.numeroPedido}` : null,
+        filters.numeroNotaFiscal ? `Nota: ${filters.numeroNotaFiscal}` : null
+      ]
+        .filter(Boolean)
+        .join(" | ")
+    : filters.status
+      ? `Nao existe medicao com status ${statusLabel.toLowerCase()} para os filtros aplicados.`
+      : hasActiveFilters
+        ? "Nenhuma medicao corresponde aos filtros aplicados."
+        : "Ainda nao existe nenhuma medicao cadastrada.";
 
   return (
     <section className="surface section-card">
@@ -147,87 +167,94 @@ export function MedicaoListSection(props: {
         O filtro de periodo considera a data do ultimo lancamento vinculado a cada medicao.
       </p>
 
-      <div className="data-table-wrap">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Codigo</th>
-              <th>Tipo</th>
-              <th>Cliente</th>
-              <th>Obra</th>
-              <th>Periodo</th>
-              <th>Pedido</th>
-              <th>Nota</th>
-              <th>Status</th>
-              <th>Itens</th>
-              <th>Valor total</th>
-              <th>Anexos</th>
-              <th>Acoes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibleItems.map((medicao) => (
-              <tr key={medicao.id}>
-                <td>{medicao.codigoMedicao}</td>
-                <td>
-                  <span className={medicaoTipoClasses[medicao.tipoMedicao]}>
-                    {medicaoTipoLabels[medicao.tipoMedicao]}
-                  </span>
-                </td>
-                <td>
-                  <div>{medicao.cliente.nome}</div>
-                  <div className="subtle">{medicao.cliente.codigo}</div>
-                </td>
-                <td>
-                  {medicao.obra ? (
-                    <>
-                      <div>{medicao.obra.nome}</div>
-                      <div className="subtle">{medicao.obra.codigo}</div>
-                    </>
-                  ) : (
-                    "-"
-                  )}
-                </td>
-                <td>{new Date(medicao.periodoInicial).toISOString().slice(0, 10)} ate {new Date(medicao.periodoFinal).toISOString().slice(0, 10)}</td>
-                <td>{medicao.numeroPedido?.trim() || "-"}</td>
-                <td>{medicao.numeroNotaFiscal?.trim() || "-"}</td>
-                <td>
-                  <span className={medicaoStatusClasses[medicao.status]}>
-                    {medicaoStatusLabels[medicao.status]}
-                  </span>
-                </td>
-                <td>{medicao.itens.length}</td>
-                <td>
-                  <div>{formatCurrency(Number(medicao.valorTotal) - Number(medicao.descontoValor ?? 0))}</div>
-                  {Number(medicao.descontoValor ?? 0) > 0 ? (
-                    <div className="subtle">
-                      Bruto: {formatCurrency(medicao.valorTotal)}
-                    </div>
-                  ) : null}
-                </td>
-                <td>{medicao.anexos.length}</td>
-                <td>
-                  <div className="toolbar-actions">
-                    <button type="button" className="button-secondary" onClick={() => onOpenDetail(medicao.id)}>
-                      Detalhes
-                    </button>
-                    <button type="button" className="button-ghost" onClick={() => onOpenPdf(medicao.id)}>
-                      PDF
-                    </button>
-                    <button
-                      type="button"
-                      className="button-danger"
-                      onClick={() => onRequestDelete(medicao)}
-                    >
-                      Excluir medicao
-                    </button>
-                  </div>
-                </td>
+      {visibleItems.length === 0 ? (
+        <div className="billing-empty-state billing-empty-state-compact">
+          <strong>{emptyStateTitle}</strong>
+          <p>{emptyStateDescription}</p>
+        </div>
+      ) : (
+        <div className="data-table-wrap">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Codigo</th>
+                <th>Tipo</th>
+                <th>Cliente</th>
+                <th>Obra</th>
+                <th>Periodo</th>
+                <th>Pedido</th>
+                <th>Nota</th>
+                <th>Status</th>
+                <th>Itens</th>
+                <th>Valor total</th>
+                <th>Anexos</th>
+                <th>Acoes</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {visibleItems.map((medicao) => (
+                <tr key={medicao.id}>
+                  <td>{medicao.codigoMedicao}</td>
+                  <td>
+                    <span className={medicaoTipoClasses[medicao.tipoMedicao]}>
+                      {medicaoTipoLabels[medicao.tipoMedicao]}
+                    </span>
+                  </td>
+                  <td>
+                    <div>{medicao.cliente.nome}</div>
+                    <div className="subtle">{medicao.cliente.codigo}</div>
+                  </td>
+                  <td>
+                    {medicao.obra ? (
+                      <>
+                        <div>{medicao.obra.nome}</div>
+                        <div className="subtle">{medicao.obra.codigo}</div>
+                      </>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td>{new Date(medicao.periodoInicial).toISOString().slice(0, 10)} ate {new Date(medicao.periodoFinal).toISOString().slice(0, 10)}</td>
+                  <td>{medicao.numeroPedido?.trim() || "-"}</td>
+                  <td>{medicao.numeroNotaFiscal?.trim() || "-"}</td>
+                  <td>
+                    <span className={medicaoStatusClasses[medicao.status]}>
+                      {medicaoStatusLabels[medicao.status]}
+                    </span>
+                  </td>
+                  <td>{medicao.itens.length}</td>
+                  <td>
+                    <div>{formatCurrency(Number(medicao.valorTotal) - Number(medicao.descontoValor ?? 0))}</div>
+                    {Number(medicao.descontoValor ?? 0) > 0 ? (
+                      <div className="subtle">
+                        Bruto: {formatCurrency(medicao.valorTotal)}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td>{medicao.anexos.length}</td>
+                  <td>
+                    <div className="toolbar-actions">
+                      <button type="button" className="button-secondary" onClick={() => onOpenDetail(medicao.id)}>
+                        Detalhes
+                      </button>
+                      <button type="button" className="button-ghost" onClick={() => onOpenPdf(medicao.id)}>
+                        PDF
+                      </button>
+                      <button
+                        type="button"
+                        className="button-danger"
+                        onClick={() => onRequestDelete(medicao)}
+                      >
+                        Excluir medicao
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
