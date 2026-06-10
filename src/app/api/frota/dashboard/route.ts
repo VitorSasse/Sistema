@@ -1,4 +1,3 @@
-import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -131,10 +130,6 @@ type RawItem = {
   };
 };
 
-type MedicaoPeriodRow = {
-  id: string;
-};
-
 function buildSection(
   items: RawItem[],
   selectedEquipamentoIds: Set<string> | null,
@@ -255,7 +250,7 @@ export async function GET(request: NextRequest) {
   const selectedCaminhaoIds = parseIdList(request.nextUrl.searchParams.get("caminhaoIds"));
   const selectedMaquinaIds = parseIdList(request.nextUrl.searchParams.get("maquinaIds"));
 
-  const [equipamentos, medicoesPeriodo] = await Promise.all([
+  const [equipamentos, periodItems] = await Promise.all([
     prisma.equipamento.findMany({
       where: {
         status: "ATIVO",
@@ -271,22 +266,37 @@ export async function GET(request: NextRequest) {
       },
       orderBy: [{ descricao: "asc" }, { placaOuTag: "asc" }]
     }),
-    prisma.$queryRaw<MedicaoPeriodRow[]>(Prisma.sql`
-      SELECT
-        medicao.id
-      FROM "Medicao" medicao
-      INNER JOIN "MedicaoItem" item
-        ON item."medicaoId" = medicao.id
-       AND item."deletedAt" IS NULL
-      WHERE medicao."deletedAt" IS NULL
-        AND medicao.status <> 'CANCELADA'::"StatusMedicao"
-      GROUP BY medicao.id
-      HAVING MAX(item."data") >= ${period.start}
-         AND MAX(item."data") <= ${period.end}
-    `)
+    prisma.medicaoItem.findMany({
+      where: {
+        deletedAt: null,
+        data: {
+          gte: period.start,
+          lte: period.end
+        },
+        medicao: {
+          deletedAt: null,
+          status: {
+            not: "CANCELADA"
+          }
+        },
+        lancamento: {
+          deletedAt: null,
+          equipamento: {
+            tipoRecurso: {
+              in: ["CAMINHAO", "MAQUINA"]
+            }
+          }
+        }
+      },
+      select: {
+        id: true,
+        medicaoId: true
+      }
+    })
   ]);
 
-  const medicaoIds = medicoesPeriodo.map((item) => item.id);
+  const medicaoIds = Array.from(new Set(periodItems.map((item) => item.medicaoId)));
+  const periodItemIds = new Set(periodItems.map((item) => item.id));
 
   const items =
     medicaoIds.length === 0
@@ -307,6 +317,7 @@ export async function GET(request: NextRequest) {
             }
           },
           select: {
+            id: true,
             medicaoId: true,
             data: true,
             valorTotalItem: true,
@@ -353,6 +364,7 @@ export async function GET(request: NextRequest) {
 
     if (medicaoGross <= 0 || medicaoDiscount <= 0) {
       for (const item of medicaoItems) {
+        if (!periodItemIds.has(item.id)) continue;
         rawItems.push({
           data: item.data,
           valorTotalItem: Number(item.valorTotalItem ?? 0),
@@ -377,6 +389,9 @@ export async function GET(request: NextRequest) {
         : Number(((itemGross / medicaoGross) * medicaoNet).toFixed(2));
 
       allocated = Number((allocated + value).toFixed(2));
+      if (!periodItemIds.has(item.id)) {
+        return;
+      }
 
       rawItems.push({
         data: item.data,
