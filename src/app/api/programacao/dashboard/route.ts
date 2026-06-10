@@ -2,6 +2,7 @@ import { StatusAgendaProgramacao, TipoControleEquipamento, TipoRecurso } from "@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { selecionarPlanosManutencaoRelevantes } from "@/server/services/frota/plano-service";
 
 const dashboardStatuses = [
   "OPERANDO",
@@ -312,12 +313,18 @@ export async function GET(request: NextRequest) {
             status: "ATIVO"
           },
           select: {
+            tipoManutencao: true,
             criterioControle: true,
             periodicidadeValor: true,
             toleranciaValor: true,
+            ultimaExecucaoEm: true,
+            ultimaLeituraHorimetro: true,
+            ultimaLeituraKm: true,
             proximaExecucaoEm: true,
             proximoHorimetro: true,
-            proximoKm: true
+            proximoKm: true,
+            createdAt: true,
+            updatedAt: true
           }
         }
       },
@@ -381,7 +388,7 @@ export async function GET(request: NextRequest) {
         tipoControle: equipamento.tipoControle,
         horimetroAtual: equipamento.horimetroAtual ? Number(equipamento.horimetroAtual) : null,
         kmAtual: equipamento.kmAtual ? Number(equipamento.kmAtual) : null,
-        planos: equipamento.planosManutencao.map((plano) => ({
+        planos: selecionarPlanosManutencaoRelevantes(equipamento.planosManutencao).map((plano) => ({
           criterioControle: plano.criterioControle,
           periodicidadeValor: plano.periodicidadeValor,
           toleranciaValor: plano.toleranciaValor,
