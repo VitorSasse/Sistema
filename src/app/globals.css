@@ -5274,6 +5274,171 @@ button {
   margin-top: 4px;
 }
 
+[data-theme="dark"] .programacao-hero-panel,
+[data-theme="dark"] .programacao-analytics-panel {
+  background:
+    radial-gradient(circle at top right, rgba(249, 115, 22, 0.1), transparent 24%),
+    radial-gradient(circle at bottom left, rgba(96, 165, 250, 0.08), transparent 26%),
+    linear-gradient(180deg, rgba(22, 40, 62, 0.98), rgba(17, 38, 60, 0.96)) !important;
+  border-color: var(--screen-border) !important;
+  box-shadow: var(--screen-shadow) !important;
+}
+
+[data-theme="dark"] .programacao-range-badge,
+[data-theme="dark"] .programacao-kpi-card,
+[data-theme="dark"] .programacao-grid-shell,
+[data-theme="dark"] .programacao-equipment-head,
+[data-theme="dark"] .programacao-day-head,
+[data-theme="dark"] .programacao-equipment-card,
+[data-theme="dark"] .programacao-analytics-stat,
+[data-theme="dark"] .programacao-analytics-chart-card,
+[data-theme="dark"] .programacao-legend-item {
+  border-color: var(--screen-border) !important;
+  box-shadow: none !important;
+}
+
+[data-theme="dark"] .programacao-range-badge {
+  background: linear-gradient(180deg, rgba(30, 54, 82, 0.96), rgba(21, 41, 66, 0.94)) !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .programacao-kpi-card {
+  background: linear-gradient(180deg, rgba(22, 40, 62, 0.98), rgba(16, 31, 50, 0.96)) !important;
+}
+
+[data-theme="dark"] .programacao-kpi-card.is-active {
+  border-color: rgba(249, 115, 22, 0.34) !important;
+  box-shadow: 0 12px 28px rgba(8, 15, 24, 0.24) !important;
+}
+
+[data-theme="dark"] .programacao-kpi-copy strong,
+[data-theme="dark"] .programacao-analytics-label,
+[data-theme="dark"] .programacao-analytics-row-value,
+[data-theme="dark"] .programacao-analytics-legend-item,
+[data-theme="dark"] .programacao-equipment-copy span,
+[data-theme="dark"] .programacao-equipment-type,
+[data-theme="dark"] .revision-indicator span {
+  color: rgba(226, 232, 240, 0.74) !important;
+}
+
+[data-theme="dark"] .programacao-kpi-copy span,
+[data-theme="dark"] .programacao-equipment-copy strong,
+[data-theme="dark"] .programacao-grid-toolbar-copy strong,
+[data-theme="dark"] .programacao-analytics-stat strong,
+[data-theme="dark"] .programacao-analytics-chart-header strong,
+[data-theme="dark"] .programacao-analytics-row-head strong,
+[data-theme="dark"] .programacao-legend-item strong {
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .programacao-grid-shell {
+  background: linear-gradient(180deg, rgba(18, 36, 58, 0.98), rgba(16, 31, 50, 0.96)) !important;
+  scrollbar-color: rgba(96, 165, 250, 0.48) rgba(15, 23, 42, 0.24) !important;
+}
+
+[data-theme="dark"] .programacao-grid-shell::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.22) !important;
+}
+
+[data-theme="dark"] .programacao-grid-shell::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(96, 165, 250, 0.72), rgba(37, 99, 235, 0.84)) !important;
+  border-color: rgba(15, 23, 42, 0.92) !important;
+}
+
+[data-theme="dark"] .programacao-grid-head {
+  background: rgba(18, 36, 58, 0.97) !important;
+}
+
+[data-theme="dark"] .programacao-equipment-head,
+[data-theme="dark"] .programacao-day-head {
+  background: rgba(20, 38, 60, 0.98) !important;
+  border-right-color: rgba(148, 163, 184, 0.14) !important;
+  border-bottom-color: rgba(148, 163, 184, 0.14) !important;
+}
+
+[data-theme="dark"] .programacao-day-head.is-today {
+  background: rgba(15, 42, 68, 0.92) !important;
+}
+
+[data-theme="dark"] .programacao-day-head.is-weekend {
+  background: rgba(24, 43, 65, 0.96) !important;
+}
+
+[data-theme="dark"] .programacao-grid-row {
+  border-bottom-color: rgba(148, 163, 184, 0.12) !important;
+}
+
+[data-theme="dark"] .programacao-equipment-card {
+  background: linear-gradient(180deg, rgba(21, 39, 60, 0.98), rgba(16, 30, 49, 0.96)) !important;
+  border-right-color: rgba(148, 163, 184, 0.14) !important;
+}
+
+[data-theme="dark"] .programacao-equipment-card.is-row-operando {
+  background:
+    linear-gradient(180deg, rgba(21, 54, 46, 0.94), rgba(16, 37, 40, 0.94)) !important;
+}
+
+[data-theme="dark"] .programacao-equipment-avatar {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.22), rgba(96, 165, 250, 0.14)) !important;
+  color: #fed7aa !important;
+}
+
+[data-theme="dark"] .revision-indicator.is-muted strong {
+  background: rgba(148, 163, 184, 0.42) !important;
+}
+
+[data-theme="dark"] .programacao-cell {
+  border-right-color: rgba(226, 232, 240, 0.24) !important;
+  border-bottom-color: rgba(226, 232, 240, 0.2) !important;
+}
+
+[data-theme="dark"] .programacao-cell.is-weekend {
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.08)),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(226, 232, 240, 0.05),
+      rgba(226, 232, 240, 0.05) 8px,
+      rgba(255, 255, 255, 0) 8px,
+      rgba(255, 255, 255, 0) 16px
+    ) !important;
+}
+
+[data-theme="dark"] .programacao-analytics-stat,
+[data-theme="dark"] .programacao-analytics-chart-card {
+  background: linear-gradient(180deg, rgba(22, 40, 62, 0.96), rgba(16, 31, 50, 0.94)) !important;
+}
+
+[data-theme="dark"] .programacao-analytics-track,
+[data-theme="dark"] .programacao-analytics-stack {
+  background: rgba(15, 23, 42, 0.26) !important;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.08) !important;
+}
+
+[data-theme="dark"] .programacao-analytics-empty {
+  color: rgba(226, 232, 240, 0.68) !important;
+}
+
+[data-theme="dark"] .programacao-toolbar .field-control,
+[data-theme="dark"] .programacao-toolbar-filters .field-control {
+  background: linear-gradient(180deg, rgba(20, 38, 60, 0.98), rgba(16, 30, 49, 0.96)) !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+  color: #f8fafc !important;
+}
+
+[data-theme="dark"] .programacao-toolbar .field-control::placeholder,
+[data-theme="dark"] .programacao-toolbar-filters .field-control::placeholder {
+  color: rgba(226, 232, 240, 0.42) !important;
+}
+
+[data-theme="dark"] .programacao-toolbar .field-control:disabled,
+[data-theme="dark"] .programacao-toolbar-filters .field-control:disabled {
+  background: linear-gradient(180deg, rgba(39, 52, 66, 0.96), rgba(32, 44, 57, 0.94)) !important;
+  color: rgba(226, 232, 240, 0.54) !important;
+  border-color: rgba(148, 163, 184, 0.12) !important;
+  opacity: 1 !important;
+}
+
 .dialog-backdrop {
   position: fixed;
   inset: 0;
