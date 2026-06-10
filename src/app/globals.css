@@ -5374,8 +5374,7 @@ button {
 }
 
 [data-theme="dark"] .programacao-equipment-card.is-row-operando {
-  background:
-    linear-gradient(180deg, rgba(21, 54, 46, 0.94), rgba(16, 37, 40, 0.94)) !important;
+  background: linear-gradient(180deg, rgba(21, 39, 60, 0.98), rgba(16, 30, 49, 0.96)) !important;
 }
 
 [data-theme="dark"] .programacao-equipment-avatar {
