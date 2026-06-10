@@ -2,45 +2,45 @@
 
 import { useEffect, useState } from "react";
 
-type ThemeMode = "dark" | "light";
+type ModoTema = "dark" | "light";
 
-const storageKey = "basepro-theme";
+const chaveArmazenamento = "basepro-theme";
 
-function applyTheme(theme: ThemeMode) {
-  document.body.dataset.theme = theme;
+function aplicarTema(modo: ModoTema) {
+  document.body.dataset.theme = modo;
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<ThemeMode>("dark");
+  const [modoTema, setModoTema] = useState<ModoTema>("dark");
 
   useEffect(() => {
-    const savedTheme = window.localStorage.getItem(storageKey);
-    const initialTheme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : "dark";
-    setTheme(initialTheme);
-    applyTheme(initialTheme);
+    const temaSalvo = window.localStorage.getItem(chaveArmazenamento);
+    const temaInicial = temaSalvo === "light" || temaSalvo === "dark" ? temaSalvo : "dark";
+    setModoTema(temaInicial);
+    aplicarTema(temaInicial);
   }, []);
 
-  function handleChange(nextTheme: ThemeMode) {
-    setTheme(nextTheme);
-    applyTheme(nextTheme);
-    window.localStorage.setItem(storageKey, nextTheme);
+  function alterarTema(proximoTema: ModoTema) {
+    setModoTema(proximoTema);
+    aplicarTema(proximoTema);
+    window.localStorage.setItem(chaveArmazenamento, proximoTema);
   }
 
   return (
     <div className="theme-toggle" aria-label="Tema do sistema">
       <button
         type="button"
-        className={`theme-toggle-button${theme === "dark" ? " is-active" : ""}`}
-        onClick={() => handleChange("dark")}
-        aria-pressed={theme === "dark"}
+        className={`theme-toggle-button${modoTema === "dark" ? " is-active" : ""}`}
+        onClick={() => alterarTema("dark")}
+        aria-pressed={modoTema === "dark"}
       >
         Escuro
       </button>
       <button
         type="button"
-        className={`theme-toggle-button${theme === "light" ? " is-active" : ""}`}
-        onClick={() => handleChange("light")}
-        aria-pressed={theme === "light"}
+        className={`theme-toggle-button${modoTema === "light" ? " is-active" : ""}`}
+        onClick={() => alterarTema("light")}
+        aria-pressed={modoTema === "light"}
       >
         Claro
       </button>

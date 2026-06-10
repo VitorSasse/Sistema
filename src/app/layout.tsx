@@ -1,3 +1,8 @@
+import "./estilos/agenda-operacional.css";
+import "./estilos/layout-administrativo.css";
+import "./estilos/dashboards-gestao.css";
+import "./estilos/visao-geral-basepro.css";
+import "./estilos/componentes-compartilhados.css";
 import "./globals.css";
 import type { Metadata } from "next";
 import { Montserrat, Orbitron } from "next/font/google";
@@ -25,11 +30,11 @@ export const metadata: Metadata = {
   }
 };
 
-type RootLayoutProps = {
+type PropriedadesLayoutRaiz = {
   children: ReactNode;
 };
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export default function RootLayout({ children }: PropriedadesLayoutRaiz) {
   return (
     <html lang="pt-BR">
       <body data-theme="dark" className={`${montserrat.variable} ${orbitron.variable}`}>

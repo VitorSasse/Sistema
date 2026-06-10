@@ -2,33 +2,33 @@
 
 import { useRef, type ReactNode, type WheelEvent } from "react";
 
-type SidebarScrollAreaProps = {
+type PropriedadesAreaRolagemLateral = {
   children: ReactNode;
 };
 
-export function SidebarScrollArea({ children }: SidebarScrollAreaProps) {
-  const ref = useRef<HTMLDivElement | null>(null);
+export function SidebarScrollArea({ children }: PropriedadesAreaRolagemLateral) {
+  const referenciaContainer = useRef<HTMLDivElement | null>(null);
 
-  function handleWheel(event: WheelEvent<HTMLDivElement>) {
-    const element = ref.current;
+  function lidarComRolagem(evento: WheelEvent<HTMLDivElement>) {
+    const elemento = referenciaContainer.current;
 
-    if (!element) {
+    if (!elemento) {
       return;
     }
 
-    if (element.scrollHeight <= element.clientHeight) {
-      event.preventDefault();
-      event.stopPropagation();
+    if (elemento.scrollHeight <= elemento.clientHeight) {
+      evento.preventDefault();
+      evento.stopPropagation();
       return;
     }
 
-    element.scrollTop += event.deltaY;
-    event.preventDefault();
-    event.stopPropagation();
+    elemento.scrollTop += evento.deltaY;
+    evento.preventDefault();
+    evento.stopPropagation();
   }
 
   return (
-    <div ref={ref} className="admin-sidebar-scroll" onWheel={handleWheel}>
+    <div ref={referenciaContainer} className="admin-sidebar-scroll" onWheel={lidarComRolagem}>
       {children}
     </div>
   );

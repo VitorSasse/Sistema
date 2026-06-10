@@ -1,0 +1,1761 @@
+/* Dashboards: faturamento, frota e executivo */
+
+.billing-dashboard,
+.fleet-dashboard,
+.page-subnav,
+.data-table-wrap,
+.stat-card,
+.tile-card,
+.list-item,
+.timeline-card {
+  --surface-light-text: var(--screen-text);
+  --surface-light-muted: var(--screen-muted);
+}
+
+.billing-dashboard,
+.fleet-dashboard {
+  color: var(--surface-light-text);
+}
+
+.billing-dashboard .page-title,
+.billing-dashboard .page-copy,
+.billing-dashboard .field-label,
+.billing-dashboard .section-title,
+.billing-dashboard .section-copy,
+.billing-dashboard .billing-summary-main,
+.billing-dashboard .billing-ranking-copy strong,
+.billing-dashboard .billing-ranking-metrics strong,
+.billing-dashboard .billing-chart-summary-card strong,
+.billing-dashboard .billing-empty-state strong,
+.billing-dashboard .billing-period-badge span,
+.billing-dashboard .billing-chart-header-badge strong,
+.fleet-dashboard .page-title,
+.fleet-dashboard .page-copy,
+.fleet-dashboard .field-label,
+.fleet-dashboard .section-title,
+.fleet-dashboard .section-copy,
+.fleet-dashboard .fleet-card-value,
+.fleet-dashboard .fleet-section-value,
+.fleet-dashboard .fleet-ranking-copy strong,
+.fleet-dashboard .fleet-ranking-metrics strong,
+.fleet-dashboard .fleet-empty-state strong,
+.fleet-dashboard .fleet-period-badge span,
+.fleet-dashboard .badge-info,
+.data-table th,
+.data-table td,
+.tile-card,
+.list-item,
+.timeline-card,
+.stat-card-value {
+  color: var(--surface-light-text) !important;
+}
+
+.billing-dashboard .page-copy,
+.billing-dashboard .field-label,
+.billing-dashboard .billing-summary-label,
+.billing-dashboard .billing-summary-meta,
+.billing-dashboard .billing-ranking-copy span,
+.billing-dashboard .billing-ranking-metrics span,
+.billing-dashboard .billing-tooltip span,
+.billing-dashboard .billing-empty-state p,
+.billing-dashboard .billing-period-badge strong,
+.billing-dashboard .billing-month-filter-copy strong,
+.billing-dashboard .billing-month-filter-copy span,
+.billing-dashboard .billing-chart-header-badge span,
+.billing-dashboard .billing-chart-summary-card span,
+.billing-dashboard .billing-chart-summary-card small,
+.billing-dashboard .billing-chart-legend-item,
+.billing-dashboard .billing-month-chip,
+.fleet-dashboard .page-copy,
+.fleet-dashboard .field-label,
+.fleet-dashboard .fleet-card-label,
+.fleet-dashboard .fleet-card-copy,
+.fleet-dashboard .fleet-section-card small,
+.fleet-dashboard .fleet-ranking-copy span,
+.fleet-dashboard .fleet-ranking-chip,
+.fleet-dashboard .fleet-tooltip span,
+.fleet-dashboard .fleet-empty-state p,
+.fleet-dashboard .fleet-period-badge strong,
+.data-table th,
+.subtle,
+.stat-card-label,
+.stat-card-copy,
+.timeline-card,
+.page-subnav-link {
+  color: var(--surface-light-muted) !important;
+}
+
+.billing-dashboard .field-control,
+.billing-dashboard .billing-month-chip,
+.fleet-dashboard .field-control,
+.page-subnav-link,
+.data-table-wrap {
+  color: var(--surface-light-text) !important;
+}
+
+.billing-dashboard .field-control,
+.fleet-dashboard .field-control {
+  background: var(--screen-surface-strong) !important;
+  border-color: var(--screen-border) !important;
+}
+
+.billing-dashboard .field-control::placeholder,
+.fleet-dashboard .field-control::placeholder {
+  color: rgba(75, 85, 99, 0.7) !important;
+}
+
+.billing-dashboard .field-control:focus,
+.fleet-dashboard .field-control:focus {
+  border-color: rgba(249, 115, 22, 0.55) !important;
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12) !important;
+}
+
+.billing-dashboard .billing-tooltip,
+.fleet-dashboard .fleet-tooltip {
+  background: var(--screen-surface-strong) !important;
+  border-color: var(--screen-border) !important;
+}
+
+.billing-dashboard .billing-tooltip strong,
+.fleet-dashboard .fleet-tooltip strong {
+  color: var(--surface-light-text) !important;
+}
+
+.billing-dashboard .recharts-cartesian-axis-tick-value,
+.billing-dashboard .recharts-legend-item-text,
+.fleet-dashboard .recharts-cartesian-axis-tick-value,
+.fleet-dashboard .recharts-legend-item-text {
+  fill: var(--screen-chart-tick) !important;
+}
+
+.billing-dashboard .recharts-cartesian-grid line,
+.fleet-dashboard .recharts-cartesian-grid line {
+  stroke: rgba(148, 163, 184, 0.28) !important;
+}
+
+.basepro-overview {
+  margin-bottom: 20px;
+}
+
+.basepro-kpi-grid {
+  margin-bottom: 4px;
+}
+
+.page-subnav {
+  margin: 0 0 24px !important;
+  position: relative;
+  z-index: 0;
+}
+
+.billing-hero,
+.fleet-toolbar,
+.fleet-summary-card,
+.fleet-chart-card,
+.fleet-ranking-card,
+.fleet-section-card,
+.fleet-chart-shell,
+.fleet-ranking-item,
+.billing-period-badge,
+.billing-month-filter,
+.billing-month-chip,
+.billing-chart-header-badge,
+.billing-chart-summary-card,
+.billing-chart-legend-item,
+.billing-ranking-item,
+.page-subnav,
+.page-subnav-link,
+.data-table-wrap,
+.stat-card,
+.tile-card,
+.list-item,
+.timeline-card {
+  background: linear-gradient(180deg, var(--screen-surface-start), var(--screen-surface-end)) !important;
+  border-color: var(--screen-border) !important;
+  box-shadow: var(--screen-shadow);
+}
+
+.fleet-summary-card-danger {
+  background: linear-gradient(180deg, var(--screen-surface-start), var(--screen-surface-end)) !important;
+  border-color: color-mix(in srgb, var(--danger) 34%, var(--screen-border)) !important;
+}
+
+.fleet-summary-card-warn {
+  background: linear-gradient(180deg, var(--screen-surface-start), var(--screen-surface-end)) !important;
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--screen-border)) !important;
+}
+
+.fleet-summary-card-info,
+.billing-chart-summary-card.is-neutral {
+  background: linear-gradient(180deg, var(--screen-surface-start), var(--screen-surface-end)) !important;
+  border-color: color-mix(in srgb, var(--info) 34%, var(--screen-border)) !important;
+}
+
+.billing-chart-summary-card.is-success {
+  background: linear-gradient(180deg, var(--screen-surface-start), var(--screen-surface-end)) !important;
+  border-color: color-mix(in srgb, var(--success) 34%, var(--screen-border)) !important;
+}
+
+.billing-chart-summary-card.is-warn,
+.billing-chart-summary-card.is-total {
+  background: linear-gradient(180deg, var(--screen-surface-start), var(--screen-surface-end)) !important;
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--screen-border)) !important;
+}
+
+.fleet-dashboard {
+  display: grid;
+  gap: 22px;
+}
+
+.fleet-toolbar,
+.fleet-toolbar-copy,
+.fleet-filter-row,
+.fleet-custom-range,
+.fleet-summary-card,
+.fleet-chart-header,
+.fleet-ranking-copy,
+.fleet-ranking-metrics,
+.fleet-tooltip {
+  display: grid;
+  gap: 8px;
+}
+
+.fleet-toolbar {
+  gap: 18px;
+  align-items: start;
+  background:
+    radial-gradient(circle at top right, rgba(240, 213, 143, 0.16), transparent 22%),
+    radial-gradient(circle at bottom left, rgba(21, 91, 82, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 239, 225, 0.92));
+}
+
+.fleet-filter-row {
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: end;
+}
+
+.fleet-filter-field {
+  min-width: 0;
+}
+
+.fleet-custom-range {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.fleet-kicker {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(21, 91, 82, 0.08);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fleet-period-badge {
+  justify-self: end;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.fleet-period-badge strong {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.fleet-period-badge span {
+  font-weight: 700;
+}
+
+@media (max-width: 1380px) {
+  .fleet-custom-range {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(140px, auto);
+  }
+
+  .fleet-period-badge {
+    justify-self: stretch;
+  }
+}
+
+.fleet-summary-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fleet-summary-card {
+  padding: 20px;
+  min-height: 152px;
+  border-radius: 24px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 239, 225, 0.82));
+  box-shadow: var(--shadow-md);
+}
+
+.fleet-summary-card-strong {
+  background:
+    radial-gradient(circle at top right, rgba(240, 213, 143, 0.22), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 239, 225, 0.86));
+}
+
+.fleet-summary-card-danger {
+  background: linear-gradient(180deg, rgba(246, 225, 219, 0.94), rgba(255, 255, 255, 0.9));
+}
+
+.fleet-summary-card-warn {
+  background: linear-gradient(180deg, rgba(255, 241, 207, 0.94), rgba(255, 255, 255, 0.92));
+}
+
+.fleet-summary-card-info {
+  background: linear-gradient(180deg, rgba(220, 232, 248, 0.94), rgba(255, 255, 255, 0.92));
+}
+
+.fleet-card-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fleet-card-value {
+  font-size: clamp(2rem, 3.6vw, 2.8rem);
+  line-height: 0.95;
+}
+
+.fleet-card-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.fleet-chart-card,
+.fleet-ranking-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 239, 225, 0.84));
+}
+
+.fleet-section {
+  display: grid;
+  gap: 16px;
+}
+
+.fleet-section-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 14px;
+  align-items: end;
+}
+
+.fleet-section-heading {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.fleet-section-heading .section-title {
+  margin: 0;
+}
+
+.fleet-section-filter {
+  justify-self: end;
+}
+
+.fleet-section-summary {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fleet-section-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+[data-theme="light"] .fleet-summary-card,
+[data-theme="light"] .fleet-section-card {
+  background: linear-gradient(180deg, #ffffff, #ffffff) !important;
+}
+
+.fleet-section-card small {
+  color: var(--muted);
+}
+
+.fleet-section-value {
+  font-size: 1.8rem;
+  line-height: 0.95;
+}
+
+.fleet-section-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+}
+
+.fleet-chart-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.fleet-chart-shell {
+  margin-top: 10px;
+  min-height: 360px;
+  padding: 12px 6px 0;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(240, 213, 143, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(247, 239, 225, 0.7));
+  overflow: visible;
+}
+
+.fleet-ranking-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.fleet-ranking-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.fleet-ranking-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: rgba(21, 91, 82, 0.1);
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.fleet-ranking-copy strong {
+  display: block;
+}
+
+.fleet-ranking-copy span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.fleet-ranking-metrics strong {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.fleet-ranking-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fleet-ranking-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(109, 92, 66, 0.09);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fleet-empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 320px;
+  gap: 8px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.fleet-empty-state strong {
+  color: var(--text);
+}
+
+.fleet-empty-state-compact {
+  min-height: 220px;
+}
+
+.fleet-tooltip {
+  min-width: 220px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--shadow-md);
+}
+
+.fleet-tooltip strong {
+  color: var(--text);
+}
+
+.fleet-tooltip span {
+  color: var(--muted);
+}
+
+.fleet-skeleton-block {
+  min-height: 160px;
+  border-radius: 24px;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.72) 0%,
+      rgba(247, 239, 225, 0.95) 50%,
+      rgba(255, 255, 255, 0.72) 100%
+    );
+  background-size: 200% 100%;
+  animation: fleet-skeleton 1.6s ease-in-out infinite;
+}
+
+@keyframes fleet-skeleton {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.billing-dashboard {
+  display: grid;
+  gap: 22px;
+}
+
+.billing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 20px;
+  align-items: start;
+  background:
+    radial-gradient(circle at top right, rgba(240, 213, 143, 0.16), transparent 22%),
+    radial-gradient(circle at bottom left, rgba(21, 91, 82, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 239, 225, 0.9));
+}
+
+.billing-header-copy,
+.billing-header-controls,
+.billing-month-filter,
+.billing-month-filter-copy,
+.billing-custom-range,
+.billing-summary-card,
+.billing-chart-header,
+.billing-ranking-header,
+.billing-tooltip,
+.billing-ranking-copy,
+.billing-ranking-metrics {
+  display: grid;
+  gap: 8px;
+}
+
+.billing-kicker {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(21, 91, 82, 0.08);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.billing-header-controls {
+  justify-items: stretch;
+  align-content: start;
+}
+
+.billing-filter-field {
+  min-width: 0;
+}
+
+.billing-custom-range {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+}
+
+.billing-period-badge {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.billing-period-badge strong {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.billing-month-filter {
+  grid-column: 1 / -1;
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.1);
+  background: rgba(255, 255, 255, 0.64);
+}
+
+.billing-month-filter-copy strong {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.billing-month-filter-copy span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.billing-month-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.billing-month-chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.billing-month-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 66px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.billing-month-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(21, 91, 82, 0.22);
+}
+
+.billing-month-chip.is-active {
+  border-color: rgba(21, 91, 82, 0.22);
+  background: rgba(21, 91, 82, 0.12);
+  color: var(--primary);
+}
+
+.billing-summary-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.billing-summary-card,
+.billing-chart-card,
+.billing-ranking-card {
+  border-radius: 22px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 239, 225, 0.78));
+  box-shadow: var(--shadow-md);
+}
+
+.billing-chart-card {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(21, 91, 82, 0.08), transparent 26%),
+    radial-gradient(circle at bottom left, rgba(240, 193, 90, 0.12), transparent 22%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 239, 225, 0.88));
+}
+
+.billing-summary-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 20px;
+  min-height: 162px;
+}
+
+.billing-summary-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.billing-summary-main {
+  display: block;
+  font-size: clamp(1.7rem, 2.1vw, 2.35rem);
+  line-height: 0.98;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+}
+
+.billing-summary-main.is-name {
+  font-size: clamp(1.55rem, 1.8vw, 2rem);
+  line-height: 1.04;
+}
+
+.billing-summary-card.is-count .billing-summary-main {
+  font-size: clamp(2.2rem, 2.6vw, 3rem);
+}
+
+.billing-summary-meta {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.billing-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+}
+
+.billing-chart-card,
+.billing-ranking-card {
+  padding: 22px;
+}
+
+.billing-chart-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.billing-chart-header-badge {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(21, 91, 82, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+  text-align: right;
+}
+
+.billing-chart-header-badge strong {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.billing-chart-header-badge span {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.billing-chart-panel {
+  display: grid;
+  gap: 18px;
+  margin-top: 0;
+}
+
+.billing-chart-summary {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.billing-chart-summary-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.1);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.billing-chart-summary-card span,
+.billing-chart-summary-card small {
+  color: var(--muted);
+}
+
+.billing-chart-summary-card span {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.billing-chart-summary-card strong {
+  font-size: 1.2rem;
+  line-height: 1.1;
+}
+
+.billing-chart-summary-card small {
+  font-size: 12px;
+}
+
+.billing-chart-summary-card.is-success {
+  background: linear-gradient(180deg, rgba(220, 239, 233, 0.86), rgba(255, 255, 255, 0.72));
+  border-color: rgba(21, 91, 82, 0.14);
+}
+
+.billing-chart-summary-card.is-warn {
+  background: linear-gradient(180deg, rgba(255, 241, 207, 0.9), rgba(255, 255, 255, 0.72));
+  border-color: rgba(163, 110, 0, 0.14);
+}
+
+.billing-chart-summary-card.is-neutral {
+  background: linear-gradient(180deg, rgba(220, 232, 248, 0.9), rgba(255, 255, 255, 0.72));
+  border-color: rgba(47, 109, 179, 0.14);
+}
+
+.billing-chart-summary-card.is-total {
+  background: linear-gradient(180deg, rgba(236, 227, 205, 0.9), rgba(255, 255, 255, 0.76));
+  border-color: rgba(109, 92, 66, 0.16);
+}
+
+.billing-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.billing-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(109, 92, 66, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.billing-chart-dot {
+  display: inline-flex;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.billing-chart-dot.is-faturado {
+  background: #1a7468;
+}
+
+.billing-chart-dot.is-pendente {
+  background: #d4932d;
+}
+
+.billing-chart-dot.is-share {
+  background: #8f4fd1;
+}
+
+.billing-chart-shell {
+  height: 420px;
+  padding: 18px 14px 10px;
+  border-radius: 22px;
+  border: 1px solid rgba(109, 92, 66, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(250, 245, 236, 0.8));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+.billing-ranking-list {
+  display: grid;
+  gap: 12px;
+}
+
+.billing-ranking-item {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) minmax(140px, auto);
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.billing-ranking-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(21, 91, 82, 0.22);
+  box-shadow: 0 18px 32px rgba(53, 43, 29, 0.08);
+}
+
+.billing-ranking-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(21, 91, 82, 0.14), rgba(240, 213, 143, 0.2));
+  color: var(--primary);
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.billing-ranking-copy strong,
+.billing-ranking-metrics strong {
+  font-size: 1rem;
+}
+
+.billing-ranking-copy span,
+.billing-ranking-metrics span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.billing-ranking-metrics {
+  justify-items: end;
+  text-align: right;
+}
+
+.billing-tooltip {
+  min-width: 240px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(21, 91, 82, 0.16);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 239, 225, 0.94));
+  box-shadow: 0 22px 44px rgba(53, 43, 29, 0.14);
+}
+
+.billing-tooltip strong {
+  font-size: 1rem;
+}
+
+.billing-tooltip span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.billing-empty-state {
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.billing-empty-state strong {
+  color: var(--text);
+  font-size: 1.08rem;
+}
+
+.billing-empty-state-compact {
+  min-height: 220px;
+}
+
+.executive-dashboard,
+.executive-kpi-grid,
+.executive-grid,
+.executive-hero-controls,
+.executive-custom-range,
+.executive-insights,
+.executive-panel-header,
+.executive-panel-bands,
+.executive-list,
+.executive-list-item,
+.executive-list-metrics,
+.executive-heatmap,
+.executive-heatmap-head,
+.executive-heatmap-row,
+.executive-tooltip {
+  display: grid;
+  gap: 12px;
+}
+
+.executive-dashboard {
+  gap: 22px;
+  --executive-tone-produtivo-start: #2ccf8f;
+  --executive-tone-produtivo-end: #1a7f61;
+  --executive-tone-ocioso-start: #f0b544;
+  --executive-tone-ocioso-end: #c97b1f;
+  --executive-tone-manutencao-start: #ef5350;
+  --executive-tone-manutencao-end: #991b1b;
+  --executive-tone-admin-start: #a78bfa;
+  --executive-tone-admin-end: #6d28d9;
+  --executive-tone-externo-start: #38bdf8;
+  --executive-tone-externo-end: #0369a1;
+}
+
+.executive-hero,
+.executive-card,
+.executive-panel,
+.executive-insight-card {
+  border: 1px solid rgba(125, 155, 179, 0.12);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(52, 211, 153, 0.12), transparent 22%),
+    radial-gradient(circle at bottom left, rgba(59, 130, 246, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(13, 24, 35, 0.98), rgba(9, 18, 29, 0.98));
+  color: #f5efe5;
+  box-shadow: 0 18px 48px rgba(4, 11, 19, 0.28);
+}
+
+.executive-hero {
+  display: grid;
+  gap: 18px;
+  padding: 26px;
+}
+
+.executive-hero-controls {
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  align-items: end;
+}
+
+.executive-custom-range {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+}
+
+.executive-kicker {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(143, 236, 203, 0.12);
+  color: #97f3c7;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.executive-title {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 3.05rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.executive-copy,
+.executive-card-copy,
+.executive-heatmap-label span,
+.executive-list-item span {
+  color: #91a3b4;
+}
+
+.executive-copy,
+.executive-card-copy {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.executive-filter-field {
+  min-width: 0;
+}
+
+.executive-filter-field .field-label {
+  color: #c2d3e3;
+}
+
+.executive-filter-field .field-control {
+  border-color: rgba(145, 163, 180, 0.22);
+  background: rgba(11, 20, 31, 0.92);
+  color: #f5efe5;
+}
+
+.executive-filter-field .field-control::-webkit-calendar-picker-indicator {
+  filter: invert(0.88);
+}
+
+.executive-period-chip {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(145, 163, 180, 0.16);
+  background: rgba(9, 18, 29, 0.88);
+}
+
+.executive-period-chip strong,
+.executive-card-label,
+.executive-section-kicker {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.executive-period-chip strong,
+.executive-section-kicker {
+  color: #7dd3fc;
+}
+
+.executive-kpi-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.executive-card {
+  padding: 20px;
+  min-height: 152px;
+}
+
+.executive-card-label {
+  color: #91a3b4;
+}
+
+.executive-card-value,
+.executive-panel-highlight {
+  display: block;
+  font-size: clamp(1.8rem, 2.1vw, 2.5rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.executive-insights {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.executive-insight-card {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  padding: 16px 18px;
+  gap: 14px;
+}
+
+.executive-insight-card p {
+  margin: 0;
+  color: var(--screen-text);
+  line-height: 1.5;
+}
+
+.executive-insight-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  background: rgba(52, 211, 153, 0.14);
+  color: #97f3c7;
+  font-weight: 800;
+}
+
+.executive-grid {
+  gap: 18px;
+}
+
+.executive-grid-half {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.executive-panel {
+  padding: 22px;
+  overflow: hidden;
+}
+
+.executive-panel-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.executive-panel-header h2 {
+  margin: 4px 0 0;
+  font-size: 1.45rem;
+}
+
+.executive-panel-bands {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.executive-inline-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+  color: #91a3b4;
+  font-size: 13px;
+}
+
+.executive-chart-shell {
+  min-height: 360px;
+  height: auto;
+  overflow: visible;
+}
+
+.executive-list {
+  gap: 10px;
+}
+
+.executive-list-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(145, 163, 180, 0.12);
+  background: rgba(9, 18, 29, 0.64);
+}
+
+.executive-list-item strong {
+  display: block;
+}
+
+.executive-list-metrics {
+  justify-items: end;
+  text-align: right;
+}
+
+.executive-empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  gap: 8px;
+  padding: 24px;
+  border-radius: 18px;
+  border: 1px dashed rgba(145, 163, 180, 0.18);
+  background: rgba(9, 18, 29, 0.42);
+  color: #91a3b4;
+  text-align: center;
+}
+
+.executive-empty-state strong {
+  color: #f5efe5;
+  font-size: 1.04rem;
+}
+
+.executive-heatmap {
+  overflow-x: auto;
+}
+
+.executive-heatmap-head,
+.executive-heatmap-row {
+  grid-template-columns: 220px repeat(var(--executive-heatmap-cols, 31), minmax(28px, 1fr));
+  align-items: center;
+  min-width: max-content;
+}
+
+.executive-heatmap-corner,
+.executive-heatmap-label,
+.executive-heatmap-day,
+.executive-heatmap-cell {
+  border-radius: 12px;
+}
+
+.executive-heatmap-corner,
+.executive-heatmap-label {
+  padding: 10px 12px;
+  background: rgba(9, 18, 29, 0.82);
+  border: 1px solid rgba(145, 163, 180, 0.12);
+}
+
+.executive-heatmap-day {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 8px 0;
+  border: 1px solid rgba(145, 163, 180, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #91a3b4;
+  font-size: 11px;
+}
+
+.executive-heatmap-day strong {
+  color: #f5efe5;
+}
+
+.executive-heatmap-day.is-weekend {
+  opacity: 0.55;
+}
+
+.executive-heatmap-cell {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.executive-heatmap-cell.is-produtivo {
+  background: linear-gradient(
+    180deg,
+    var(--executive-tone-produtivo-start),
+    var(--executive-tone-produtivo-end)
+  );
+}
+
+.executive-heatmap-cell.is-ocioso {
+  background: linear-gradient(
+    180deg,
+    var(--executive-tone-ocioso-start),
+    var(--executive-tone-ocioso-end)
+  );
+}
+
+.executive-heatmap-cell.is-manutencao {
+  background: linear-gradient(
+    180deg,
+    var(--executive-tone-manutencao-start),
+    var(--executive-tone-manutencao-end)
+  );
+}
+
+.executive-heatmap-cell.is-admin {
+  background: linear-gradient(
+    180deg,
+    var(--executive-tone-admin-start),
+    var(--executive-tone-admin-end)
+  );
+}
+
+.executive-heatmap-cell.is-externo {
+  background: linear-gradient(
+    180deg,
+    var(--executive-tone-externo-start),
+    var(--executive-tone-externo-end)
+  );
+}
+
+.executive-heatmap-cell.is-folga {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.executive-heatmap-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+  color: #91a3b4;
+  font-size: 13px;
+}
+
+.executive-heatmap-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.executive-legend-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+}
+
+.executive-legend-dot.is-produtivo {
+  background: var(--executive-tone-produtivo-start);
+}
+
+.executive-legend-dot.is-ocioso {
+  background: var(--executive-tone-ocioso-start);
+}
+
+.executive-legend-dot.is-manutencao {
+  background: var(--executive-tone-manutencao-start);
+}
+
+.executive-legend-dot.is-admin {
+  background: var(--executive-tone-admin-start);
+}
+
+.executive-legend-dot.is-externo {
+  background: var(--executive-tone-externo-start);
+}
+
+.executive-legend-dot.is-folga {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.executive-tooltip {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(145, 163, 180, 0.14);
+  background: rgba(7, 13, 20, 0.95);
+  color: #f5efe5;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+}
+
+.executive-tooltip span {
+  color: #c2d3e3;
+}
+
+.executive-skeleton-block {
+  min-height: 160px;
+  border-radius: 24px;
+  background:
+    linear-gradient(90deg, rgba(23, 34, 47, 0.9), rgba(32, 47, 64, 0.94), rgba(23, 34, 47, 0.9));
+  background-size: 200% 100%;
+  animation: billingSkeleton 1.4s ease-in-out infinite;
+}
+
+@media (max-width: 1200px) {
+  .executive-kpi-grid,
+  .executive-grid-half {
+    grid-template-columns: 1fr;
+  }
+
+  .executive-panel-header {
+    grid-template-columns: 1fr;
+  }
+
+  .executive-panel-bands {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 860px) {
+  .executive-hero-controls,
+  .executive-custom-range {
+    grid-template-columns: 1fr;
+  }
+
+  .executive-list-item {
+    grid-template-columns: 1fr;
+  }
+
+  .executive-list-metrics {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .executive-chart-shell {
+    height: 320px;
+  }
+}
+
+.billing-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(109, 92, 66, 0.12);
+  border-radius: 999px;
+}
+
+.billing-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: billingShimmer 1.4s infinite;
+}
+
+.billing-skeleton-line {
+  height: 14px;
+}
+
+.billing-skeleton-title {
+  width: 58%;
+  height: 24px;
+}
+
+.billing-skeleton-copy {
+  width: 82%;
+}
+
+.billing-skeleton-pill {
+  width: 220px;
+  height: 46px;
+}
+
+.billing-skeleton-kicker {
+  width: 42%;
+}
+
+.billing-skeleton-value {
+  width: 66%;
+  height: 30px;
+}
+
+.billing-skeleton-chart {
+  height: 420px;
+  border-radius: 24px;
+}
+
+.billing-skeleton-row {
+  height: 82px;
+  border-radius: 20px;
+}
+
+@keyframes billingShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Padronizacao light/dark das dashboards */
+
+.billing-hero,
+.billing-summary-card,
+.billing-chart-card,
+.billing-ranking-card,
+.billing-period-badge,
+.billing-month-filter,
+.billing-month-chip,
+.billing-chart-summary-card,
+.billing-chart-legend-item,
+.billing-chart-header-badge,
+.billing-ranking-item,
+.billing-tooltip,
+.fleet-period-badge,
+.fleet-summary-card,
+.fleet-chart-card,
+.fleet-ranking-card,
+.fleet-section-card,
+.fleet-chart-shell,
+.fleet-ranking-item,
+.fleet-tooltip,
+.executive-hero,
+.executive-card,
+.executive-panel,
+.executive-insight-card,
+.executive-period-chip,
+.executive-list-item,
+.executive-heatmap-day,
+.executive-heatmap-label,
+.executive-tooltip {
+  color: var(--screen-text);
+  border-color: var(--screen-border) !important;
+  box-shadow: var(--screen-shadow);
+}
+
+.billing-hero,
+.billing-summary-card,
+.billing-chart-card,
+.billing-ranking-card,
+.billing-period-badge,
+.billing-month-filter,
+.billing-month-chip,
+.billing-chart-summary-card,
+.billing-chart-legend-item,
+.billing-chart-header-badge,
+.billing-ranking-item,
+.billing-tooltip,
+.fleet-period-badge,
+.fleet-summary-card,
+.fleet-chart-card,
+.fleet-ranking-card,
+.fleet-section-card,
+.fleet-chart-shell,
+.fleet-ranking-item,
+.fleet-tooltip,
+.executive-hero,
+.executive-card,
+.executive-panel,
+.executive-insight-card,
+.executive-period-chip,
+.executive-list-item,
+.executive-heatmap-day,
+.executive-heatmap-label,
+.executive-tooltip {
+  background: linear-gradient(180deg, var(--screen-surface-start), var(--screen-surface-end)) !important;
+}
+
+.billing-kicker,
+.fleet-kicker,
+.executive-kicker {
+  background: var(--primary-soft) !important;
+  color: var(--primary) !important;
+}
+
+.billing-summary-label,
+.fleet-card-label,
+.executive-card-label,
+.executive-section-kicker,
+.billing-period-badge strong,
+.fleet-period-badge strong,
+.executive-period-chip strong {
+  color: var(--primary) !important;
+}
+
+.billing-summary-meta,
+.billing-ranking-copy span,
+.billing-ranking-metrics span,
+.billing-month-filter-copy span,
+.fleet-card-copy,
+.fleet-section-card small,
+.fleet-ranking-copy span,
+.fleet-tooltip span,
+.executive-copy,
+.executive-card-copy,
+.executive-list-item span,
+.executive-heatmap-label span,
+.executive-tooltip span,
+.executive-inline-stats,
+.basepro-copy {
+  color: var(--screen-muted) !important;
+}
+
+.billing-month-chip {
+  color: var(--screen-muted) !important;
+}
+
+.billing-month-chip.is-active,
+.billing-month-chip:hover {
+  background: var(--primary-soft) !important;
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent) !important;
+  color: var(--screen-text) !important;
+}
+
+.billing-chart-dot.is-faturado {
+  background: var(--primary) !important;
+}
+
+.billing-chart-dot.is-pendente,
+.executive-legend-dot.is-admin,
+.executive-legend-dot.is-externo {
+  background: var(--dashboard-chart-pendente-start) !important;
+}
+
+.billing-chart-dot.is-share {
+  background: var(--dashboard-chart-line-share) !important;
+}
+
+.billing-chart-summary-card.is-success,
+.fleet-summary-card-info,
+.executive-insight-index {
+  background: var(--status-success-bg) !important;
+  border-color: color-mix(in srgb, var(--success) 28%, transparent) !important;
+  color: var(--status-success-fg) !important;
+}
+
+.billing-chart-summary-card.is-warn,
+.fleet-summary-card-warn {
+  background: var(--status-warning-bg) !important;
+  border-color: color-mix(in srgb, var(--primary) 28%, transparent) !important;
+}
+
+.billing-chart-summary-card.is-neutral,
+.fleet-summary-card-strong {
+  background: var(--info-soft) !important;
+  border-color: color-mix(in srgb, var(--info) 24%, transparent) !important;
+}
+
+.billing-chart-summary-card.is-total,
+.fleet-summary-card-danger {
+  background: color-mix(in srgb, var(--screen-surface-strong) 84%, var(--primary-soft)) !important;
+}
+
+.billing-chart-shell,
+.fleet-chart-shell,
+.executive-chart-shell,
+.executive-heatmap {
+  border: 1px solid var(--screen-border) !important;
+  background: linear-gradient(180deg, var(--screen-surface-soft), var(--screen-surface-start)) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--screen-text) 6%, transparent);
+}
+
+.executive-heatmap-corner,
+.executive-heatmap-cell {
+  border-color: var(--screen-border) !important;
+}
+
+.executive-filter-field .field-label {
+  color: var(--screen-muted) !important;
+}
+
+.executive-filter-field .field-control {
+  border-color: var(--line-strong) !important;
+  background: var(--surface) !important;
+  color: var(--text) !important;
+}
+
+.executive-filter-field .field-control::-webkit-calendar-picker-indicator {
+  filter: none;
+}
+
+[data-theme="dark"] .billing-hero,
+[data-theme="dark"] .billing-summary-card,
+[data-theme="dark"] .billing-chart-card,
+[data-theme="dark"] .billing-ranking-card,
+[data-theme="dark"] .billing-period-badge,
+[data-theme="dark"] .billing-month-filter,
+[data-theme="dark"] .billing-month-chip,
+[data-theme="dark"] .billing-chart-summary-card,
+[data-theme="dark"] .billing-chart-legend-item,
+[data-theme="dark"] .billing-chart-header-badge,
+[data-theme="dark"] .billing-ranking-item,
+[data-theme="dark"] .billing-tooltip,
+[data-theme="dark"] .fleet-period-badge,
+[data-theme="dark"] .fleet-summary-card,
+[data-theme="dark"] .fleet-chart-card,
+[data-theme="dark"] .fleet-ranking-card,
+[data-theme="dark"] .fleet-section-card,
+[data-theme="dark"] .fleet-chart-shell,
+[data-theme="dark"] .fleet-ranking-item,
+[data-theme="dark"] .fleet-tooltip,
+[data-theme="dark"] .executive-hero,
+[data-theme="dark"] .executive-card,
+[data-theme="dark"] .executive-panel,
+[data-theme="dark"] .executive-insight-card,
+[data-theme="dark"] .executive-period-chip,
+[data-theme="dark"] .executive-list-item,
+[data-theme="dark"] .executive-heatmap-day,
+[data-theme="dark"] .executive-heatmap-label,
+[data-theme="dark"] .executive-tooltip {
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .billing-hero,
+[data-theme="light"] .billing-summary-card,
+[data-theme="light"] .billing-chart-card,
+[data-theme="light"] .billing-ranking-card,
+[data-theme="light"] .billing-period-badge,
+[data-theme="light"] .billing-month-filter,
+[data-theme="light"] .billing-month-chip,
+[data-theme="light"] .billing-chart-summary-card,
+[data-theme="light"] .billing-chart-legend-item,
+[data-theme="light"] .billing-chart-header-badge,
+[data-theme="light"] .billing-ranking-item,
+[data-theme="light"] .billing-tooltip,
+[data-theme="light"] .fleet-period-badge,
+[data-theme="light"] .fleet-summary-card,
+[data-theme="light"] .fleet-chart-card,
+[data-theme="light"] .fleet-ranking-card,
+[data-theme="light"] .fleet-section-card,
+[data-theme="light"] .fleet-chart-shell,
+[data-theme="light"] .fleet-ranking-item,
+[data-theme="light"] .fleet-tooltip,
+[data-theme="light"] .executive-hero,
+[data-theme="light"] .executive-card,
+[data-theme="light"] .executive-panel,
+[data-theme="light"] .executive-insight-card,
+[data-theme="light"] .executive-period-chip,
+[data-theme="light"] .executive-list-item,
+[data-theme="light"] .executive-heatmap-day,
+[data-theme="light"] .executive-heatmap-label,
+[data-theme="light"] .executive-tooltip {
+  color: #111827 !important;
+}
+
+[data-theme="light"] .executive-insight-card p {
+  color: #374151 !important;
+}
+
+[data-theme="dark"] .executive-insight-card p {
+  color: #f3f4f6 !important;
+}

@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-type BaseproLogoProps = {
+type PropriedadesLogoBasepro = {
   compact?: boolean;
   showTagline?: boolean;
   theme?: "dark" | "light";
@@ -8,24 +8,30 @@ type BaseproLogoProps = {
 };
 
 export function BaseproLogo({
-  compact = false,
-  showTagline: _showTagline = true,
-  theme = "dark",
+  compact: compacto = false,
+  showTagline: _exibirSlogan = true,
+  theme: tema = "dark",
   className = ""
-}: BaseproLogoProps) {
-  void _showTagline;
+}: PropriedadesLogoBasepro) {
+  void _exibirSlogan;
+
+  const origemLogo = compacto
+    ? "/assets/basepro-icon.svg"
+    : "/branding/basepro-logo-horizontal-transparent.png";
+  const larguraImagem = compacto ? 96 : 1600;
+  const alturaImagem = compacto ? 96 : 900;
 
   return (
     <div
-      className={`basepro-logo${compact ? " is-compact" : ""}${className ? ` ${className}` : ""}`}
+      className={`basepro-logo${compacto ? " is-compact" : ""}${className ? ` ${className}` : ""}`}
       aria-label="BASEPRO"
     >
-      <span className={`basepro-logo-mark basepro-logo-mark-${theme}`} aria-hidden="true">
+      <span className={`basepro-logo-mark basepro-logo-mark-${tema}`} aria-hidden="true">
         <Image
-          src={compact ? "/assets/basepro-icon.svg" : "/branding/basepro-logo-horizontal-transparent.png"}
+          src={origemLogo}
           alt=""
-          width={compact ? 96 : 1600}
-          height={compact ? 96 : 900}
+          width={larguraImagem}
+          height={alturaImagem}
           className="basepro-logo-image"
           priority
         />
