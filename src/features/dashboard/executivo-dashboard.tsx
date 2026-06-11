@@ -180,15 +180,12 @@ const mechanicalBandPalette: Record<
   ATENCAO: "#F59E0B",
   CRITICO: "#EF4444"
 };
-const lossToneByGroup: Record<
-  DashboardPayload["losses"]["buckets"][number]["group"],
-  DashboardPayload["heatmap"]["rows"][number]["cells"][number]["tone"]
-> = {
-  CONTROLAVEL: "ocioso",
-  TECNICO: "manutencao",
-  ADMINISTRATIVO: "admin",
-  EXTERNO: "externo",
-  PRODUTIVO: "produtivo"
+const lossPalette: Record<string, string> = {
+  CONTROLAVEL: "#F97316",
+  TECNICO: "#ef4444",
+  ADMINISTRATIVO: "#0F2A44",
+  EXTERNO: "#2F6EA8",
+  PRODUTIVO: "#36d399"
 };
 
 function toRgba(hex: string, alpha: number) {
@@ -330,33 +327,6 @@ function FinancialTooltip({
       <span>Valor/dia estimado: {formatCurrency(item.dailyReferenceValue)}</span>
       <span>Impacto: {formatCurrency(item.estimatedLoss)}</span>
     </div>
-  );
-}
-
-function ExecutiveHeatToneDefs() {
-  return (
-    <defs>
-      <linearGradient id="executive-tone-produtivo" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stopColor="var(--executive-tone-produtivo-start)" />
-        <stop offset="100%" stopColor="var(--executive-tone-produtivo-end)" />
-      </linearGradient>
-      <linearGradient id="executive-tone-ocioso" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stopColor="var(--executive-tone-ocioso-start)" />
-        <stop offset="100%" stopColor="var(--executive-tone-ocioso-end)" />
-      </linearGradient>
-      <linearGradient id="executive-tone-manutencao" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stopColor="var(--executive-tone-manutencao-start)" />
-        <stop offset="100%" stopColor="var(--executive-tone-manutencao-end)" />
-      </linearGradient>
-      <linearGradient id="executive-tone-admin" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stopColor="var(--executive-tone-admin-start)" />
-        <stop offset="100%" stopColor="var(--executive-tone-admin-end)" />
-      </linearGradient>
-      <linearGradient id="executive-tone-externo" x1="0" y1="0" x2="1" y2="0">
-        <stop offset="0%" stopColor="var(--executive-tone-externo-start)" />
-        <stop offset="100%" stopColor="var(--executive-tone-externo-end)" />
-      </linearGradient>
-    </defs>
   );
 }
 
@@ -741,7 +711,6 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                 layout="vertical"
                 margin={{ top: 12, right: 16, left: 4, bottom: 12 }}
               >
-                <ExecutiveHeatToneDefs />
                 <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
                 <XAxis
                   type="number"
@@ -762,7 +731,7 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
                   {lossTop.map((item) => (
                     <Cell
                       key={item.key}
-                      fill={`url(#executive-tone-${lossToneByGroup[item.group] ?? "ocioso"})`}
+                      fill={lossPalette[item.group] ?? "#f0b544"}
                     />
                   ))}
                 </Bar>

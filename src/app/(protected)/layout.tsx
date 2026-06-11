@@ -1,21 +1,82 @@
 import type { Route } from "next";
 import { ReactNode } from "react";
 import { logout } from "./actions";
+import { AdminNav } from "@/components/admin-nav";
 import { BaseproLogo } from "@/components/branding/basepro-logo";
 import { SidebarScrollArea } from "@/components/layout/sidebar-scroll-area";
-import { NavegacaoAdmin } from "@/components/navegacao-admin";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { obterNavegacaoAdmin } from "@/lib/configuracao/navegacao-admin";
 import { hasRoleAccess, requireSession } from "@/lib/auth-guards";
 
-type PropriedadesLayoutProtegido = {
+const navigationGroups = [
+  {
+    label: "Dashboards",
+    icon: "dashboard",
+    description: "Painel financeiro e acompanhamento consolidado da frota.",
+    items: [
+      { href: "/dashboard", label: "Dashboard de faturamento" },
+      { href: "/frota/dashboard", label: "Dashboard da frota" },
+      { href: "/dashboard/executivo", label: "Dashboard executivo" }
+    ]
+  },
+  {
+    label: "Cadastros",
+    icon: "cadastros",
+    description: "Base mestre para cliente, obra, recurso e equipe.",
+    items: [
+      { href: "/clientes", label: "Cadastro de clientes" },
+      { href: "/obras", label: "Cadastro de obras" },
+      { href: "/equipamentos", label: "Cadastro de equipamentos" },
+      { href: "/materiais", label: "Cadastro de materiais" },
+      { href: "/servicos", label: "Cadastro de servicos" },
+      { href: "/colaboradores", label: "Cadastro de colaboradores" }
+    ]
+  },
+  {
+    label: "Operacao",
+    icon: "operacao",
+    description: "Lancamento diario, consulta e medicao operacional.",
+    items: [
+      { href: "/programacao", label: "Agenda de programacao" },
+      { href: "/lancamentos", label: "Lancamentos" },
+      { href: "/historico", label: "Historico" },
+      { href: "/medicoes", label: "Medicoes" }
+    ]
+  },
+  {
+    label: "Frota",
+    icon: "frota",
+    description: "Leituras, manutencao e acompanhamento dos recursos.",
+    items: [
+      { href: "/frota/leituras", label: "Leituras de horimetro/KM" },
+      { href: "/frota/planos", label: "Plano preventivo" }
+    ]
+  }
+] satisfies {
+  label: string;
+  icon?: string;
+  description: string;
+  items: { href: Route; label: string }[];
+}[];
+
+type ProtectedLayoutProps = {
   children: ReactNode;
 };
 
-export default async function ProtectedLayout({ children }: PropriedadesLayoutProtegido) {
-  const sessao = await requireSession();
-  const podeGerenciarUsuarios = hasRoleAccess(sessao.user.roles, "users.manage");
-  const navegacao = obterNavegacaoAdmin(podeGerenciarUsuarios);
+export default async function ProtectedLayout({ children }: ProtectedLayoutProps) {
+  const session = await requireSession();
+  const canManageUsers = hasRoleAccess(session.user.roles, "users.manage");
+
+  const navigation = canManageUsers
+    ? [
+        ...navigationGroups,
+        {
+          label: "Seguranca",
+          icon: "seguranca",
+          description: "Controle administrativo de acessos e perfis.",
+          items: [{ href: "/usuarios" as Route, label: "Usuarios e acessos" }]
+        }
+      ]
+    : navigationGroups;
 
   return (
     <div className="admin-shell">
@@ -27,11 +88,11 @@ export default async function ProtectedLayout({ children }: PropriedadesLayoutPr
 
           <div className="admin-user-card">
             <p className="admin-user-label">Sessao ativa</p>
-            <p className="admin-user-email">{sessao.user.email}</p>
+            <p className="admin-user-email">{session.user.email}</p>
             <ThemeToggle />
           </div>
 
-          <NavegacaoAdmin grupos={navegacao} />
+          <AdminNav groups={navigation} />
 
           <form action={logout}>
             <button type="submit" className="admin-logout">
