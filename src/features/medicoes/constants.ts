@@ -59,7 +59,7 @@ export const medicaoStatusLabels: Record<MedicaoStatus, string> = {
 export const medicaoStatusClasses: Record<MedicaoStatus, string> = {
   CRIADA: "badge badge-info",
   EM_ABERTO: "badge badge-warn",
-  ENVIADA_AO_CLIENTE: "badge badge-info",
+  ENVIADA_AO_CLIENTE: "badge badge-client",
   ENVIADA_PARA_FATURAMENTO: "badge badge-neutral",
   AGUARDANDO_APROVACAO: "badge badge-neutral",
   APROVADA: "badge badge-neutral",
@@ -67,7 +67,7 @@ export const medicaoStatusClasses: Record<MedicaoStatus, string> = {
   NOTA_FISCAL_ANEXADA: "badge badge-neutral",
   CONCLUIDA: "badge badge-success",
   EM_ELABORACAO: "badge badge-warn",
-  ENVIADA: "badge badge-info",
+  ENVIADA: "badge badge-client",
   CANCELADA: "badge badge-danger"
 };
 

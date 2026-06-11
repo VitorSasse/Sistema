@@ -3239,6 +3239,11 @@ button {
   color: var(--info);
 }
 
+.badge-client {
+  background: color-mix(in srgb, var(--info) 28%, transparent);
+  color: var(--text-on-accent);
+}
+
 .badge-neutral {
   background: color-mix(in srgb, var(--line-strong) 88%, transparent);
   color: var(--muted);
