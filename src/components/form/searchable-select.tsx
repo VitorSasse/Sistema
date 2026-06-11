@@ -80,18 +80,22 @@ export function SearchableSelect(props: {
     setIsOpen(true);
 
     if (!nextValue.trim()) {
-      onChange("");
+      if (value) {
+        onChange("");
+      }
       return;
-    }
-
-    if (selectedOption && nextValue !== selectedOption.label) {
-      onChange("");
     }
   }
 
   function handleSelect(option: SearchableSelectOption) {
     setQuery(option.label);
     onChange(option.value);
+    setIsOpen(false);
+  }
+
+  function handleClear() {
+    setQuery("");
+    onChange("");
     setIsOpen(false);
   }
 
@@ -143,6 +147,7 @@ export function SearchableSelect(props: {
         value={query}
         disabled={disabled}
         placeholder={placeholder}
+        style={{ paddingRight: value || query ? 44 : undefined }}
         onFocus={() => setIsOpen(true)}
         onBlur={() => {
           window.setTimeout(() => setIsOpen(false), 120);
@@ -150,6 +155,35 @@ export function SearchableSelect(props: {
         onKeyDown={handleKeyDown}
         onChange={(event) => handleInputChange(event.target.value)}
       />
+
+      {!disabled && (value || query) ? (
+        <button
+          type="button"
+          aria-label="Limpar selecao"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={handleClear}
+          style={{
+            position: "absolute",
+            top: "50%",
+            right: 10,
+            transform: "translateY(-50%)",
+            width: 24,
+            height: 24,
+            borderRadius: 999,
+            border: "1px solid var(--line-strong)",
+            background: "var(--surface-elevated)",
+            color: "var(--muted)",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 14,
+            lineHeight: 1
+          }}
+        >
+          ×
+        </button>
+      ) : null}
 
       {isOpen && !disabled ? (
         <div
