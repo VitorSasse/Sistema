@@ -3395,6 +3395,12 @@ button {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.fleet-monthly-summary-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .fleet-summary-card {
   padding: 20px;
   min-height: 152px;
@@ -3444,6 +3450,28 @@ button {
 .fleet-chart-card,
 .fleet-ranking-card {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 239, 225, 0.84));
+}
+
+.fleet-ranking-header,
+.fleet-monthly-filter-grid,
+.fleet-monthly-chart-panel,
+.fleet-monthly-chart-copy,
+.fleet-monthly-info-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.fleet-monthly-hero {
+  gap: 20px;
+}
+
+.fleet-monthly-filter-grid {
+  grid-template-columns: minmax(0, 1.2fr) minmax(180px, 220px) minmax(220px, 280px);
+  align-items: end;
+}
+
+.fleet-monthly-month-filter {
+  margin-top: 4px;
 }
 
 .fleet-section {
@@ -3507,6 +3535,12 @@ button {
   grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
 }
 
+.fleet-monthly-chart-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.14fr) minmax(340px, 0.86fr);
+}
+
 .fleet-chart-header {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
@@ -3527,6 +3561,54 @@ button {
   display: grid;
   gap: 12px;
   margin-top: 10px;
+}
+
+.fleet-ranking-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.fleet-monthly-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.fleet-monthly-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fleet-monthly-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+}
+
+.fleet-monthly-dot.is-total {
+  background: #f97316;
+}
+
+.fleet-monthly-dot.is-average {
+  background: #1d4ed8;
+}
+
+.fleet-monthly-chart-shell {
+  min-height: 420px;
+}
+
+.fleet-monthly-side-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.fleet-monthly-info-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .fleet-ranking-item {
@@ -5531,6 +5613,7 @@ button {
   .tile-grid,
   .fleet-filter-row,
   .fleet-summary-grid,
+  .fleet-monthly-summary-grid,
   .fleet-section-summary,
   .fleet-section-grid,
   .billing-summary-grid,
@@ -5617,8 +5700,10 @@ button {
   .form-grid-4,
   .fleet-filter-row,
   .fleet-summary-grid,
+  .fleet-monthly-summary-grid,
   .fleet-section-summary,
   .fleet-section-grid,
+  .fleet-monthly-chart-grid,
   .billing-summary-grid,
   .billing-grid,
   .billing-hero,
@@ -5671,6 +5756,11 @@ button {
     justify-self: stretch;
   }
 
+  .fleet-monthly-filter-grid,
+  .fleet-monthly-info-grid {
+    grid-template-columns: 1fr;
+  }
+
   .billing-ranking-item {
     grid-template-columns: 1fr;
     justify-items: start;
@@ -5692,6 +5782,11 @@ button {
 
   .billing-chart-shell {
     height: 360px;
+  }
+
+  .fleet-monthly-legend {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
 

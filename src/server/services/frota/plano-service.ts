@@ -9,6 +9,7 @@ type PlanoProjectionInput = {
 };
 
 type PlanoManutencaoSnapshot = {
+  titulo?: string | null;
   tipoManutencao?: string | null;
   criterioControle: CriterioControleManutencao;
   periodicidadeValor: number;
@@ -22,6 +23,11 @@ type PlanoManutencaoSnapshot = {
   createdAt?: Date | null;
 };
 
+type PlanoManutencaoContext = {
+  horimetroAtual?: Prisma.Decimal | number | null;
+  kmAtual?: Prisma.Decimal | number | null;
+};
+
 function toNullableNumber(value: Prisma.Decimal | number | null | undefined) {
   if (value === null || value === undefined) {
     return null;
@@ -33,6 +39,57 @@ function toNullableNumber(value: Prisma.Decimal | number | null | undefined) {
 
 function getPlanoGroupKey(input: PlanoManutencaoSnapshot) {
   return input.criterioControle;
+}
+
+export function isPlanoManutencaoConsistente(
+  input: PlanoManutencaoSnapshot,
+  context?: PlanoManutencaoContext
+) {
+  if (input.criterioControle === "DIAS") {
+    if (input.ultimaExecucaoEm && input.proximaExecucaoEm) {
+      return input.proximaExecucaoEm.getTime() > input.ultimaExecucaoEm.getTime();
+    }
+
+    return true;
+  }
+
+  if (input.criterioControle === "HORIMETRO") {
+    const ultimaLeitura = toNullableNumber(input.ultimaLeituraHorimetro);
+    const proximaLeitura = toNullableNumber(input.proximoHorimetro);
+    const leituraAtual = toNullableNumber(context?.horimetroAtual);
+
+    if (
+      ultimaLeitura !== null &&
+      proximaLeitura !== null &&
+      proximaLeitura <= ultimaLeitura
+    ) {
+      return false;
+    }
+
+    if (
+      ultimaLeitura !== null &&
+      leituraAtual !== null &&
+      ultimaLeitura > leituraAtual
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+  const ultimaLeitura = toNullableNumber(input.ultimaLeituraKm);
+  const proximaLeitura = toNullableNumber(input.proximoKm);
+  const leituraAtual = toNullableNumber(context?.kmAtual);
+
+  if (ultimaLeitura !== null && proximaLeitura !== null && proximaLeitura <= ultimaLeitura) {
+    return false;
+  }
+
+  if (ultimaLeitura !== null && leituraAtual !== null && ultimaLeitura > leituraAtual) {
+    return false;
+  }
+
+  return true;
 }
 
 function getPlanoRecencyScore(input: PlanoManutencaoSnapshot) {
@@ -73,16 +130,27 @@ function getPlanoRecencyScore(input: PlanoManutencaoSnapshot) {
   return input.updatedAt?.getTime() ?? input.createdAt?.getTime() ?? Number.NEGATIVE_INFINITY;
 }
 
-function comparePlanoRecency(left: PlanoManutencaoSnapshot, right: PlanoManutencaoSnapshot) {
-  const scoreDelta = getPlanoRecencyScore(left) - getPlanoRecencyScore(right);
-  if (scoreDelta !== 0) {
-    return scoreDelta;
+function comparePlanoRecency(
+  left: PlanoManutencaoSnapshot,
+  right: PlanoManutencaoSnapshot,
+  context?: PlanoManutencaoContext
+) {
+  const leftConsistente = isPlanoManutencaoConsistente(left, context);
+  const rightConsistente = isPlanoManutencaoConsistente(right, context);
+
+  if (leftConsistente !== rightConsistente) {
+    return leftConsistente ? 1 : -1;
   }
 
   const leftUpdated = left.updatedAt?.getTime() ?? left.createdAt?.getTime() ?? 0;
   const rightUpdated = right.updatedAt?.getTime() ?? right.createdAt?.getTime() ?? 0;
   if (leftUpdated !== rightUpdated) {
     return leftUpdated - rightUpdated;
+  }
+
+  const scoreDelta = getPlanoRecencyScore(left) - getPlanoRecencyScore(right);
+  if (scoreDelta !== 0) {
+    return scoreDelta;
   }
 
   const leftDue =
@@ -99,14 +167,17 @@ function comparePlanoRecency(left: PlanoManutencaoSnapshot, right: PlanoManutenc
   return leftDue - rightDue;
 }
 
-export function selecionarPlanosManutencaoRelevantes<T extends PlanoManutencaoSnapshot>(planos: T[]) {
+export function selecionarPlanosManutencaoRelevantes<T extends PlanoManutencaoSnapshot>(
+  planos: T[],
+  context?: PlanoManutencaoContext
+) {
   const selected = new Map<string, T>();
 
   for (const plano of planos) {
     const key = getPlanoGroupKey(plano);
     const current = selected.get(key);
 
-    if (!current || comparePlanoRecency(plano, current) > 0) {
+    if (!current || comparePlanoRecency(plano, current, context) > 0) {
       selected.set(key, plano);
     }
   }

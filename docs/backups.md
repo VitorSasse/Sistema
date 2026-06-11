@@ -78,6 +78,20 @@ Sugestao:
 supabase/<timestamp-do-backup>
 ```
 
+## Como restaurar localmente
+
+Existe um guia especifico para restore local em:
+
+```text
+docs/restore-local.md
+```
+
+E um script PowerShell para automatizar o processo:
+
+```text
+scripts/restore-backup-local.ps1
+```
+
 ## O que este backup nao cobre
 
 Este workflow faz backup do **banco de dados**.

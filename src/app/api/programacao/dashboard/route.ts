@@ -2,7 +2,10 @@ import { StatusAgendaProgramacao, TipoControleEquipamento, TipoRecurso } from "@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { selecionarPlanosManutencaoRelevantes } from "@/server/services/frota/plano-service";
+import {
+  isPlanoManutencaoConsistente,
+  selecionarPlanosManutencaoRelevantes
+} from "@/server/services/frota/plano-service";
 
 const dashboardStatuses = [
   "OPERANDO",
@@ -384,11 +387,22 @@ export async function GET(request: NextRequest) {
 
   const mappedRows = equipamentos
     .map((equipamento) => {
+      const planosRelevantes = selecionarPlanosManutencaoRelevantes(equipamento.planosManutencao, {
+        horimetroAtual: equipamento.horimetroAtual,
+        kmAtual: equipamento.kmAtual
+      });
+      const planosConsistentes = planosRelevantes.filter((plano) =>
+        isPlanoManutencaoConsistente(plano, {
+          horimetroAtual: equipamento.horimetroAtual,
+          kmAtual: equipamento.kmAtual
+        })
+      );
+
       const revision = getRevisionSummary({
         tipoControle: equipamento.tipoControle,
         horimetroAtual: equipamento.horimetroAtual ? Number(equipamento.horimetroAtual) : null,
         kmAtual: equipamento.kmAtual ? Number(equipamento.kmAtual) : null,
-        planos: selecionarPlanosManutencaoRelevantes(equipamento.planosManutencao).map((plano) => ({
+        planos: planosConsistentes.map((plano) => ({
           criterioControle: plano.criterioControle,
           periodicidadeValor: plano.periodicidadeValor,
           toleranciaValor: plano.toleranciaValor,
