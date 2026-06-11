@@ -219,6 +219,10 @@ export function FrotaFaturamentoMensalDashboard() {
               placeholder="Buscar equipamento"
               onChange={(value) => {
                 setEquipmentId(value);
+                if (!value) {
+                  return;
+                }
+
                 void loadDashboard(year, selectedMonths, value);
               }}
             />
