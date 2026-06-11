@@ -736,7 +736,10 @@ const statusStyles: Record<Lancamento["statusValidacao"], { background: string; 
   PENDENTE_OBRA: { background: "var(--status-warning-bg)", color: "var(--status-warning-fg)" },
   PENDENTE_PRECO: { background: "var(--status-danger-bg)", color: "var(--status-danger-fg)" },
   DIVERGENTE: { background: "var(--status-danger-bg)", color: "var(--status-danger-fg)" },
-  MEDIDO: { background: "var(--info-soft)", color: "var(--info)" },
+  MEDIDO: {
+    background: "color-mix(in srgb, var(--info) 28%, transparent)",
+    color: "var(--text-on-accent)"
+  },
   CANCELADO: { background: "color-mix(in srgb, var(--screen-surface-strong) 70%, var(--screen-border))", color: "var(--muted)" }
 };
 const fieldStyle = {
