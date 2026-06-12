@@ -57,6 +57,10 @@ export function isPlanoManutencaoConsistente(
     const ultimaLeitura = toNullableNumber(input.ultimaLeituraHorimetro);
     const proximaLeitura = toNullableNumber(input.proximoHorimetro);
     const leituraAtual = toNullableNumber(context?.horimetroAtual);
+    const limiteDivergencia = Math.max(
+      1,
+      Math.ceil(input.periodicidadeValor * 0.1)
+    );
 
     if (
       ultimaLeitura !== null &&
@@ -69,7 +73,7 @@ export function isPlanoManutencaoConsistente(
     if (
       ultimaLeitura !== null &&
       leituraAtual !== null &&
-      ultimaLeitura > leituraAtual
+      ultimaLeitura - leituraAtual > limiteDivergencia
     ) {
       return false;
     }
@@ -80,12 +84,20 @@ export function isPlanoManutencaoConsistente(
   const ultimaLeitura = toNullableNumber(input.ultimaLeituraKm);
   const proximaLeitura = toNullableNumber(input.proximoKm);
   const leituraAtual = toNullableNumber(context?.kmAtual);
+  const limiteDivergencia = Math.max(
+    1,
+    Math.ceil(input.periodicidadeValor * 0.1)
+  );
 
   if (ultimaLeitura !== null && proximaLeitura !== null && proximaLeitura <= ultimaLeitura) {
     return false;
   }
 
-  if (ultimaLeitura !== null && leituraAtual !== null && ultimaLeitura > leituraAtual) {
+  if (
+    ultimaLeitura !== null &&
+    leituraAtual !== null &&
+    ultimaLeitura - leituraAtual > limiteDivergencia
+  ) {
     return false;
   }
 
