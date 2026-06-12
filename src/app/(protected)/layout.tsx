@@ -43,6 +43,15 @@ const navigationGroups = [
     ]
   },
   {
+    label: "Financeiro",
+    icon: "dashboard",
+    description: "Compras, fornecedores e documentos de apoio financeiro.",
+    items: [
+      { href: "/fornecedores", label: "Cadastro de fornecedores" },
+      { href: "/ordens-compra", label: "Ordem de compra" }
+    ]
+  },
+  {
     label: "Frota",
     icon: "frota",
     description: "Leituras, manutencao e acompanhamento dos recursos.",
