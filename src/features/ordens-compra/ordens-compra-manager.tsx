@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { CENTROS_CUSTO_SETORIAIS } from "@/lib/constants/centros-custo";
 import { calcularTotalOrdem, gerarParcelasOrdemCompra } from "@/lib/ordens-compra";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { formatCurrency } from "@/lib/utils/formatters";
@@ -14,9 +13,6 @@ type StatusOrdemCompra =
   | "COMPRADA"
   | "RECEBIDA"
   | "CANCELADA";
-
-type TipoCentroCusto = "EQUIPAMENTO" | "SETOR";
-type CentroCustoModo = "EQUIPAMENTO" | "SETOR" | "MANUAL";
 
 type Fornecedor = {
   id: string;
@@ -34,29 +30,15 @@ type Fornecedor = {
   status: "ATIVO" | "INATIVO";
 };
 
-type Equipamento = {
-  id: string;
-  placaOuTag: string;
-  descricao: string;
-  status: "ATIVO" | "INATIVO";
-};
-
 type OrdemCompraItem = {
   id: string;
   item: string;
   codigo: string | null;
   descricao: string;
   unidade: string;
-  quantidade: string;
-  valorUnitario: string;
-  subtotal: string;
-};
-
-type OrdemCompraParcela = {
-  id?: string;
-  numeroParcela: number;
-  dataVencimento: string;
-  valorParcela: string;
+  quantidade: number | string;
+  valorUnitario: number | string;
+  subtotal: number | string;
 };
 
 type OrdemCompra = {
@@ -64,24 +46,25 @@ type OrdemCompra = {
   numeroOrdem: string;
   dataEmissao: string;
   status: StatusOrdemCompra;
-  centroCustoTipo: TipoCentroCusto;
   centroCustoNome: string;
-  centroCustoEquipamentoId: string | null;
   formaPagamento: string | null;
   numeroParcelas: number;
   primeiroVencimento: string | null;
   observacaoFinanceira: string | null;
   observacao: string | null;
-  valorTotal: string;
-  fornecedorId: string;
+  valorTotal: string | number;
   fornecedor: Fornecedor;
-  centroCustoEquipamento: Equipamento | null;
   criadoPor: {
     id: string;
     nome: string;
   };
   itens: OrdemCompraItem[];
-  parcelas: OrdemCompraParcela[];
+  parcelas: Array<{
+    id?: string;
+    numeroParcela: number;
+    dataVencimento: string;
+    valorParcela: string | number;
+  }>;
 };
 
 type FormItem = {
@@ -98,10 +81,7 @@ type FormState = {
   dataEmissao: string;
   status: StatusOrdemCompra;
   fornecedorId: string;
-  centroCustoModo: CentroCustoModo;
-  centroCustoSetor: string;
-  centroCustoEquipamentoId: string;
-  centroCustoManual: string;
+  centroCustoNome: string;
   formaPagamento: string;
   numeroParcelas: string;
   primeiroVencimento: string;
@@ -154,10 +134,7 @@ function createInitialForm(): FormState {
     dataEmissao: today,
     status: "ABERTA",
     fornecedorId: "",
-    centroCustoModo: "SETOR",
-    centroCustoSetor: CENTROS_CUSTO_SETORIAIS[0],
-    centroCustoEquipamentoId: "",
-    centroCustoManual: "",
+    centroCustoNome: "",
     formaPagamento: "",
     numeroParcelas: "1",
     primeiroVencimento: today,
@@ -195,7 +172,6 @@ function getStatusBadgeClass(status: StatusOrdemCompra) {
 export function OrdensCompraManager() {
   const [ordens, setOrdens] = useState<OrdemCompra[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
-  const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [form, setForm] = useState<FormState>(() => createInitialForm());
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -203,19 +179,16 @@ export function OrdensCompraManager() {
   const [isPending, startTransition] = useTransition();
 
   async function loadData() {
-    const [ordensResponse, fornecedoresResponse, equipamentosResponse] = await Promise.all([
+    const [ordensResponse, fornecedoresResponse] = await Promise.all([
       fetch("/api/ordens-compra", { cache: "no-store" }),
-      fetch("/api/fornecedores", { cache: "no-store" }),
-      fetch("/api/equipamentos", { cache: "no-store" })
+      fetch("/api/fornecedores", { cache: "no-store" })
     ]);
 
     const ordensData = (await ordensResponse.json()) as { items: OrdemCompra[] };
     const fornecedoresData = (await fornecedoresResponse.json()) as { items: Fornecedor[] };
-    const equipamentosData = (await equipamentosResponse.json()) as { items: Equipamento[] };
 
     setOrdens(ordensData.items);
     setFornecedores(fornecedoresData.items);
-    setEquipamentos(equipamentosData.items);
   }
 
   useEffect(() => {
@@ -227,14 +200,6 @@ export function OrdensCompraManager() {
       (fornecedor) => fornecedor.status === "ATIVO" || fornecedor.id === form.fornecedorId
     );
   }, [fornecedores, form.fornecedorId]);
-
-  const equipamentosAtivos = useMemo(() => {
-    return equipamentos
-      .filter((equipamento) => equipamento.status === "ATIVO")
-      .sort((a, b) =>
-        `${a.placaOuTag} ${a.descricao}`.localeCompare(`${b.placaOuTag} ${b.descricao}`)
-      );
-  }, [equipamentos]);
 
   const fornecedorSelecionado = useMemo(() => {
     return fornecedores.find((fornecedor) => fornecedor.id === form.fornecedorId) ?? null;
@@ -309,43 +274,20 @@ export function OrdensCompraManager() {
         return current;
       }
 
-      const itens = current.itens.filter((_, itemIndex) => itemIndex !== index);
       return {
         ...current,
-        itens: itens.map((item, itemIndex) => ({
-          ...item,
-          item: item.item || `ITEM ${String(itemIndex + 1).padStart(2, "0")}`
-        }))
+        itens: current.itens.filter((_, itemIndex) => itemIndex !== index)
       };
     });
   }
 
   function buildPayload() {
-    let centroCustoTipo: TipoCentroCusto = "SETOR";
-    let centroCustoNome = form.centroCustoSetor;
-    let centroCustoEquipamentoId = "";
-
-    if (form.centroCustoModo === "EQUIPAMENTO") {
-      centroCustoTipo = "EQUIPAMENTO";
-      centroCustoEquipamentoId = form.centroCustoEquipamentoId;
-      const equipamento = equipamentos.find((item) => item.id === form.centroCustoEquipamentoId);
-      centroCustoNome = equipamento
-        ? `${equipamento.placaOuTag} - ${equipamento.descricao}`
-        : "";
-    }
-
-    if (form.centroCustoModo === "MANUAL") {
-      centroCustoTipo = "SETOR";
-      centroCustoNome = form.centroCustoManual;
-    }
-
     return {
       dataEmissao: form.dataEmissao,
       status: form.status,
       fornecedorId: form.fornecedorId,
-      centroCustoTipo,
-      centroCustoNome,
-      centroCustoEquipamentoId,
+      centroCustoTipo: "SETOR",
+      centroCustoNome: form.centroCustoNome,
       formaPagamento: form.formaPagamento,
       numeroParcelas: Number(form.numeroParcelas || 1),
       primeiroVencimento: form.primeiroVencimento,
@@ -394,30 +336,12 @@ export function OrdensCompraManager() {
   }
 
   function handleEdit(ordem: OrdemCompra) {
-    let centroCustoModo: CentroCustoModo = "MANUAL";
-    let centroCustoSetor: string = CENTROS_CUSTO_SETORIAIS[0];
-    let centroCustoManual = ordem.centroCustoNome;
-
-    if (ordem.centroCustoTipo === "EQUIPAMENTO" && ordem.centroCustoEquipamento?.id) {
-      centroCustoModo = "EQUIPAMENTO";
-      centroCustoManual = "";
-    } else if (
-      CENTROS_CUSTO_SETORIAIS.includes(ordem.centroCustoNome as (typeof CENTROS_CUSTO_SETORIAIS)[number])
-    ) {
-      centroCustoModo = "SETOR";
-      centroCustoSetor = ordem.centroCustoNome;
-      centroCustoManual = "";
-    }
-
     setForm({
       id: ordem.id,
       dataEmissao: formatDateInput(ordem.dataEmissao),
       status: ordem.status,
       fornecedorId: ordem.fornecedor.id,
-      centroCustoModo,
-      centroCustoSetor,
-      centroCustoEquipamentoId: ordem.centroCustoEquipamento?.id ?? "",
-      centroCustoManual,
+      centroCustoNome: ordem.centroCustoNome,
       formaPagamento: ordem.formaPagamento ?? "",
       numeroParcelas: String(ordem.numeroParcelas),
       primeiroVencimento: formatDateInput(
@@ -454,7 +378,7 @@ export function OrdensCompraManager() {
         <div>
           <h1 className="page-title">Ordem de compra</h1>
           <p className="page-copy">
-            Controle compras por fornecedor, centro de custo, itens, parcelas e emissao de relatorio.
+            Fluxo direto para emitir compras: fornecedor, centro de custo livre, itens e pagamento.
           </p>
         </div>
       </section>
@@ -466,7 +390,7 @@ export function OrdensCompraManager() {
               {form.id ? "Editar ordem de compra" : "Nova ordem de compra"}
             </h2>
             <p className="section-copy">
-              O numero da ordem e gerado automaticamente no salvamento.
+              Preencha o cabecalho, informe os itens e deixe o sistema calcular total e parcelas.
             </p>
           </div>
         </div>
@@ -478,137 +402,85 @@ export function OrdensCompraManager() {
         ) : null}
 
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 24 }}>
-          <div className="form-grid-4">
-            <Field label="Data da emissao">
-              <input
-                className="field-control"
-                type="date"
-                value={form.dataEmissao}
-                onChange={(event) => updateField("dataEmissao", event.target.value)}
-              />
-            </Field>
-            <Field label="Status da ordem">
-              <select
-                className="field-control"
-                value={form.status}
-                onChange={(event) => updateField("status", event.target.value as StatusOrdemCompra)}
-              >
-                {STATUS_OPTIONS.map((status) => (
-                  <option key={status.value} value={status.value}>
-                    {status.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Fornecedor">
-              <select
-                className="field-control"
-                value={form.fornecedorId}
-                onChange={(event) => updateField("fornecedorId", event.target.value)}
-              >
-                <option value="">Selecione o fornecedor</option>
-                {fornecedoresDisponiveis.map((fornecedor) => (
-                  <option key={fornecedor.id} value={fornecedor.id}>
-                    {fornecedor.codigo} - {fornecedor.razaoSocial}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-
-          {fornecedorSelecionado ? (
-            <div className="surface" style={{ padding: 18, border: "1px solid var(--line-strong)" }}>
-              <strong>
-                {fornecedorSelecionado.codigo} - {fornecedorSelecionado.razaoSocial}
-              </strong>
-              <p className="section-copy" style={{ marginTop: 8, marginBottom: 0 }}>
-                {fornecedorSelecionado.nomeFantasia ?? "-"} | CNPJ: {fornecedorSelecionado.cnpj ?? "-"} |{" "}
-                {fornecedorSelecionado.telefone ?? "-"} | {fornecedorSelecionado.email ?? "-"}
-              </p>
-              <p className="section-copy" style={{ marginTop: 6, marginBottom: 0 }}>
-                {fornecedorSelecionado.enderecoLinha1 ?? "-"} {fornecedorSelecionado.enderecoLinha2 ?? ""} |{" "}
-                {fornecedorSelecionado.bairro ?? "-"} | {fornecedorSelecionado.cidade ?? "-"} /{" "}
-                {fornecedorSelecionado.uf ?? "-"}
-              </p>
-            </div>
-          ) : null}
-
           <div className="surface" style={{ padding: 20, border: "1px solid var(--line-strong)" }}>
             <div className="section-header" style={{ marginBottom: 16 }}>
               <div>
                 <h3 className="section-title" style={{ marginBottom: 4 }}>
-                  Centro de custo
+                  Cabecalho da ordem
                 </h3>
-                <p className="section-copy">Defina onde esta compra sera apropriada.</p>
+                <p className="section-copy">Aqui fica o minimo necessario para abrir a compra.</p>
               </div>
             </div>
 
-            <div className="toolbar-actions" style={{ marginBottom: 16 }}>
-              <button
-                type="button"
-                className={form.centroCustoModo === "EQUIPAMENTO" ? "button-primary" : "button-secondary"}
-                onClick={() => updateField("centroCustoModo", "EQUIPAMENTO")}
-              >
-                Equipamento
-              </button>
-              <button
-                type="button"
-                className={form.centroCustoModo === "SETOR" ? "button-primary" : "button-secondary"}
-                onClick={() => updateField("centroCustoModo", "SETOR")}
-              >
-                Setor
-              </button>
-              <button
-                type="button"
-                className={form.centroCustoModo === "MANUAL" ? "button-primary" : "button-secondary"}
-                onClick={() => updateField("centroCustoModo", "MANUAL")}
-              >
-                Manual
-              </button>
-            </div>
-
-            {form.centroCustoModo === "EQUIPAMENTO" ? (
-              <Field label="Equipamento">
+            <div className="form-grid-4">
+              <Field label="Fornecedor">
                 <select
                   className="field-control"
-                  value={form.centroCustoEquipamentoId}
-                  onChange={(event) => updateField("centroCustoEquipamentoId", event.target.value)}
+                  value={form.fornecedorId}
+                  onChange={(event) => updateField("fornecedorId", event.target.value)}
                 >
-                  <option value="">Selecione o equipamento</option>
-                  {equipamentosAtivos.map((equipamento) => (
-                    <option key={equipamento.id} value={equipamento.id}>
-                      {equipamento.placaOuTag} - {equipamento.descricao}
+                  <option value="">Selecione o fornecedor</option>
+                  {fornecedoresDisponiveis.map((fornecedor) => (
+                    <option key={fornecedor.id} value={fornecedor.id}>
+                      {fornecedor.codigo} - {fornecedor.razaoSocial}
                     </option>
                   ))}
                 </select>
               </Field>
-            ) : null}
-
-            {form.centroCustoModo === "SETOR" ? (
-              <Field label="Centro de custo setorial">
-                <select
-                  className="field-control"
-                  value={form.centroCustoSetor}
-                  onChange={(event) => updateField("centroCustoSetor", event.target.value)}
-                >
-                  {CENTROS_CUSTO_SETORIAIS.map((centro) => (
-                    <option key={centro} value={centro}>
-                      {centro}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            ) : null}
-
-            {form.centroCustoModo === "MANUAL" ? (
-              <Field label="Centro de custo manual">
+              <Field label="Data da emissao">
                 <input
                   className="field-control"
-                  placeholder="Ex.: OBRA GE08, OFICINA EXTERNA, APOIO OPERACIONAL"
-                  value={form.centroCustoManual}
-                  onChange={(event) => updateField("centroCustoManual", event.target.value)}
+                  type="date"
+                  value={form.dataEmissao}
+                  onChange={(event) => updateField("dataEmissao", event.target.value)}
                 />
               </Field>
+              <Field label="Status">
+                <select
+                  className="field-control"
+                  value={form.status}
+                  onChange={(event) => updateField("status", event.target.value as StatusOrdemCompra)}
+                >
+                  {STATUS_OPTIONS.map((status) => (
+                    <option key={status.value} value={status.value}>
+                      {status.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Centro de custo">
+                <input
+                  className="field-control"
+                  placeholder="Ex.: ESC 150 II, OFICINA, ADMINISTRATIVO, OBRA GE08"
+                  value={form.centroCustoNome}
+                  onChange={(event) => updateField("centroCustoNome", event.target.value)}
+                />
+              </Field>
+            </div>
+
+            {fornecedorSelecionado ? (
+              <div
+                className="surface"
+                style={{
+                  marginTop: 18,
+                  padding: 18,
+                  border: "1px solid var(--line-strong)"
+                }}
+              >
+                <strong>
+                  {fornecedorSelecionado.codigo} - {fornecedorSelecionado.razaoSocial}
+                </strong>
+                <p className="section-copy" style={{ marginTop: 8, marginBottom: 0 }}>
+                  {fornecedorSelecionado.nomeFantasia ?? "-"} | CNPJ:{" "}
+                  {fornecedorSelecionado.cnpj ?? "-"} | {fornecedorSelecionado.telefone ?? "-"} |{" "}
+                  {fornecedorSelecionado.email ?? "-"}
+                </p>
+                <p className="section-copy" style={{ marginTop: 6, marginBottom: 0 }}>
+                  {fornecedorSelecionado.enderecoLinha1 ?? "-"}{" "}
+                  {fornecedorSelecionado.enderecoLinha2 ?? ""} | {fornecedorSelecionado.bairro ?? "-"} |{" "}
+                  {fornecedorSelecionado.cidade ?? "-"} / {fornecedorSelecionado.uf ?? "-"}
+                </p>
+              </div>
             ) : null}
           </div>
 
@@ -618,7 +490,9 @@ export function OrdensCompraManager() {
                 <h3 className="section-title" style={{ marginBottom: 4 }}>
                   Itens da compra
                 </h3>
-                <p className="section-copy">Inclua um ou mais itens para compor o total da ordem.</p>
+                <p className="section-copy">
+                  Monte a ordem linha a linha. O total fecha sozinho no final.
+                </p>
               </div>
               <button type="button" className="button-secondary" onClick={addItem}>
                 Adicionar item
@@ -716,13 +590,13 @@ export function OrdensCompraManager() {
                 padding: 16,
                 display: "flex",
                 justifyContent: "space-between",
-                gap: 16,
                 alignItems: "center",
+                gap: 16,
                 border: "1px solid var(--line-strong)"
               }}
             >
               <span className="section-copy" style={{ margin: 0 }}>
-                Total calculado automaticamente pela soma dos subtotais.
+                Total consolidado da ordem.
               </span>
               <strong>{formatCurrency(totalItens)}</strong>
             </div>
@@ -732,10 +606,10 @@ export function OrdensCompraManager() {
             <div className="section-header" style={{ marginBottom: 16 }}>
               <div>
                 <h3 className="section-title" style={{ marginBottom: 4 }}>
-                  Dados do pagamento
+                  Pagamento e fechamento
                 </h3>
                 <p className="section-copy">
-                  As parcelas sao geradas automaticamente conforme o total e a quantidade informada.
+                  Defina a condicao e o sistema projeta as parcelas automaticamente.
                 </p>
               </div>
             </div>
@@ -771,7 +645,11 @@ export function OrdensCompraManager() {
               <Field label="Valor estimado da parcela">
                 <input
                   className="field-control"
-                  value={parcelasPreview[0] ? formatCurrency(parcelasPreview[0].valorParcela) : "R$ 0,00"}
+                  value={
+                    parcelasPreview[0]
+                      ? formatCurrency(parcelasPreview[0].valorParcela)
+                      : "R$ 0,00"
+                  }
                   readOnly
                 />
               </Field>
@@ -825,7 +703,7 @@ export function OrdensCompraManager() {
           <Field label="Observacoes gerais">
             <textarea
               className="field-control textarea-lg"
-              placeholder="Responsavel pela solicitacao, numero da obra, aplicacao do material, observacoes gerais"
+              placeholder="Responsavel pela solicitacao, numero da obra, observacoes do fornecedor, aplicacao do material"
               value={form.observacao}
               onChange={(event) => updateField("observacao", event.target.value)}
             />
@@ -912,7 +790,8 @@ export function OrdensCompraManager() {
                   <td>{ordem.parcelas.length}</td>
                   <td>
                     <span className={getStatusBadgeClass(ordem.status)}>
-                      {STATUS_OPTIONS.find((status) => status.value === ordem.status)?.label ?? ordem.status}
+                      {STATUS_OPTIONS.find((status) => status.value === ordem.status)?.label ??
+                        ordem.status}
                     </span>
                   </td>
                   <td>

@@ -34,13 +34,6 @@ function normalizePayload(payload: Record<string, unknown>) {
 
 const ordemCompraInclude = {
   fornecedor: true,
-  centroCustoEquipamento: {
-    select: {
-      id: true,
-      placaOuTag: true,
-      descricao: true
-    }
-  },
   criadoPor: {
     select: {
       id: true,
@@ -91,37 +84,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ message: "Fornecedor nao encontrado." }, { status: 404 });
   }
 
-  let centroCustoNome = parsed.data.centroCustoNome;
-
-  if (parsed.data.centroCustoTipo === "EQUIPAMENTO") {
-    const equipamentoId = parsed.data.centroCustoEquipamentoId || null;
-
-    if (!equipamentoId) {
-      return NextResponse.json(
-        { message: "Selecione o equipamento do centro de custo." },
-        { status: 400 }
-      );
-    }
-
-    const equipamento = await prisma.equipamento.findUnique({
-      where: { id: equipamentoId },
-      select: {
-        id: true,
-        placaOuTag: true,
-        descricao: true
-      }
-    });
-
-    if (!equipamento) {
-      return NextResponse.json(
-        { message: "Equipamento do centro de custo nao encontrado." },
-        { status: 404 }
-      );
-    }
-
-    centroCustoNome = `${equipamento.placaOuTag} - ${equipamento.descricao}`;
-  }
-
   const itensCalculados = parsed.data.itens.map((item) => {
     const subtotal = calcularSubtotalItem({
       quantidade: item.quantidade,
@@ -164,12 +126,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           dataEmissao,
           status: parsed.data.status,
           fornecedorId: parsed.data.fornecedorId,
-          centroCustoTipo: parsed.data.centroCustoTipo,
-          centroCustoNome,
-          centroCustoEquipamentoId:
-            parsed.data.centroCustoTipo === "EQUIPAMENTO"
-              ? parsed.data.centroCustoEquipamentoId || null
-              : null,
+          centroCustoTipo: "SETOR",
+          centroCustoNome: parsed.data.centroCustoNome.trim(),
+          centroCustoEquipamentoId: null,
           formaPagamento: parsed.data.formaPagamento || null,
           numeroParcelas: parsed.data.numeroParcelas,
           primeiroVencimento: dataBaseParcelas,

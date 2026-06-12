@@ -15,27 +15,16 @@ export const ordemCompraSchema = z
     dataEmissao: z.string().trim().min(1),
     status: z.nativeEnum(StatusOrdemCompra).default(StatusOrdemCompra.ABERTA),
     fornecedorId: z.string().uuid(),
-    centroCustoTipo: z.nativeEnum(TipoCentroCustoOrdemCompra),
+    centroCustoTipo: z
+      .nativeEnum(TipoCentroCustoOrdemCompra)
+      .default(TipoCentroCustoOrdemCompra.SETOR),
     centroCustoNome: z.string().trim().min(2).max(160),
-    centroCustoEquipamentoId: z.string().uuid().optional().nullable().or(z.literal("")),
     formaPagamento: z.string().trim().max(80).optional().or(z.literal("")),
     numeroParcelas: z.number().int().positive().max(60).default(1),
     primeiroVencimento: z.string().trim().optional().or(z.literal("")),
     observacaoFinanceira: z.string().trim().max(500).optional().or(z.literal("")),
     observacao: z.string().trim().max(500).optional().or(z.literal("")),
     itens: z.array(ordemCompraItemSchema).min(1)
-  })
-  .superRefine((data, ctx) => {
-    if (
-      data.centroCustoTipo === TipoCentroCustoOrdemCompra.EQUIPAMENTO &&
-      !data.centroCustoEquipamentoId
-    ) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["centroCustoEquipamentoId"],
-        message: "Selecione o equipamento do centro de custo."
-      });
-    }
   });
 
 export type OrdemCompraInput = z.infer<typeof ordemCompraSchema>;
