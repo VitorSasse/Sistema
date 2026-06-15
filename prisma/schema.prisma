@@ -32,6 +32,11 @@ enum TipoCatalogoCompra {
   SERVICO
 }
 
+enum TipoPlanoConta {
+  DESPESA
+  RECEITA
+}
+
 enum TipoRecurso {
   CAMINHAO
   MAQUINA
@@ -382,6 +387,23 @@ model CatalogoCompra {
 
   @@index([tipo, status, descricao])
   @@index([descricao])
+}
+
+model PlanoConta {
+  id            String         @id @default(uuid())
+  codigo        String         @unique
+  classificacao String         @unique
+  nome          String
+  tipo          TipoPlanoConta
+  categoria     String?
+  descricao     String?
+  status        StatusCadastro @default(ATIVO)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([tipo, status, nome])
+  @@index([status, nome])
+  @@index([classificacao])
 }
 
 model Equipamento {

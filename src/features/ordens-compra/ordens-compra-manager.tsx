@@ -207,6 +207,10 @@ function formatTipoCompra(value: TipoCompra) {
   return value === "SERVICO" ? "Servico" : "Produto";
 }
 
+function canCancelOrder(status: StatusOrdemCompra) {
+  return status !== "RECEBIDA" && status !== "CANCELADA";
+}
+
 export function OrdensCompraManager() {
   const [ordens, setOrdens] = useState<OrdemCompra[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
@@ -1128,7 +1132,7 @@ export function OrdensCompraManager() {
                       >
                         PDF
                       </button>
-                      {ordem.status !== "CANCELADA" ? (
+                      {canCancelOrder(ordem.status) ? (
                         <button
                           type="button"
                           className="button-danger"

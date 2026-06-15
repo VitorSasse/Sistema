@@ -101,6 +101,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ message: "Ordem de compra nao encontrada." }, { status: 404 });
   }
 
+  if (ordemAtual.status === "RECEBIDA" && parsed.data.status === "CANCELADA") {
+    return NextResponse.json(
+      { message: "Ordem de compra concluida nao pode ser cancelada." },
+      { status: 409 }
+    );
+  }
+
   const fornecedor = await prisma.fornecedor.findUnique({
     where: { id: parsed.data.fornecedorId },
     select: { id: true }
@@ -295,6 +302,20 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
   if (!ordemAtual) {
     return NextResponse.json({ message: "Ordem de compra nao encontrada." }, { status: 404 });
+  }
+
+  if (ordemAtual.status === "RECEBIDA") {
+    return NextResponse.json(
+      { message: "Ordem de compra concluida nao pode ser cancelada." },
+      { status: 409 }
+    );
+  }
+
+  if (ordemAtual.status === "CANCELADA") {
+    return NextResponse.json(
+      { message: "Esta ordem de compra ja esta cancelada." },
+      { status: 409 }
+    );
   }
 
   const ordemCompra = await prisma.ordemCompra.update({
