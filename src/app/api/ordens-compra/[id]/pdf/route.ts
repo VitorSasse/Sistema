@@ -66,6 +66,7 @@ export async function GET(_: Request, context: RouteContext) {
         bairro: ordemCompra.fornecedor.bairro,
         cidade: ordemCompra.fornecedor.cidade,
         uf: ordemCompra.fornecedor.uf,
+        cep: ordemCompra.fornecedor.cep,
         telefone: ordemCompra.fornecedor.telefone,
         email: ordemCompra.fornecedor.email
       },

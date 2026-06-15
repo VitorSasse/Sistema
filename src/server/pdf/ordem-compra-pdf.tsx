@@ -1,3 +1,4 @@
+import React from "react";
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatCurrency } from "@/lib/utils/formatters";
 
@@ -32,6 +33,7 @@ type OrdemCompraPdfProps = {
     bairro: string | null;
     cidade: string | null;
     uf: string | null;
+    cep: string | null;
     telefone: string | null;
     email: string | null;
   };
@@ -46,102 +48,295 @@ type OrdemCompraPdfProps = {
   logoPath?: string | null;
 };
 
+const empresaRelatorio = {
+  nome: process.env.EMPRESA_RELATORIO_NOME?.trim() || "JMIX",
+  cnpj: process.env.EMPRESA_RELATORIO_CNPJ?.trim() || "20.613.463/0001-36",
+  endereco:
+    process.env.EMPRESA_RELATORIO_ENDERECO?.trim() ||
+    "AV. NEREU RAMOS, 899 (DEPOSITO JMIX) - CENTRO",
+  cidadeUfCep:
+    process.env.EMPRESA_RELATORIO_CIDADE_UF_CEP?.trim() || "Penha/SC - CEP: 88385-000",
+  telefones:
+    process.env.EMPRESA_RELATORIO_TELEFONES?.trim() || "(47)99151-4414 - (47)99251-4414",
+  email:
+    process.env.EMPRESA_RELATORIO_EMAIL?.trim() || "financeiro@jtbterraplenagem.com.br"
+};
+
+const colors = {
+  border: "#c8c8c8",
+  band: "#ececec",
+  text: "#111111",
+  muted: "#4a4a4a"
+};
+
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 24,
+    paddingTop: 28,
     paddingBottom: 24,
     paddingHorizontal: 24,
+    backgroundColor: "#ffffff",
+    color: colors.text,
     fontSize: 9,
     fontFamily: "Helvetica"
   },
-  header: {
-    marginBottom: 16
+  headerBox: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12
   },
-  headerBrand: {
-    alignItems: "center",
-    marginBottom: 14
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center"
+  },
+  logoBox: {
+    width: 120,
+    paddingRight: 10
   },
   logo: {
-    width: 220,
-    height: 74,
+    width: 96,
+    height: 52,
     objectFit: "contain"
   },
-  title: {
-    marginTop: 10,
-    fontSize: 16,
-    textAlign: "center"
+  empresaBox: {
+    flex: 1,
+    paddingRight: 12
   },
-  subtitle: {
-    marginTop: 3,
-    fontSize: 10,
-    textAlign: "center"
-  },
-  metaRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 5
-  },
-  block: {
-    marginTop: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "#d8d0c4",
-    backgroundColor: "#fffaf0"
-  },
-  blockTitle: {
-    fontSize: 10,
-    marginBottom: 6
-  },
-  blockLine: {
+  empresaNome: {
+    fontSize: 17,
+    fontWeight: "bold",
     marginBottom: 3
+  },
+  empresaLinha: {
+    fontSize: 8.8,
+    lineHeight: 1.3
+  },
+  contatoBox: {
+    width: 230,
+    alignItems: "flex-end",
+    justifyContent: "center"
+  },
+  contatoLinha: {
+    fontSize: 8.8,
+    lineHeight: 1.3,
+    textAlign: "right"
+  },
+  contatoStrong: {
+    fontSize: 9.2,
+    fontWeight: "bold",
+    textAlign: "right"
+  },
+  titleBand: {
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.band,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    paddingVertical: 6
+  },
+  titleSide: {
+    width: 96
+  },
+  titleDateBox: {
+    width: 96,
+    alignItems: "flex-end"
+  },
+  titleText: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 13,
+    fontWeight: "bold"
+  },
+  titleDate: {
+    width: 96,
+    fontSize: 11,
+    fontWeight: "bold",
+    textAlign: "right"
+  },
+  metaGrid: {
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: colors.border
+  },
+  infoRow: {
+    flexDirection: "row"
+  },
+  infoLabel: {
+    width: "16%",
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    fontSize: 8.5,
+    fontWeight: "bold"
+  },
+  infoValue: {
+    width: "34%",
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    fontSize: 8.5
+  },
+  fullLabel: {
+    width: "16%",
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    fontSize: 8.5,
+    fontWeight: "bold"
+  },
+  fullValue: {
+    width: "84%",
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    fontSize: 8.5
+  },
+  sectionBand: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.band,
+    paddingHorizontal: 8,
+    paddingVertical: 4
+  },
+  sectionBandText: {
+    fontSize: 8.8,
+    fontWeight: "bold"
   },
   tableHeader: {
     flexDirection: "row",
-    backgroundColor: "#f5efe6",
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
     borderBottomWidth: 1,
-    borderBottomColor: "#b9b0a2",
+    borderColor: colors.border
+  },
+  headerCell: {
+    paddingHorizontal: 6,
     paddingVertical: 6,
-    marginTop: 10
+    fontSize: 8.3,
+    fontWeight: "bold",
+    borderRightWidth: 1,
+    borderColor: colors.border
   },
-  row: {
+  headerCellLast: {
+    borderRightWidth: 0
+  },
+  tableRow: {
     flexDirection: "row",
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
     borderBottomWidth: 1,
-    borderBottomColor: "#ece5d9",
-    paddingVertical: 6
+    borderColor: colors.border
   },
-  cellText: {
-    paddingRight: 6
+  cell: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    fontSize: 8.3,
+    borderRightWidth: 1,
+    borderColor: colors.border
   },
-  cellNumber: {
-    paddingHorizontal: 4,
+  cellLast: {
+    borderRightWidth: 0
+  },
+  alignRight: {
     textAlign: "right"
   },
-  item: { width: "12%" },
-  codigo: { width: "12%" },
-  descricao: { width: "30%" },
-  unidade: { width: "10%" },
-  quantidade: { width: "12%" },
-  valorUnitario: { width: "12%" },
-  subtotal: { width: "12%" },
-  parcelaNumero: { width: "18%" },
-  parcelaData: { width: "32%" },
-  parcelaValor: { width: "25%" },
-  parcelaObs: { width: "25%" },
-  totalBox: {
-    marginTop: 12,
-    alignSelf: "flex-end",
-    minWidth: 180,
-    padding: 10,
+  alignCenter: {
+    textAlign: "center"
+  },
+  colItem: { width: "8%" },
+  colCodigo: { width: "14%" },
+  colDescricao: { width: "36%" },
+  colUnidade: { width: "8%" },
+  colQuantidade: { width: "10%" },
+  colValorUnitario: { width: "12%" },
+  colSubtotal: { width: "12%" },
+  totalRow: {
+    flexDirection: "row",
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.band
+  },
+  totalLabelCell: {
+    width: "66%",
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    fontSize: 8.8,
+    fontWeight: "bold",
+    borderRightWidth: 1,
+    borderColor: colors.border
+  },
+  totalQuantityCell: {
+    width: "10%",
+    paddingHorizontal: 6,
+    paddingVertical: 7,
+    fontSize: 8.8,
+    fontWeight: "bold",
+    textAlign: "right",
+    borderRightWidth: 1,
+    borderColor: colors.border
+  },
+  totalValueCell: {
+    width: "24%",
+    paddingHorizontal: 6,
+    paddingVertical: 7,
+    fontSize: 8.8,
+    fontWeight: "bold",
+    textAlign: "right"
+  },
+  paymentHeaderCell: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    fontSize: 8.3,
+    fontWeight: "bold",
+    borderRightWidth: 1,
+    borderColor: colors.border
+  },
+  paymentColVencimento: { width: "23%" },
+  paymentColParcela: { width: "23%" },
+  paymentColForma: { width: "31%" },
+  paymentColObs: { width: "23%" },
+  summaryBlock: {
+    marginTop: 14
+  },
+  summaryRow: {
     borderWidth: 1,
-    borderColor: "#d8d0c4",
-    backgroundColor: "#f5efe6"
+    borderColor: colors.border,
+    backgroundColor: colors.band,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginBottom: 2
   },
-  totalLabel: {
-    fontSize: 9,
-    marginBottom: 4
+  summaryText: {
+    fontSize: 8.8,
+    fontWeight: "bold",
+    textAlign: "right"
   },
-  totalValue: {
-    fontSize: 14
+  observationsText: {
+    paddingHorizontal: 2,
+    paddingVertical: 4,
+    fontSize: 8.8,
+    minHeight: 34
+  },
+  footerNote: {
+    marginTop: 18,
+    fontSize: 7.5,
+    color: colors.muted,
+    textAlign: "right"
   }
 });
 
@@ -149,125 +344,202 @@ function formatDate(value: Date) {
   return value.toLocaleDateString("pt-BR");
 }
 
+function formatNumber(value: number, fractionDigits = 2) {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits
+  }).format(value);
+}
+
 function formatTipoCompra(value: string) {
-  return value === "SERVICO" ? "Servico" : "Produto";
+  return value === "SERVICO" ? "SERVICOS" : "PRODUTOS";
+}
+
+function joinAddress(props: OrdemCompraPdfProps["fornecedor"]) {
+  const endereco = [props.enderecoLinha1, props.enderecoLinha2].filter(Boolean).join(" - ");
+  const bairro = props.bairro?.trim();
+
+  if (endereco && bairro) {
+    return `${endereco} - ${bairro}`;
+  }
+
+  return endereco || bairro || "-";
+}
+
+function renderInfoRow(
+  leftLabel: string,
+  leftValue: string,
+  rightLabel: string,
+  rightValue: string
+) {
+  return (
+    <View style={styles.infoRow}>
+      <Text style={styles.infoLabel}>{leftLabel}</Text>
+      <Text style={styles.infoValue}>{leftValue}</Text>
+      <Text style={styles.infoLabel}>{rightLabel}</Text>
+      <Text style={[styles.infoValue, styles.cellLast]}>{rightValue}</Text>
+    </View>
+  );
 }
 
 export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
+  const totalQuantidade = props.itens.reduce((sum, item) => sum + item.quantidade, 0);
+  const secaoItens = formatTipoCompra(props.tipoCompra);
+  const enderecoFornecedor = joinAddress(props.fornecedor);
+
   return (
     <Document>
       <Page size="A4" orientation="portrait" style={styles.page}>
-        <View style={styles.header}>
-          <View style={styles.headerBrand}>
-            {props.logoPath ? <Image style={styles.logo} src={props.logoPath} /> : null}
-            <Text style={styles.title}>Ordem de Compra</Text>
-            <Text style={styles.subtitle}>Documento para controle de compras e aprovacao interna</Text>
-          </View>
+        <View style={styles.headerBox}>
+          <View style={styles.headerRow}>
+            <View style={styles.logoBox}>
+              {props.logoPath ? <Image style={styles.logo} src={props.logoPath} /> : null}
+            </View>
 
-          <View style={styles.metaRow}>
-            <Text>Numero: {props.numeroOrdem}</Text>
-            <Text>Status: {props.status}</Text>
-          </View>
-          <View style={styles.metaRow}>
-            <Text>Data de emissao: {formatDate(props.dataEmissao)}</Text>
-            <Text>Tipo: {formatTipoCompra(props.tipoCompra)}</Text>
-          </View>
-          <View style={styles.metaRow}>
-            <Text>Parcelas: {props.numeroParcelas}</Text>
-            <Text />
+            <View style={styles.empresaBox}>
+              <Text style={styles.empresaNome}>{empresaRelatorio.nome}</Text>
+              <Text style={styles.empresaLinha}>CNPJ: {empresaRelatorio.cnpj}</Text>
+              <Text style={styles.empresaLinha}>{empresaRelatorio.endereco}</Text>
+              <Text style={styles.empresaLinha}>{empresaRelatorio.cidadeUfCep}</Text>
+            </View>
+
+            <View style={styles.contatoBox}>
+              <Text style={styles.contatoStrong}>{empresaRelatorio.telefones}</Text>
+              <Text style={styles.contatoStrong}>{empresaRelatorio.email}</Text>
+            </View>
           </View>
         </View>
 
-        <View style={styles.block}>
-          <Text style={styles.blockTitle}>Dados do fornecedor</Text>
-          <Text style={styles.blockLine}>
-            {props.fornecedor.codigo} - {props.fornecedor.razaoSocial}
-          </Text>
-          <Text style={styles.blockLine}>Nome fantasia: {props.fornecedor.nomeFantasia ?? "-"}</Text>
-          <Text style={styles.blockLine}>CNPJ: {props.fornecedor.cnpj ?? "-"}</Text>
-          <Text style={styles.blockLine}>
-            Endereco: {props.fornecedor.enderecoLinha1 ?? "-"} {props.fornecedor.enderecoLinha2 ?? ""}
-          </Text>
-          <Text style={styles.blockLine}>
-            Bairro/Cidade: {props.fornecedor.bairro ?? "-"} - {props.fornecedor.cidade ?? "-"} / {props.fornecedor.uf ?? "-"}
-          </Text>
-          <Text style={styles.blockLine}>
-            Contato: {props.fornecedor.telefone ?? "-"} | {props.fornecedor.email ?? "-"}
-          </Text>
+        <View style={styles.titleBand}>
+          <View style={styles.titleSide} />
+          <Text style={styles.titleText}>ORDEM DE COMPRA No {props.numeroOrdem}</Text>
+          <View style={styles.titleDateBox}>
+            <Text style={styles.titleDate}>{formatDate(props.dataEmissao)}</Text>
+          </View>
         </View>
 
-        <View style={styles.block}>
-          <Text style={styles.blockTitle}>Centro de custo</Text>
-          <Text>{props.centroCustoNome}</Text>
+        <View style={styles.metaGrid}>
+          {renderInfoRow(
+            "Razao social:",
+            props.fornecedor.razaoSocial,
+            "Nome fantasia:",
+            props.fornecedor.nomeFantasia ?? "-"
+          )}
+          {renderInfoRow("CNPJ/CPF:", props.fornecedor.cnpj ?? "-", "Endereco:", enderecoFornecedor)}
+          {renderInfoRow(
+            "CEP:",
+            props.fornecedor.cep ?? "-",
+            "Cidade/UF:",
+            `${props.fornecedor.cidade ?? "-"}${props.fornecedor.uf ? `/${props.fornecedor.uf}` : ""}`
+          )}
+          {renderInfoRow(
+            "Telefone:",
+            props.fornecedor.telefone ?? "-",
+            "E-mail:",
+            props.fornecedor.email ?? "-"
+          )}
+          {renderInfoRow("Centro de custo:", props.centroCustoNome, "Status:", props.status)}
+          {renderInfoRow(
+            "Tipo da compra:",
+            props.tipoCompra === "SERVICO" ? "Servico" : "Produto",
+            "Parcelas:",
+            String(props.numeroParcelas)
+          )}
+        </View>
+
+        <View style={styles.sectionBand}>
+          <Text style={styles.sectionBandText}>{secaoItens}</Text>
         </View>
 
         <View style={styles.tableHeader}>
-          <Text style={[styles.cellText, styles.item]}>Item</Text>
-          <Text style={[styles.cellText, styles.codigo]}>Codigo</Text>
-          <Text style={[styles.cellText, styles.descricao]}>Descricao</Text>
-          <Text style={[styles.cellText, styles.unidade]}>Un</Text>
-          <Text style={[styles.cellNumber, styles.quantidade]}>Qtd</Text>
-          <Text style={[styles.cellNumber, styles.valorUnitario]}>Vlr Unit</Text>
-          <Text style={[styles.cellNumber, styles.subtotal]}>Subtotal</Text>
+          <Text style={[styles.headerCell, styles.colItem]}>ITEM</Text>
+          <Text style={[styles.headerCell, styles.colCodigo]}>CODIGO</Text>
+          <Text style={[styles.headerCell, styles.colDescricao]}>NOME</Text>
+          <Text style={[styles.headerCell, styles.colUnidade, styles.alignCenter]}>UN</Text>
+          <Text style={[styles.headerCell, styles.colQuantidade, styles.alignRight]}>QTD.</Text>
+          <Text style={[styles.headerCell, styles.colValorUnitario, styles.alignRight]}>VR. UNIT.</Text>
+          <Text style={[styles.headerCell, styles.colSubtotal, styles.alignRight, styles.headerCellLast]}>
+            SUBTOTAL
+          </Text>
         </View>
 
         {props.itens.map((item, index) => (
-          <View key={`${item.item}-${index}`} style={styles.row} wrap={false}>
-            <Text style={[styles.cellText, styles.item]}>{item.item}</Text>
-            <Text style={[styles.cellText, styles.codigo]}>{item.codigo ?? "-"}</Text>
-            <Text style={[styles.cellText, styles.descricao]}>{item.descricao}</Text>
-            <Text style={[styles.cellText, styles.unidade]}>{item.unidade}</Text>
-            <Text style={[styles.cellNumber, styles.quantidade]}>{item.quantidade.toFixed(2)}</Text>
-            <Text style={[styles.cellNumber, styles.valorUnitario]}>{formatCurrency(item.valorUnitario)}</Text>
-            <Text style={[styles.cellNumber, styles.subtotal]}>{formatCurrency(item.subtotal)}</Text>
+          <View key={`${item.item}-${index}`} style={styles.tableRow} wrap={false}>
+            <Text style={[styles.cell, styles.colItem]}>{item.item || String(index + 1)}</Text>
+            <Text style={[styles.cell, styles.colCodigo]}>{item.codigo ?? "-"}</Text>
+            <Text style={[styles.cell, styles.colDescricao]}>{item.descricao}</Text>
+            <Text style={[styles.cell, styles.colUnidade, styles.alignCenter]}>{item.unidade}</Text>
+            <Text style={[styles.cell, styles.colQuantidade, styles.alignRight]}>
+              {formatNumber(item.quantidade, 3)}
+            </Text>
+            <Text style={[styles.cell, styles.colValorUnitario, styles.alignRight]}>
+              {formatNumber(item.valorUnitario, 2)}
+            </Text>
+            <Text style={[styles.cell, styles.colSubtotal, styles.alignRight, styles.cellLast]}>
+              {formatNumber(item.subtotal, 2)}
+            </Text>
           </View>
         ))}
 
-        <View style={styles.block}>
-          <Text style={styles.blockTitle}>Dados do pagamento</Text>
-          <Text style={styles.blockLine}>Forma de pagamento: {props.formaPagamento ?? "-"}</Text>
-          <Text style={styles.blockLine}>
-            Observacoes financeiras: {props.observacaoFinanceira ?? "-"}
-          </Text>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabelCell}>TOTAL DOS {secaoItens}</Text>
+          <Text style={styles.totalQuantityCell}>{formatNumber(totalQuantidade, 3)}</Text>
+          <Text style={styles.totalValueCell}>{formatNumber(props.valorTotal, 2)}</Text>
+        </View>
+
+        <View style={styles.sectionBand}>
+          <Text style={styles.sectionBandText}>DADOS DO PAGAMENTO</Text>
         </View>
 
         <View style={styles.tableHeader}>
-          <Text style={[styles.cellText, styles.parcelaNumero]}>Parcela</Text>
-          <Text style={[styles.cellText, styles.parcelaData]}>Vencimento</Text>
-          <Text style={[styles.cellNumber, styles.parcelaValor]}>Valor</Text>
-          <Text style={[styles.cellText, styles.parcelaObs]}>Obs</Text>
+          <Text style={[styles.paymentHeaderCell, styles.paymentColVencimento]}>VENCIMENTO</Text>
+          <Text style={[styles.paymentHeaderCell, styles.paymentColParcela]}>VALOR DA PARCELA</Text>
+          <Text style={[styles.paymentHeaderCell, styles.paymentColForma]}>FORMA DE PAGAMENTO</Text>
+          <Text
+            style={[
+              styles.paymentHeaderCell,
+              styles.paymentColObs,
+              styles.headerCellLast
+            ]}
+          >
+            OBSERVACAO
+          </Text>
         </View>
 
         {props.parcelas.length === 0 ? (
-          <View style={styles.row}>
-            <Text style={{ width: "100%" }}>Nenhuma parcela gerada.</Text>
+          <View style={styles.tableRow}>
+            <Text style={[styles.cell, { width: "100%" }, styles.cellLast]}>Nenhuma parcela gerada.</Text>
           </View>
         ) : (
-          props.parcelas.map((parcela) => (
-            <View key={parcela.numeroParcela} style={styles.row} wrap={false}>
-              <Text style={[styles.cellText, styles.parcelaNumero]}>
-                {parcela.numeroParcela}/{props.numeroParcelas}
+          props.parcelas.map((parcela, index) => (
+            <View key={parcela.numeroParcela} style={styles.tableRow} wrap={false}>
+              <Text style={[styles.cell, styles.paymentColVencimento]}>{formatDate(parcela.dataVencimento)}</Text>
+              <Text style={[styles.cell, styles.paymentColParcela]}>{formatCurrency(parcela.valorParcela)}</Text>
+              <Text style={[styles.cell, styles.paymentColForma]}>{props.formaPagamento ?? "-"}</Text>
+              <Text style={[styles.cell, styles.paymentColObs, styles.cellLast]}>
+                {index === 0 ? props.observacaoFinanceira ?? "-" : "-"}
               </Text>
-              <Text style={[styles.cellText, styles.parcelaData]}>
-                {formatDate(parcela.dataVencimento)}
-              </Text>
-              <Text style={[styles.cellNumber, styles.parcelaValor]}>
-                {formatCurrency(parcela.valorParcela)}
-              </Text>
-              <Text style={[styles.cellText, styles.parcelaObs]}>-</Text>
             </View>
           ))
         )}
 
-        <View style={styles.block}>
-          <Text style={styles.blockTitle}>Observacoes</Text>
-          <Text>{props.observacao ?? "-"}</Text>
+        <View style={styles.summaryBlock}>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryText}>
+              VALOR DOS {secaoItens}: {formatCurrency(props.valorTotal)}
+            </Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryText}>TOTAL DA COMPRA: {formatCurrency(props.valorTotal)}</Text>
+          </View>
         </View>
 
-        <View style={styles.totalBox}>
-          <Text style={styles.totalLabel}>Valor total da compra</Text>
-          <Text style={styles.totalValue}>{formatCurrency(props.valorTotal)}</Text>
+        <View style={styles.sectionBand}>
+          <Text style={styles.sectionBandText}>OBSERVACOES</Text>
         </View>
+        <Text style={styles.observationsText}>{props.observacao ?? "-"}</Text>
+
+        <Text style={styles.footerNote}>Documento emitido pelo sistema de gestao interna.</Text>
       </Page>
     </Document>
   );
