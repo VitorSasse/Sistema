@@ -21,6 +21,7 @@ type OrdemCompraPdfProps = {
   numeroOrdem: string;
   dataEmissao: Date;
   status: string;
+  tipoCompra: string;
   fornecedor: {
     codigo: string;
     razaoSocial: string;
@@ -148,6 +149,10 @@ function formatDate(value: Date) {
   return value.toLocaleDateString("pt-BR");
 }
 
+function formatTipoCompra(value: string) {
+  return value === "SERVICO" ? "Servico" : "Produto";
+}
+
 export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
   return (
     <Document>
@@ -165,7 +170,11 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
           </View>
           <View style={styles.metaRow}>
             <Text>Data de emissao: {formatDate(props.dataEmissao)}</Text>
+            <Text>Tipo: {formatTipoCompra(props.tipoCompra)}</Text>
+          </View>
+          <View style={styles.metaRow}>
             <Text>Parcelas: {props.numeroParcelas}</Text>
+            <Text />
           </View>
         </View>
 

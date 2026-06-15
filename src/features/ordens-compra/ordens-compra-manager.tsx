@@ -14,6 +14,8 @@ type StatusOrdemCompra =
   | "RECEBIDA"
   | "CANCELADA";
 
+type TipoCompra = "PRODUTO" | "SERVICO";
+
 type Fornecedor = {
   id: string;
   codigo: string;
@@ -30,15 +32,22 @@ type Fornecedor = {
   status: "ATIVO" | "INATIVO";
 };
 
-type OrdemCompraItem = {
+type CentroCusto = {
   id: string;
-  item: string;
-  codigo: string | null;
+  codigo: string;
+  nome: string;
+  descricao: string | null;
+  status: "ATIVO" | "INATIVO";
+};
+
+type CatalogoCompra = {
+  id: string;
+  codigo: string;
+  tipo: TipoCompra;
   descricao: string;
-  unidade: string;
-  quantidade: number | string;
-  valorUnitario: number | string;
-  subtotal: number | string;
+  unidadePadrao: string;
+  observacao: string | null;
+  status: "ATIVO" | "INATIVO";
 };
 
 type OrdemCompra = {
@@ -46,6 +55,8 @@ type OrdemCompra = {
   numeroOrdem: string;
   dataEmissao: string;
   status: StatusOrdemCompra;
+  tipoCompra: TipoCompra;
+  centroCustoId: string | null;
   centroCustoNome: string;
   formaPagamento: string | null;
   numeroParcelas: number;
@@ -54,11 +65,24 @@ type OrdemCompra = {
   observacao: string | null;
   valorTotal: string | number;
   fornecedor: Fornecedor;
+  centroCusto: CentroCusto | null;
   criadoPor: {
     id: string;
     nome: string;
   };
-  itens: OrdemCompraItem[];
+  itens: Array<{
+    id: string;
+    catalogoCompraId: string | null;
+    tipoItem: TipoCompra;
+    item: string;
+    codigo: string | null;
+    descricao: string;
+    unidade: string;
+    quantidade: string | number;
+    valorUnitario: string | number;
+    subtotal: string | number;
+    catalogoCompra: CatalogoCompra | null;
+  }>;
   parcelas: Array<{
     id?: string;
     numeroParcela: number;
@@ -69,6 +93,7 @@ type OrdemCompra = {
 
 type FormItem = {
   item: string;
+  catalogoCompraId: string;
   codigo: string;
   descricao: string;
   unidade: string;
@@ -80,8 +105,9 @@ type FormState = {
   id?: string;
   dataEmissao: string;
   status: StatusOrdemCompra;
+  tipoCompra: TipoCompra;
   fornecedorId: string;
-  centroCustoNome: string;
+  centroCustoId: string;
   formaPagamento: string;
   numeroParcelas: string;
   primeiroVencimento: string;
@@ -119,6 +145,7 @@ function formatDateInput(value: string | Date) {
 function createEmptyItem(index: number): FormItem {
   return {
     item: `ITEM ${String(index).padStart(2, "0")}`,
+    catalogoCompraId: "",
     codigo: "",
     descricao: "",
     unidade: "UN",
@@ -133,8 +160,9 @@ function createInitialForm(): FormState {
   return {
     dataEmissao: today,
     status: "ABERTA",
+    tipoCompra: "PRODUTO",
     fornecedorId: "",
-    centroCustoNome: "",
+    centroCustoId: "",
     formaPagamento: "",
     numeroParcelas: "1",
     primeiroVencimento: today,
@@ -169,9 +197,15 @@ function getStatusBadgeClass(status: StatusOrdemCompra) {
   return "badge badge-warn";
 }
 
+function formatTipoCompra(value: TipoCompra) {
+  return value === "SERVICO" ? "Servico" : "Produto";
+}
+
 export function OrdensCompraManager() {
   const [ordens, setOrdens] = useState<OrdemCompra[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
+  const [centrosCusto, setCentrosCusto] = useState<CentroCusto[]>([]);
+  const [catalogoCompra, setCatalogoCompra] = useState<CatalogoCompra[]>([]);
   const [form, setForm] = useState<FormState>(() => createInitialForm());
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -179,16 +213,23 @@ export function OrdensCompraManager() {
   const [isPending, startTransition] = useTransition();
 
   async function loadData() {
-    const [ordensResponse, fornecedoresResponse] = await Promise.all([
-      fetch("/api/ordens-compra", { cache: "no-store" }),
-      fetch("/api/fornecedores", { cache: "no-store" })
-    ]);
+    const [ordensResponse, fornecedoresResponse, centrosResponse, catalogoResponse] =
+      await Promise.all([
+        fetch("/api/ordens-compra", { cache: "no-store" }),
+        fetch("/api/fornecedores", { cache: "no-store" }),
+        fetch("/api/centros-custo", { cache: "no-store" }),
+        fetch("/api/catalogo-compras", { cache: "no-store" })
+      ]);
 
     const ordensData = (await ordensResponse.json()) as { items: OrdemCompra[] };
     const fornecedoresData = (await fornecedoresResponse.json()) as { items: Fornecedor[] };
+    const centrosData = (await centrosResponse.json()) as { items: CentroCusto[] };
+    const catalogoData = (await catalogoResponse.json()) as { items: CatalogoCompra[] };
 
     setOrdens(ordensData.items);
     setFornecedores(fornecedoresData.items);
+    setCentrosCusto(centrosData.items);
+    setCatalogoCompra(catalogoData.items);
   }
 
   useEffect(() => {
@@ -201,9 +242,26 @@ export function OrdensCompraManager() {
     );
   }, [fornecedores, form.fornecedorId]);
 
+  const centrosDisponiveis = useMemo(() => {
+    return centrosCusto.filter(
+      (centro) => centro.status === "ATIVO" || centro.id === form.centroCustoId
+    );
+  }, [centrosCusto, form.centroCustoId]);
+
+  const catalogoDisponivel = useMemo(() => {
+    return catalogoCompra
+      .filter((item) => item.tipo === form.tipoCompra)
+      .filter((item) => item.status === "ATIVO" || form.itens.some((linha) => linha.catalogoCompraId === item.id))
+      .sort((a, b) => a.descricao.localeCompare(b.descricao));
+  }, [catalogoCompra, form.tipoCompra, form.itens]);
+
   const fornecedorSelecionado = useMemo(() => {
     return fornecedores.find((fornecedor) => fornecedor.id === form.fornecedorId) ?? null;
   }, [fornecedores, form.fornecedorId]);
+
+  const centroSelecionado = useMemo(() => {
+    return centrosCusto.find((centro) => centro.id === form.centroCustoId) ?? null;
+  }, [centrosCusto, form.centroCustoId]);
 
   const totalItens = useMemo(() => {
     return calcularTotalOrdem(
@@ -235,9 +293,9 @@ export function OrdensCompraManager() {
         !normalized ||
         [
           ordem.numeroOrdem,
+          ordem.tipoCompra,
           ordem.fornecedor.codigo,
           ordem.fornecedor.razaoSocial,
-          ordem.fornecedor.nomeFantasia ?? "",
           ordem.centroCustoNome
         ]
           .join(" ")
@@ -258,6 +316,45 @@ export function OrdensCompraManager() {
       itens: current.itens.map((item, itemIndex) =>
         itemIndex === index ? { ...item, [key]: value } : item
       )
+    }));
+  }
+
+  function handleTipoCompraChange(value: TipoCompra) {
+    setForm((current) => ({
+      ...current,
+      tipoCompra: value,
+      itens: current.itens.map((item) => ({
+        ...item,
+        catalogoCompraId: ""
+      }))
+    }));
+  }
+
+  function handleSelectCatalogo(index: number, catalogoId: string) {
+    const catalogo = catalogoDisponivel.find((item) => item.id === catalogoId);
+
+    setForm((current) => ({
+      ...current,
+      itens: current.itens.map((item, itemIndex) => {
+        if (itemIndex !== index) {
+          return item;
+        }
+
+        if (!catalogo) {
+          return {
+            ...item,
+            catalogoCompraId: ""
+          };
+        }
+
+        return {
+          ...item,
+          catalogoCompraId: catalogo.id,
+          codigo: catalogo.codigo,
+          descricao: catalogo.descricao,
+          unidade: catalogo.unidadePadrao
+        };
+      })
     }));
   }
 
@@ -285,15 +382,18 @@ export function OrdensCompraManager() {
     return {
       dataEmissao: form.dataEmissao,
       status: form.status,
+      tipoCompra: form.tipoCompra,
       fornecedorId: form.fornecedorId,
+      centroCustoId: form.centroCustoId,
       centroCustoTipo: "SETOR",
-      centroCustoNome: form.centroCustoNome,
+      centroCustoNome: centroSelecionado?.nome ?? "",
       formaPagamento: form.formaPagamento,
       numeroParcelas: Number(form.numeroParcelas || 1),
       primeiroVencimento: form.primeiroVencimento,
       observacaoFinanceira: form.observacaoFinanceira,
       observacao: form.observacao,
       itens: form.itens.map((item) => ({
+        catalogoCompraId: item.catalogoCompraId,
         item: item.item,
         codigo: item.codigo,
         descricao: item.descricao,
@@ -340,8 +440,9 @@ export function OrdensCompraManager() {
       id: ordem.id,
       dataEmissao: formatDateInput(ordem.dataEmissao),
       status: ordem.status,
+      tipoCompra: ordem.tipoCompra,
       fornecedorId: ordem.fornecedor.id,
-      centroCustoNome: ordem.centroCustoNome,
+      centroCustoId: ordem.centroCusto?.id ?? "",
       formaPagamento: ordem.formaPagamento ?? "",
       numeroParcelas: String(ordem.numeroParcelas),
       primeiroVencimento: formatDateInput(
@@ -351,6 +452,7 @@ export function OrdensCompraManager() {
       observacao: ordem.observacao ?? "",
       itens: ordem.itens.map((item, index) => ({
         item: item.item || `ITEM ${String(index + 1).padStart(2, "0")}`,
+        catalogoCompraId: item.catalogoCompraId ?? "",
         codigo: item.codigo ?? "",
         descricao: item.descricao,
         unidade: item.unidade,
@@ -378,7 +480,7 @@ export function OrdensCompraManager() {
         <div>
           <h1 className="page-title">Ordem de compra</h1>
           <p className="page-copy">
-            Fluxo direto para emitir compras: fornecedor, centro de custo livre, itens e pagamento.
+            Fluxo financeiro com fornecedor, centro de custo, tipo da compra e itens do catalogo.
           </p>
         </div>
       </section>
@@ -390,16 +492,10 @@ export function OrdensCompraManager() {
               {form.id ? "Editar ordem de compra" : "Nova ordem de compra"}
             </h2>
             <p className="section-copy">
-              Preencha o cabecalho, informe os itens e deixe o sistema calcular total e parcelas.
+              Selecione o tipo da compra primeiro para carregar o catalogo correto.
             </p>
           </div>
         </div>
-
-        {fornecedoresDisponiveis.length === 0 ? (
-          <p className="message-inline">
-            Nenhum fornecedor ativo encontrado. Cadastre o fornecedor antes de emitir a ordem.
-          </p>
-        ) : null}
 
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 24 }}>
           <div className="surface" style={{ padding: 20, border: "1px solid var(--line-strong)" }}>
@@ -408,8 +504,27 @@ export function OrdensCompraManager() {
                 <h3 className="section-title" style={{ marginBottom: 4 }}>
                   Cabecalho da ordem
                 </h3>
-                <p className="section-copy">Aqui fica o minimo necessario para abrir a compra.</p>
+                <p className="section-copy">
+                  Defina a natureza da compra e os dados principais do documento.
+                </p>
               </div>
+            </div>
+
+            <div className="toolbar-actions" style={{ marginBottom: 18 }}>
+              <button
+                type="button"
+                className={form.tipoCompra === "PRODUTO" ? "button-primary" : "button-secondary"}
+                onClick={() => handleTipoCompraChange("PRODUTO")}
+              >
+                Compra de produto
+              </button>
+              <button
+                type="button"
+                className={form.tipoCompra === "SERVICO" ? "button-primary" : "button-secondary"}
+                onClick={() => handleTipoCompraChange("SERVICO")}
+              >
+                Compra de servico
+              </button>
             </div>
 
             <div className="form-grid-4">
@@ -423,6 +538,20 @@ export function OrdensCompraManager() {
                   {fornecedoresDisponiveis.map((fornecedor) => (
                     <option key={fornecedor.id} value={fornecedor.id}>
                       {fornecedor.codigo} - {fornecedor.razaoSocial}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Centro de custo">
+                <select
+                  className="field-control"
+                  value={form.centroCustoId}
+                  onChange={(event) => updateField("centroCustoId", event.target.value)}
+                >
+                  <option value="">Selecione o centro de custo</option>
+                  {centrosDisponiveis.map((centro) => (
+                    <option key={centro.id} value={centro.id}>
+                      {centro.codigo} - {centro.nome}
                     </option>
                   ))}
                 </select>
@@ -448,17 +577,9 @@ export function OrdensCompraManager() {
                   ))}
                 </select>
               </Field>
-              <Field label="Centro de custo">
-                <input
-                  className="field-control"
-                  placeholder="Ex.: ESC 150 II, OFICINA, ADMINISTRATIVO, OBRA GE08"
-                  value={form.centroCustoNome}
-                  onChange={(event) => updateField("centroCustoNome", event.target.value)}
-                />
-              </Field>
             </div>
 
-            {fornecedorSelecionado ? (
+            {(fornecedorSelecionado || centroSelecionado) ? (
               <div
                 className="surface"
                 style={{
@@ -467,19 +588,22 @@ export function OrdensCompraManager() {
                   border: "1px solid var(--line-strong)"
                 }}
               >
-                <strong>
-                  {fornecedorSelecionado.codigo} - {fornecedorSelecionado.razaoSocial}
-                </strong>
-                <p className="section-copy" style={{ marginTop: 8, marginBottom: 0 }}>
-                  {fornecedorSelecionado.nomeFantasia ?? "-"} | CNPJ:{" "}
-                  {fornecedorSelecionado.cnpj ?? "-"} | {fornecedorSelecionado.telefone ?? "-"} |{" "}
-                  {fornecedorSelecionado.email ?? "-"}
-                </p>
-                <p className="section-copy" style={{ marginTop: 6, marginBottom: 0 }}>
-                  {fornecedorSelecionado.enderecoLinha1 ?? "-"}{" "}
-                  {fornecedorSelecionado.enderecoLinha2 ?? ""} | {fornecedorSelecionado.bairro ?? "-"} |{" "}
-                  {fornecedorSelecionado.cidade ?? "-"} / {fornecedorSelecionado.uf ?? "-"}
-                </p>
+                {fornecedorSelecionado ? (
+                  <>
+                    <strong>
+                      {fornecedorSelecionado.codigo} - {fornecedorSelecionado.razaoSocial}
+                    </strong>
+                    <p className="section-copy" style={{ marginTop: 8, marginBottom: 0 }}>
+                      {fornecedorSelecionado.nomeFantasia ?? "-"} | CNPJ: {fornecedorSelecionado.cnpj ?? "-"} |{" "}
+                      {fornecedorSelecionado.telefone ?? "-"} | {fornecedorSelecionado.email ?? "-"}
+                    </p>
+                  </>
+                ) : null}
+                {centroSelecionado ? (
+                  <p className="section-copy" style={{ marginTop: 8, marginBottom: 0 }}>
+                    Centro de custo: <strong>{centroSelecionado.codigo} - {centroSelecionado.nome}</strong>
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -491,7 +615,7 @@ export function OrdensCompraManager() {
                   Itens da compra
                 </h3>
                 <p className="section-copy">
-                  Monte a ordem linha a linha. O total fecha sozinho no final.
+                  O catalogo abaixo muda automaticamente conforme o tipo selecionado.
                 </p>
               </div>
               <button type="button" className="button-secondary" onClick={addItem}>
@@ -504,6 +628,7 @@ export function OrdensCompraManager() {
                 <thead>
                   <tr>
                     <th>Item</th>
+                    <th>{formatTipoCompra(form.tipoCompra)}</th>
                     <th>Codigo</th>
                     <th>Descricao</th>
                     <th>Unidade</th>
@@ -525,6 +650,21 @@ export function OrdensCompraManager() {
                             value={item.item}
                             onChange={(event) => updateItem(index, "item", event.target.value)}
                           />
+                        </td>
+                        <td>
+                          <select
+                            className="field-control"
+                            value={item.catalogoCompraId}
+                            onChange={(event) => handleSelectCatalogo(index, event.target.value)}
+                            style={{ minWidth: 240 }}
+                          >
+                            <option value="">Selecione do catalogo</option>
+                            {catalogoDisponivel.map((catalogo) => (
+                              <option key={catalogo.id} value={catalogo.id}>
+                                {catalogo.codigo} - {catalogo.descricao}
+                              </option>
+                            ))}
+                          </select>
                         </td>
                         <td>
                           <input
@@ -609,7 +749,7 @@ export function OrdensCompraManager() {
                   Pagamento e fechamento
                 </h3>
                 <p className="section-copy">
-                  Defina a condicao e o sistema projeta as parcelas automaticamente.
+                  O sistema projeta as parcelas com base no total e no primeiro vencimento.
                 </p>
               </div>
             </div>
@@ -703,7 +843,7 @@ export function OrdensCompraManager() {
           <Field label="Observacoes gerais">
             <textarea
               className="field-control textarea-lg"
-              placeholder="Responsavel pela solicitacao, numero da obra, observacoes do fornecedor, aplicacao do material"
+              placeholder="Responsavel pela solicitacao, escopo, aplicacao do item ou observacoes gerais"
               value={form.observacao}
               onChange={(event) => updateField("observacao", event.target.value)}
             />
@@ -737,7 +877,7 @@ export function OrdensCompraManager() {
           <div className="toolbar-actions">
             <input
               className="field-control"
-              placeholder="Buscar por numero, fornecedor ou centro de custo"
+              placeholder="Buscar por numero, tipo, fornecedor ou centro de custo"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               style={{ width: 360, maxWidth: "100%" }}
@@ -765,10 +905,10 @@ export function OrdensCompraManager() {
               <tr>
                 <th>Numero</th>
                 <th>Emissao</th>
+                <th>Tipo</th>
                 <th>Fornecedor</th>
                 <th>Centro de custo</th>
                 <th>Total</th>
-                <th>Parcelas</th>
                 <th>Status</th>
                 <th>Acoes</th>
               </tr>
@@ -781,13 +921,13 @@ export function OrdensCompraManager() {
                     <div className="subtle">Criada por {ordem.criadoPor.nome}</div>
                   </td>
                   <td>{new Date(ordem.dataEmissao).toLocaleDateString("pt-BR")}</td>
+                  <td>{formatTipoCompra(ordem.tipoCompra)}</td>
                   <td>
                     <div>{ordem.fornecedor.razaoSocial}</div>
                     <div className="subtle">{ordem.fornecedor.codigo}</div>
                   </td>
                   <td>{ordem.centroCustoNome}</td>
                   <td>{formatCurrency(ordem.valorTotal)}</td>
-                  <td>{ordem.parcelas.length}</td>
                   <td>
                     <span className={getStatusBadgeClass(ordem.status)}>
                       {STATUS_OPTIONS.find((status) => status.value === ordem.status)?.label ??

@@ -48,6 +48,8 @@ const navigationGroups = [
     description: "Compras, fornecedores e documentos de apoio financeiro.",
     items: [
       { href: "/fornecedores", label: "Cadastro de fornecedores" },
+      { href: "/centros-custo", label: "Cadastro de centros de custo" },
+      { href: "/catalogo-compras", label: "Cadastro de produtos e servicos" },
       { href: "/ordens-compra", label: "Ordem de compra" }
     ]
   },

@@ -27,6 +27,11 @@ enum TipoCentroCustoOrdemCompra {
   SETOR
 }
 
+enum TipoCatalogoCompra {
+  PRODUTO
+  SERVICO
+}
+
 enum TipoRecurso {
   CAMINHAO
   MAQUINA
@@ -349,6 +354,36 @@ model Fornecedor {
   @@index([status, razaoSocial])
 }
 
+model CentroCustoCompra {
+  id           String         @id @default(uuid())
+  codigo       String         @unique
+  nome         String
+  descricao    String?
+  status       StatusCadastro @default(ATIVO)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  ordensCompra OrdemCompra[]
+
+  @@index([nome])
+  @@index([status, nome])
+}
+
+model CatalogoCompra {
+  id               String             @id @default(uuid())
+  codigo           String             @unique
+  tipo             TipoCatalogoCompra
+  descricao        String
+  unidadePadrao    String
+  observacao       String?
+  status           StatusCadastro     @default(ATIVO)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  itensOrdemCompra OrdemCompraItem[]
+
+  @@index([tipo, status, descricao])
+  @@index([descricao])
+}
+
 model Equipamento {
   id                           String                       @id @default(uuid())
   tipoRecurso                  TipoRecurso
@@ -394,7 +429,9 @@ model OrdemCompra {
   numeroOrdem              String                     @unique
   dataEmissao              DateTime                   @default(now())
   status                   StatusOrdemCompra          @default(ABERTA)
+  tipoCompra               TipoCatalogoCompra         @default(PRODUTO)
   fornecedorId             String
+  centroCustoId            String?
   centroCustoTipo          TipoCentroCustoOrdemCompra @default(SETOR)
   centroCustoNome          String
   centroCustoEquipamentoId String?
@@ -408,6 +445,7 @@ model OrdemCompra {
   createdAt                DateTime                   @default(now())
   updatedAt                DateTime                   @updatedAt
   fornecedor               Fornecedor                 @relation(fields: [fornecedorId], references: [id])
+  centroCusto              CentroCustoCompra?         @relation(fields: [centroCustoId], references: [id])
   centroCustoEquipamento   Equipamento?               @relation("OrdemCompraCentroCustoEquipamento", fields: [centroCustoEquipamentoId], references: [id])
   criadoPor                Usuario                    @relation("OrdemCompraCriadaPor", fields: [criadoPorId], references: [id])
   itens                    OrdemCompraItem[]
@@ -415,24 +453,29 @@ model OrdemCompra {
 
   @@index([status, dataEmissao])
   @@index([fornecedorId, dataEmissao])
+  @@index([centroCustoId, dataEmissao])
   @@index([centroCustoNome, dataEmissao])
 }
 
 model OrdemCompraItem {
-  id            String      @id @default(uuid())
-  ordemCompraId String
-  item          String
-  codigo        String?
-  descricao     String
-  unidade       String
-  quantidade    Decimal     @db.Decimal(12, 2)
-  valorUnitario Decimal     @db.Decimal(12, 2)
-  subtotal      Decimal     @db.Decimal(14, 2)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  ordemCompra   OrdemCompra @relation(fields: [ordemCompraId], references: [id], onDelete: Cascade)
+  id               String             @id @default(uuid())
+  ordemCompraId    String
+  catalogoCompraId String?
+  tipoItem         TipoCatalogoCompra @default(PRODUTO)
+  item             String
+  codigo           String?
+  descricao        String
+  unidade          String
+  quantidade       Decimal            @db.Decimal(12, 2)
+  valorUnitario    Decimal            @db.Decimal(12, 2)
+  subtotal         Decimal            @db.Decimal(14, 2)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  ordemCompra      OrdemCompra        @relation(fields: [ordemCompraId], references: [id], onDelete: Cascade)
+  catalogoCompra   CatalogoCompra?    @relation(fields: [catalogoCompraId], references: [id])
 
   @@index([ordemCompraId])
+  @@index([catalogoCompraId])
 }
 
 model OrdemCompraParcela {

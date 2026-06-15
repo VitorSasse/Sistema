@@ -31,6 +31,14 @@ function normalizePayload(payload: Record<string, unknown>) {
 
 const ordemCompraInclude = {
   fornecedor: true,
+  centroCusto: {
+    select: {
+      id: true,
+      codigo: true,
+      nome: true,
+      status: true
+    }
+  },
   criadoPor: {
     select: {
       id: true,
@@ -38,6 +46,18 @@ const ordemCompraInclude = {
     }
   },
   itens: {
+    include: {
+      catalogoCompra: {
+        select: {
+          id: true,
+          codigo: true,
+          tipo: true,
+          descricao: true,
+          unidadePadrao: true,
+          status: true
+        }
+      }
+    },
     orderBy: [{ createdAt: "asc" as const }]
   },
   parcelas: {
@@ -86,35 +106,82 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Fornecedor nao encontrado." }, { status: 404 });
   }
 
-  const itensCalculados = parsed.data.itens.map((item) => {
-    const subtotal = calcularSubtotalItem({
-      quantidade: item.quantidade,
-      valorUnitario: item.valorUnitario
-    });
-
-    return {
-      item: item.item,
-      codigo: item.codigo || null,
-      descricao: item.descricao,
-      unidade: item.unidade,
-      quantidade: item.quantidade,
-      valorUnitario: item.valorUnitario,
-      subtotal
-    };
+  const centroCusto = await prisma.centroCustoCompra.findUnique({
+    where: { id: parsed.data.centroCustoId },
+    select: {
+      id: true,
+      nome: true,
+      status: true
+    }
   });
 
-  const valorTotal = calcularTotalOrdem(itensCalculados);
-  const dataEmissao = parseDateInput(parsed.data.dataEmissao);
-  const dataBaseParcelas = parsed.data.primeiroVencimento
-    ? parseDateInput(parsed.data.primeiroVencimento)
-    : dataEmissao;
-  const parcelas = gerarParcelasOrdemCompra({
-    valorTotal,
-    numeroParcelas: parsed.data.numeroParcelas,
-    dataBase: dataBaseParcelas
-  });
+  if (!centroCusto) {
+    return NextResponse.json({ message: "Centro de custo nao encontrado." }, { status: 404 });
+  }
+
+  const catalogoIds = parsed.data.itens
+    .map((item) => item.catalogoCompraId || null)
+    .filter((value): value is string => Boolean(value));
+
+  const catalogos = catalogoIds.length
+    ? await prisma.catalogoCompra.findMany({
+        where: {
+          id: { in: catalogoIds }
+        },
+        select: {
+          id: true,
+          codigo: true,
+          tipo: true,
+          descricao: true,
+          unidadePadrao: true,
+          status: true
+        }
+      })
+    : [];
+
+  const catalogoMap = new Map(catalogos.map((item) => [item.id, item]));
 
   try {
+    const itensCalculados = parsed.data.itens.map((item) => {
+      const catalogo = item.catalogoCompraId ? catalogoMap.get(item.catalogoCompraId) : null;
+
+      if (item.catalogoCompraId && !catalogo) {
+        throw new Error(`CATALOGO_NAO_ENCONTRADO:${item.catalogoCompraId}`);
+      }
+
+      if (catalogo && catalogo.tipo !== parsed.data.tipoCompra) {
+        throw new Error(`TIPO_CATALOGO_INVALIDO:${catalogo.id}`);
+      }
+
+      const subtotal = calcularSubtotalItem({
+        quantidade: item.quantidade,
+        valorUnitario: item.valorUnitario
+      });
+
+      return {
+        catalogoCompraId: catalogo?.id ?? null,
+        tipoItem: parsed.data.tipoCompra,
+        item: item.item,
+        codigo: catalogo?.codigo ?? (item.codigo || null),
+        descricao: catalogo?.descricao ?? item.descricao,
+        unidade: catalogo?.unidadePadrao ?? item.unidade,
+        quantidade: item.quantidade,
+        valorUnitario: item.valorUnitario,
+        subtotal
+      };
+    });
+
+    const valorTotal = calcularTotalOrdem(itensCalculados);
+    const dataEmissao = parseDateInput(parsed.data.dataEmissao);
+    const dataBaseParcelas = parsed.data.primeiroVencimento
+      ? parseDateInput(parsed.data.primeiroVencimento)
+      : dataEmissao;
+    const parcelas = gerarParcelasOrdemCompra({
+      valorTotal,
+      numeroParcelas: parsed.data.numeroParcelas,
+      dataBase: dataBaseParcelas
+    });
+
     const numeroOrdem = await generateOrdemCompraCode();
 
     const ordemCompra = await prisma.ordemCompra.create({
@@ -122,9 +189,11 @@ export async function POST(request: NextRequest) {
         numeroOrdem,
         dataEmissao,
         status: parsed.data.status,
+        tipoCompra: parsed.data.tipoCompra,
         fornecedorId: parsed.data.fornecedorId,
+        centroCustoId: parsed.data.centroCustoId,
         centroCustoTipo: "SETOR",
-        centroCustoNome: parsed.data.centroCustoNome.trim(),
+        centroCustoNome: centroCusto.nome,
         centroCustoEquipamentoId: null,
         formaPagamento: parsed.data.formaPagamento || null,
         numeroParcelas: parsed.data.numeroParcelas,
@@ -149,6 +218,20 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(ordemCompra, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith("CATALOGO_NAO_ENCONTRADO")) {
+      return NextResponse.json(
+        { message: "Um dos itens selecionados no catalogo nao foi encontrado." },
+        { status: 404 }
+      );
+    }
+
+    if (error instanceof Error && error.message.startsWith("TIPO_CATALOGO_INVALIDO")) {
+      return NextResponse.json(
+        { message: "Existe item selecionado com tipo diferente do tipo da compra." },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json(
       { message: "Nao foi possivel criar a ordem de compra.", detail: String(error) },
       { status: 409 }

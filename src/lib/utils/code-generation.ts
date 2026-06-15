@@ -5,7 +5,7 @@ function padSequence(value: number) {
 }
 
 async function getNextSequentialCode(
-  prefix: "CLI" | "OBR" | "COL" | "MAT" | "SER" | "FOR" | "OC",
+  prefix: "CLI" | "OBR" | "COL" | "MAT" | "SER" | "FOR" | "OC" | "CCO" | "CAT",
   values: string[]
 ) {
   const highest = values.reduce((max, current) => {
@@ -95,5 +95,27 @@ export async function generateOrdemCompraCode() {
   return getNextSequentialCode(
     "OC",
     existentes.map((item) => item.numeroOrdem)
+  );
+}
+
+export async function generateCentroCustoCompraCode() {
+  const existentes = await prisma.centroCustoCompra.findMany({
+    select: { codigo: true }
+  });
+
+  return getNextSequentialCode(
+    "CCO",
+    existentes.map((item) => item.codigo)
+  );
+}
+
+export async function generateCatalogoCompraCode() {
+  const existentes = await prisma.catalogoCompra.findMany({
+    select: { codigo: true }
+  });
+
+  return getNextSequentialCode(
+    "CAT",
+    existentes.map((item) => item.codigo)
   );
 }

@@ -1,7 +1,8 @@
-import { StatusOrdemCompra, TipoCentroCustoOrdemCompra } from "@prisma/client";
+import { StatusOrdemCompra, TipoCatalogoCompra, TipoCentroCustoOrdemCompra } from "@prisma/client";
 import { z } from "zod";
 
 const ordemCompraItemSchema = z.object({
+  catalogoCompraId: z.string().uuid().optional().nullable().or(z.literal("")),
   item: z.string().trim().min(1).max(80),
   codigo: z.string().trim().max(60).optional().or(z.literal("")),
   descricao: z.string().trim().min(3).max(240),
@@ -14,7 +15,9 @@ export const ordemCompraSchema = z
   .object({
     dataEmissao: z.string().trim().min(1),
     status: z.nativeEnum(StatusOrdemCompra).default(StatusOrdemCompra.ABERTA),
+    tipoCompra: z.nativeEnum(TipoCatalogoCompra).default(TipoCatalogoCompra.PRODUTO),
     fornecedorId: z.string().uuid(),
+    centroCustoId: z.string().uuid(),
     centroCustoTipo: z
       .nativeEnum(TipoCentroCustoOrdemCompra)
       .default(TipoCentroCustoOrdemCompra.SETOR),
