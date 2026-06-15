@@ -3,6 +3,11 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { calcularTotalOrdem, gerarParcelasOrdemCompra } from "@/lib/ordens-compra";
+import {
+  FORMAS_PAGAMENTO_ORDEM_COMPRA,
+  normalizarPagamentoOrdemCompra,
+  obterFormaPagamentoOrdemCompra
+} from "@/lib/ordens-compra-pagamento";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { formatCurrency } from "@/lib/utils/formatters";
 
@@ -63,6 +68,9 @@ type OrdemCompra = {
   primeiroVencimento: string | null;
   observacaoFinanceira: string | null;
   observacao: string | null;
+  motivoExclusao: string | null;
+  excluidaEm: string | null;
+  excluidaPorNome: string | null;
   valorTotal: string | number;
   fornecedor: Fornecedor;
   centroCusto: CentroCusto | null;
@@ -113,6 +121,7 @@ type FormState = {
   primeiroVencimento: string;
   observacaoFinanceira: string;
   observacao: string;
+  motivoExclusao: string;
   itens: FormItem[];
 };
 
@@ -125,21 +134,17 @@ const STATUS_OPTIONS: Array<{ value: StatusOrdemCompra; label: string }> = [
   { value: "CANCELADA", label: "Cancelada" }
 ];
 
-const FORMAS_PAGAMENTO = [
-  "PIX",
-  "BOLETO",
-  "TRANSFERENCIA",
-  "CARTAO",
-  "DINHEIRO",
-  "FATURADO"
-] as const;
-
 function formatDateInput(value: string | Date) {
   const date = new Date(value);
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function parseDateValue(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day, 0, 0, 0, 0);
 }
 
 function createEmptyItem(index: number): FormItem {
@@ -168,6 +173,7 @@ function createInitialForm(): FormState {
     primeiroVencimento: today,
     observacaoFinanceira: "",
     observacao: "",
+    motivoExclusao: "",
     itens: [createEmptyItem(1)]
   };
 }
@@ -263,6 +269,23 @@ export function OrdensCompraManager() {
     return centrosCusto.find((centro) => centro.id === form.centroCustoId) ?? null;
   }, [centrosCusto, form.centroCustoId]);
 
+  const configuracaoPagamento = useMemo(() => {
+    return obterFormaPagamentoOrdemCompra(form.formaPagamento);
+  }, [form.formaPagamento]);
+
+  const pagamentoNormalizado = useMemo(() => {
+    if (!form.dataEmissao) {
+      return null;
+    }
+
+    return normalizarPagamentoOrdemCompra({
+      formaPagamento: form.formaPagamento,
+      numeroParcelas: Number(form.numeroParcelas || 1),
+      dataEmissao: parseDateValue(form.dataEmissao),
+      primeiroVencimento: form.primeiroVencimento ? parseDateValue(form.primeiroVencimento) : null
+    });
+  }, [form.dataEmissao, form.formaPagamento, form.numeroParcelas, form.primeiroVencimento]);
+
   const totalItens = useMemo(() => {
     return calcularTotalOrdem(
       form.itens.map((item) => ({
@@ -273,16 +296,16 @@ export function OrdensCompraManager() {
   }, [form.itens]);
 
   const parcelasPreview = useMemo(() => {
-    if (!form.primeiroVencimento) {
+    if (!pagamentoNormalizado || !form.formaPagamento) {
       return [];
     }
 
     return gerarParcelasOrdemCompra({
       valorTotal: totalItens,
-      numeroParcelas: Math.max(1, Number(form.numeroParcelas || 1)),
-      dataBase: new Date(form.primeiroVencimento)
+      numeroParcelas: pagamentoNormalizado.numeroParcelas,
+      dataBase: pagamentoNormalizado.primeiroVencimento
     });
-  }, [form.numeroParcelas, form.primeiroVencimento, totalItens]);
+  }, [form.formaPagamento, pagamentoNormalizado, totalItens]);
 
   const filteredOrdens = useMemo(() => {
     const normalized = search.trim().toLowerCase();
@@ -305,6 +328,55 @@ export function OrdensCompraManager() {
       return matchesStatus && matchesSearch;
     });
   }, [ordens, search, statusFilter]);
+
+  useEffect(() => {
+    if (!configuracaoPagamento || !pagamentoNormalizado) {
+      return;
+    }
+
+    let nextNumeroParcelas = form.numeroParcelas;
+    let nextPrimeiroVencimento = form.primeiroVencimento;
+    let shouldUpdate = false;
+
+    if (!configuracaoPagamento.permiteParcelamento && form.numeroParcelas !== "1") {
+      nextNumeroParcelas = "1";
+      shouldUpdate = true;
+    }
+
+    if (
+      configuracaoPagamento.liquidacaoImediata ||
+      typeof configuracaoPagamento.prazoEmDias === "number"
+    ) {
+      const vencimentoCalculado = formatDateInput(pagamentoNormalizado.primeiroVencimento);
+
+      if (form.primeiroVencimento !== vencimentoCalculado) {
+        nextPrimeiroVencimento = vencimentoCalculado;
+        shouldUpdate = true;
+      }
+    } else if (configuracaoPagamento.permiteParcelamento && (!form.numeroParcelas || Number(form.numeroParcelas) < 1)) {
+      nextNumeroParcelas = "1";
+      shouldUpdate = true;
+    } else if (configuracaoPagamento.permiteParcelamento && !form.primeiroVencimento) {
+      nextPrimeiroVencimento = form.dataEmissao;
+      shouldUpdate = true;
+    }
+
+    if (!shouldUpdate) {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      numeroParcelas: nextNumeroParcelas,
+      primeiroVencimento: nextPrimeiroVencimento
+    }));
+  }, [
+    configuracaoPagamento,
+    form.dataEmissao,
+    form.numeroParcelas,
+    form.primeiroVencimento,
+    pagamentoNormalizado
+  ]);
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -379,6 +451,11 @@ export function OrdensCompraManager() {
   }
 
   function buildPayload() {
+    const numeroParcelas = pagamentoNormalizado?.numeroParcelas ?? Math.max(1, Number(form.numeroParcelas || 1));
+    const primeiroVencimento = pagamentoNormalizado
+      ? formatDateInput(pagamentoNormalizado.primeiroVencimento)
+      : form.primeiroVencimento;
+
     return {
       dataEmissao: form.dataEmissao,
       status: form.status,
@@ -388,10 +465,11 @@ export function OrdensCompraManager() {
       centroCustoTipo: "SETOR",
       centroCustoNome: centroSelecionado?.nome ?? "",
       formaPagamento: form.formaPagamento,
-      numeroParcelas: Number(form.numeroParcelas || 1),
-      primeiroVencimento: form.primeiroVencimento,
+      numeroParcelas,
+      primeiroVencimento,
       observacaoFinanceira: form.observacaoFinanceira,
       observacao: form.observacao,
+      motivoExclusao: form.motivoExclusao,
       itens: form.itens.map((item) => ({
         catalogoCompraId: item.catalogoCompraId,
         item: item.item,
@@ -450,6 +528,7 @@ export function OrdensCompraManager() {
       ),
       observacaoFinanceira: ordem.observacaoFinanceira ?? "",
       observacao: ordem.observacao ?? "",
+      motivoExclusao: ordem.motivoExclusao ?? "",
       itens: ordem.itens.map((item, index) => ({
         item: item.item || `ITEM ${String(index + 1).padStart(2, "0")}`,
         catalogoCompraId: item.catalogoCompraId ?? "",
@@ -472,6 +551,46 @@ export function OrdensCompraManager() {
 
   function handleOpenPdf(ordemId: string) {
     window.open(`/api/ordens-compra/${ordemId}/pdf`, "_blank", "noopener,noreferrer");
+  }
+
+  function handleCancelar(ordem: OrdemCompra) {
+    const motivo = window.prompt(
+      `Informe o motivo da exclusao/cancelamento da ordem ${ordem.numeroOrdem}:`
+    );
+
+    if (motivo === null) {
+      return;
+    }
+
+    const motivoNormalizado = motivo.trim();
+
+    if (!motivoNormalizado) {
+      setMessage("Informe o motivo da exclusao para cancelar a ordem.");
+      return;
+    }
+
+    startTransition(async () => {
+      const response = await fetch(`/api/ordens-compra/${ordem.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ motivoExclusao: motivoNormalizado })
+      });
+
+      const data = (await response.json().catch(() => ({}))) as { message?: string };
+
+      if (!response.ok) {
+        setMessage(data.message ?? "Nao foi possivel cancelar a ordem de compra.");
+        return;
+      }
+
+      await loadData();
+
+      if (form.id === ordem.id) {
+        setForm(createInitialForm());
+      }
+
+      setMessage(`Ordem ${ordem.numeroOrdem} cancelada com sucesso.`);
+    });
   }
 
   return (
@@ -605,6 +724,17 @@ export function OrdensCompraManager() {
                   </p>
                 ) : null}
               </div>
+            ) : null}
+
+            {form.status === "CANCELADA" ? (
+              <Field label="Motivo da exclusao">
+                <textarea
+                  className="field-control textarea-lg"
+                  placeholder="Descreva porque essa ordem de compra esta sendo cancelada"
+                  value={form.motivoExclusao}
+                  onChange={(event) => updateField("motivoExclusao", event.target.value)}
+                />
+              </Field>
             ) : null}
           </div>
 
@@ -749,40 +879,87 @@ export function OrdensCompraManager() {
                   Pagamento e fechamento
                 </h3>
                 <p className="section-copy">
-                  O sistema projeta as parcelas com base no total e no primeiro vencimento.
+                  O sistema ajusta automaticamente vencimento e parcelamento conforme a forma de pagamento.
                 </p>
               </div>
             </div>
 
             <div className="form-grid-4">
               <Field label="Forma de pagamento">
-                <input
+                <select
                   className="field-control"
-                  list="formas-pagamento-ordem"
                   value={form.formaPagamento}
                   onChange={(event) => updateField("formaPagamento", event.target.value)}
-                  placeholder="PIX, boleto, faturado"
-                />
+                >
+                  <option value="">Selecione a forma de pagamento</option>
+                  {FORMAS_PAGAMENTO_ORDEM_COMPRA.map((forma) => (
+                    <option key={forma.valor} value={forma.valor}>
+                      {forma.rotulo}
+                    </option>
+                  ))}
+                </select>
               </Field>
-              <Field label="Numero de parcelas">
-                <input
-                  className="field-control"
-                  type="number"
-                  min={1}
-                  max={60}
-                  value={form.numeroParcelas}
-                  onChange={(event) => updateField("numeroParcelas", event.target.value)}
-                />
-              </Field>
-              <Field label="Primeiro vencimento">
-                <input
-                  className="field-control"
-                  type="date"
-                  value={form.primeiroVencimento}
-                  onChange={(event) => updateField("primeiroVencimento", event.target.value)}
-                />
-              </Field>
-              <Field label="Valor estimado da parcela">
+
+              {!form.formaPagamento ? (
+                <Field label="Parcelamento">
+                  <input className="field-control" value="Selecione a forma de pagamento" readOnly />
+                </Field>
+              ) : configuracaoPagamento?.permiteParcelamento ? (
+                <Field label="Numero de parcelas">
+                  <input
+                    className="field-control"
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={form.numeroParcelas}
+                    onChange={(event) => updateField("numeroParcelas", event.target.value)}
+                  />
+                </Field>
+              ) : (
+                <Field label="Parcelamento">
+                  <input className="field-control" value="Parcela unica" readOnly />
+                </Field>
+              )}
+
+              {!form.formaPagamento ? (
+                <Field label="Primeiro vencimento">
+                  <input className="field-control" value="Selecione a forma de pagamento" readOnly />
+                </Field>
+              ) : configuracaoPagamento?.liquidacaoImediata ? (
+                <Field label="Data do pagamento">
+                  <input className="field-control" type="date" value={form.dataEmissao} readOnly />
+                </Field>
+              ) : typeof configuracaoPagamento?.prazoEmDias === "number" ? (
+                <Field label="Primeiro vencimento">
+                  <input
+                    className="field-control"
+                    type="date"
+                    value={
+                      pagamentoNormalizado
+                        ? formatDateInput(pagamentoNormalizado.primeiroVencimento)
+                        : ""
+                    }
+                    readOnly
+                  />
+                </Field>
+              ) : (
+                <Field label="Primeiro vencimento">
+                  <input
+                    className="field-control"
+                    type="date"
+                    value={form.primeiroVencimento}
+                    onChange={(event) => updateField("primeiroVencimento", event.target.value)}
+                  />
+                </Field>
+              )}
+
+              <Field
+                label={
+                  configuracaoPagamento?.permiteParcelamento
+                    ? "Valor estimado da parcela"
+                    : "Valor da parcela unica"
+                }
+              >
                 <input
                   className="field-control"
                   value={
@@ -804,12 +981,6 @@ export function OrdensCompraManager() {
               />
             </Field>
 
-            <datalist id="formas-pagamento-ordem">
-              {FORMAS_PAGAMENTO.map((forma) => (
-                <option key={forma} value={forma} />
-              ))}
-            </datalist>
-
             <div className="data-table-wrap" style={{ marginTop: 16 }}>
               <table className="data-table">
                 <thead>
@@ -822,13 +993,17 @@ export function OrdensCompraManager() {
                 <tbody>
                   {parcelasPreview.length === 0 ? (
                     <tr>
-                      <td colSpan={3}>Nenhuma parcela gerada.</td>
+                      <td colSpan={3}>
+                        {form.formaPagamento
+                          ? "Nenhuma parcela gerada."
+                          : "Selecione a forma de pagamento para calcular as parcelas."}
+                      </td>
                     </tr>
                   ) : (
                     parcelasPreview.map((parcela) => (
                       <tr key={parcela.numeroParcela}>
                         <td>
-                          {parcela.numeroParcela}/{Math.max(1, Number(form.numeroParcelas || 1))}
+                          {parcela.numeroParcela}/{pagamentoNormalizado?.numeroParcelas ?? Math.max(1, Number(form.numeroParcelas || 1))}
                         </td>
                         <td>{parcela.dataVencimento.toLocaleDateString("pt-BR")}</td>
                         <td>{formatCurrency(parcela.valorParcela)}</td>
@@ -919,6 +1094,9 @@ export function OrdensCompraManager() {
                   <td>
                     <div>{ordem.numeroOrdem}</div>
                     <div className="subtle">Criada por {ordem.criadoPor.nome}</div>
+                    {ordem.motivoExclusao ? (
+                      <div className="subtle">Motivo: {ordem.motivoExclusao}</div>
+                    ) : null}
                   </td>
                   <td>{new Date(ordem.dataEmissao).toLocaleDateString("pt-BR")}</td>
                   <td>{formatTipoCompra(ordem.tipoCompra)}</td>
@@ -950,6 +1128,15 @@ export function OrdensCompraManager() {
                       >
                         PDF
                       </button>
+                      {ordem.status !== "CANCELADA" ? (
+                        <button
+                          type="button"
+                          className="button-danger"
+                          onClick={() => handleCancelar(ordem)}
+                        >
+                          Excluir
+                        </button>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

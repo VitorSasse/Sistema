@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { calcularSubtotalItem, calcularTotalOrdem, gerarParcelasOrdemCompra } from "@/lib/ordens-compra";
+import { normalizarPagamentoOrdemCompra } from "@/lib/ordens-compra-pagamento";
 import { prisma } from "@/lib/prisma";
 import { generateOrdemCompraCode } from "@/lib/utils/code-generation";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
@@ -173,12 +174,18 @@ export async function POST(request: NextRequest) {
 
     const valorTotal = calcularTotalOrdem(itensCalculados);
     const dataEmissao = parseDateInput(parsed.data.dataEmissao);
-    const dataBaseParcelas = parsed.data.primeiroVencimento
-      ? parseDateInput(parsed.data.primeiroVencimento)
-      : dataEmissao;
+    const pagamentoNormalizado = normalizarPagamentoOrdemCompra({
+      formaPagamento: parsed.data.formaPagamento,
+      numeroParcelas: parsed.data.numeroParcelas,
+      dataEmissao,
+      primeiroVencimento: parsed.data.primeiroVencimento
+        ? parseDateInput(parsed.data.primeiroVencimento)
+        : null
+    });
+    const dataBaseParcelas = pagamentoNormalizado.primeiroVencimento;
     const parcelas = gerarParcelasOrdemCompra({
       valorTotal,
-      numeroParcelas: parsed.data.numeroParcelas,
+      numeroParcelas: pagamentoNormalizado.numeroParcelas,
       dataBase: dataBaseParcelas
     });
 
@@ -196,10 +203,13 @@ export async function POST(request: NextRequest) {
         centroCustoNome: centroCusto.nome,
         centroCustoEquipamentoId: null,
         formaPagamento: parsed.data.formaPagamento || null,
-        numeroParcelas: parsed.data.numeroParcelas,
+        numeroParcelas: pagamentoNormalizado.numeroParcelas,
         primeiroVencimento: dataBaseParcelas,
         observacaoFinanceira: parsed.data.observacaoFinanceira || null,
         observacao: parsed.data.observacao || null,
+        motivoExclusao: parsed.data.status === "CANCELADA" ? parsed.data.motivoExclusao || null : null,
+        excluidaEm: parsed.data.status === "CANCELADA" ? new Date() : null,
+        excluidaPorNome: parsed.data.status === "CANCELADA" ? session.user.name ?? session.user.email ?? "Usuario" : null,
         valorTotal,
         criadoPorId: session.user.id,
         itens: {

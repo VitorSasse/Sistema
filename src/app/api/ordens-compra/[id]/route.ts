@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { calcularSubtotalItem, calcularTotalOrdem, gerarParcelasOrdemCompra } from "@/lib/ordens-compra";
+import { normalizarPagamentoOrdemCompra } from "@/lib/ordens-compra-pagamento";
 import { prisma } from "@/lib/prisma";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { ordemCompraSchema } from "@/lib/validators/ordem-compra";
@@ -88,7 +89,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const ordemAtual = await prisma.ordemCompra.findUnique({
     where: { id },
-    select: { id: true }
+    select: {
+      id: true,
+      status: true,
+      excluidaEm: true,
+      excluidaPorNome: true
+    }
   });
 
   if (!ordemAtual) {
@@ -171,12 +177,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const valorTotal = calcularTotalOrdem(itensCalculados);
     const dataEmissao = parseDateInput(parsed.data.dataEmissao);
-    const dataBaseParcelas = parsed.data.primeiroVencimento
-      ? parseDateInput(parsed.data.primeiroVencimento)
-      : dataEmissao;
+    const pagamentoNormalizado = normalizarPagamentoOrdemCompra({
+      formaPagamento: parsed.data.formaPagamento,
+      numeroParcelas: parsed.data.numeroParcelas,
+      dataEmissao,
+      primeiroVencimento: parsed.data.primeiroVencimento
+        ? parseDateInput(parsed.data.primeiroVencimento)
+        : null
+    });
+    const dataBaseParcelas = pagamentoNormalizado.primeiroVencimento;
     const parcelas = gerarParcelasOrdemCompra({
       valorTotal,
-      numeroParcelas: parsed.data.numeroParcelas,
+      numeroParcelas: pagamentoNormalizado.numeroParcelas,
       dataBase: dataBaseParcelas
     });
 
@@ -199,10 +211,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           centroCustoNome: centroCusto.nome,
           centroCustoEquipamentoId: null,
           formaPagamento: parsed.data.formaPagamento || null,
-          numeroParcelas: parsed.data.numeroParcelas,
+          numeroParcelas: pagamentoNormalizado.numeroParcelas,
           primeiroVencimento: dataBaseParcelas,
           observacaoFinanceira: parsed.data.observacaoFinanceira || null,
           observacao: parsed.data.observacao || null,
+          motivoExclusao: parsed.data.status === "CANCELADA" ? parsed.data.motivoExclusao || null : null,
+          excluidaEm:
+            parsed.data.status === "CANCELADA"
+              ? ordemAtual.excluidaEm ?? new Date()
+              : null,
+          excluidaPorNome:
+            parsed.data.status === "CANCELADA"
+              ? ordemAtual.excluidaPorNome ?? session.user.name ?? session.user.email ?? "Usuario"
+              : null,
           valorTotal,
           itens: {
             create: itensCalculados
@@ -244,4 +265,48 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       { status: 409 }
     );
   }
+}
+
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  const session = await auth();
+
+  if (!session?.user) {
+    return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
+  }
+
+  const { id } = await context.params;
+  const payload = (await request.json().catch(() => ({}))) as { motivoExclusao?: string };
+  const motivoExclusao = payload.motivoExclusao?.trim() || "";
+
+  if (!motivoExclusao) {
+    return NextResponse.json(
+      { message: "Informe o motivo da exclusao antes de cancelar a ordem." },
+      { status: 400 }
+    );
+  }
+
+  const ordemAtual = await prisma.ordemCompra.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      status: true
+    }
+  });
+
+  if (!ordemAtual) {
+    return NextResponse.json({ message: "Ordem de compra nao encontrada." }, { status: 404 });
+  }
+
+  const ordemCompra = await prisma.ordemCompra.update({
+    where: { id },
+    data: {
+      status: "CANCELADA",
+      motivoExclusao,
+      excluidaEm: new Date(),
+      excluidaPorNome: session.user.name ?? session.user.email ?? "Usuario"
+    },
+    include: ordemCompraInclude
+  });
+
+  return NextResponse.json(ordemCompra);
 }

@@ -1,5 +1,6 @@
 import React from "react";
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { obterFormaPagamentoOrdemCompra } from "@/lib/ordens-compra-pagamento";
 import { formatCurrency } from "@/lib/utils/formatters";
 
 type OrdemCompraPdfItem = {
@@ -355,6 +356,14 @@ function formatTipoCompra(value: string) {
   return value === "SERVICO" ? "SERVICOS" : "PRODUTOS";
 }
 
+function formatFormaPagamento(value: string | null) {
+  if (!value) {
+    return "-";
+  }
+
+  return obterFormaPagamentoOrdemCompra(value)?.rotulo ?? value;
+}
+
 function joinAddress(props: OrdemCompraPdfProps["fornecedor"]) {
   const endereco = [props.enderecoLinha1, props.enderecoLinha2].filter(Boolean).join(" - ");
   const bairro = props.bairro?.trim();
@@ -515,7 +524,7 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
             <View key={parcela.numeroParcela} style={styles.tableRow} wrap={false}>
               <Text style={[styles.cell, styles.paymentColVencimento]}>{formatDate(parcela.dataVencimento)}</Text>
               <Text style={[styles.cell, styles.paymentColParcela]}>{formatCurrency(parcela.valorParcela)}</Text>
-              <Text style={[styles.cell, styles.paymentColForma]}>{props.formaPagamento ?? "-"}</Text>
+              <Text style={[styles.cell, styles.paymentColForma]}>{formatFormaPagamento(props.formaPagamento)}</Text>
               <Text style={[styles.cell, styles.paymentColObs, styles.cellLast]}>
                 {index === 0 ? props.observacaoFinanceira ?? "-" : "-"}
               </Text>

@@ -440,6 +440,9 @@ model OrdemCompra {
   primeiroVencimento       DateTime?
   observacaoFinanceira     String?
   observacao               String?
+  motivoExclusao           String?
+  excluidaEm               DateTime?
+  excluidaPorNome          String?
   valorTotal               Decimal                    @db.Decimal(14, 2)
   criadoPorId              String
   createdAt                DateTime                   @default(now())
