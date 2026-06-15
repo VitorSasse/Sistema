@@ -20,6 +20,7 @@ type StatusOrdemCompra =
   | "CANCELADA";
 
 type TipoCompra = "PRODUTO" | "SERVICO";
+type TipoAnexo = "RELATORIO_MEDICAO" | "PEDIDO" | "NOTA_FISCAL" | "OUTRO";
 
 type Fornecedor = {
   id: string;
@@ -53,6 +54,16 @@ type CatalogoCompra = {
   unidadePadrao: string;
   observacao: string | null;
   status: "ATIVO" | "INATIVO";
+};
+
+type OrdemCompraAnexo = {
+  id: string;
+  tipo: TipoAnexo;
+  nomeArquivo: string;
+  mimeType: string;
+  urlArquivo: string;
+  tamanhoBytes: number;
+  createdAt: string;
 };
 
 type OrdemCompra = {
@@ -97,6 +108,7 @@ type OrdemCompra = {
     dataVencimento: string;
     valorParcela: string | number;
   }>;
+  anexos: OrdemCompraAnexo[];
 };
 
 type FormItem = {
@@ -125,6 +137,16 @@ type FormState = {
   itens: FormItem[];
 };
 
+type FiltrosConsultaState = {
+  search: string;
+  fornecedorId: string;
+  centroCustoId: string;
+  tipoCompra: "TODOS" | TipoCompra;
+  status: "TODOS" | StatusOrdemCompra;
+  dataInicial: string;
+  dataFinal: string;
+};
+
 const STATUS_OPTIONS: Array<{ value: StatusOrdemCompra; label: string }> = [
   { value: "ABERTA", label: "Aberta" },
   { value: "AGUARDANDO_APROVACAO", label: "Aguardando aprovacao" },
@@ -132,6 +154,12 @@ const STATUS_OPTIONS: Array<{ value: StatusOrdemCompra; label: string }> = [
   { value: "COMPRADA", label: "Comprada" },
   { value: "RECEBIDA", label: "Recebida" },
   { value: "CANCELADA", label: "Cancelada" }
+];
+
+const TIPO_ANEXO_OPTIONS: Array<{ value: TipoAnexo; label: string }> = [
+  { value: "PEDIDO", label: "Pedido" },
+  { value: "NOTA_FISCAL", label: "Nota fiscal" },
+  { value: "OUTRO", label: "Documento" }
 ];
 
 function formatDateInput(value: string | Date) {
@@ -178,6 +206,106 @@ function createInitialForm(): FormState {
   };
 }
 
+function createInitialFilters(): FiltrosConsultaState {
+  return {
+    search: "",
+    fornecedorId: "",
+    centroCustoId: "",
+    tipoCompra: "TODOS",
+    status: "TODOS",
+    dataInicial: "",
+    dataFinal: ""
+  };
+}
+
+function createFormFromOrder(ordem: OrdemCompra): FormState {
+  return {
+    id: ordem.id,
+    dataEmissao: formatDateInput(ordem.dataEmissao),
+    status: ordem.status,
+    tipoCompra: ordem.tipoCompra,
+    fornecedorId: ordem.fornecedor.id,
+    centroCustoId: ordem.centroCusto?.id ?? "",
+    formaPagamento: ordem.formaPagamento ?? "",
+    numeroParcelas: String(ordem.numeroParcelas),
+    primeiroVencimento: formatDateInput(
+      ordem.primeiroVencimento ?? ordem.parcelas[0]?.dataVencimento ?? ordem.dataEmissao
+    ),
+    observacaoFinanceira: ordem.observacaoFinanceira ?? "",
+    observacao: ordem.observacao ?? "",
+    motivoExclusao: ordem.motivoExclusao ?? "",
+    itens: ordem.itens.map((item, index) => ({
+      item: item.item || `ITEM ${String(index + 1).padStart(2, "0")}`,
+      catalogoCompraId: item.catalogoCompraId ?? "",
+      codigo: item.codigo ?? "",
+      descricao: item.descricao,
+      unidade: item.unidade,
+      quantidade: numberToInput(item.quantidade),
+      valorUnitario: numberToInput(item.valorUnitario)
+    }))
+  };
+}
+
+function buildOrdensQuery(filters: FiltrosConsultaState) {
+  const params = new URLSearchParams();
+
+  if (filters.search.trim()) {
+    params.set("search", filters.search.trim());
+  }
+
+  if (filters.fornecedorId) {
+    params.set("fornecedorId", filters.fornecedorId);
+  }
+
+  if (filters.centroCustoId) {
+    params.set("centroCustoId", filters.centroCustoId);
+  }
+
+  if (filters.tipoCompra !== "TODOS") {
+    params.set("tipoCompra", filters.tipoCompra);
+  }
+
+  if (filters.status !== "TODOS") {
+    params.set("status", filters.status);
+  }
+
+  if (filters.dataInicial) {
+    params.set("dataInicial", filters.dataInicial);
+  }
+
+  if (filters.dataFinal) {
+    params.set("dataFinal", filters.dataFinal);
+  }
+
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+function formatFornecedorLabel(fornecedor: Fornecedor) {
+  return fornecedor.nomeFantasia
+    ? `${fornecedor.nomeFantasia} (${fornecedor.razaoSocial})`
+    : fornecedor.razaoSocial;
+}
+
+function formatTipoAnexo(tipo: TipoAnexo) {
+  if (tipo === "PEDIDO") return "Pedido";
+  if (tipo === "NOTA_FISCAL") return "Nota fiscal";
+  if (tipo === "RELATORIO_MEDICAO") return "Relatorio";
+  return "Documento";
+}
+
+function formatBytes(value: number) {
+  if (value >= 1024 * 1024) {
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  if (value >= 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+
+  return `${value} B`;
+}
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="field">
@@ -211,57 +339,120 @@ function canCancelOrder(status: StatusOrdemCompra) {
   return status !== "RECEBIDA" && status !== "CANCELADA";
 }
 
+function isOrdemCompra(value: unknown): value is OrdemCompra {
+  return typeof value === "object" && value !== null && "id" in value;
+}
+
 export function OrdensCompraManager() {
   const [ordens, setOrdens] = useState<OrdemCompra[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [centrosCusto, setCentrosCusto] = useState<CentroCusto[]>([]);
   const [catalogoCompra, setCatalogoCompra] = useState<CatalogoCompra[]>([]);
+  const [ordemSelecionada, setOrdemSelecionada] = useState<OrdemCompra | null>(null);
   const [form, setForm] = useState<FormState>(() => createInitialForm());
   const [message, setMessage] = useState("");
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"TODOS" | StatusOrdemCompra>("TODOS");
+  const [filtrosConsulta, setFiltrosConsulta] = useState<FiltrosConsultaState>(() =>
+    createInitialFilters()
+  );
+  const [filtrosAplicados, setFiltrosAplicados] = useState<FiltrosConsultaState>(() =>
+    createInitialFilters()
+  );
+  const [tipoAnexo, setTipoAnexo] = useState<TipoAnexo>("OUTRO");
+  const [arquivoAnexo, setArquivoAnexo] = useState<File | null>(null);
+  const [mensagemAnexo, setMensagemAnexo] = useState("");
+  const [erroAnexo, setErroAnexo] = useState(false);
+  const [chaveInputAnexo, setChaveInputAnexo] = useState(0);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  async function loadData() {
-    const [ordensResponse, fornecedoresResponse, centrosResponse, catalogoResponse] =
-      await Promise.all([
-        fetch("/api/ordens-compra", { cache: "no-store" }),
-        fetch("/api/fornecedores", { cache: "no-store" }),
-        fetch("/api/centros-custo", { cache: "no-store" }),
-        fetch("/api/catalogo-compras", { cache: "no-store" })
-      ]);
+  async function loadCatalogData() {
+    const [fornecedoresResponse, centrosResponse, catalogoResponse] = await Promise.all([
+      fetch("/api/fornecedores", { cache: "no-store" }),
+      fetch("/api/centros-custo", { cache: "no-store" }),
+      fetch("/api/catalogo-compras", { cache: "no-store" })
+    ]);
 
-    const ordensData = (await ordensResponse.json()) as { items: OrdemCompra[] };
     const fornecedoresData = (await fornecedoresResponse.json()) as { items: Fornecedor[] };
     const centrosData = (await centrosResponse.json()) as { items: CentroCusto[] };
     const catalogoData = (await catalogoResponse.json()) as { items: CatalogoCompra[] };
 
-    setOrdens(ordensData.items);
     setFornecedores(fornecedoresData.items);
     setCentrosCusto(centrosData.items);
     setCatalogoCompra(catalogoData.items);
   }
 
+  async function loadOrdens(filters = filtrosAplicados) {
+    const query = buildOrdensQuery(filters);
+    const response = await fetch(`/api/ordens-compra${query}`, { cache: "no-store" });
+    const data = (await response.json()) as { items: OrdemCompra[] };
+    setOrdens(data.items);
+    return data.items;
+  }
+
+  async function refreshSelectedOrder(ordemId: string) {
+    const response = await fetch(`/api/ordens-compra/${ordemId}`, { cache: "no-store" });
+
+    if (!response.ok) {
+      setOrdemSelecionada(null);
+      return null;
+    }
+
+    const data = (await response.json()) as OrdemCompra;
+    setOrdemSelecionada(data);
+    return data;
+  }
+
   useEffect(() => {
-    void loadData();
+    void loadCatalogData();
   }, []);
 
+  useEffect(() => {
+    void loadOrdens(filtrosAplicados);
+  }, [filtrosAplicados]);
+
+  useEffect(() => {
+    if (!form.id) {
+      setOrdemSelecionada(null);
+      return;
+    }
+
+    const ordemAtual = ordens.find((ordem) => ordem.id === form.id);
+
+    if (ordemAtual) {
+      setOrdemSelecionada(ordemAtual);
+    }
+  }, [ordens, form.id]);
+
   const fornecedoresDisponiveis = useMemo(() => {
-    return fornecedores.filter(
-      (fornecedor) => fornecedor.status === "ATIVO" || fornecedor.id === form.fornecedorId
-    );
+    return fornecedores
+      .filter((fornecedor) => fornecedor.status === "ATIVO" || fornecedor.id === form.fornecedorId)
+      .sort((a, b) => formatFornecedorLabel(a).localeCompare(formatFornecedorLabel(b)));
   }, [fornecedores, form.fornecedorId]);
 
   const centrosDisponiveis = useMemo(() => {
-    return centrosCusto.filter(
-      (centro) => centro.status === "ATIVO" || centro.id === form.centroCustoId
-    );
+    return centrosCusto
+      .filter((centro) => centro.status === "ATIVO" || centro.id === form.centroCustoId)
+      .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [centrosCusto, form.centroCustoId]);
+
+  const fornecedoresFiltro = useMemo(() => {
+    return fornecedores
+      .filter((fornecedor) => fornecedor.status === "ATIVO")
+      .sort((a, b) => formatFornecedorLabel(a).localeCompare(formatFornecedorLabel(b)));
+  }, [fornecedores]);
+
+  const centrosFiltro = useMemo(() => {
+    return centrosCusto
+      .filter((centro) => centro.status === "ATIVO")
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [centrosCusto]);
 
   const catalogoDisponivel = useMemo(() => {
     return catalogoCompra
       .filter((item) => item.tipo === form.tipoCompra)
-      .filter((item) => item.status === "ATIVO" || form.itens.some((linha) => linha.catalogoCompraId === item.id))
+      .filter(
+        (item) => item.status === "ATIVO" || form.itens.some((linha) => linha.catalogoCompraId === item.id)
+      )
       .sort((a, b) => a.descricao.localeCompare(b.descricao));
   }, [catalogoCompra, form.tipoCompra, form.itens]);
 
@@ -311,28 +502,6 @@ export function OrdensCompraManager() {
     });
   }, [form.formaPagamento, pagamentoNormalizado, totalItens]);
 
-  const filteredOrdens = useMemo(() => {
-    const normalized = search.trim().toLowerCase();
-
-    return ordens.filter((ordem) => {
-      const matchesStatus = statusFilter === "TODOS" || ordem.status === statusFilter;
-      const matchesSearch =
-        !normalized ||
-        [
-          ordem.numeroOrdem,
-          ordem.tipoCompra,
-          ordem.fornecedor.codigo,
-          ordem.fornecedor.razaoSocial,
-          ordem.centroCustoNome
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalized);
-
-      return matchesStatus && matchesSearch;
-    });
-  }, [ordens, search, statusFilter]);
-
   useEffect(() => {
     if (!configuracaoPagamento || !pagamentoNormalizado) {
       return;
@@ -357,7 +526,10 @@ export function OrdensCompraManager() {
         nextPrimeiroVencimento = vencimentoCalculado;
         shouldUpdate = true;
       }
-    } else if (configuracaoPagamento.permiteParcelamento && (!form.numeroParcelas || Number(form.numeroParcelas) < 1)) {
+    } else if (
+      configuracaoPagamento.permiteParcelamento &&
+      (!form.numeroParcelas || Number(form.numeroParcelas) < 1)
+    ) {
       nextNumeroParcelas = "1";
       shouldUpdate = true;
     } else if (configuracaoPagamento.permiteParcelamento && !form.primeiroVencimento) {
@@ -393,6 +565,13 @@ export function OrdensCompraManager() {
         itemIndex === index ? { ...item, [key]: value } : item
       )
     }));
+  }
+
+  function updateFiltro<K extends keyof FiltrosConsultaState>(
+    key: K,
+    value: FiltrosConsultaState[K]
+  ) {
+    setFiltrosConsulta((current) => ({ ...current, [key]: value }));
   }
 
   function handleTipoCompraChange(value: TipoCompra) {
@@ -455,7 +634,8 @@ export function OrdensCompraManager() {
   }
 
   function buildPayload() {
-    const numeroParcelas = pagamentoNormalizado?.numeroParcelas ?? Math.max(1, Number(form.numeroParcelas || 1));
+    const numeroParcelas =
+      pagamentoNormalizado?.numeroParcelas ?? Math.max(1, Number(form.numeroParcelas || 1));
     const primeiroVencimento = pagamentoNormalizado
       ? formatDateInput(pagamentoNormalizado.primeiroVencimento)
       : form.primeiroVencimento;
@@ -500,56 +680,46 @@ export function OrdensCompraManager() {
         body: JSON.stringify(buildPayload())
       });
 
-      const data = (await response.json()) as { message?: string };
+      const data = (await response.json()) as OrdemCompra | { message?: string };
+      const erro =
+        typeof data === "object" && data !== null && "message" in data ? data.message : undefined;
 
       if (!response.ok) {
-        setMessage(data.message ?? "Nao foi possivel salvar a ordem de compra.");
+        setMessage(erro ?? "Nao foi possivel salvar a ordem de compra.");
         return;
       }
 
-      setForm(createInitialForm());
+      await loadOrdens(filtrosAplicados);
+
+      if (isOrdemCompra(data)) {
+        setForm(createFormFromOrder(data));
+        setOrdemSelecionada(data);
+      }
+
       setMessage(
         form.id
           ? "Ordem de compra atualizada com sucesso."
-          : "Ordem de compra cadastrada com sucesso."
+          : "Ordem de compra cadastrada com sucesso. Agora voce ja pode anexar documentos."
       );
-      await loadData();
     });
   }
 
   function handleEdit(ordem: OrdemCompra) {
-    setForm({
-      id: ordem.id,
-      dataEmissao: formatDateInput(ordem.dataEmissao),
-      status: ordem.status,
-      tipoCompra: ordem.tipoCompra,
-      fornecedorId: ordem.fornecedor.id,
-      centroCustoId: ordem.centroCusto?.id ?? "",
-      formaPagamento: ordem.formaPagamento ?? "",
-      numeroParcelas: String(ordem.numeroParcelas),
-      primeiroVencimento: formatDateInput(
-        ordem.primeiroVencimento ?? ordem.parcelas[0]?.dataVencimento ?? ordem.dataEmissao
-      ),
-      observacaoFinanceira: ordem.observacaoFinanceira ?? "",
-      observacao: ordem.observacao ?? "",
-      motivoExclusao: ordem.motivoExclusao ?? "",
-      itens: ordem.itens.map((item, index) => ({
-        item: item.item || `ITEM ${String(index + 1).padStart(2, "0")}`,
-        catalogoCompraId: item.catalogoCompraId ?? "",
-        codigo: item.codigo ?? "",
-        descricao: item.descricao,
-        unidade: item.unidade,
-        quantidade: numberToInput(item.quantidade),
-        valorUnitario: numberToInput(item.valorUnitario)
-      }))
-    });
-
-    setMessage(`Editando ${ordem.numeroOrdem}.`);
+    setForm(createFormFromOrder(ordem));
+    setOrdemSelecionada(ordem);
+    setMensagemAnexo("");
+    setErroAnexo(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function handleReset() {
     setForm(createInitialForm());
+    setOrdemSelecionada(null);
+    setTipoAnexo("OUTRO");
+    setArquivoAnexo(null);
+    setMensagemAnexo("");
+    setErroAnexo(false);
+    setChaveInputAnexo((current) => current + 1);
     setMessage("");
   }
 
@@ -587,14 +757,77 @@ export function OrdensCompraManager() {
         return;
       }
 
-      await loadData();
+      await loadOrdens(filtrosAplicados);
 
       if (form.id === ordem.id) {
-        setForm(createInitialForm());
+        const ordemAtualizada = await refreshSelectedOrder(ordem.id);
+
+        if (ordemAtualizada) {
+          setForm(createFormFromOrder(ordemAtualizada));
+        }
       }
 
       setMessage(`Ordem ${ordem.numeroOrdem} cancelada com sucesso.`);
     });
+  }
+
+  async function handleUploadAnexo() {
+    if (!form.id) {
+      setErroAnexo(true);
+      setMensagemAnexo("Salve a ordem de compra antes de anexar documentos.");
+      return;
+    }
+
+    if (!arquivoAnexo) {
+      setErroAnexo(true);
+      setMensagemAnexo("Selecione um arquivo antes de anexar.");
+      return;
+    }
+
+    setIsUploadingAttachment(true);
+    setErroAnexo(false);
+    setMensagemAnexo("");
+
+    const body = new FormData();
+    body.append("tipo", tipoAnexo);
+    body.append("file", arquivoAnexo);
+
+    try {
+      const response = await fetch(`/api/ordens-compra/${form.id}/anexos`, {
+        method: "POST",
+        body
+      });
+
+      const data = (await response.json()) as { message?: string };
+
+      if (!response.ok) {
+        setErroAnexo(true);
+        setMensagemAnexo(data.message ?? "Nao foi possivel anexar o arquivo.");
+        return;
+      }
+
+      await loadOrdens(filtrosAplicados);
+      await refreshSelectedOrder(form.id);
+
+      setArquivoAnexo(null);
+      setTipoAnexo("OUTRO");
+      setChaveInputAnexo((current) => current + 1);
+      setErroAnexo(false);
+      setMensagemAnexo("Arquivo anexado com sucesso.");
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  }
+
+  function handleAplicarFiltros(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFiltrosAplicados({ ...filtrosConsulta });
+  }
+
+  function handleLimparFiltros() {
+    const initial = createInitialFilters();
+    setFiltrosConsulta(initial);
+    setFiltrosAplicados(initial);
   }
 
   return (
@@ -603,7 +836,7 @@ export function OrdensCompraManager() {
         <div>
           <h1 className="page-title">Ordem de compra</h1>
           <p className="page-copy">
-            Fluxo financeiro com fornecedor, centro de custo, tipo da compra e itens do catalogo.
+            Fluxo financeiro com fornecedor, centro de custo, catalogo, pagamento e anexos da compra.
           </p>
         </div>
       </section>
@@ -612,10 +845,12 @@ export function OrdensCompraManager() {
         <div className="section-header">
           <div>
             <h2 className="section-title">
-              {form.id ? "Editar ordem de compra" : "Nova ordem de compra"}
+              {form.id && ordemSelecionada
+                ? `Editar ${ordemSelecionada.numeroOrdem}`
+                : "Nova ordem de compra"}
             </h2>
             <p className="section-copy">
-              Selecione o tipo da compra primeiro para carregar o catalogo correto.
+              Selecione o tipo da compra primeiro para carregar apenas os produtos ou servicos corretos.
             </p>
           </div>
         </div>
@@ -660,7 +895,7 @@ export function OrdensCompraManager() {
                   <option value="">Selecione o fornecedor</option>
                   {fornecedoresDisponiveis.map((fornecedor) => (
                     <option key={fornecedor.id} value={fornecedor.id}>
-                      {fornecedor.codigo} - {fornecedor.razaoSocial}
+                      {formatFornecedorLabel(fornecedor)}
                     </option>
                   ))}
                 </select>
@@ -674,7 +909,7 @@ export function OrdensCompraManager() {
                   <option value="">Selecione o centro de custo</option>
                   {centrosDisponiveis.map((centro) => (
                     <option key={centro.id} value={centro.id}>
-                      {centro.codigo} - {centro.nome}
+                      {centro.nome}
                     </option>
                   ))}
                 </select>
@@ -702,7 +937,7 @@ export function OrdensCompraManager() {
               </Field>
             </div>
 
-            {(fornecedorSelecionado || centroSelecionado) ? (
+            {fornecedorSelecionado || centroSelecionado ? (
               <div
                 className="surface"
                 style={{
@@ -713,9 +948,7 @@ export function OrdensCompraManager() {
               >
                 {fornecedorSelecionado ? (
                   <>
-                    <strong>
-                      {fornecedorSelecionado.codigo} - {fornecedorSelecionado.razaoSocial}
-                    </strong>
+                    <strong>{fornecedorSelecionado.razaoSocial}</strong>
                     <p className="section-copy" style={{ marginTop: 8, marginBottom: 0 }}>
                       {fornecedorSelecionado.nomeFantasia ?? "-"} | CNPJ: {fornecedorSelecionado.cnpj ?? "-"} |{" "}
                       {fornecedorSelecionado.telefone ?? "-"} | {fornecedorSelecionado.email ?? "-"}
@@ -724,7 +957,7 @@ export function OrdensCompraManager() {
                 ) : null}
                 {centroSelecionado ? (
                   <p className="section-copy" style={{ marginTop: 8, marginBottom: 0 }}>
-                    Centro de custo: <strong>{centroSelecionado.codigo} - {centroSelecionado.nome}</strong>
+                    Centro de custo: <strong>{centroSelecionado.nome}</strong>
                   </p>
                 ) : null}
               </div>
@@ -795,7 +1028,7 @@ export function OrdensCompraManager() {
                             <option value="">Selecione do catalogo</option>
                             {catalogoDisponivel.map((catalogo) => (
                               <option key={catalogo.id} value={catalogo.id}>
-                                {catalogo.codigo} - {catalogo.descricao}
+                                {catalogo.descricao}
                               </option>
                             ))}
                           </select>
@@ -966,11 +1199,7 @@ export function OrdensCompraManager() {
               >
                 <input
                   className="field-control"
-                  value={
-                    parcelasPreview[0]
-                      ? formatCurrency(parcelasPreview[0].valorParcela)
-                      : "R$ 0,00"
-                  }
+                  value={parcelasPreview[0] ? formatCurrency(parcelasPreview[0].valorParcela) : "R$ 0,00"}
                   readOnly
                 />
               </Field>
@@ -1007,7 +1236,8 @@ export function OrdensCompraManager() {
                     parcelasPreview.map((parcela) => (
                       <tr key={parcela.numeroParcela}>
                         <td>
-                          {parcela.numeroParcela}/{pagamentoNormalizado?.numeroParcelas ?? Math.max(1, Number(form.numeroParcelas || 1))}
+                          {parcela.numeroParcela}/
+                          {pagamentoNormalizado?.numeroParcelas ?? Math.max(1, Number(form.numeroParcelas || 1))}
                         </td>
                         <td>{parcela.dataVencimento.toLocaleDateString("pt-BR")}</td>
                         <td>{formatCurrency(parcela.valorParcela)}</td>
@@ -1017,6 +1247,103 @@ export function OrdensCompraManager() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          <div className="surface" style={{ padding: 20, border: "1px solid var(--line-strong)" }}>
+            <div className="section-header" style={{ marginBottom: 16 }}>
+              <div>
+                <h3 className="section-title" style={{ marginBottom: 4 }}>
+                  Anexos da ordem
+                </h3>
+                <p className="section-copy">
+                  Anexe documentos, pedidos, notas fiscais e arquivos de apoio vinculados a esta ordem.
+                </p>
+              </div>
+            </div>
+
+            {!form.id ? (
+              <p className="section-copy" style={{ margin: 0 }}>
+                Salve a ordem de compra primeiro para liberar o campo de anexo.
+              </p>
+            ) : (
+              <>
+                <div className="form-grid-4" style={{ alignItems: "end" }}>
+                  <Field label="Tipo do anexo">
+                    <select
+                      className="field-control"
+                      value={tipoAnexo}
+                      onChange={(event) => setTipoAnexo(event.target.value as TipoAnexo)}
+                    >
+                      {TIPO_ANEXO_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Arquivo">
+                    <input
+                      key={chaveInputAnexo}
+                      className="field-control"
+                      type="file"
+                      accept=".pdf,.png,.jpg,.jpeg,.webp,.xml,.doc,.docx,.xls,.xlsx"
+                      onChange={(event) => setArquivoAnexo(event.target.files?.[0] ?? null)}
+                    />
+                  </Field>
+                  <div style={{ display: "grid", alignContent: "end" }}>
+                    <button
+                      type="button"
+                      className="button-primary"
+                      disabled={isUploadingAttachment}
+                      onClick={() => void handleUploadAnexo()}
+                    >
+                      {isUploadingAttachment ? "Anexando..." : "Anexar arquivo"}
+                    </button>
+                  </div>
+                </div>
+
+                {mensagemAnexo ? (
+                  <p className={erroAnexo ? "message-inline message-inline-danger" : "message-inline"}>
+                    {mensagemAnexo}
+                  </p>
+                ) : null}
+
+                <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
+                  {ordemSelecionada?.anexos.length ? (
+                    ordemSelecionada.anexos.map((anexo) => (
+                      <div
+                        key={anexo.id}
+                        className="surface"
+                        style={{
+                          padding: 16,
+                          border: "1px solid var(--line-strong)",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 16,
+                          alignItems: "center",
+                          flexWrap: "wrap"
+                        }}
+                      >
+                        <div style={{ display: "grid", gap: 4 }}>
+                          <strong>{anexo.nomeArquivo}</strong>
+                          <span className="section-copy" style={{ margin: 0 }}>
+                            {formatTipoAnexo(anexo.tipo)} | {formatBytes(anexo.tamanhoBytes)} |{" "}
+                            {new Date(anexo.createdAt).toLocaleDateString("pt-BR")}
+                          </span>
+                        </div>
+                        <a href={anexo.urlArquivo} target="_blank" rel="noreferrer" className="button-secondary">
+                          Abrir anexo
+                        </a>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="section-copy" style={{ margin: 0 }}>
+                      Nenhum anexo vinculado a esta ordem.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <Field label="Observacoes gerais">
@@ -1048,33 +1375,115 @@ export function OrdensCompraManager() {
       <section className="surface section-card">
         <div className="section-header">
           <div>
-            <h2 className="section-title">Ordens de compra emitidas</h2>
+            <h2 className="section-title">Consulta de ordens de compra</h2>
             <p className="section-copy">
-              {filteredOrdens.length} registro(s) exibido(s) de {ordens.length}.
+              Use os filtros abaixo para localizar ordens por fornecedor, periodo, centro de custo, status e tipo.
             </p>
           </div>
+        </div>
+
+        <form onSubmit={handleAplicarFiltros} style={{ display: "grid", gap: 18 }}>
+          <div className="form-grid-4">
+            <Field label="Busca geral">
+              <input
+                className="field-control"
+                placeholder="Numero da ordem, fornecedor, observacao, item ou centro de custo"
+                value={filtrosConsulta.search}
+                onChange={(event) => updateFiltro("search", event.target.value)}
+              />
+            </Field>
+            <Field label="Fornecedor">
+              <select
+                className="field-control"
+                value={filtrosConsulta.fornecedorId}
+                onChange={(event) => updateFiltro("fornecedorId", event.target.value)}
+              >
+                <option value="">Todos os fornecedores</option>
+                {fornecedoresFiltro.map((fornecedor) => (
+                  <option key={fornecedor.id} value={fornecedor.id}>
+                    {formatFornecedorLabel(fornecedor)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Centro de custo">
+              <select
+                className="field-control"
+                value={filtrosConsulta.centroCustoId}
+                onChange={(event) => updateFiltro("centroCustoId", event.target.value)}
+              >
+                <option value="">Todos os centros de custo</option>
+                {centrosFiltro.map((centro) => (
+                  <option key={centro.id} value={centro.id}>
+                    {centro.nome}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Tipo da compra">
+              <select
+                className="field-control"
+                value={filtrosConsulta.tipoCompra}
+                onChange={(event) =>
+                  updateFiltro("tipoCompra", event.target.value as "TODOS" | TipoCompra)
+                }
+              >
+                <option value="TODOS">Todos os tipos</option>
+                <option value="PRODUTO">Produto</option>
+                <option value="SERVICO">Servico</option>
+              </select>
+            </Field>
+          </div>
+
+          <div className="form-grid-4">
+            <Field label="Status">
+              <select
+                className="field-control"
+                value={filtrosConsulta.status}
+                onChange={(event) =>
+                  updateFiltro("status", event.target.value as "TODOS" | StatusOrdemCompra)
+                }
+              >
+                <option value="TODOS">Todos os status</option>
+                {STATUS_OPTIONS.map((status) => (
+                  <option key={status.value} value={status.value}>
+                    {status.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Emissao inicial">
+              <input
+                className="field-control"
+                type="date"
+                value={filtrosConsulta.dataInicial}
+                onChange={(event) => updateFiltro("dataInicial", event.target.value)}
+              />
+            </Field>
+            <Field label="Emissao final">
+              <input
+                className="field-control"
+                type="date"
+                value={filtrosConsulta.dataFinal}
+                onChange={(event) => updateFiltro("dataFinal", event.target.value)}
+              />
+            </Field>
+          </div>
+
           <div className="toolbar-actions">
-            <input
-              className="field-control"
-              placeholder="Buscar por numero, tipo, fornecedor ou centro de custo"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              style={{ width: 360, maxWidth: "100%" }}
-            />
-            <select
-              className="field-control"
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as "TODOS" | StatusOrdemCompra)
-              }
-            >
-              <option value="TODOS">Todos os status</option>
-              {STATUS_OPTIONS.map((status) => (
-                <option key={status.value} value={status.value}>
-                  {status.label}
-                </option>
-              ))}
-            </select>
+            <button type="submit" className="button-primary" disabled={isPending}>
+              Aplicar filtros
+            </button>
+            <button type="button" className="button-secondary" onClick={handleLimparFiltros}>
+              Limpar filtros
+            </button>
+          </div>
+        </form>
+
+        <div className="section-header" style={{ marginTop: 24 }}>
+          <div>
+            <h3 className="section-title">Ordens encontradas</h3>
+            <p className="section-copy">{ordens.length} registro(s) encontrado(s).</p>
           </div>
         </div>
 
@@ -1093,58 +1502,68 @@ export function OrdensCompraManager() {
               </tr>
             </thead>
             <tbody>
-              {filteredOrdens.map((ordem) => (
-                <tr key={ordem.id}>
-                  <td>
-                    <div>{ordem.numeroOrdem}</div>
-                    <div className="subtle">Criada por {ordem.criadoPor.nome}</div>
-                    {ordem.motivoExclusao ? (
-                      <div className="subtle">Motivo: {ordem.motivoExclusao}</div>
-                    ) : null}
-                  </td>
-                  <td>{new Date(ordem.dataEmissao).toLocaleDateString("pt-BR")}</td>
-                  <td>{formatTipoCompra(ordem.tipoCompra)}</td>
-                  <td>
-                    <div>{ordem.fornecedor.razaoSocial}</div>
-                    <div className="subtle">{ordem.fornecedor.codigo}</div>
-                  </td>
-                  <td>{ordem.centroCustoNome}</td>
-                  <td>{formatCurrency(ordem.valorTotal)}</td>
-                  <td>
-                    <span className={getStatusBadgeClass(ordem.status)}>
-                      {STATUS_OPTIONS.find((status) => status.value === ordem.status)?.label ??
-                        ordem.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="toolbar-actions">
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => handleEdit(ordem)}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        className="button-secondary"
-                        onClick={() => handleOpenPdf(ordem.id)}
-                      >
-                        PDF
-                      </button>
-                      {canCancelOrder(ordem.status) ? (
-                        <button
-                          type="button"
-                          className="button-danger"
-                          onClick={() => handleCancelar(ordem)}
-                        >
-                          Excluir
-                        </button>
-                      ) : null}
-                    </div>
+              {ordens.length === 0 ? (
+                <tr>
+                  <td colSpan={8}>
+                    Nenhuma ordem de compra encontrada para os filtros informados.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                ordens.map((ordem) => (
+                  <tr key={ordem.id}>
+                    <td>
+                      <div>{ordem.numeroOrdem}</div>
+                      <div className="subtle">Criada por {ordem.criadoPor.nome}</div>
+                      {ordem.motivoExclusao ? (
+                        <div className="subtle">Motivo: {ordem.motivoExclusao}</div>
+                      ) : null}
+                    </td>
+                    <td>{new Date(ordem.dataEmissao).toLocaleDateString("pt-BR")}</td>
+                    <td>{formatTipoCompra(ordem.tipoCompra)}</td>
+                    <td>
+                      <div>{ordem.fornecedor.razaoSocial}</div>
+                      {ordem.fornecedor.nomeFantasia ? (
+                        <div className="subtle">{ordem.fornecedor.nomeFantasia}</div>
+                      ) : null}
+                    </td>
+                    <td>{ordem.centroCustoNome}</td>
+                    <td>{formatCurrency(ordem.valorTotal)}</td>
+                    <td>
+                      <span className={getStatusBadgeClass(ordem.status)}>
+                        {STATUS_OPTIONS.find((status) => status.value === ordem.status)?.label ??
+                          ordem.status}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="toolbar-actions">
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          onClick={() => handleEdit(ordem)}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="button-secondary"
+                          onClick={() => handleOpenPdf(ordem.id)}
+                        >
+                          PDF
+                        </button>
+                        {canCancelOrder(ordem.status) ? (
+                          <button
+                            type="button"
+                            className="button-danger"
+                            onClick={() => handleCancelar(ordem)}
+                          >
+                            Excluir
+                          </button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

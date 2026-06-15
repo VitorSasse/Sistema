@@ -475,6 +475,7 @@ model OrdemCompra {
   criadoPor                Usuario                    @relation("OrdemCompraCriadaPor", fields: [criadoPorId], references: [id])
   itens                    OrdemCompraItem[]
   parcelas                 OrdemCompraParcela[]
+  anexos                   Anexo[]
 
   @@index([status, dataEmissao])
   @@index([fornecedorId, dataEmissao])
@@ -953,20 +954,23 @@ model HistoricoAlteracao {
 }
 
 model Anexo {
-  id           String    @id @default(uuid())
-  fichaId      String?
-  medicaoId    String?
-  tipo         TipoAnexo @default(OUTRO)
-  nomeArquivo  String
-  mimeType     String
-  urlArquivo   String
-  tamanhoBytes Int
-  createdAt    DateTime  @default(now())
-  ficha        Ficha?    @relation(fields: [fichaId], references: [id], onDelete: Cascade)
-  medicao      Medicao?  @relation(fields: [medicaoId], references: [id], onDelete: Cascade)
+  id            String       @id @default(uuid())
+  fichaId       String?
+  medicaoId     String?
+  ordemCompraId String?
+  tipo          TipoAnexo    @default(OUTRO)
+  nomeArquivo   String
+  mimeType      String
+  urlArquivo    String
+  tamanhoBytes  Int
+  createdAt     DateTime     @default(now())
+  ficha         Ficha?       @relation(fields: [fichaId], references: [id], onDelete: Cascade)
+  medicao       Medicao?     @relation(fields: [medicaoId], references: [id], onDelete: Cascade)
+  ordemCompra   OrdemCompra? @relation(fields: [ordemCompraId], references: [id], onDelete: Cascade)
 
   @@index([fichaId])
   @@index([medicaoId])
+  @@index([ordemCompraId])
 }
 
 model LogAuditoria {

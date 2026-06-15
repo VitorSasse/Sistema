@@ -66,8 +66,31 @@ const ordemCompraInclude = {
   },
   parcelas: {
     orderBy: [{ numeroParcela: "asc" as const }]
+  },
+  anexos: {
+    orderBy: [{ createdAt: "desc" as const }]
   }
 };
+
+export async function GET(_: NextRequest, context: RouteContext) {
+  const session = await auth();
+
+  if (!session?.user) {
+    return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
+  }
+
+  const { id } = await context.params;
+  const ordemCompra = await prisma.ordemCompra.findUnique({
+    where: { id },
+    include: ordemCompraInclude
+  });
+
+  if (!ordemCompra) {
+    return NextResponse.json({ message: "Ordem de compra nao encontrada." }, { status: 404 });
+  }
+
+  return NextResponse.json(ordemCompra);
+}
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   const session = await auth();

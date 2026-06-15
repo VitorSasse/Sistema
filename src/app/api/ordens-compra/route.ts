@@ -1,3 +1,4 @@
+import { Prisma, StatusOrdemCompra, TipoCatalogoCompra } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { calcularSubtotalItem, calcularTotalOrdem, gerarParcelasOrdemCompra } from "@/lib/ordens-compra";
@@ -63,17 +64,124 @@ const ordemCompraInclude = {
   },
   parcelas: {
     orderBy: [{ numeroParcela: "asc" as const }]
+  },
+  anexos: {
+    orderBy: [{ createdAt: "desc" as const }]
   }
 };
 
-export async function GET() {
+function parseDateQuery(value: string | null, endOfDay = false) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const date = parseDateInput(normalized);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  if (endOfDay) {
+    date.setHours(23, 59, 59, 999);
+  }
+
+  return date;
+}
+
+export async function GET(request: NextRequest) {
   const session = await auth();
 
   if (!session?.user) {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const search = searchParams.get("search")?.trim() ?? "";
+  const fornecedorId = searchParams.get("fornecedorId")?.trim() ?? "";
+  const centroCustoId = searchParams.get("centroCustoId")?.trim() ?? "";
+  const statusParam = searchParams.get("status")?.trim() ?? "";
+  const tipoCompraParam = searchParams.get("tipoCompra")?.trim() ?? "";
+  const dataInicial = parseDateQuery(searchParams.get("dataInicial"));
+  const dataFinal = parseDateQuery(searchParams.get("dataFinal"), true);
+
+  const where: Prisma.OrdemCompraWhereInput = {};
+
+  if (fornecedorId) {
+    where.fornecedorId = fornecedorId;
+  }
+
+  if (centroCustoId) {
+    where.centroCustoId = centroCustoId;
+  }
+
+  if (
+    statusParam &&
+    statusParam !== "TODOS" &&
+    Object.values(StatusOrdemCompra).includes(statusParam as StatusOrdemCompra)
+  ) {
+    where.status = statusParam as StatusOrdemCompra;
+  }
+
+  if (
+    tipoCompraParam &&
+    tipoCompraParam !== "TODOS" &&
+    Object.values(TipoCatalogoCompra).includes(tipoCompraParam as TipoCatalogoCompra)
+  ) {
+    where.tipoCompra = tipoCompraParam as TipoCatalogoCompra;
+  }
+
+  if (dataInicial || dataFinal) {
+    const filtroData: Prisma.DateTimeFilter = {};
+
+    if (dataInicial) {
+      filtroData.gte = dataInicial;
+    }
+
+    if (dataFinal) {
+      filtroData.lte = dataFinal;
+    }
+
+    where.dataEmissao = filtroData;
+  }
+
+  if (search) {
+    where.OR = [
+      { numeroOrdem: { contains: search, mode: "insensitive" } },
+      { centroCustoNome: { contains: search, mode: "insensitive" } },
+      { observacao: { contains: search, mode: "insensitive" } },
+      { observacaoFinanceira: { contains: search, mode: "insensitive" } },
+      {
+        fornecedor: {
+          OR: [
+            { razaoSocial: { contains: search, mode: "insensitive" } },
+            { nomeFantasia: { contains: search, mode: "insensitive" } },
+            { codigo: { contains: search, mode: "insensitive" } },
+            { cnpj: { contains: search, mode: "insensitive" } }
+          ]
+        }
+      },
+      {
+        itens: {
+          some: {
+            OR: [
+              { descricao: { contains: search, mode: "insensitive" } },
+              { item: { contains: search, mode: "insensitive" } },
+              { codigo: { contains: search, mode: "insensitive" } }
+            ]
+          }
+        }
+      }
+    ];
+  }
+
   const items = await prisma.ordemCompra.findMany({
+    where,
     include: ordemCompraInclude,
     orderBy: [{ dataEmissao: "desc" }, { createdAt: "desc" }]
   });
