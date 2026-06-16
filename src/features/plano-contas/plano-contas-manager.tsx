@@ -7,7 +7,6 @@ import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
 type PlanoConta = {
   id: string;
-  codigo: string;
   classificacao: string;
   nome: string;
   tipo: "DESPESA" | "RECEITA";
@@ -69,7 +68,7 @@ export function PlanoContasManager() {
       const matchesTipo = tipoFilter === "TODOS" || item.tipo === tipoFilter;
       const matchesSearch =
         !normalized ||
-        [item.codigo, item.classificacao, item.nome, item.tipo, item.categoria ?? "", item.descricao ?? ""]
+        [item.classificacao, item.nome, item.tipo, item.categoria ?? "", item.descricao ?? ""]
           .join(" ")
           .toLowerCase()
           .includes(normalized);
@@ -146,7 +145,7 @@ export function PlanoContasManager() {
       descricao: item.descricao ?? "",
       status: item.status
     });
-    setMessage(`Editando ${item.codigo}.`);
+    setMessage(`Editando ${item.classificacao} - ${item.nome}.`);
   }
 
   function handleReset() {
@@ -210,7 +209,7 @@ export function PlanoContasManager() {
               {form.id ? "Editar plano de contas" : "Novo plano de contas"}
             </h2>
             <p className="section-copy">
-              O codigo interno e a classificacao contabil sao gerados automaticamente com base no tipo e na categoria.
+              A classificacao contabil e gerada automaticamente com base no tipo e na categoria.
             </p>
           </div>
         </div>
@@ -303,7 +302,7 @@ export function PlanoContasManager() {
           <div className="toolbar-actions">
             <input
               className="field-control"
-              placeholder="Buscar por codigo, classificacao, nome ou categoria"
+              placeholder="Buscar por classificacao, nome ou categoria"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               style={{ width: 360, maxWidth: "100%" }}
@@ -337,7 +336,6 @@ export function PlanoContasManager() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Codigo</th>
                 <th>Classificacao</th>
                 <th>Conta</th>
                 <th>Tipo</th>
@@ -348,7 +346,6 @@ export function PlanoContasManager() {
             <tbody>
               {filteredItems.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.codigo}</td>
                   <td>{item.classificacao}</td>
                   <td>
                     <div>{item.nome}</div>

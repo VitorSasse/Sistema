@@ -74,7 +74,6 @@ export async function GET(_: Request, context: RouteContext) {
       centroCustoNome: ordemCompra.centroCustoNome,
       planoConta: ordemCompra.planoConta
         ? {
-            codigo: ordemCompra.planoConta.codigo,
             classificacao: ordemCompra.planoConta.classificacao,
             nome: ordemCompra.planoConta.nome
           }

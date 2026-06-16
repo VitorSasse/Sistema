@@ -391,7 +391,6 @@ model CatalogoCompra {
 
 model PlanoConta {
   id            String         @id @default(uuid())
-  codigo        String         @unique
   classificacao String         @unique
   nome          String
   tipo          TipoPlanoConta

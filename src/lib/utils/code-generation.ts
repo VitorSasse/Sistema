@@ -119,14 +119,3 @@ export async function generateCatalogoCompraCode() {
     existentes.map((item) => item.codigo)
   );
 }
-
-export async function generatePlanoContaCode() {
-  const existentes = await prisma.planoConta.findMany({
-    select: { codigo: true }
-  });
-
-  return getNextSequentialCode(
-    "PLC",
-    existentes.map((item) => item.codigo)
-  );
-}

@@ -46,7 +46,6 @@ const ordemCompraInclude = {
   planoConta: {
     select: {
       id: true,
-      codigo: true,
       classificacao: true,
       nome: true,
       tipo: true,

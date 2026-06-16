@@ -44,7 +44,6 @@ const ordemCompraInclude = {
   planoConta: {
     select: {
       id: true,
-      codigo: true,
       classificacao: true,
       nome: true,
       tipo: true,
@@ -169,7 +168,6 @@ export async function GET(request: NextRequest) {
       {
         planoConta: {
           OR: [
-            { codigo: { contains: search, mode: "insensitive" } },
             { classificacao: { contains: search, mode: "insensitive" } },
             { nome: { contains: search, mode: "insensitive" } }
           ]

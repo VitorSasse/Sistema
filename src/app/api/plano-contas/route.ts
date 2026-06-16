@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { calcularProximaClassificacaoPlanoConta } from "@/lib/plano-contas";
 import { prisma } from "@/lib/prisma";
-import { generatePlanoContaCode } from "@/lib/utils/code-generation";
 import { planoContaSchema } from "@/lib/validators/plano-conta";
 
 export async function GET() {
@@ -74,10 +73,8 @@ export async function POST(request: NextRequest) {
       categoria: parsed.data.categoria,
       items: existentes
     });
-    const codigo = await generatePlanoContaCode();
     const created = await prisma.planoConta.create({
       data: {
-        codigo,
         classificacao,
         nome,
         tipo: parsed.data.tipo,

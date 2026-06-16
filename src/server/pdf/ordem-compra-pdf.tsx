@@ -40,7 +40,6 @@ type OrdemCompraPdfProps = {
   };
   centroCustoNome: string;
   planoConta: {
-    codigo: string;
     classificacao: string;
     nome: string;
   } | null;

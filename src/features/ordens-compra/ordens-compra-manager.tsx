@@ -59,7 +59,6 @@ type CatalogoCompra = {
 
 type PlanoConta = {
   id: string;
-  codigo: string;
   classificacao: string;
   nome: string;
   tipo: "DESPESA" | "RECEITA";
@@ -518,7 +517,7 @@ export function OrdensCompraManager() {
   const planosContaOpcoes = useMemo<SearchableSelectOption[]>(() => {
     return planosContaDisponiveis.map((planoConta) => ({
       value: planoConta.id,
-      label: `${planoConta.classificacao} - ${planoConta.nome}${planoConta.codigo ? ` (${planoConta.codigo})` : ""}`
+      label: `${planoConta.classificacao} - ${planoConta.nome}`
     }));
   }, [planosContaDisponiveis]);
 
