@@ -333,7 +333,7 @@ export async function POST(request: NextRequest) {
       dataBase: dataBaseParcelas
     });
 
-    const numeroOrdem = await generateOrdemCompraCode();
+    const numeroOrdem = await generateOrdemCompraCode(parsed.data.tipoCompra);
 
     const ordemCompra = await prisma.ordemCompra.create({
       data: {

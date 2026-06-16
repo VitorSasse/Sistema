@@ -360,6 +360,10 @@ function formatTipoCompra(value: string) {
   return value === "SERVICO" ? "SERVICOS" : "PRODUTOS";
 }
 
+function formatTituloDocumento(value: string) {
+  return value === "SERVICO" ? "ORDEM DE SERVICO" : "ORDEM DE COMPRA";
+}
+
 function formatFormaPagamento(value: string | null) {
   if (!value) {
     return "-";
@@ -398,6 +402,7 @@ function renderInfoRow(
 export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
   const totalQuantidade = props.itens.reduce((sum, item) => sum + item.quantidade, 0);
   const secaoItens = formatTipoCompra(props.tipoCompra);
+  const tituloDocumento = formatTituloDocumento(props.tipoCompra);
   const enderecoFornecedor = joinAddress(props.fornecedor);
 
   return (
@@ -425,7 +430,7 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
 
         <View style={styles.titleBand}>
           <View style={styles.titleSide} />
-          <Text style={styles.titleText}>ORDEM DE COMPRA No {props.numeroOrdem}</Text>
+          <Text style={styles.titleText}>{tituloDocumento} No {props.numeroOrdem}</Text>
           <View style={styles.titleDateBox}>
             <Text style={styles.titleDate}>{formatDate(props.dataEmissao)}</Text>
           </View>

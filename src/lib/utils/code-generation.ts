@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
+import { TipoCatalogoCompra } from "@prisma/client";
 
 function padSequence(value: number) {
   return String(value).padStart(3, "0");
 }
 
 async function getNextSequentialCode(
-  prefix: "CLI" | "OBR" | "COL" | "MAT" | "SER" | "FOR" | "OC" | "CCO" | "CAT" | "PLC",
+  prefix: "CLI" | "OBR" | "COL" | "MAT" | "SER" | "FOR" | "OC" | "OS" | "CCO" | "CAT" | "PLC",
   values: string[]
 ) {
   const highest = values.reduce((max, current) => {
@@ -87,13 +88,13 @@ export async function generateFornecedorCode() {
   );
 }
 
-export async function generateOrdemCompraCode() {
+export async function generateOrdemCompraCode(tipoCompra: TipoCatalogoCompra) {
   const existentes = await prisma.ordemCompra.findMany({
     select: { numeroOrdem: true }
   });
 
   return getNextSequentialCode(
-    "OC",
+    tipoCompra === "SERVICO" ? "OS" : "OC",
     existentes.map((item) => item.numeroOrdem)
   );
 }
