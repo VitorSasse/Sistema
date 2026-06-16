@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { calcularProximaClassificacaoPlanoConta } from "@/lib/plano-contas";
 import { prisma } from "@/lib/prisma";
 import { generatePlanoContaCode } from "@/lib/utils/code-generation";
 import { planoContaSchema } from "@/lib/validators/plano-conta";
@@ -35,18 +36,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const classificacao = parsed.data.classificacao.trim();
   const nome = parsed.data.nome.trim();
 
   const existing = await prisma.planoConta.findFirst({
     where: {
       OR: [
-        {
-          classificacao: {
-            equals: classificacao,
-            mode: "insensitive"
-          }
-        },
         {
           nome: {
             equals: nome,
@@ -61,12 +55,25 @@ export async function POST(request: NextRequest) {
 
   if (existing) {
     return NextResponse.json(
-      { message: "Ja existe plano de contas com esta classificacao ou nome para o mesmo tipo." },
+      { message: "Ja existe plano de contas com este nome para o mesmo tipo." },
       { status: 409 }
     );
   }
 
   try {
+    const existentes = await prisma.planoConta.findMany({
+      select: {
+        id: true,
+        classificacao: true,
+        tipo: true,
+        categoria: true
+      }
+    });
+    const classificacao = calcularProximaClassificacaoPlanoConta({
+      tipo: parsed.data.tipo,
+      categoria: parsed.data.categoria,
+      items: existentes
+    });
     const codigo = await generatePlanoContaCode();
     const created = await prisma.planoConta.create({
       data: {

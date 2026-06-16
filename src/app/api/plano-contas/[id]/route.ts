@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import {
+  calcularProximaClassificacaoPlanoConta,
+  normalizarCategoriaPlanoConta
+} from "@/lib/plano-contas";
 import { prisma } from "@/lib/prisma";
 import { planoContaSchema } from "@/lib/validators/plano-conta";
 
@@ -25,39 +29,63 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const classificacao = parsed.data.classificacao.trim();
   const nome = parsed.data.nome.trim();
+
+  const planoAtual = await prisma.planoConta.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      classificacao: true,
+      tipo: true,
+      categoria: true
+    }
+  });
+
+  if (!planoAtual) {
+    return NextResponse.json({ message: "Plano de contas nao encontrado." }, { status: 404 });
+  }
 
   const existing = await prisma.planoConta.findFirst({
     where: {
       NOT: { id },
-      OR: [
-        {
-          classificacao: {
-            equals: classificacao,
-            mode: "insensitive"
-          }
-        },
-        {
-          nome: {
-            equals: nome,
-            mode: "insensitive"
-          },
-          tipo: parsed.data.tipo
-        }
-      ]
+      nome: {
+        equals: nome,
+        mode: "insensitive"
+      },
+      tipo: parsed.data.tipo
     },
     select: { id: true }
   });
 
   if (existing) {
     return NextResponse.json(
-      { message: "Ja existe plano de contas com esta classificacao ou nome para o mesmo tipo." },
+      { message: "Ja existe plano de contas com este nome para o mesmo tipo." },
       { status: 409 }
     );
   }
 
   try {
+    const tipoAlterado = planoAtual.tipo !== parsed.data.tipo;
+    const categoriaAlterada =
+      normalizarCategoriaPlanoConta(planoAtual.categoria) !==
+      normalizarCategoriaPlanoConta(parsed.data.categoria);
+    const classificacao =
+      tipoAlterado || categoriaAlterada
+        ? calcularProximaClassificacaoPlanoConta({
+            tipo: parsed.data.tipo,
+            categoria: parsed.data.categoria,
+            items: await prisma.planoConta.findMany({
+              select: {
+                id: true,
+                classificacao: true,
+                tipo: true,
+                categoria: true
+              }
+            }),
+            excludeId: id
+          })
+        : planoAtual.classificacao;
+
     const updated = await prisma.planoConta.update({
       where: { id },
       data: {

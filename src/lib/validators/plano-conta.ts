@@ -2,11 +2,6 @@ import { StatusCadastro, TipoPlanoConta } from "@prisma/client";
 import { z } from "zod";
 
 export const planoContaSchema = z.object({
-  classificacao: z
-    .string()
-    .trim()
-    .min(1, "Informe a classificacao da conta.")
-    .max(40, "A classificacao deve ter no maximo 40 caracteres."),
   nome: z
     .string()
     .trim()

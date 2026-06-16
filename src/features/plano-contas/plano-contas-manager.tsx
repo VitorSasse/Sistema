@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { calcularProximaClassificacaoPlanoConta, normalizarCategoriaPlanoConta } from "@/lib/plano-contas";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
 type PlanoConta = {
@@ -17,7 +18,6 @@ type PlanoConta = {
 
 type FormState = {
   id?: string;
-  classificacao: string;
   nome: string;
   tipo: "DESPESA" | "RECEITA";
   categoria: string;
@@ -26,7 +26,6 @@ type FormState = {
 };
 
 const initialForm: FormState = {
-  classificacao: "",
   nome: "",
   tipo: "DESPESA",
   categoria: "",
@@ -79,6 +78,30 @@ export function PlanoContasManager() {
     });
   }, [items, search, statusFilter, tipoFilter]);
 
+  const itemEmEdicao = useMemo(() => {
+    return form.id ? items.find((item) => item.id === form.id) ?? null : null;
+  }, [form.id, items]);
+
+  const classificacaoPreview = useMemo(() => {
+    if (itemEmEdicao) {
+      const tipoAlterado = itemEmEdicao.tipo !== form.tipo;
+      const categoriaAlterada =
+        normalizarCategoriaPlanoConta(itemEmEdicao.categoria) !==
+        normalizarCategoriaPlanoConta(form.categoria);
+
+      if (!tipoAlterado && !categoriaAlterada) {
+        return itemEmEdicao.classificacao;
+      }
+    }
+
+    return calcularProximaClassificacaoPlanoConta({
+      tipo: form.tipo,
+      categoria: form.categoria,
+      items,
+      excludeId: form.id
+    });
+  }, [form.categoria, form.id, form.tipo, itemEmEdicao, items]);
+
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -117,7 +140,6 @@ export function PlanoContasManager() {
   function handleEdit(item: PlanoConta) {
     setForm({
       id: item.id,
-      classificacao: item.classificacao,
       nome: item.nome,
       tipo: item.tipo,
       categoria: item.categoria ?? "",
@@ -176,7 +198,7 @@ export function PlanoContasManager() {
         <div>
           <h1 className="page-title">Plano de contas</h1>
           <p className="page-copy">
-            Estruture as contas financeiras por classificacao, tipo e categoria.
+            Estruture as contas financeiras por tipo e categoria, com classificacao gerada automaticamente.
           </p>
         </div>
       </section>
@@ -188,20 +210,15 @@ export function PlanoContasManager() {
               {form.id ? "Editar plano de contas" : "Novo plano de contas"}
             </h2>
             <p className="section-copy">
-              O codigo interno e gerado automaticamente. A classificacao contabil e definida no cadastro.
+              O codigo interno e a classificacao contabil sao gerados automaticamente com base no tipo e na categoria.
             </p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 24 }}>
           <div className="form-grid-4">
-            <Field label="Classificacao">
-              <input
-                className="field-control"
-                placeholder="Ex.: 3.1.02"
-                value={form.classificacao}
-                onChange={(event) => updateField("classificacao", event.target.value)}
-              />
+            <Field label="Classificacao automatica">
+              <input className="field-control" value={classificacaoPreview} readOnly />
             </Field>
             <Field label="Nome da conta">
               <input
@@ -243,6 +260,11 @@ export function PlanoContasManager() {
               />
             </Field>
           </div>
+
+          <p className="section-copy" style={{ margin: 0 }}>
+            Regra atual: despesas usam base <strong>3.xx.xx</strong>, receitas usam base{" "}
+            <strong>4.xx.xx</strong>. O segundo bloco identifica a categoria e o ultimo a sequencia da conta.
+          </p>
 
           <Field label="Descricao">
             <textarea
