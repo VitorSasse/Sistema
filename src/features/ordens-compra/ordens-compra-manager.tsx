@@ -56,6 +56,16 @@ type CatalogoCompra = {
   status: "ATIVO" | "INATIVO";
 };
 
+type PlanoConta = {
+  id: string;
+  codigo: string;
+  classificacao: string;
+  nome: string;
+  tipo: "DESPESA" | "RECEITA";
+  categoria: string | null;
+  status: "ATIVO" | "INATIVO";
+};
+
 type OrdemCompraAnexo = {
   id: string;
   tipo: TipoAnexo;
@@ -74,6 +84,7 @@ type OrdemCompra = {
   tipoCompra: TipoCompra;
   centroCustoId: string | null;
   centroCustoNome: string;
+  planoContaId: string | null;
   formaPagamento: string | null;
   numeroParcelas: number;
   primeiroVencimento: string | null;
@@ -85,6 +96,7 @@ type OrdemCompra = {
   valorTotal: string | number;
   fornecedor: Fornecedor;
   centroCusto: CentroCusto | null;
+  planoConta: PlanoConta | null;
   criadoPor: {
     id: string;
     nome: string;
@@ -128,6 +140,7 @@ type FormState = {
   tipoCompra: TipoCompra;
   fornecedorId: string;
   centroCustoId: string;
+  planoContaId: string;
   formaPagamento: string;
   numeroParcelas: string;
   primeiroVencimento: string;
@@ -196,6 +209,7 @@ function createInitialForm(): FormState {
     tipoCompra: "PRODUTO",
     fornecedorId: "",
     centroCustoId: "",
+    planoContaId: "",
     formaPagamento: "",
     numeroParcelas: "1",
     primeiroVencimento: today,
@@ -226,6 +240,7 @@ function createFormFromOrder(ordem: OrdemCompra): FormState {
     tipoCompra: ordem.tipoCompra,
     fornecedorId: ordem.fornecedor.id,
     centroCustoId: ordem.centroCusto?.id ?? "",
+    planoContaId: ordem.planoConta?.id ?? "",
     formaPagamento: ordem.formaPagamento ?? "",
     numeroParcelas: String(ordem.numeroParcelas),
     primeiroVencimento: formatDateInput(
@@ -285,6 +300,10 @@ function formatFornecedorLabel(fornecedor: Fornecedor) {
   return fornecedor.nomeFantasia
     ? `${fornecedor.nomeFantasia} (${fornecedor.razaoSocial})`
     : fornecedor.razaoSocial;
+}
+
+function formatPlanoContaLabel(planoConta: PlanoConta) {
+  return `${planoConta.classificacao} - ${planoConta.nome}`;
 }
 
 function formatTipoAnexo(tipo: TipoAnexo) {
@@ -348,6 +367,7 @@ export function OrdensCompraManager() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [centrosCusto, setCentrosCusto] = useState<CentroCusto[]>([]);
   const [catalogoCompra, setCatalogoCompra] = useState<CatalogoCompra[]>([]);
+  const [planosConta, setPlanosConta] = useState<PlanoConta[]>([]);
   const [ordemSelecionada, setOrdemSelecionada] = useState<OrdemCompra | null>(null);
   const [form, setForm] = useState<FormState>(() => createInitialForm());
   const [message, setMessage] = useState("");
@@ -366,19 +386,22 @@ export function OrdensCompraManager() {
   const [isPending, startTransition] = useTransition();
 
   async function loadCatalogData() {
-    const [fornecedoresResponse, centrosResponse, catalogoResponse] = await Promise.all([
+    const [fornecedoresResponse, centrosResponse, catalogoResponse, planosContaResponse] = await Promise.all([
       fetch("/api/fornecedores", { cache: "no-store" }),
       fetch("/api/centros-custo", { cache: "no-store" }),
-      fetch("/api/catalogo-compras", { cache: "no-store" })
+      fetch("/api/catalogo-compras", { cache: "no-store" }),
+      fetch("/api/plano-contas", { cache: "no-store" })
     ]);
 
     const fornecedoresData = (await fornecedoresResponse.json()) as { items: Fornecedor[] };
     const centrosData = (await centrosResponse.json()) as { items: CentroCusto[] };
     const catalogoData = (await catalogoResponse.json()) as { items: CatalogoCompra[] };
+    const planosContaData = (await planosContaResponse.json()) as { items: PlanoConta[] };
 
     setFornecedores(fornecedoresData.items);
     setCentrosCusto(centrosData.items);
     setCatalogoCompra(catalogoData.items);
+    setPlanosConta(planosContaData.items);
   }
 
   async function loadOrdens(filters = filtrosAplicados) {
@@ -456,6 +479,16 @@ export function OrdensCompraManager() {
       .sort((a, b) => a.descricao.localeCompare(b.descricao));
   }, [catalogoCompra, form.tipoCompra, form.itens]);
 
+  const planosContaDisponiveis = useMemo(() => {
+    return planosConta
+      .filter((planoConta) => planoConta.tipo === "DESPESA")
+      .filter((planoConta) => planoConta.status === "ATIVO" || planoConta.id === form.planoContaId)
+      .sort((a, b) => {
+        const classificacao = a.classificacao.localeCompare(b.classificacao);
+        return classificacao !== 0 ? classificacao : a.nome.localeCompare(b.nome);
+      });
+  }, [form.planoContaId, planosConta]);
+
   const fornecedorSelecionado = useMemo(() => {
     return fornecedores.find((fornecedor) => fornecedor.id === form.fornecedorId) ?? null;
   }, [fornecedores, form.fornecedorId]);
@@ -463,6 +496,10 @@ export function OrdensCompraManager() {
   const centroSelecionado = useMemo(() => {
     return centrosCusto.find((centro) => centro.id === form.centroCustoId) ?? null;
   }, [centrosCusto, form.centroCustoId]);
+
+  const planoContaSelecionado = useMemo(() => {
+    return planosConta.find((planoConta) => planoConta.id === form.planoContaId) ?? null;
+  }, [form.planoContaId, planosConta]);
 
   const configuracaoPagamento = useMemo(() => {
     return obterFormaPagamentoOrdemCompra(form.formaPagamento);
@@ -646,6 +683,7 @@ export function OrdensCompraManager() {
       tipoCompra: form.tipoCompra,
       fornecedorId: form.fornecedorId,
       centroCustoId: form.centroCustoId,
+      planoContaId: form.planoContaId,
       centroCustoTipo: "SETOR",
       centroCustoNome: centroSelecionado?.nome ?? "",
       formaPagamento: form.formaPagamento,
@@ -1122,6 +1160,21 @@ export function OrdensCompraManager() {
             </div>
 
             <div className="form-grid-4">
+              <Field label="Plano de conta">
+                <select
+                  className="field-control"
+                  value={form.planoContaId}
+                  onChange={(event) => updateField("planoContaId", event.target.value)}
+                >
+                  <option value="">Selecione o plano de conta</option>
+                  {planosContaDisponiveis.map((planoConta) => (
+                    <option key={planoConta.id} value={planoConta.id}>
+                      {formatPlanoContaLabel(planoConta)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+
               <Field label="Forma de pagamento">
                 <select
                   className="field-control"
@@ -1204,6 +1257,13 @@ export function OrdensCompraManager() {
                 />
               </Field>
             </div>
+
+            {planoContaSelecionado ? (
+              <p className="section-copy" style={{ marginTop: 14, marginBottom: 0 }}>
+                Plano financeiro selecionado:{" "}
+                <strong>{formatPlanoContaLabel(planoContaSelecionado)}</strong>
+              </p>
+            ) : null}
 
             <Field label="Observacoes financeiras">
               <textarea
@@ -1387,7 +1447,7 @@ export function OrdensCompraManager() {
             <Field label="Busca geral">
               <input
                 className="field-control"
-                placeholder="Numero da ordem, fornecedor, observacao, item ou centro de custo"
+                placeholder="Numero da ordem, fornecedor, plano de conta, observacao, item ou centro de custo"
                 value={filtrosConsulta.search}
                 onChange={(event) => updateFiltro("search", event.target.value)}
               />
@@ -1526,7 +1586,12 @@ export function OrdensCompraManager() {
                         <div className="subtle">{ordem.fornecedor.nomeFantasia}</div>
                       ) : null}
                     </td>
-                    <td>{ordem.centroCustoNome}</td>
+                    <td>
+                      <div>{ordem.centroCustoNome}</div>
+                      <div className="subtle">
+                        {ordem.planoConta ? formatPlanoContaLabel(ordem.planoConta) : "Plano nao informado"}
+                      </div>
+                    </td>
                     <td>{formatCurrency(ordem.valorTotal)}</td>
                     <td>
                       <span className={getStatusBadgeClass(ordem.status)}>

@@ -19,6 +19,7 @@ export const ordemCompraSchema = z
     tipoCompra: z.nativeEnum(TipoCatalogoCompra).default(TipoCatalogoCompra.PRODUTO),
     fornecedorId: z.string().uuid(),
     centroCustoId: z.string().uuid(),
+    planoContaId: z.string().trim().min(1, "Selecione o plano de conta."),
     centroCustoTipo: z
       .nativeEnum(TipoCentroCustoOrdemCompra)
       .default(TipoCentroCustoOrdemCompra.SETOR),

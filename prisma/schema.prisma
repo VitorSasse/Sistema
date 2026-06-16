@@ -400,6 +400,7 @@ model PlanoConta {
   status        StatusCadastro @default(ATIVO)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  ordensCompra  OrdemCompra[]
 
   @@index([tipo, status, nome])
   @@index([status, nome])
@@ -454,6 +455,7 @@ model OrdemCompra {
   tipoCompra               TipoCatalogoCompra         @default(PRODUTO)
   fornecedorId             String
   centroCustoId            String?
+  planoContaId             String?
   centroCustoTipo          TipoCentroCustoOrdemCompra @default(SETOR)
   centroCustoNome          String
   centroCustoEquipamentoId String?
@@ -471,6 +473,7 @@ model OrdemCompra {
   updatedAt                DateTime                   @updatedAt
   fornecedor               Fornecedor                 @relation(fields: [fornecedorId], references: [id])
   centroCusto              CentroCustoCompra?         @relation(fields: [centroCustoId], references: [id])
+  planoConta               PlanoConta?                @relation(fields: [planoContaId], references: [id])
   centroCustoEquipamento   Equipamento?               @relation("OrdemCompraCentroCustoEquipamento", fields: [centroCustoEquipamentoId], references: [id])
   criadoPor                Usuario                    @relation("OrdemCompraCriadaPor", fields: [criadoPorId], references: [id])
   itens                    OrdemCompraItem[]
@@ -480,6 +483,7 @@ model OrdemCompra {
   @@index([status, dataEmissao])
   @@index([fornecedorId, dataEmissao])
   @@index([centroCustoId, dataEmissao])
+  @@index([planoContaId, dataEmissao])
   @@index([centroCustoNome, dataEmissao])
 }
 

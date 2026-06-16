@@ -36,6 +36,7 @@ export async function GET(_: Request, context: RouteContext) {
     where: { id },
     include: {
       fornecedor: true,
+      planoConta: true,
       itens: {
         orderBy: [{ createdAt: "asc" }]
       },
@@ -71,6 +72,13 @@ export async function GET(_: Request, context: RouteContext) {
         email: ordemCompra.fornecedor.email
       },
       centroCustoNome: ordemCompra.centroCustoNome,
+      planoConta: ordemCompra.planoConta
+        ? {
+            codigo: ordemCompra.planoConta.codigo,
+            classificacao: ordemCompra.planoConta.classificacao,
+            nome: ordemCompra.planoConta.nome
+          }
+        : null,
       formaPagamento: ordemCompra.formaPagamento,
       numeroParcelas: ordemCompra.numeroParcelas,
       observacaoFinanceira: ordemCompra.observacaoFinanceira,

@@ -39,6 +39,11 @@ type OrdemCompraPdfProps = {
     email: string | null;
   };
   centroCustoNome: string;
+  planoConta: {
+    codigo: string;
+    classificacao: string;
+    nome: string;
+  } | null;
   formaPagamento: string | null;
   numeroParcelas: number;
   observacaoFinanceira: string | null;
@@ -447,13 +452,21 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
             "E-mail:",
             props.fornecedor.email ?? "-"
           )}
-          {renderInfoRow("Centro de custo:", props.centroCustoNome, "Status:", props.status)}
+          {renderInfoRow(
+            "Centro de custo:",
+            props.centroCustoNome,
+            "Plano de conta:",
+            props.planoConta
+              ? `${props.planoConta.classificacao} - ${props.planoConta.nome}`
+              : "-"
+          )}
           {renderInfoRow(
             "Tipo da compra:",
             props.tipoCompra === "SERVICO" ? "Servico" : "Produto",
-            "Parcelas:",
-            String(props.numeroParcelas)
+            "Status:",
+            props.status
           )}
+          {renderInfoRow("Parcelas:", String(props.numeroParcelas), "Forma de pagamento:", formatFormaPagamento(props.formaPagamento))}
         </View>
 
         <View style={styles.sectionBand}>

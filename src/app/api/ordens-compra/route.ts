@@ -41,6 +41,16 @@ const ordemCompraInclude = {
       status: true
     }
   },
+  planoConta: {
+    select: {
+      id: true,
+      codigo: true,
+      classificacao: true,
+      nome: true,
+      tipo: true,
+      status: true
+    }
+  },
   criadoPor: {
     select: {
       id: true,
@@ -157,6 +167,15 @@ export async function GET(request: NextRequest) {
       { observacao: { contains: search, mode: "insensitive" } },
       { observacaoFinanceira: { contains: search, mode: "insensitive" } },
       {
+        planoConta: {
+          OR: [
+            { codigo: { contains: search, mode: "insensitive" } },
+            { classificacao: { contains: search, mode: "insensitive" } },
+            { nome: { contains: search, mode: "insensitive" } }
+          ]
+        }
+      },
+      {
         fornecedor: {
           OR: [
             { razaoSocial: { contains: search, mode: "insensitive" } },
@@ -226,6 +245,25 @@ export async function POST(request: NextRequest) {
 
   if (!centroCusto) {
     return NextResponse.json({ message: "Centro de custo nao encontrado." }, { status: 404 });
+  }
+
+  const planoConta = await prisma.planoConta.findUnique({
+    where: { id: parsed.data.planoContaId },
+    select: {
+      id: true,
+      tipo: true
+    }
+  });
+
+  if (!planoConta) {
+    return NextResponse.json({ message: "Plano de conta nao encontrado." }, { status: 404 });
+  }
+
+  if (planoConta.tipo !== "DESPESA") {
+    return NextResponse.json(
+      { message: "A ordem de compra deve utilizar um plano de conta do tipo despesa." },
+      { status: 409 }
+    );
   }
 
   const catalogoIds = parsed.data.itens
@@ -307,6 +345,7 @@ export async function POST(request: NextRequest) {
         tipoCompra: parsed.data.tipoCompra,
         fornecedorId: parsed.data.fornecedorId,
         centroCustoId: parsed.data.centroCustoId,
+        planoContaId: parsed.data.planoContaId,
         centroCustoTipo: "SETOR",
         centroCustoNome: centroCusto.nome,
         centroCustoEquipamentoId: null,
