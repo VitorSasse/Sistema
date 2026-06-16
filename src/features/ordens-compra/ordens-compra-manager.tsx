@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/form/searchable-select";
 import { calcularTotalOrdem, gerarParcelasOrdemCompra } from "@/lib/ordens-compra";
 import {
   FORMAS_PAGAMENTO_ORDEM_COMPRA,
@@ -306,6 +307,10 @@ function formatPlanoContaLabel(planoConta: PlanoConta) {
   return `${planoConta.classificacao} - ${planoConta.nome}`;
 }
 
+function formatCatalogoLabel(item: CatalogoCompra) {
+  return item.codigo ? `${item.codigo} - ${item.descricao}` : item.descricao;
+}
+
 function formatTipoAnexo(tipo: TipoAnexo) {
   if (tipo === "PEDIDO") return "Pedido";
   if (tipo === "NOTA_FISCAL") return "Nota fiscal";
@@ -458,6 +463,20 @@ export function OrdensCompraManager() {
       .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [centrosCusto, form.centroCustoId]);
 
+  const fornecedoresOpcoes = useMemo<SearchableSelectOption[]>(() => {
+    return fornecedoresDisponiveis.map((fornecedor) => ({
+      value: fornecedor.id,
+      label: formatFornecedorLabel(fornecedor)
+    }));
+  }, [fornecedoresDisponiveis]);
+
+  const centrosCustoOpcoes = useMemo<SearchableSelectOption[]>(() => {
+    return centrosDisponiveis.map((centro) => ({
+      value: centro.id,
+      label: centro.nome
+    }));
+  }, [centrosDisponiveis]);
+
   const fornecedoresFiltro = useMemo(() => {
     return fornecedores
       .filter((fornecedor) => fornecedor.status === "ATIVO")
@@ -479,6 +498,13 @@ export function OrdensCompraManager() {
       .sort((a, b) => a.descricao.localeCompare(b.descricao));
   }, [catalogoCompra, form.tipoCompra, form.itens]);
 
+  const catalogoOpcoes = useMemo<SearchableSelectOption[]>(() => {
+    return catalogoDisponivel.map((item) => ({
+      value: item.id,
+      label: formatCatalogoLabel(item)
+    }));
+  }, [catalogoDisponivel]);
+
   const planosContaDisponiveis = useMemo(() => {
     return planosConta
       .filter((planoConta) => planoConta.tipo === "DESPESA")
@@ -488,6 +514,20 @@ export function OrdensCompraManager() {
         return classificacao !== 0 ? classificacao : a.nome.localeCompare(b.nome);
       });
   }, [form.planoContaId, planosConta]);
+
+  const planosContaOpcoes = useMemo<SearchableSelectOption[]>(() => {
+    return planosContaDisponiveis.map((planoConta) => ({
+      value: planoConta.id,
+      label: `${planoConta.classificacao} - ${planoConta.nome}${planoConta.codigo ? ` (${planoConta.codigo})` : ""}`
+    }));
+  }, [planosContaDisponiveis]);
+
+  const formasPagamentoOpcoes = useMemo<SearchableSelectOption[]>(() => {
+    return FORMAS_PAGAMENTO_ORDEM_COMPRA.map((forma) => ({
+      value: forma.valor,
+      label: forma.rotulo
+    }));
+  }, []);
 
   const fornecedorSelecionado = useMemo(() => {
     return fornecedores.find((fornecedor) => fornecedor.id === form.fornecedorId) ?? null;
@@ -925,32 +965,22 @@ export function OrdensCompraManager() {
 
             <div className="form-grid-4">
               <Field label="Fornecedor">
-                <select
-                  className="field-control"
+                <SearchableSelect
                   value={form.fornecedorId}
-                  onChange={(event) => updateField("fornecedorId", event.target.value)}
-                >
-                  <option value="">Selecione o fornecedor</option>
-                  {fornecedoresDisponiveis.map((fornecedor) => (
-                    <option key={fornecedor.id} value={fornecedor.id}>
-                      {formatFornecedorLabel(fornecedor)}
-                    </option>
-                  ))}
-                </select>
+                  options={fornecedoresOpcoes}
+                  placeholder="Digite para buscar o fornecedor"
+                  emptyLabel="Nenhum fornecedor encontrado."
+                  onChange={(value) => updateField("fornecedorId", value)}
+                />
               </Field>
               <Field label="Centro de custo">
-                <select
-                  className="field-control"
+                <SearchableSelect
                   value={form.centroCustoId}
-                  onChange={(event) => updateField("centroCustoId", event.target.value)}
-                >
-                  <option value="">Selecione o centro de custo</option>
-                  {centrosDisponiveis.map((centro) => (
-                    <option key={centro.id} value={centro.id}>
-                      {centro.nome}
-                    </option>
-                  ))}
-                </select>
+                  options={centrosCustoOpcoes}
+                  placeholder="Digite para buscar o centro de custo"
+                  emptyLabel="Nenhum centro de custo encontrado."
+                  onChange={(value) => updateField("centroCustoId", value)}
+                />
               </Field>
               <Field label="Data da emissao">
                 <input
@@ -1057,19 +1087,15 @@ export function OrdensCompraManager() {
                           />
                         </td>
                         <td>
-                          <select
-                            className="field-control"
+                          <div style={{ minWidth: 240 }}>
+                            <SearchableSelect
                             value={item.catalogoCompraId}
-                            onChange={(event) => handleSelectCatalogo(index, event.target.value)}
-                            style={{ minWidth: 240 }}
-                          >
-                            <option value="">Selecione do catalogo</option>
-                            {catalogoDisponivel.map((catalogo) => (
-                              <option key={catalogo.id} value={catalogo.id}>
-                                {catalogo.descricao}
-                              </option>
-                            ))}
-                          </select>
+                              options={catalogoOpcoes}
+                              placeholder={`Digite para buscar ${form.tipoCompra === "SERVICO" ? "o servico" : "o produto"}`}
+                              emptyLabel={`Nenhum ${form.tipoCompra === "SERVICO" ? "servico" : "produto"} encontrado.`}
+                              onChange={(value) => handleSelectCatalogo(index, value)}
+                            />
+                          </div>
                         </td>
                         <td>
                           <input
@@ -1161,33 +1187,23 @@ export function OrdensCompraManager() {
 
             <div className="form-grid-4">
               <Field label="Plano de conta">
-                <select
-                  className="field-control"
+                <SearchableSelect
                   value={form.planoContaId}
-                  onChange={(event) => updateField("planoContaId", event.target.value)}
-                >
-                  <option value="">Selecione o plano de conta</option>
-                  {planosContaDisponiveis.map((planoConta) => (
-                    <option key={planoConta.id} value={planoConta.id}>
-                      {formatPlanoContaLabel(planoConta)}
-                    </option>
-                  ))}
-                </select>
+                  options={planosContaOpcoes}
+                  placeholder="Digite para buscar o plano de conta"
+                  emptyLabel="Nenhum plano de conta encontrado."
+                  onChange={(value) => updateField("planoContaId", value)}
+                />
               </Field>
 
               <Field label="Forma de pagamento">
-                <select
-                  className="field-control"
+                <SearchableSelect
                   value={form.formaPagamento}
-                  onChange={(event) => updateField("formaPagamento", event.target.value)}
-                >
-                  <option value="">Selecione a forma de pagamento</option>
-                  {FORMAS_PAGAMENTO_ORDEM_COMPRA.map((forma) => (
-                    <option key={forma.valor} value={forma.valor}>
-                      {forma.rotulo}
-                    </option>
-                  ))}
-                </select>
+                  options={formasPagamentoOpcoes}
+                  placeholder="Digite para buscar a forma de pagamento"
+                  emptyLabel="Nenhuma forma de pagamento encontrada."
+                  onChange={(value) => updateField("formaPagamento", value)}
+                />
               </Field>
 
               {!form.formaPagamento ? (
