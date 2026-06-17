@@ -4116,11 +4116,18 @@ button {
   display: grid;
   gap: 18px;
   padding: 26px;
+  position: relative;
+  z-index: 12;
+  overflow: visible;
+  isolation: isolate;
 }
 
 .executive-hero-controls {
   grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
   align-items: end;
+  position: relative;
+  z-index: 2;
+  overflow: visible;
 }
 
 .executive-custom-range {
@@ -4165,6 +4172,9 @@ button {
 
 .executive-filter-field {
   min-width: 0;
+  position: relative;
+  z-index: 3;
+  overflow: visible;
 }
 
 .executive-filter-field .field-label {
@@ -4207,6 +4217,8 @@ button {
 .executive-kpi-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+  position: relative;
+  z-index: 1;
 }
 
 .executive-card {
@@ -4257,6 +4269,8 @@ button {
 
 .executive-grid {
   gap: 18px;
+  position: relative;
+  z-index: 1;
 }
 
 .executive-grid-half {
