@@ -78,6 +78,10 @@ export function MedicaoDetailSection(props: {
   ) => void;
   editingLancamentoId: string | null;
   onStartDetailEdit: (item: MedicaoDetail["itens"][number]) => void;
+  periodoInicial: string;
+  onChangePeriodoInicial: (value: string) => void;
+  periodoFinal: string;
+  onChangePeriodoFinal: (value: string) => void;
   observacao: string;
   onChangeObservacao: (value: string) => void;
   observacaoInterna: string;
@@ -119,6 +123,10 @@ export function MedicaoDetailSection(props: {
     onUpdateItemFaturamento,
     editingLancamentoId,
     onStartDetailEdit,
+    periodoInicial,
+    onChangePeriodoInicial,
+    periodoFinal,
+    onChangePeriodoFinal,
     observacao,
     onChangeObservacao,
     observacaoInterna,
@@ -327,6 +335,30 @@ export function MedicaoDetailSection(props: {
             </button>
           </div>
           <div className="section-block section-stack-sm">
+            <div className="form-grid-2">
+              <MedicaoField label="Periodo inicial">
+                <input
+                  className="field-control"
+                  type="date"
+                  value={periodoInicial}
+                  onChange={(e) => onChangePeriodoInicial(e.target.value)}
+                  disabled={!canEditContent || isPending}
+                />
+              </MedicaoField>
+              <MedicaoField label="Periodo final">
+                <input
+                  className="field-control"
+                  type="date"
+                  value={periodoFinal}
+                  onChange={(e) => onChangePeriodoFinal(e.target.value)}
+                  disabled={!canEditContent || isPending}
+                />
+              </MedicaoField>
+            </div>
+            <p className="subtle" style={{ margin: 0 }}>
+              Ajuste o periodo para ampliar a janela de lancamentos elegiveis. O novo intervalo
+              nao pode deixar itens ja vinculados fora da medicao.
+            </p>
             <MedicaoField label="Observacao da medicao">
               <textarea
                 className="field-control textarea-lg"

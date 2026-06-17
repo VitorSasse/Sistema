@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
-  atualizarObservacaoMedicao,
+  atualizarDadosMedicao,
   buscarDetalheMedicao,
   excluirMedicao
 } from "@/server/services/medicoes/service";
@@ -38,6 +38,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params;
   const payload = (await request.json()) as {
+    periodoInicial?: string | null;
+    periodoFinal?: string | null;
     observacao?: string | null;
     observacaoInterna?: string | null;
     descontoValor?: number | null;
@@ -47,8 +49,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   try {
     const medicao = await prisma.$transaction((tx) =>
-      atualizarObservacaoMedicao(tx, {
+      atualizarDadosMedicao(tx, {
         id,
+        periodoInicial: payload.periodoInicial?.trim() || "",
+        periodoFinal: payload.periodoFinal?.trim() || "",
         observacao: payload.observacao?.trim() ? payload.observacao.trim() : null,
         observacaoInterna: payload.observacaoInterna?.trim()
           ? payload.observacaoInterna.trim()
@@ -73,6 +77,24 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (error instanceof Error && error.message === "MEDICAO_BLOQUEADA_PARA_EDICAO") {
       return NextResponse.json(
         { message: "Esta medicao nao pode mais ter conteudo alterado neste status." },
+        { status: 409 }
+      );
+    }
+
+    if (error instanceof Error && error.message === "PERIODO_INVALIDO") {
+      return NextResponse.json(
+        { message: "O periodo final nao pode ser menor que o periodo inicial." },
+        { status: 400 }
+      );
+    }
+
+    if (error instanceof Error && error.message.startsWith("PERIODO_NAO_ABRANGE_ITENS:")) {
+      const [, dataInicialItem = "", dataFinalItem = ""] = error.message.split(":");
+
+      return NextResponse.json(
+        {
+          message: `O novo periodo precisa abranger todos os itens ja vinculados a esta medicao, entre ${dataInicialItem} e ${dataFinalItem}.`
+        },
         { status: 409 }
       );
     }

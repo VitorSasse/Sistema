@@ -252,6 +252,11 @@ function toInputDate(value: Date) {
   return value.toISOString().slice(0, 10);
 }
 
+function formatDateLabel(value: Date) {
+  const [year, month, day] = toInputDate(value).split("-");
+  return `${day}/${month}/${year}`;
+}
+
 function inferCobrancaMaterialFromMedicao(
   medicao: Pick<MedicaoEditavelSnapshot, "itens">
 ): MedicaoPreviewInput["cobrancaMaterial"] {
@@ -651,10 +656,12 @@ export async function atualizarValorItemMedicao(
   return buscarDetalheMedicao(db, params.medicaoId);
 }
 
-export async function atualizarObservacaoMedicao(
+export async function atualizarDadosMedicao(
   db: DbClient,
   params: {
     id: string;
+    periodoInicial: string;
+    periodoFinal: string;
     observacao: string | null;
     observacaoInterna: string | null;
     descontoValor: number;
@@ -669,7 +676,17 @@ export async function atualizarObservacaoMedicao(
     },
     select: {
       id: true,
-      status: true
+      status: true,
+      periodoInicial: true,
+      periodoFinal: true,
+      itens: {
+        where: {
+          deletedAt: null
+        },
+        select: {
+          data: true
+        }
+      }
     }
   });
 
@@ -681,9 +698,40 @@ export async function atualizarObservacaoMedicao(
     throw new Error("MEDICAO_BLOQUEADA_PARA_EDICAO");
   }
 
+  const periodoInicial = startOfDay(
+    params.periodoInicial || toInputDate(medicao.periodoInicial)
+  );
+  const periodoFinal = endOfDay(
+    params.periodoFinal || toInputDate(medicao.periodoFinal)
+  );
+
+  if (periodoFinal.getTime() < periodoInicial.getTime()) {
+    throw new Error("PERIODO_INVALIDO");
+  }
+
+  if (medicao.itens.length > 0) {
+    const menorDataItem = medicao.itens.reduce((current, item) =>
+      item.data.getTime() < current.getTime() ? item.data : current
+    , medicao.itens[0]!.data);
+    const maiorDataItem = medicao.itens.reduce((current, item) =>
+      item.data.getTime() > current.getTime() ? item.data : current
+    , medicao.itens[0]!.data);
+
+    if (
+      periodoInicial.getTime() > menorDataItem.getTime() ||
+      periodoFinal.getTime() < maiorDataItem.getTime()
+    ) {
+      throw new Error(
+        `PERIODO_NAO_ABRANGE_ITENS:${formatDateLabel(menorDataItem)}:${formatDateLabel(maiorDataItem)}`
+      );
+    }
+  }
+
   await db.medicao.update({
     where: { id: params.id },
     data: {
+      periodoInicial,
+      periodoFinal,
       observacao: params.observacao,
       observacaoInterna: params.observacaoInterna,
       descontoValor: params.descontoValor,

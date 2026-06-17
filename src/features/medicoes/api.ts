@@ -197,8 +197,10 @@ export async function atualizarValorItemMedicao(params: {
   };
 }
 
-export async function atualizarObservacaoMedicao(
+export async function atualizarDadosMedicao(
   id: string,
+  periodoInicial: string,
+  periodoFinal: string,
   observacao: string,
   observacaoInterna: string,
   descontoValor: string,
@@ -209,6 +211,8 @@ export async function atualizarObservacaoMedicao(
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      periodoInicial,
+      periodoFinal,
       observacao,
       observacaoInterna,
       descontoValor: descontoValor.trim() ? Number(descontoValor.replace(",", ".")) : 0,

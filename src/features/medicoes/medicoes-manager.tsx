@@ -13,7 +13,7 @@ import {
   anexarMedicao,
   previsualizarMedicao,
   atualizarStatusMedicao,
-  atualizarObservacaoMedicao
+  atualizarDadosMedicao
 } from "@/features/medicoes/api";
 import { MedicaoDeleteDialog } from "@/features/medicoes/components/medicao-delete-dialog";
 import { formatCurrency } from "@/lib/utils/formatters";
@@ -135,6 +135,8 @@ export function MedicoesManager() {
   const [editingSource, setEditingSource] = useState<"preview" | "detail" | null>(null);
   const [detailObservacao, setDetailObservacao] = useState("");
   const [detailObservacaoInterna, setDetailObservacaoInterna] = useState("");
+  const [detailPeriodoInicial, setDetailPeriodoInicial] = useState("");
+  const [detailPeriodoFinal, setDetailPeriodoFinal] = useState("");
   const [detailJustificativaCancelamento, setDetailJustificativaCancelamento] = useState("");
   const [detailDescontoValor, setDetailDescontoValor] = useState("0");
   const [detailNumeroPedido, setDetailNumeroPedido] = useState("");
@@ -229,6 +231,8 @@ export function MedicoesManager() {
     const inferredCobrancaMaterial = inferCobrancaMaterialFromDetail(detail);
     setSelectedMedicao(detail);
     setNextStatus(detail.status);
+    setDetailPeriodoInicial(detail.periodoInicial.slice(0, 10));
+    setDetailPeriodoFinal(detail.periodoFinal.slice(0, 10));
     setDetailObservacao(detail.observacao ?? "");
     setDetailObservacaoInterna(detail.observacaoInterna ?? "");
     setDetailJustificativaCancelamento(detail.justificativaCancelamento ?? "");
@@ -256,6 +260,8 @@ export function MedicoesManager() {
       void loadDetail(selectedMedicaoId);
     } else {
       setSelectedMedicao(null);
+      setDetailPeriodoInicial("");
+      setDetailPeriodoFinal("");
       setDetailEligibleItems([]);
       setDetailEligibleResumo(null);
       setDetailSelectedLancamentoIds([]);
@@ -661,9 +667,21 @@ export function MedicoesManager() {
   function handleSaveObservacao() {
     if (!selectedMedicaoId) return;
 
+    if (!detailPeriodoInicial || !detailPeriodoFinal) {
+      setMessage("Informe o periodo inicial e o periodo final da medicao.");
+      return;
+    }
+
+    if (detailPeriodoFinal < detailPeriodoInicial) {
+      setMessage("O periodo final nao pode ser menor que o periodo inicial.");
+      return;
+    }
+
     startTransition(async () => {
-      const { response, data } = await atualizarObservacaoMedicao(
+      const { response, data } = await atualizarDadosMedicao(
         selectedMedicaoId,
+        detailPeriodoInicial,
+        detailPeriodoFinal,
         detailObservacao,
         detailObservacaoInterna,
         detailDescontoValor,
@@ -679,6 +697,8 @@ export function MedicoesManager() {
       }
 
       setSelectedMedicao(data as MedicaoDetail);
+      setDetailPeriodoInicial((data as MedicaoDetail).periodoInicial.slice(0, 10));
+      setDetailPeriodoFinal((data as MedicaoDetail).periodoFinal.slice(0, 10));
       setDetailObservacao((data as MedicaoDetail).observacao ?? "");
       setDetailObservacaoInterna((data as MedicaoDetail).observacaoInterna ?? "");
       setDetailDescontoValor((data as MedicaoDetail).descontoValor ?? "0");
@@ -686,6 +706,10 @@ export function MedicoesManager() {
       setDetailNumeroNotaFiscal((data as MedicaoDetail).numeroNotaFiscal ?? "");
       setMessage("Dados da medicao atualizados.");
       await loadBase(filters);
+      await loadEligibleLancamentos(
+        selectedMedicaoId,
+        inferCobrancaMaterialFromDetail(data as MedicaoDetail)
+      );
     });
   }
 
@@ -857,6 +881,10 @@ export function MedicoesManager() {
           onUpdateItemFaturamento={handleUpdateItemFaturamento}
           editingLancamentoId={editingSource === "detail" ? editing?.id ?? null : null}
           onStartDetailEdit={handleStartDetailEdit}
+          periodoInicial={detailPeriodoInicial}
+          onChangePeriodoInicial={setDetailPeriodoInicial}
+          periodoFinal={detailPeriodoFinal}
+          onChangePeriodoFinal={setDetailPeriodoFinal}
           observacao={detailObservacao}
           onChangeObservacao={setDetailObservacao}
           observacaoInterna={detailObservacaoInterna}
