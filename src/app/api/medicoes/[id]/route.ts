@@ -88,6 +88,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       );
     }
 
+    if (error instanceof Error && error.message === "PERIODO_BLOQUEADO_POS_CONCLUSAO") {
+      return NextResponse.json(
+        {
+          message:
+            "O periodo nao pode mais ser alterado porque esta medicao ja foi concluida em algum momento."
+        },
+        { status: 409 }
+      );
+    }
+
     if (error instanceof Error && error.message.startsWith("PERIODO_NAO_ABRANGE_ITENS:")) {
       const [, dataInicialItem = "", dataFinalItem = ""] = error.message.split(":");
 

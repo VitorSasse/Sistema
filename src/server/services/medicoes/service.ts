@@ -677,6 +677,7 @@ export async function atualizarDadosMedicao(
     select: {
       id: true,
       status: true,
+      fechadoEm: true,
       periodoInicial: true,
       periodoFinal: true,
       itens: {
@@ -704,6 +705,15 @@ export async function atualizarDadosMedicao(
   const periodoFinal = endOfDay(
     params.periodoFinal || toInputDate(medicao.periodoFinal)
   );
+  const periodoInicialAtual = startOfDay(toInputDate(medicao.periodoInicial));
+  const periodoFinalAtual = endOfDay(toInputDate(medicao.periodoFinal));
+  const houveAlteracaoPeriodo =
+    periodoInicial.getTime() !== periodoInicialAtual.getTime() ||
+    periodoFinal.getTime() !== periodoFinalAtual.getTime();
+
+  if (houveAlteracaoPeriodo && medicao.fechadoEm) {
+    throw new Error("PERIODO_BLOQUEADO_POS_CONCLUSAO");
+  }
 
   if (periodoFinal.getTime() < periodoInicial.getTime()) {
     throw new Error("PERIODO_INVALIDO");

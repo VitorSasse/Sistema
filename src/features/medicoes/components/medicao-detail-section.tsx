@@ -192,6 +192,7 @@ export function MedicaoDetailSection(props: {
   const warnings = buildWarnings(detail, descontoValor);
   const allEligibleSelected =
     eligibleItems.length > 0 && selectedLancamentoIds.length === eligibleItems.length;
+  const periodoBloqueado = Boolean(detail.fechadoEm);
 
   return (
     <section className="surface section-card surface-strong">
@@ -342,7 +343,7 @@ export function MedicaoDetailSection(props: {
                   type="date"
                   value={periodoInicial}
                   onChange={(e) => onChangePeriodoInicial(e.target.value)}
-                  disabled={!canEditContent || isPending}
+                  disabled={!canEditContent || isPending || periodoBloqueado}
                 />
               </MedicaoField>
               <MedicaoField label="Periodo final">
@@ -351,13 +352,14 @@ export function MedicaoDetailSection(props: {
                   type="date"
                   value={periodoFinal}
                   onChange={(e) => onChangePeriodoFinal(e.target.value)}
-                  disabled={!canEditContent || isPending}
+                  disabled={!canEditContent || isPending || periodoBloqueado}
                 />
               </MedicaoField>
             </div>
             <p className="subtle" style={{ margin: 0 }}>
-              Ajuste o periodo para ampliar a janela de lancamentos elegiveis. O novo intervalo
-              nao pode deixar itens ja vinculados fora da medicao.
+              {periodoBloqueado
+                ? "O periodo ficou travado porque esta medicao ja foi concluida em algum momento."
+                : "Ajuste o periodo para ampliar a janela de lancamentos elegiveis. O novo intervalo nao pode deixar itens ja vinculados fora da medicao."}
             </p>
             <MedicaoField label="Observacao da medicao">
               <textarea
