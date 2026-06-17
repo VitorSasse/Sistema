@@ -32,6 +32,12 @@ export const FORMAS_PAGAMENTO_ORDEM_COMPRA: FormaPagamentoOrdemCompra[] = [
     liquidacaoImediata: true
   },
   {
+    valor: "OUTROS_A_VISTA",
+    rotulo: "Outros a vista",
+    permiteParcelamento: false,
+    liquidacaoImediata: true
+  },
+  {
     valor: "CARTAO_CREDITO_1X",
     rotulo: "Cartao de credito 1x",
     permiteParcelamento: false,
