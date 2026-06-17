@@ -72,6 +72,8 @@
   --text-on-accent: #eff6ff;
   --status-success-bg: rgba(34, 197, 94, 0.16);
   --status-success-fg: #bbf7d0;
+  --status-info-bg: rgba(59, 130, 246, 0.18);
+  --status-info-fg: #dbeafe;
   --status-client-bg: rgba(59, 130, 246, 0.18);
   --status-client-fg: #dbeafe;
   --status-warning-bg: rgba(249, 115, 22, 0.16);
@@ -131,6 +133,8 @@
   --text-on-accent: #eff6ff;
   --status-success-bg: rgba(21, 128, 61, 0.12);
   --status-success-fg: #166534;
+  --status-info-bg: rgba(37, 99, 235, 0.12);
+  --status-info-fg: #1d4ed8;
   --status-client-bg: rgba(37, 99, 235, 0.12);
   --status-client-fg: #1d4ed8;
   --status-warning-bg: rgba(249, 115, 22, 0.12);
@@ -3234,8 +3238,9 @@ button {
 }
 
 .badge-info {
-  background: var(--info-soft);
-  color: var(--info);
+  background: var(--status-info-bg);
+  border-color: color-mix(in srgb, var(--status-info-fg) 20%, transparent);
+  color: var(--status-info-fg);
 }
 
 .badge-neutral {
