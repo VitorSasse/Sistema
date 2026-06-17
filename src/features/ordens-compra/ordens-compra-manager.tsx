@@ -160,14 +160,38 @@ type FiltrosConsultaState = {
   dataFinal: string;
 };
 
-const STATUS_OPTIONS: Array<{ value: StatusOrdemCompra; label: string }> = [
-  { value: "ABERTA", label: "Aberta" },
-  { value: "AGUARDANDO_APROVACAO", label: "Aguardando aprovacao" },
-  { value: "APROVADA", label: "Aprovada" },
-  { value: "COMPRADA", label: "Comprada" },
-  { value: "RECEBIDA", label: "Recebida" },
+type StatusOrdemCompraVisivel = "ABERTA" | "COMPRADA" | "RECEBIDA" | "CANCELADA";
+
+const STATUS_OPTIONS: Array<{ value: StatusOrdemCompraVisivel; label: string }> = [
+  { value: "ABERTA", label: "Em aberto" },
+  { value: "COMPRADA", label: "Em andamento" },
+  { value: "RECEBIDA", label: "Confirmada" },
   { value: "CANCELADA", label: "Cancelada" }
 ];
+
+function normalizarStatusOrdemCompra(status: StatusOrdemCompra): StatusOrdemCompraVisivel {
+  if (status === "AGUARDANDO_APROVACAO" || status === "APROVADA") {
+    return "COMPRADA";
+  }
+
+  return status as StatusOrdemCompraVisivel;
+}
+
+function formatStatusOrdemCompra(status: StatusOrdemCompra) {
+  const normalizedStatus = normalizarStatusOrdemCompra(status);
+
+  return (
+    STATUS_OPTIONS.find((item) => item.value === normalizedStatus)?.label ??
+    normalizedStatus
+  );
+}
+
+const STATUS_BADGE_CLASS_BY_STATUS: Record<StatusOrdemCompraVisivel, string> = {
+  ABERTA: "badge badge-warn",
+  COMPRADA: "badge badge-info",
+  RECEBIDA: "badge badge-success",
+  CANCELADA: "badge badge-danger"
+};
 
 const TIPO_ANEXO_OPTIONS: Array<{ value: TipoAnexo; label: string }> = [
   { value: "PEDIDO", label: "Pedido" },
@@ -236,7 +260,7 @@ function createFormFromOrder(ordem: OrdemCompra): FormState {
   return {
     id: ordem.id,
     dataEmissao: formatDateInput(ordem.dataEmissao),
-    status: ordem.status,
+    status: normalizarStatusOrdemCompra(ordem.status),
     tipoCompra: ordem.tipoCompra,
     fornecedorId: ordem.fornecedor.id,
     centroCustoId: ordem.centroCusto?.id ?? "",
@@ -349,9 +373,7 @@ function numberToInput(value: number | string) {
 }
 
 function getStatusBadgeClass(status: StatusOrdemCompra) {
-  if (status === "RECEBIDA" || status === "COMPRADA") return "badge badge-success";
-  if (status === "CANCELADA") return "badge badge-danger";
-  return "badge badge-warn";
+  return STATUS_BADGE_CLASS_BY_STATUS[normalizarStatusOrdemCompra(status)];
 }
 
 function formatTipoCompra(value: TipoCompra) {
@@ -1610,8 +1632,7 @@ export function OrdensCompraManager() {
                     <td>{formatCurrency(ordem.valorTotal)}</td>
                     <td>
                       <span className={getStatusBadgeClass(ordem.status)}>
-                        {STATUS_OPTIONS.find((status) => status.value === ordem.status)?.label ??
-                          ordem.status}
+                        {formatStatusOrdemCompra(ordem.status)}
                       </span>
                     </td>
                     <td>

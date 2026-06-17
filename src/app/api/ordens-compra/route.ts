@@ -103,6 +103,28 @@ function parseDateQuery(value: string | null, endOfDay = false) {
   return date;
 }
 
+function buildStatusFilter(statusParam: string): Prisma.OrdemCompraWhereInput["status"] | null {
+  if (!statusParam || statusParam === "TODOS") {
+    return null;
+  }
+
+  if (statusParam === "COMPRADA") {
+    return {
+      in: [
+        StatusOrdemCompra.AGUARDANDO_APROVACAO,
+        StatusOrdemCompra.APROVADA,
+        StatusOrdemCompra.COMPRADA
+      ]
+    };
+  }
+
+  if (Object.values(StatusOrdemCompra).includes(statusParam as StatusOrdemCompra)) {
+    return statusParam as StatusOrdemCompra;
+  }
+
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   const session = await auth();
 
@@ -129,12 +151,10 @@ export async function GET(request: NextRequest) {
     where.centroCustoId = centroCustoId;
   }
 
-  if (
-    statusParam &&
-    statusParam !== "TODOS" &&
-    Object.values(StatusOrdemCompra).includes(statusParam as StatusOrdemCompra)
-  ) {
-    where.status = statusParam as StatusOrdemCompra;
+  const statusFilter = buildStatusFilter(statusParam);
+
+  if (statusFilter) {
+    where.status = statusFilter;
   }
 
   if (
