@@ -4123,18 +4123,25 @@ button {
 }
 
 .executive-hero-controls {
-  grid-template-columns: minmax(220px, 260px) minmax(320px, 1fr) minmax(220px, 280px);
-  align-items: start;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  align-items: stretch;
   position: relative;
   z-index: 2;
   overflow: visible;
 }
 
+.executive-hero-toolbar {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(220px, 260px) minmax(220px, 280px);
+  justify-content: space-between;
+  align-items: start;
+}
+
 .executive-custom-range {
-  grid-column: 1 / -1;
   grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
   align-items: end;
-  margin-top: 2px;
 }
 
 .executive-kicker {
@@ -4232,6 +4239,16 @@ button {
 
 .executive-period-field .executive-period-chip {
   height: 100%;
+}
+
+.executive-period-field {
+  width: 100%;
+  max-width: 280px;
+  justify-self: end;
+}
+
+.executive-equipment-field {
+  width: 100%;
 }
 
 .executive-kpi-grid {
@@ -4516,12 +4533,14 @@ button {
 }
 
 @media (max-width: 1200px) {
-  .executive-hero-controls {
+  .executive-hero-toolbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
   }
 
   .executive-period-field {
-    grid-column: 1 / -1;
+    max-width: none;
+    justify-self: stretch;
   }
 
   .executive-kpi-grid,
@@ -4539,8 +4558,7 @@ button {
 }
 
 @media (max-width: 860px) {
-
-  .executive-hero-controls,
+  .executive-hero-toolbar,
   .executive-custom-range {
     grid-template-columns: 1fr;
   }

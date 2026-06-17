@@ -420,51 +420,34 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
         </div>
 
         <div className="executive-hero-controls">
-          <label className="field executive-filter-field">
-            <span className="field-label">Periodo</span>
-            <select
-              className="field-control"
-              value={preset}
-              onChange={(event) => {
-                const nextPreset = event.target.value as PeriodPreset;
-                setPreset(nextPreset);
-                if (nextPreset !== "custom") {
-                  void loadDashboard(nextPreset, customStart, customEnd, equipmentIds);
-                }
-              }}
-            >
-              {periodOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="executive-hero-toolbar">
+            <label className="field executive-filter-field executive-period-select-field">
+              <span className="field-label">Periodo</span>
+              <select
+                className="field-control"
+                value={preset}
+                onChange={(event) => {
+                  const nextPreset = event.target.value as PeriodPreset;
+                  setPreset(nextPreset);
+                  if (nextPreset !== "custom") {
+                    void loadDashboard(nextPreset, customStart, customEnd, equipmentIds);
+                  }
+                }}
+              >
+                {periodOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-          <label className="field executive-filter-field">
-            <span className="field-label">Equipamentos exibidos</span>
-            <SearchableMultiSelect
-              values={equipmentIds}
-              options={(data?.filters.equipments ?? []).map((item) => ({
-                value: item.id,
-                label: `${item.label} [${item.type}]`
-              }))}
-              placeholder="Buscar equipamentos"
-              onChange={(values) => {
-                setEquipmentIds(values);
-                if (preset === "custom" && (!customStart || !customEnd)) {
-                  return;
-                }
-                void loadDashboard(preset, customStart, customEnd, values);
-              }}
-            />
-          </label>
-
-          <div className="field executive-filter-field executive-period-field">
-            <span className="field-label">Janela</span>
-            <div className="executive-period-chip">
-              <strong>{data?.period.label ?? "Periodo atual"}</strong>
-              <span>Periodo ativo do dashboard</span>
+            <div className="field executive-filter-field executive-period-field">
+              <span className="field-label">Janela</span>
+              <div className="executive-period-chip">
+                <strong>{data?.period.label ?? "Periodo atual"}</strong>
+                <span>Periodo ativo do dashboard</span>
+              </div>
             </div>
           </div>
 
@@ -497,6 +480,25 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
               </button>
             </div>
           ) : null}
+
+          <label className="field executive-filter-field executive-equipment-field">
+            <span className="field-label">Equipamentos exibidos</span>
+            <SearchableMultiSelect
+              values={equipmentIds}
+              options={(data?.filters.equipments ?? []).map((item) => ({
+                value: item.id,
+                label: `${item.label} [${item.type}]`
+              }))}
+              placeholder="Buscar equipamentos"
+              onChange={(values) => {
+                setEquipmentIds(values);
+                if (preset === "custom" && (!customStart || !customEnd)) {
+                  return;
+                }
+                void loadDashboard(preset, customStart, customEnd, values);
+              }}
+            />
+          </label>
         </div>
       </section>
 
