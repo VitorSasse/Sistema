@@ -2,7 +2,11 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { calcularProximaClassificacaoPlanoConta, normalizarCategoriaPlanoConta } from "@/lib/plano-contas";
+import {
+  calcularProximaClassificacaoPlanoConta,
+  normalizarCategoriaPlanoConta,
+  PLANO_CONTA_CATEGORIAS_PADRAO
+} from "@/lib/plano-contas";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
 type PlanoConta = {
@@ -80,6 +84,16 @@ export function PlanoContasManager() {
   const itemEmEdicao = useMemo(() => {
     return form.id ? items.find((item) => item.id === form.id) ?? null : null;
   }, [form.id, items]);
+
+  const categoriaOptions = useMemo(() => {
+    const categoriasExistentes = items
+      .map((item) => item.categoria?.trim())
+      .filter((value): value is string => Boolean(value));
+
+    return Array.from(
+      new Set([...PLANO_CONTA_CATEGORIAS_PADRAO, ...categoriasExistentes])
+    ).sort((left, right) => left.localeCompare(right, "pt-BR"));
+  }, [items]);
 
   const classificacaoPreview = useMemo(() => {
     if (itemEmEdicao) {
@@ -253,10 +267,16 @@ export function PlanoContasManager() {
             <Field label="Categoria">
               <input
                 className="field-control"
+                list="plano-conta-categorias"
                 placeholder="Ex.: Operacional, Administrativo, Manutencao"
                 value={form.categoria}
                 onChange={(event) => updateField("categoria", event.target.value)}
               />
+              <datalist id="plano-conta-categorias">
+                {categoriaOptions.map((categoria) => (
+                  <option key={categoria} value={categoria} />
+                ))}
+              </datalist>
             </Field>
           </div>
 

@@ -12,6 +12,14 @@ const BASE_CLASSIFICACAO: Record<TipoPlanoConta, string> = {
   RECEITA: "4"
 };
 
+export const PLANO_CONTA_CATEGORIAS_PADRAO = [
+  "Administrativo",
+  "Combustivel e translado",
+  "Geral",
+  "Manutencao",
+  "Operacional"
+] as const;
+
 function padSegment(value: number) {
   return String(value).padStart(2, "0");
 }
