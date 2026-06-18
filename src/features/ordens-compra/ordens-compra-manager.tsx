@@ -200,6 +200,14 @@ const TIPO_ANEXO_OPTIONS: Array<{ value: TipoAnexo; label: string }> = [
 ];
 
 function formatDateInput(value: string | Date) {
+  if (typeof value === "string") {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+    if (match) {
+      return `${match[1]}-${match[2]}-${match[3]}`;
+    }
+  }
+
   const date = new Date(value);
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -209,7 +217,13 @@ function formatDateInput(value: string | Date) {
 
 function parseDateValue(value: string) {
   const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day, 0, 0, 0, 0);
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
+
+function formatDateDisplay(value: string | Date) {
+  const normalized = formatDateInput(value);
+  const [year, month, day] = normalized.split("-");
+  return `${day}/${month}/${year}`;
 }
 
 function createEmptyItem(index: number): FormItem {
@@ -1336,7 +1350,7 @@ export function OrdensCompraManager() {
                           {parcela.numeroParcela}/
                           {pagamentoNormalizado?.numeroParcelas ?? Math.max(1, Number(form.numeroParcelas || 1))}
                         </td>
-                        <td>{parcela.dataVencimento.toLocaleDateString("pt-BR")}</td>
+                        <td>{formatDateDisplay(parcela.dataVencimento)}</td>
                         <td>{formatCurrency(parcela.valorParcela)}</td>
                       </tr>
                     ))
@@ -1615,7 +1629,7 @@ export function OrdensCompraManager() {
                         <div className="subtle">Motivo: {ordem.motivoExclusao}</div>
                       ) : null}
                     </td>
-                    <td>{new Date(ordem.dataEmissao).toLocaleDateString("pt-BR")}</td>
+                    <td>{formatDateDisplay(ordem.dataEmissao)}</td>
                     <td>{formatTipoCompra(ordem.tipoCompra)}</td>
                     <td>
                       <div>{ordem.fornecedor.razaoSocial}</div>
