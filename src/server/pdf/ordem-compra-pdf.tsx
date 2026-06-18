@@ -565,7 +565,7 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
         </View>
         <Text style={styles.observationsText}>{props.observacao ?? "-"}</Text>
 
-        <Text style={styles.footerNote}>Documento emitido pelo sistema de gestao interna.</Text>
+        <Text style={styles.footerNote}>Documento emitido pelo sistema BASEPRO.</Text>
       </Page>
     </Document>
   );

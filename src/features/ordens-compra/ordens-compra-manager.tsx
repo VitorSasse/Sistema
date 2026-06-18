@@ -53,6 +53,7 @@ type CatalogoCompra = {
   tipo: TipoCompra;
   descricao: string;
   unidadePadrao: string;
+  valorPadrao: string | number;
   observacao: string | null;
   status: "ATIVO" | "INATIVO";
 };
@@ -719,7 +720,8 @@ export function OrdensCompraManager() {
           catalogoCompraId: catalogo.id,
           codigo: catalogo.codigo,
           descricao: catalogo.descricao,
-          unidade: catalogo.unidadePadrao
+          unidade: catalogo.unidadePadrao,
+          valorUnitario: numberToInput(catalogo.valorPadrao)
         };
       })
     }));

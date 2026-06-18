@@ -2,7 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateCatalogoCompraCode } from "@/lib/utils/code-generation";
+import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { catalogoCompraSchema } from "@/lib/validators/catalogo-compra";
+
+function normalizePayload(payload: Record<string, unknown>) {
+  return {
+    ...payload,
+    valorPadrao: parseDecimalInput(payload.valorPadrao)
+  };
+}
 
 export async function GET() {
   const session = await auth();
@@ -35,7 +43,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
-  const payload = await request.json();
+  const payload = normalizePayload((await request.json()) as Record<string, unknown>);
   const parsed = catalogoCompraSchema.safeParse(payload);
 
   if (!parsed.success) {
@@ -71,6 +79,7 @@ export async function POST(request: NextRequest) {
         tipo: parsed.data.tipo,
         descricao: parsed.data.descricao,
         unidadePadrao: parsed.data.unidadePadrao,
+        valorPadrao: parsed.data.valorPadrao,
         observacao: parsed.data.observacao || null,
         status: parsed.data.status
       },

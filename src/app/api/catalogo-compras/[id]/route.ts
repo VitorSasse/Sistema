@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { catalogoCompraSchema } from "@/lib/validators/catalogo-compra";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
+
+function normalizePayload(payload: Record<string, unknown>) {
+  return {
+    ...payload,
+    valorPadrao: parseDecimalInput(payload.valorPadrao)
+  };
+}
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
   const session = await auth();
@@ -15,7 +23,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const payload = await request.json();
+  const payload = normalizePayload((await request.json()) as Record<string, unknown>);
   const parsed = catalogoCompraSchema.safeParse(payload);
 
   if (!parsed.success) {
@@ -51,6 +59,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         tipo: parsed.data.tipo,
         descricao: parsed.data.descricao,
         unidadePadrao: parsed.data.unidadePadrao,
+        valorPadrao: parsed.data.valorPadrao,
         observacao: parsed.data.observacao || null,
         status: parsed.data.status
       },

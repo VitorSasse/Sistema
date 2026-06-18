@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
+import { formatCurrency } from "@/lib/utils/formatters";
 
 type CatalogoCompra = {
   id: string;
@@ -10,6 +11,7 @@ type CatalogoCompra = {
   tipo: "PRODUTO" | "SERVICO";
   descricao: string;
   unidadePadrao: string;
+  valorPadrao: string | number;
   observacao: string | null;
   status: "ATIVO" | "INATIVO";
   itensOrdemCompra: Array<{
@@ -25,6 +27,7 @@ type FormState = {
   tipo: "PRODUTO" | "SERVICO";
   descricao: string;
   unidadePadrao: string;
+  valorPadrao: string;
   observacao: string;
   status: "ATIVO" | "INATIVO";
 };
@@ -33,6 +36,7 @@ const initialForm: FormState = {
   tipo: "PRODUTO",
   descricao: "",
   unidadePadrao: "UN",
+  valorPadrao: "0",
   observacao: "",
   status: "ATIVO"
 };
@@ -73,7 +77,14 @@ export function CatalogoComprasManager() {
       const matchesTipo = tipoFilter === "TODOS" || item.tipo === tipoFilter;
       const matchesSearch =
         !normalized ||
-        [item.codigo, item.tipo, item.descricao, item.unidadePadrao, item.observacao ?? ""]
+        [
+          item.codigo,
+          item.tipo,
+          item.descricao,
+          item.unidadePadrao,
+          String(item.valorPadrao ?? ""),
+          item.observacao ?? ""
+        ]
           .join(" ")
           .toLowerCase()
           .includes(normalized);
@@ -123,6 +134,7 @@ export function CatalogoComprasManager() {
       tipo: item.tipo,
       descricao: item.descricao,
       unidadePadrao: item.unidadePadrao,
+      valorPadrao: String(item.valorPadrao ?? 0),
       observacao: item.observacao ?? "",
       status: item.status
     });
@@ -221,6 +233,15 @@ export function CatalogoComprasManager() {
                 onChange={(event) => updateField("unidadePadrao", event.target.value)}
               />
             </Field>
+            <Field label="Valor padrao">
+              <input
+                className="field-control"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={form.valorPadrao}
+                onChange={(event) => updateField("valorPadrao", event.target.value)}
+              />
+            </Field>
             <Field label="Status">
               <select
                 className="field-control"
@@ -308,6 +329,7 @@ export function CatalogoComprasManager() {
                 <th>Tipo</th>
                 <th>Descricao</th>
                 <th>Unidade</th>
+                <th>Valor padrao</th>
                 <th>Uso em ordens</th>
                 <th>Status</th>
                 <th>Acoes</th>
@@ -323,6 +345,7 @@ export function CatalogoComprasManager() {
                     <div className="subtle">{item.observacao ?? "-"}</div>
                   </td>
                   <td>{item.unidadePadrao}</td>
+                  <td>{formatCurrency(item.valorPadrao)}</td>
                   <td>{item.itensOrdemCompra.length}</td>
                   <td>
                     <span className={item.status === "ATIVO" ? "badge badge-success" : "badge badge-danger"}>

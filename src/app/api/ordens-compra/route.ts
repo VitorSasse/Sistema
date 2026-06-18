@@ -65,6 +65,7 @@ const ordemCompraInclude = {
           tipo: true,
           descricao: true,
           unidadePadrao: true,
+          valorPadrao: true,
           status: true
         }
       }
@@ -299,6 +300,7 @@ export async function POST(request: NextRequest) {
           tipo: true,
           descricao: true,
           unidadePadrao: true,
+          valorPadrao: true,
           status: true
         }
       })

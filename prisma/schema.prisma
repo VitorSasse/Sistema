@@ -379,6 +379,7 @@ model CatalogoCompra {
   tipo             TipoCatalogoCompra
   descricao        String
   unidadePadrao    String
+  valorPadrao      Decimal            @default(0) @db.Decimal(12, 2)
   observacao       String?
   status           StatusCadastro     @default(ATIVO)
   createdAt        DateTime           @default(now())

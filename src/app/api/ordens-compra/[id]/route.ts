@@ -67,6 +67,7 @@ const ordemCompraInclude = {
           tipo: true,
           descricao: true,
           unidadePadrao: true,
+          valorPadrao: true,
           status: true
         }
       }
@@ -196,6 +197,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           tipo: true,
           descricao: true,
           unidadePadrao: true,
+          valorPadrao: true,
           status: true
         }
       })
