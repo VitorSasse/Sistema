@@ -1771,8 +1771,11 @@ button {
 .access-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 1fr 0.98fr;
-  background: #f8f5ef;
+  grid-template-columns: minmax(0, 1.12fr) minmax(420px, 0.88fr);
+  background:
+    radial-gradient(circle at top left, rgba(249, 115, 22, 0.14), transparent 18%),
+    radial-gradient(circle at 85% 12%, rgba(15, 42, 68, 0.2), transparent 22%),
+    linear-gradient(135deg, #09121b 0%, #0f2337 46%, #f2ebe0 46.4%, #efe5d7 100%);
 }
 
 .access-showcase,
@@ -1784,28 +1787,54 @@ button {
   position: relative;
   display: grid;
   align-content: center;
-  gap: 28px;
-  padding: 52px 56px;
+  gap: 26px;
+  padding: 56px clamp(28px, 5vw, 72px);
   background:
-    radial-gradient(circle at top left, rgba(240, 213, 143, 0.12), transparent 22%),
-    radial-gradient(circle at 85% 18%, rgba(88, 155, 144, 0.16), transparent 24%),
-    linear-gradient(180deg, #10242d 0%, #0d1d24 100%);
+    linear-gradient(180deg, rgba(7, 16, 25, 0.96), rgba(11, 26, 41, 0.94));
   color: #f7f3ea;
   overflow: hidden;
+  isolation: isolate;
 }
 
 .access-showcase::after {
   content: "";
   position: absolute;
-  inset: auto -8% -12% auto;
-  width: 280px;
-  height: 280px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(240, 213, 143, 0.14), transparent 64%);
+  inset: 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.42), transparent 92%);
   pointer-events: none;
 }
 
+.access-orbit {
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+  filter: blur(2px);
+}
+
+.access-orbit-primary {
+  top: 88px;
+  right: 8%;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.22), transparent 68%);
+}
+
+.access-orbit-secondary {
+  bottom: 10%;
+  right: 18%;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.16), transparent 70%);
+}
+
 .access-showcase-topline {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -1829,47 +1858,88 @@ button {
   font-size: 12px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(247, 243, 234, 0.62);
+  color: rgba(247, 243, 234, 0.66);
 }
 
 .access-copy {
+  position: relative;
+  z-index: 1;
   display: grid;
-  gap: 14px;
-  max-width: 580px;
+  gap: 18px;
+  max-width: 640px;
 }
 
 .access-copy h1 {
   margin: 0;
-  font-size: clamp(2.6rem, 4vw, 4.4rem);
-  line-height: 0.96;
-  letter-spacing: -0.04em;
+  font-size: clamp(3rem, 4.6vw, 5rem);
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+  max-width: 12ch;
+  text-wrap: balance;
 }
 
 .access-copy h1 span {
-  color: #8bb8ff;
+  color: #93c5fd;
 }
 
 .access-copy p {
   margin: 0;
+  max-width: 58ch;
   color: rgba(247, 243, 234, 0.78);
-  font-size: 1.08rem;
-  line-height: 1.72;
+  font-size: 1.04rem;
+  line-height: 1.78;
 }
 
-.access-highlight-grid {
+.access-metric-grid {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
-  max-width: 720px;
+  max-width: 760px;
+}
+
+.access-metric-card {
+  display: grid;
+  gap: 6px;
+  padding: 18px 18px 16px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.access-metric-card strong {
+  font-size: 1.65rem;
+  line-height: 1;
+  color: #ffffff;
+}
+
+.access-metric-card span {
+  color: rgba(247, 243, 234, 0.72);
+  font-size: 0.92rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.access-highlight-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  max-width: 780px;
 }
 
 .access-highlight-card {
   display: grid;
   gap: 10px;
-  padding: 18px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.06);
+  padding: 20px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(12, 26, 40, 0.84), rgba(10, 21, 33, 0.64));
   border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
 }
 
 .access-highlight-card strong {
@@ -1885,10 +1955,15 @@ button {
 }
 
 .access-footer-note {
+  position: relative;
+  z-index: 1;
   display: grid;
-  gap: 8px;
-  max-width: 520px;
-  padding-top: 10px;
+  gap: 10px;
+  max-width: 560px;
+  padding: 18px 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(249, 115, 22, 0.18);
+  background: linear-gradient(180deg, rgba(249, 115, 22, 0.08), rgba(255, 255, 255, 0.02));
 }
 
 .access-footer-note strong {
@@ -1906,16 +1981,28 @@ button {
 .access-auth-panel {
   display: grid;
   align-content: center;
+  padding: 42px clamp(24px, 4vw, 52px);
+  background: transparent;
+}
+
+.access-auth-shell {
+  width: min(100%, 540px);
+  margin-left: auto;
+  display: grid;
   gap: 22px;
-  padding: 52px 54px;
+  padding: 28px;
+  border-radius: 34px;
+  border: 1px solid rgba(15, 42, 68, 0.14);
   background:
-    radial-gradient(circle at top right, rgba(240, 213, 143, 0.08), transparent 18%),
-    linear-gradient(180deg, #fdfbf7 0%, #f7f1e5 100%);
+    linear-gradient(180deg, rgba(255, 251, 244, 0.96), rgba(247, 239, 225, 0.94));
+  box-shadow:
+    0 28px 64px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62);
 }
 
 .access-brand {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
 }
 
@@ -1927,43 +2014,93 @@ button {
 
 .access-auth-copy {
   display: grid;
-  gap: 8px;
-  text-align: center;
+  gap: 10px;
+  text-align: left;
 }
 
 .access-auth-copy h2 {
   margin: 0;
-  font-size: 2rem;
+  color: #0f2a44;
+  font-size: clamp(1.7rem, 3vw, 2.2rem);
 }
 
 .access-auth-copy p {
   margin: 0;
-  color: var(--muted);
+  color: #5b6470;
   line-height: 1.65;
 }
 
+.access-auth-signal-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.access-auth-signal {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(15, 42, 68, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(244, 238, 229, 0.72));
+}
+
+.access-auth-signal strong {
+  color: #f97316;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.access-auth-signal span {
+  color: #334155;
+  line-height: 1.55;
+}
+
 .access-auth-panel .auth-form {
-  max-width: 460px;
+  max-width: none;
   width: 100%;
-  margin: 0 auto;
+  margin: 0;
   padding: 26px;
   border-radius: 28px;
-  border: 1px solid rgba(109, 92, 66, 0.14);
-  background: rgba(255, 255, 255, 0.76);
-  box-shadow: 0 18px 42px rgba(53, 43, 29, 0.08);
+  border: 1px solid rgba(15, 42, 68, 0.12);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(251, 247, 240, 0.82));
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
 }
 
 .access-auth-panel .auth-tips {
   margin-top: 10px;
 }
 
+.access-auth-panel .field-label,
+.access-auth-panel .subtle {
+  color: #64748b;
+}
+
+.access-auth-panel .field-control {
+  background: #f8fafc;
+  border-color: rgba(15, 42, 68, 0.16);
+  color: #0f172a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.access-auth-panel .field-control::placeholder {
+  color: #94a3b8;
+}
+
+.access-auth-panel .field-control:focus {
+  border-color: rgba(249, 115, 22, 0.46);
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12);
+}
+
 .access-home-actions {
   display: grid;
-  justify-items: center;
+  justify-items: stretch;
   gap: 14px;
   width: 100%;
-  max-width: 460px;
-  margin: 0 auto;
+  max-width: none;
+  margin: 0;
 }
 
 .access-home-primary {
@@ -1972,18 +2109,25 @@ button {
 }
 
 .access-home-subtle {
-  max-width: 420px;
-  text-align: center;
+  max-width: none;
+  text-align: left;
 }
 
 .access-secondary-links {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 .access-secondary-link {
   color: var(--primary);
   font-weight: 700;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 140ms ease, color 140ms ease;
+}
+
+.access-secondary-link:hover {
+  border-color: currentColor;
 }
 
 .auth-layout {
@@ -3087,6 +3231,25 @@ button {
   background: var(--status-danger-bg);
   border-color: color-mix(in srgb, var(--danger) 22%, var(--line-strong));
   color: var(--status-danger-fg);
+}
+
+.empty-state {
+  display: grid;
+  gap: 8px;
+  padding: 22px;
+  border-radius: 18px;
+  border: 1px dashed color-mix(in srgb, var(--primary) 18%, var(--line-strong));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, transparent), var(--surface-strong));
+  color: var(--muted);
+}
+
+.empty-state strong {
+  color: var(--text);
+}
+
+.empty-state p {
+  margin: 0;
 }
 
 .stats-grid {
@@ -5563,6 +5726,17 @@ button {
     overflow: visible;
   }
 
+  .access-shell {
+    background:
+      radial-gradient(circle at top left, rgba(249, 115, 22, 0.16), transparent 18%),
+      linear-gradient(180deg, #09121b 0%, #0f2337 52%, #efe5d7 52%, #efe5d7 100%);
+  }
+
+  .access-auth-shell {
+    width: min(100%, 680px);
+    margin: 0;
+  }
+
   .admin-sidebar {
     min-height: auto;
     border-right: none;
@@ -5631,6 +5805,23 @@ button {
 
   .access-highlight-grid {
     grid-template-columns: 1fr;
+  }
+
+  .access-metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .access-auth-shell {
+    padding: 22px;
+    border-radius: 28px;
+  }
+
+  .access-copy h1 {
+    max-width: 11ch;
+  }
+
+  .access-secondary-links {
+    justify-content: stretch;
   }
 
   .hero {

@@ -77,18 +77,27 @@ type ProtectedLayoutProps = {
 export default async function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const session = await requireSession();
   const canManageUsers = hasRoleAccess(session.user.roles, "users.manage");
+  const canReadAudit = hasRoleAccess(session.user.roles, "auditoria.read");
 
-  const navigation = canManageUsers
-    ? [
-        ...navigationGroups,
-        {
-          label: "Seguranca",
-          icon: "seguranca",
-          description: "Controle administrativo de acessos e perfis.",
-          items: [{ href: "/usuarios" as Route, label: "Usuarios e acessos" }]
-        }
-      ]
-    : navigationGroups;
+  const securityItems = [
+    ...(canManageUsers ? [{ href: "/usuarios" as Route, label: "Usuarios e acessos" }] : []),
+    ...(canReadAudit
+      ? [{ href: "/seguranca/logs-lancamentos" as Route, label: "Logs de edicao de lancamentos" }]
+      : [])
+  ];
+
+  const navigation =
+    securityItems.length > 0
+      ? [
+          ...navigationGroups,
+          {
+            label: "Seguranca",
+            icon: "seguranca",
+            description: "Controle administrativo, acessos e trilha de auditoria.",
+            items: securityItems
+          }
+        ]
+      : navigationGroups;
 
   return (
     <div className="admin-shell">
