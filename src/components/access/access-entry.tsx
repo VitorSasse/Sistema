@@ -64,7 +64,7 @@ export function AccessEntry({ mode = "home" }: AccessEntryProps) {
         <div className={`access-brand${mode === "login" ? " access-brand-login" : ""}`}>
           {mode === "login" ? (
             <Image
-              src="/branding/basepro-login-logo.jpeg"
+              src="/branding/basepro-logo-horizontal-transparent.png"
               alt="BASEPRO"
               width={1600}
               height={800}
