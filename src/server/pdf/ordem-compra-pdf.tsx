@@ -311,10 +311,11 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderColor: colors.border
   },
-  paymentColVencimento: { width: "23%" },
-  paymentColParcela: { width: "23%" },
-  paymentColForma: { width: "31%" },
-  paymentColObs: { width: "23%" },
+  paymentColNumero: { width: "14%" },
+  paymentColVencimento: { width: "18%" },
+  paymentColParcela: { width: "20%" },
+  paymentColForma: { width: "26%" },
+  paymentColObs: { width: "22%" },
   summaryBlock: {
     marginTop: 14
   },
@@ -430,7 +431,7 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
 
         <View style={styles.titleBand}>
           <View style={styles.titleSide} />
-          <Text style={styles.titleText}>{tituloDocumento} No {props.numeroOrdem}</Text>
+          <Text style={styles.titleText}>{tituloDocumento} Nº {props.numeroOrdem}</Text>
           <View style={styles.titleDateBox}>
             <Text style={styles.titleDate}>{formatDate(props.dataEmissao)}</Text>
           </View>
@@ -470,7 +471,6 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
             "Status:",
             props.status
           )}
-          {renderInfoRow("Parcelas:", String(props.numeroParcelas), "Forma de pagamento:", formatFormaPagamento(props.formaPagamento))}
         </View>
 
         <View style={styles.sectionBand}>
@@ -518,6 +518,7 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
         </View>
 
         <View style={styles.tableHeader}>
+          <Text style={[styles.paymentHeaderCell, styles.paymentColNumero]}>PARCELA</Text>
           <Text style={[styles.paymentHeaderCell, styles.paymentColVencimento]}>VENCIMENTO</Text>
           <Text style={[styles.paymentHeaderCell, styles.paymentColParcela]}>VALOR DA PARCELA</Text>
           <Text style={[styles.paymentHeaderCell, styles.paymentColForma]}>FORMA DE PAGAMENTO</Text>
@@ -539,6 +540,9 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
         ) : (
           props.parcelas.map((parcela, index) => (
             <View key={parcela.numeroParcela} style={styles.tableRow} wrap={false}>
+              <Text style={[styles.cell, styles.paymentColNumero]}>
+                {parcela.numeroParcela}/{props.numeroParcelas}
+              </Text>
               <Text style={[styles.cell, styles.paymentColVencimento]}>{formatDate(parcela.dataVencimento)}</Text>
               <Text style={[styles.cell, styles.paymentColParcela]}>{formatCurrency(parcela.valorParcela)}</Text>
               <Text style={[styles.cell, styles.paymentColForma]}>{formatFormaPagamento(props.formaPagamento)}</Text>
