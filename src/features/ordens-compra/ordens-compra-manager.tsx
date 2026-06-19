@@ -157,6 +157,7 @@ type FiltrosConsultaState = {
   search: string;
   fornecedorId: string;
   centroCustoId: string;
+  planoContaId: string;
   tipoCompra: "TODOS" | TipoCompra;
   status: "TODOS" | StatusOrdemCompra;
   dataInicial: string;
@@ -267,6 +268,7 @@ function createInitialFilters(): FiltrosConsultaState {
     search: "",
     fornecedorId: "",
     centroCustoId: "",
+    planoContaId: "",
     tipoCompra: "TODOS",
     status: "TODOS",
     dataInicial: "",
@@ -317,6 +319,10 @@ function buildOrdensQuery(filters: FiltrosConsultaState) {
 
   if (filters.centroCustoId) {
     params.set("centroCustoId", filters.centroCustoId);
+  }
+
+  if (filters.planoContaId) {
+    params.set("planoContaId", filters.planoContaId);
   }
 
   if (filters.tipoCompra !== "TODOS") {
@@ -1137,9 +1143,9 @@ export function OrdensCompraManager() {
                           />
                         </td>
                         <td>
-                          <div style={{ minWidth: 240 }}>
+                          <div style={{ minWidth: 300 }}>
                             <SearchableSelect
-                            value={item.catalogoCompraId}
+                              value={item.catalogoCompraId}
                               options={catalogoOpcoes}
                               placeholder={`Digite para buscar ${form.tipoCompra === "SERVICO" ? "o servico" : "o produto"}`}
                               emptyLabel={`Nenhum ${form.tipoCompra === "SERVICO" ? "servico" : "produto"} encontrado.`}
@@ -1152,6 +1158,7 @@ export function OrdensCompraManager() {
                             className="field-control"
                             value={item.codigo}
                             onChange={(event) => updateItem(index, "codigo", event.target.value)}
+                            style={{ minWidth: 110 }}
                           />
                         </td>
                         <td>
@@ -1159,6 +1166,7 @@ export function OrdensCompraManager() {
                             className="field-control"
                             value={item.descricao}
                             onChange={(event) => updateItem(index, "descricao", event.target.value)}
+                            style={{ minWidth: 180 }}
                           />
                         </td>
                         <td>
@@ -1503,7 +1511,7 @@ export function OrdensCompraManager() {
           <div>
             <h2 className="section-title">Consulta de ordens de compra</h2>
             <p className="section-copy">
-              Use os filtros abaixo para localizar ordens por fornecedor, periodo, centro de custo, status e tipo.
+              Use os filtros abaixo para localizar ordens por fornecedor, plano de conta, periodo, centro de custo, status e tipo.
             </p>
           </div>
         </div>
@@ -1546,6 +1554,23 @@ export function OrdensCompraManager() {
                 ))}
               </select>
             </Field>
+            <Field label="Plano de conta">
+              <select
+                className="field-control"
+                value={filtrosConsulta.planoContaId}
+                onChange={(event) => updateFiltro("planoContaId", event.target.value)}
+              >
+                <option value="">Todos os planos de conta</option>
+                {planosContaDisponiveis.map((planoConta) => (
+                  <option key={planoConta.id} value={planoConta.id}>
+                    {formatPlanoContaLabel(planoConta)}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <div className="form-grid-4">
             <Field label="Tipo da compra">
               <select
                 className="field-control"
@@ -1559,9 +1584,6 @@ export function OrdensCompraManager() {
                 <option value="SERVICO">Servico</option>
               </select>
             </Field>
-          </div>
-
-          <div className="form-grid-4">
             <Field label="Status">
               <select
                 className="field-control"

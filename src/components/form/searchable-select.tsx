@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent
+} from "react";
+import { createPortal } from "react-dom";
 
 export type SearchableSelectOption = {
   value: string;
@@ -28,6 +36,8 @@ export function SearchableSelect(props: {
   const [query, setQuery] = useState(selectedOption?.label ?? "");
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
@@ -74,6 +84,47 @@ export function SearchableSelect(props: {
 
     optionRefs.current[highlightedIndex]?.scrollIntoView({ block: "nearest" });
   }, [highlightedIndex]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setMenuStyle(null);
+      return;
+    }
+
+    function updateMenuPosition() {
+      const wrapper = wrapperRef.current;
+
+      if (!wrapper) {
+        return;
+      }
+
+      const rect = wrapper.getBoundingClientRect();
+
+      setMenuStyle({
+        position: "fixed",
+        zIndex: 1200,
+        top: rect.bottom + 6,
+        left: rect.left,
+        width: rect.width,
+        maxHeight: 220,
+        overflowY: "auto",
+        border: "1px solid var(--line-strong)",
+        borderRadius: 14,
+        boxShadow: "var(--shadow-md)",
+        background: "var(--surface)"
+      });
+    }
+
+    updateMenuPosition();
+
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [isOpen]);
 
   function handleInputChange(nextValue: string) {
     setQuery(nextValue);
@@ -141,7 +192,7 @@ export function SearchableSelect(props: {
   }
 
   return (
-    <div style={{ position: "relative" }}>
+    <div ref={wrapperRef} style={{ position: "relative", width: "100%" }}>
       <input
         className="field-control"
         value={query}
@@ -181,59 +232,49 @@ export function SearchableSelect(props: {
             lineHeight: 1
           }}
         >
-          ×
+          x
         </button>
       ) : null}
 
-      {isOpen && !disabled ? (
-        <div
-          className="surface"
-          style={{
-            position: "absolute",
-            zIndex: 30,
-            top: "calc(100% + 6px)",
-            left: 0,
-            right: 0,
-            maxHeight: 220,
-            overflowY: "auto",
-            border: "1px solid var(--line-strong)",
-            borderRadius: 14,
-            boxShadow: "var(--shadow-md)",
-            background: "var(--surface)"
-          }}
-        >
-          {filteredOptions.length > 0 ? (
-            filteredOptions.map((option, index) => (
-              <button
-                key={option.value}
-                ref={(element) => {
-                  optionRefs.current[index] = element;
-                }}
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onMouseEnter={() => setHighlightedIndex(index)}
-                onClick={() => handleSelect(option)}
-                style={{
-                  width: "100%",
-                  textAlign: "left",
-                  padding: "10px 12px",
-                  border: "none",
-                  background:
-                    option.value === value || highlightedIndex === index
-                      ? "rgba(249, 115, 22, 0.16)"
-                      : "transparent",
-                  cursor: "pointer",
-                  color: "var(--text)"
-                }}
-              >
-                {option.label}
-              </button>
-            ))
-          ) : (
-            <div style={{ padding: "10px 12px", color: "var(--muted)" }}>{emptyLabel}</div>
-          )}
-        </div>
-      ) : null}
+      {isOpen && !disabled && menuStyle
+        ? createPortal(
+            <div className="surface" style={menuStyle}>
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option, index) => (
+                  <button
+                    key={option.value}
+                    ref={(element) => {
+                      optionRefs.current[index] = element;
+                    }}
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onMouseEnter={() => setHighlightedIndex(index)}
+                    onClick={() => handleSelect(option)}
+                    style={{
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "10px 12px",
+                      border: "none",
+                      background:
+                        option.value === value || highlightedIndex === index
+                          ? "rgba(249, 115, 22, 0.16)"
+                          : "transparent",
+                      cursor: "pointer",
+                      color: "var(--text)"
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))
+              ) : (
+                <div style={{ padding: "10px 12px", color: "var(--muted)" }}>
+                  {emptyLabel}
+                </div>
+              )}
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }

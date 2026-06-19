@@ -137,6 +137,7 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get("search")?.trim() ?? "";
   const fornecedorId = searchParams.get("fornecedorId")?.trim() ?? "";
   const centroCustoId = searchParams.get("centroCustoId")?.trim() ?? "";
+  const planoContaId = searchParams.get("planoContaId")?.trim() ?? "";
   const statusParam = searchParams.get("status")?.trim() ?? "";
   const tipoCompraParam = searchParams.get("tipoCompra")?.trim() ?? "";
   const dataInicial = parseDateQuery(searchParams.get("dataInicial"));
@@ -150,6 +151,10 @@ export async function GET(request: NextRequest) {
 
   if (centroCustoId) {
     where.centroCustoId = centroCustoId;
+  }
+
+  if (planoContaId) {
+    where.planoContaId = planoContaId;
   }
 
   const statusFilter = buildStatusFilter(statusParam);
