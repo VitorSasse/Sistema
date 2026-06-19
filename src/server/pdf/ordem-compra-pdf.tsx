@@ -340,27 +340,29 @@ const styles = StyleSheet.create({
     minHeight: 34
   },
   solicitanteBlock: {
-    marginTop: 28,
+    marginTop: 42,
     paddingHorizontal: 2,
+    alignItems: "center",
     gap: 10
   },
   solicitanteText: {
-    fontSize: 8.8
+    fontSize: 8.8,
+    textAlign: "center"
   },
   assinaturaLinha: {
-    marginTop: 10,
-    width: "58%",
+    marginTop: 14,
+    width: "54%",
     borderTopWidth: 1,
     borderTopColor: colors.text,
-    paddingTop: 4,
+    paddingTop: 5,
     fontSize: 8.5,
     textAlign: "center"
   },
   footerNote: {
-    marginTop: 18,
+    marginTop: 30,
     fontSize: 7.5,
     color: colors.muted,
-    textAlign: "right"
+    textAlign: "center"
   }
 });
 
