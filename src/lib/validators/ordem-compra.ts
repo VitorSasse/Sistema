@@ -27,6 +27,7 @@ export const ordemCompraSchema = z
     formaPagamento: z.string().trim().min(1).max(80),
     numeroParcelas: z.number().int().positive().max(60).default(1),
     primeiroVencimento: z.string().trim().optional().or(z.literal("")),
+    solicitanteNome: z.string().trim().max(160).optional().or(z.literal("")),
     observacaoFinanceira: z.string().trim().max(500).optional().or(z.literal("")),
     observacao: z.string().trim().max(500).optional().or(z.literal("")),
     motivoExclusao: z.string().trim().max(500).optional().or(z.literal("")),

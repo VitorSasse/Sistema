@@ -24,6 +24,7 @@ type OrdemCompraPdfProps = {
   dataEmissao: Date;
   status: string;
   tipoCompra: string;
+  solicitanteNome: string | null;
   fornecedor: {
     codigo: string;
     razaoSocial: string;
@@ -338,6 +339,23 @@ const styles = StyleSheet.create({
     fontSize: 8.8,
     minHeight: 34
   },
+  solicitanteBlock: {
+    marginTop: 28,
+    paddingHorizontal: 2,
+    gap: 10
+  },
+  solicitanteText: {
+    fontSize: 8.8
+  },
+  assinaturaLinha: {
+    marginTop: 10,
+    width: "58%",
+    borderTopWidth: 1,
+    borderTopColor: colors.text,
+    paddingTop: 4,
+    fontSize: 8.5,
+    textAlign: "center"
+  },
   footerNote: {
     marginTop: 18,
     fontSize: 7.5,
@@ -431,7 +449,7 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
 
         <View style={styles.titleBand}>
           <View style={styles.titleSide} />
-          <Text style={styles.titleText}>{tituloDocumento} Nº {props.numeroOrdem}</Text>
+          <Text style={styles.titleText}>{tituloDocumento} No. {props.numeroOrdem}</Text>
           <View style={styles.titleDateBox}>
             <Text style={styles.titleDate}>{formatDate(props.dataEmissao)}</Text>
           </View>
@@ -568,6 +586,13 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
           <Text style={styles.sectionBandText}>OBSERVACOES</Text>
         </View>
         <Text style={styles.observationsText}>{props.observacao ?? "-"}</Text>
+
+        <View style={styles.solicitanteBlock}>
+          <Text style={styles.solicitanteText}>
+            Solicitado por: {props.solicitanteNome?.trim() ? props.solicitanteNome : "-"}
+          </Text>
+          <Text style={styles.assinaturaLinha}>Assinatura</Text>
+        </View>
 
         <Text style={styles.footerNote}>Documento emitido pelo sistema BASEPRO.</Text>
       </Page>

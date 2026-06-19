@@ -462,6 +462,7 @@ model OrdemCompra {
   formaPagamento           String?
   numeroParcelas           Int                        @default(1)
   primeiroVencimento       DateTime?
+  solicitanteNome         String?
   observacaoFinanceira     String?
   observacao               String?
   motivoExclusao           String?

@@ -89,6 +89,7 @@ type OrdemCompra = {
   formaPagamento: string | null;
   numeroParcelas: number;
   primeiroVencimento: string | null;
+  solicitanteNome: string | null;
   observacaoFinanceira: string | null;
   observacao: string | null;
   motivoExclusao: string | null;
@@ -145,6 +146,7 @@ type FormState = {
   formaPagamento: string;
   numeroParcelas: string;
   primeiroVencimento: string;
+  solicitanteNome: string;
   observacaoFinanceira: string;
   observacao: string;
   motivoExclusao: string;
@@ -252,6 +254,7 @@ function createInitialForm(): FormState {
     formaPagamento: "",
     numeroParcelas: "1",
     primeiroVencimento: today,
+    solicitanteNome: "",
     observacaoFinanceira: "",
     observacao: "",
     motivoExclusao: "",
@@ -285,6 +288,7 @@ function createFormFromOrder(ordem: OrdemCompra): FormState {
     primeiroVencimento: formatDateInput(
       ordem.primeiroVencimento ?? ordem.parcelas[0]?.dataVencimento ?? ordem.dataEmissao
     ),
+    solicitanteNome: ordem.solicitanteNome ?? "",
     observacaoFinanceira: ordem.observacaoFinanceira ?? "",
     observacao: ordem.observacao ?? "",
     motivoExclusao: ordem.motivoExclusao ?? "",
@@ -766,6 +770,7 @@ export function OrdensCompraManager() {
       formaPagamento: form.formaPagamento,
       numeroParcelas,
       primeiroVencimento,
+      solicitanteNome: form.solicitanteNome,
       observacaoFinanceira: form.observacaoFinanceira,
       observacao: form.observacao,
       motivoExclusao: form.motivoExclusao,
@@ -1039,6 +1044,14 @@ export function OrdensCompraManager() {
                     </option>
                   ))}
                 </select>
+              </Field>
+              <Field label="Solicitado por">
+                <input
+                  className="field-control"
+                  placeholder="Nome de quem solicitou a ordem"
+                  value={form.solicitanteNome}
+                  onChange={(event) => updateField("solicitanteNome", event.target.value)}
+                />
               </Field>
             </div>
 

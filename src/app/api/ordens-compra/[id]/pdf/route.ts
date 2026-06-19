@@ -80,6 +80,7 @@ export async function GET(_: Request, context: RouteContext) {
         : null,
       formaPagamento: ordemCompra.formaPagamento,
       numeroParcelas: ordemCompra.numeroParcelas,
+      solicitanteNome: ordemCompra.solicitanteNome,
       observacaoFinanceira: ordemCompra.observacaoFinanceira,
       observacao: ordemCompra.observacao,
       valorTotal: Number(ordemCompra.valorTotal),

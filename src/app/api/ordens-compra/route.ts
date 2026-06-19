@@ -184,6 +184,7 @@ export async function GET(request: NextRequest) {
     where.OR = [
       { numeroOrdem: { contains: search, mode: "insensitive" } },
       { centroCustoNome: { contains: search, mode: "insensitive" } },
+      { solicitanteNome: { contains: search, mode: "insensitive" } },
       { observacao: { contains: search, mode: "insensitive" } },
       { observacaoFinanceira: { contains: search, mode: "insensitive" } },
       {
@@ -372,6 +373,7 @@ export async function POST(request: NextRequest) {
         formaPagamento: parsed.data.formaPagamento || null,
         numeroParcelas: pagamentoNormalizado.numeroParcelas,
         primeiroVencimento: dataBaseParcelas,
+        solicitanteNome: parsed.data.solicitanteNome || null,
         observacaoFinanceira: parsed.data.observacaoFinanceira || null,
         observacao: parsed.data.observacao || null,
         motivoExclusao: parsed.data.status === "CANCELADA" ? parsed.data.motivoExclusao || null : null,
