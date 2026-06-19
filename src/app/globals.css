@@ -3695,6 +3695,195 @@ button {
   color: var(--muted);
 }
 
+.fleet-monthly-hero {
+  gap: 22px;
+}
+
+.fleet-monthly-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(150px, 220px) minmax(220px, 0.6fr);
+  gap: 14px;
+  align-items: end;
+}
+
+.fleet-monthly-filter-wide {
+  min-width: 0;
+}
+
+.fleet-monthly-badge {
+  min-height: 100%;
+  align-content: center;
+}
+
+.fleet-monthly-summary-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.fleet-monthly-chart-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.65fr);
+}
+
+.fleet-monthly-chart-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.fleet-monthly-chart-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.fleet-monthly-chart-copy .section-title {
+  margin: 0;
+}
+
+.fleet-monthly-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.fleet-monthly-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(109, 92, 66, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fleet-monthly-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.fleet-monthly-dot.is-total {
+  background: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.16);
+}
+
+.fleet-monthly-dot.is-average {
+  background: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+}
+
+.fleet-monthly-chart-shell {
+  height: 420px;
+  padding: 18px 14px 10px;
+}
+
+.fleet-monthly-side-panel {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
+.fleet-ranking-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.fleet-monthly-info-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.fleet-monthly-compare-list {
+  display: grid;
+  gap: 12px;
+}
+
+.fleet-monthly-compare-item {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(109, 92, 66, 0.12);
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.fleet-monthly-compare-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.fleet-monthly-compare-head strong {
+  display: block;
+}
+
+.fleet-monthly-compare-head span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.fleet-monthly-compare-metrics {
+  display: grid;
+  gap: 10px;
+}
+
+.fleet-monthly-compare-metrics strong {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.fleet-monthly-tooltip-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.fleet-monthly-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 1280px) {
+  .fleet-monthly-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fleet-monthly-chart-grid,
+  .fleet-monthly-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fleet-monthly-badge {
+    justify-self: stretch;
+  }
+}
+
+@media (max-width: 760px) {
+  .fleet-monthly-summary-grid,
+  .fleet-monthly-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fleet-ranking-header {
+    grid-template-columns: 1fr;
+  }
+
+  .fleet-monthly-chart-shell {
+    height: 360px;
+    padding-inline: 8px;
+  }
+}
+
 .fleet-skeleton-block {
   min-height: 160px;
   border-radius: 24px;
