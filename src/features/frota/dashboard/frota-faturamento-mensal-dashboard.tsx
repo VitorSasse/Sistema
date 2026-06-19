@@ -232,7 +232,11 @@ export function FrotaFaturamentoMensalDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  async function loadDashboard(nextYear: number, nextMonths: number[], nextEquipmentIds: string[]) {
+  async function loadDashboard(
+    nextYear: number,
+    nextMonths: number[],
+    nextEquipmentIds?: string[] | null
+  ) {
     setLoading(true);
     setError("");
 
@@ -242,7 +246,7 @@ export function FrotaFaturamentoMensalDashboard() {
         months: nextMonths.join(",")
       });
 
-      if (nextEquipmentIds.length > 0) {
+      if (nextEquipmentIds !== null && nextEquipmentIds !== undefined) {
         params.set("equipmentIds", nextEquipmentIds.join(","));
       }
 
@@ -270,13 +274,14 @@ export function FrotaFaturamentoMensalDashboard() {
   }
 
   useEffect(() => {
-    void loadDashboard(new Date().getFullYear(), allMonthNumbers, []);
+    void loadDashboard(new Date().getFullYear(), allMonthNumbers, null);
   }, []);
 
   const monthlyRows = useMemo(() => data?.monthly ?? [], [data]);
   const equipmentSeries = useMemo(() => data?.equipmentSeries ?? [], [data]);
   const selectedEquipments = useMemo(() => data?.selectedEquipments ?? [], [data]);
   const hasEquipmentData = selectedEquipments.length > 0;
+  const hasAvailableEquipments = (data?.filters.equipments.length ?? 0) > 0;
   const hasMeasuredValue = (data?.summary.totalValorPeriodo ?? 0) > 0;
   const isComparingMultiple = selectedEquipments.length > 1;
   const primaryEquipment = selectedEquipments[0] ?? null;
@@ -438,8 +443,16 @@ export function FrotaFaturamentoMensalDashboard() {
 
       {!hasEquipmentData ? (
         <section className="surface section-card fleet-empty-state fade-up">
-          <strong>Nenhum equipamento com medicao encontrado</strong>
-          <p>Nao existe historico mensal disponivel para os filtros atuais.</p>
+          <strong>
+            {hasAvailableEquipments
+              ? "Selecione ao menos um equipamento"
+              : "Nenhum equipamento com medicao encontrado"}
+          </strong>
+          <p>
+            {hasAvailableEquipments
+              ? "A comparacao mensal fica vazia enquanto nenhum equipamento estiver marcado."
+              : "Nao existe historico mensal disponivel para os filtros atuais."}
+          </p>
         </section>
       ) : (
         <>

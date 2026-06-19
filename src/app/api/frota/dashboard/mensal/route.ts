@@ -66,7 +66,11 @@ function parseSelectedMonths(value: string | null) {
 }
 
 function parseSelectedEquipmentIds(value: string | null) {
-  if (!value?.trim()) {
+  if (value === null) {
+    return null;
+  }
+
+  if (!value.trim()) {
     return [];
   }
 
@@ -85,17 +89,17 @@ function toDayKey(value: Date) {
 }
 
 function normalizeSelectedEquipmentIds(
-  requestedIds: string[],
+  requestedIds: string[] | null,
   equipmentOptions: EquipmentOption[]
 ) {
+  if (requestedIds === null) {
+    return equipmentOptions[0] ? [equipmentOptions[0].id] : [];
+  }
+
   const validIds = new Set(equipmentOptions.map((item) => item.id));
   const selectedIds = requestedIds.filter((item) => validIds.has(item));
 
-  if (selectedIds.length > 0) {
-    return selectedIds;
-  }
-
-  return equipmentOptions[0] ? [equipmentOptions[0].id] : [];
+  return selectedIds;
 }
 
 function computeMonthlyMetrics(
