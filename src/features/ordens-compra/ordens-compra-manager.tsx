@@ -418,10 +418,6 @@ function canCancelOrder(status: StatusOrdemCompra) {
   return status !== "RECEBIDA" && status !== "CANCELADA";
 }
 
-function isOrdemCompra(value: unknown): value is OrdemCompra {
-  return typeof value === "object" && value !== null && "id" in value;
-}
-
 export function OrdensCompraManager() {
   const [ordens, setOrdens] = useState<OrdemCompra[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
@@ -879,6 +875,7 @@ export function OrdensCompraManager() {
     event.preventDefault();
     setMessage("");
 
+    const isEditing = Boolean(form.id);
     const method = form.id ? "PATCH" : "POST";
     const url = form.id ? `/api/ordens-compra/${form.id}` : "/api/ordens-compra";
 
@@ -899,16 +896,10 @@ export function OrdensCompraManager() {
       }
 
       await loadOrdens(filtrosAplicados);
-
-      if (isOrdemCompra(data)) {
-        setForm(createFormFromOrder(data));
-        setOrdemSelecionada(data);
-      }
-
-      setMessage(
-        form.id
+      resetFormularioOrdemCompra(
+        isEditing
           ? "Ordem de compra atualizada com sucesso."
-          : "Ordem de compra cadastrada com sucesso. Agora voce ja pode anexar documentos."
+          : "Ordem de compra cadastrada com sucesso."
       );
     });
   }
@@ -921,7 +912,7 @@ export function OrdensCompraManager() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function handleReset() {
+  function resetFormularioOrdemCompra(nextMessage = "") {
     setForm(createInitialForm());
     setOrdemSelecionada(null);
     setTipoAnexo("OUTRO");
@@ -929,7 +920,11 @@ export function OrdensCompraManager() {
     setMensagemAnexo("");
     setErroAnexo(false);
     setChaveInputAnexo((current) => current + 1);
-    setMessage("");
+    setMessage(nextMessage);
+  }
+
+  function handleReset() {
+    resetFormularioOrdemCompra();
   }
 
   function handleOpenPdf(ordemId: string) {
