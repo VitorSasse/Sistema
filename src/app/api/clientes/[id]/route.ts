@@ -9,6 +9,76 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+async function countClienteDependencies(clienteId: string) {
+  const [
+    obras,
+    fichas,
+    precos,
+    lancamentosAtivos,
+    lancamentosExcluidos,
+    medicoesAtivas,
+    medicoesExcluidas
+  ] = await prisma.$transaction([
+    prisma.obra.count({ where: { clienteId } }),
+    prisma.ficha.count({ where: { clienteId } }),
+    prisma.precoClienteObra.count({ where: { clienteId } }),
+    prisma.lancamentoDiario.count({ where: { clienteId, deletedAt: null } }),
+    prisma.lancamentoDiario.count({ where: { clienteId, deletedAt: { not: null } } }),
+    prisma.medicao.count({ where: { clienteId, deletedAt: null } }),
+    prisma.medicao.count({ where: { clienteId, deletedAt: { not: null } } })
+  ]);
+
+  return {
+    obras,
+    fichas,
+    precos,
+    lancamentosAtivos,
+    lancamentosExcluidos,
+    medicoesAtivas,
+    medicoesExcluidas
+  };
+}
+
+function buildClienteDependencyMessage(
+  dependencies: Awaited<ReturnType<typeof countClienteDependencies>>
+) {
+  const entries: string[] = [];
+
+  if (dependencies.obras > 0) {
+    entries.push(`${dependencies.obras} obra(s)`);
+  }
+
+  if (dependencies.fichas > 0) {
+    entries.push(`${dependencies.fichas} ficha(s)`);
+  }
+
+  if (dependencies.precos > 0) {
+    entries.push(`${dependencies.precos} preco(s)`);
+  }
+
+  if (dependencies.lancamentosAtivos > 0) {
+    entries.push(`${dependencies.lancamentosAtivos} lancamento(s) ativo(s)`);
+  }
+
+  if (dependencies.lancamentosExcluidos > 0) {
+    entries.push(
+      `${dependencies.lancamentosExcluidos} lancamento(s) excluido(s) logicamente`
+    );
+  }
+
+  if (dependencies.medicoesAtivas > 0) {
+    entries.push(`${dependencies.medicoesAtivas} medicao(oes) ativa(s)`);
+  }
+
+  if (dependencies.medicoesExcluidas > 0) {
+    entries.push(
+      `${dependencies.medicoesExcluidas} medicao(oes) excluida(s) logicamente`
+    );
+  }
+
+  return entries;
+}
+
 export async function PATCH(request: NextRequest, context: RouteContext) {
   const session = await auth();
 
@@ -120,6 +190,28 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
   try {
     if (mode === "delete") {
+      const clienteExistente = await prisma.cliente.findUnique({
+        where: { id },
+        select: { id: true }
+      });
+
+      if (!clienteExistente) {
+        return NextResponse.json({ message: "Cliente nao encontrado." }, { status: 404 });
+      }
+
+      const dependencies = await countClienteDependencies(id);
+      const dependencyLabels = buildClienteDependencyMessage(dependencies);
+
+      if (dependencyLabels.length > 0) {
+        return NextResponse.json(
+          {
+            message: `Nao foi possivel excluir o cliente. Vinculos encontrados: ${dependencyLabels.join(", ")}.`,
+            dependencies
+          },
+          { status: 409 }
+        );
+      }
+
       const cliente = await prisma.cliente.delete({
         where: { id }
       });
