@@ -530,6 +530,13 @@ export function OrdensCompraManager() {
       .sort((a, b) => formatFornecedorLabel(a).localeCompare(formatFornecedorLabel(b)));
   }, [fornecedores]);
 
+  const fornecedoresFiltroOpcoes = useMemo<SearchableSelectOption[]>(() => {
+    return fornecedoresFiltro.map((fornecedor) => ({
+      value: fornecedor.id,
+      label: formatFornecedorLabel(fornecedor)
+    }));
+  }, [fornecedoresFiltro]);
+
   const centrosFiltro = useMemo(() => {
     return centrosCusto
       .filter((centro) => centro.status === "ATIVO")
@@ -1535,18 +1542,13 @@ export function OrdensCompraManager() {
               />
             </Field>
             <Field label="Fornecedor">
-              <select
-                className="field-control"
+              <SearchableSelect
                 value={filtrosConsulta.fornecedorId}
-                onChange={(event) => updateFiltro("fornecedorId", event.target.value)}
-              >
-                <option value="">Todos os fornecedores</option>
-                {fornecedoresFiltro.map((fornecedor) => (
-                  <option key={fornecedor.id} value={fornecedor.id}>
-                    {formatFornecedorLabel(fornecedor)}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => updateFiltro("fornecedorId", value)}
+                options={fornecedoresFiltroOpcoes}
+                placeholder="Buscar fornecedor"
+                emptyLabel="Nenhum fornecedor encontrado."
+              />
             </Field>
             <Field label="Centro de custo">
               <SearchableMultiSelect
