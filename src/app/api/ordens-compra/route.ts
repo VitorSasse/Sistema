@@ -104,6 +104,17 @@ function parseDateQuery(value: string | null, endOfDay = false) {
   return date;
 }
 
+function parseIdList(value: string | null) {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function buildStatusFilter(statusParam: string): Prisma.OrdemCompraWhereInput["status"] | null {
   if (!statusParam || statusParam === "TODOS") {
     return null;
@@ -136,6 +147,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("search")?.trim() ?? "";
   const fornecedorId = searchParams.get("fornecedorId")?.trim() ?? "";
+  const centroCustoIds = parseIdList(searchParams.get("centroCustoIds"));
   const centroCustoId = searchParams.get("centroCustoId")?.trim() ?? "";
   const planoContaId = searchParams.get("planoContaId")?.trim() ?? "";
   const statusParam = searchParams.get("status")?.trim() ?? "";
@@ -149,7 +161,9 @@ export async function GET(request: NextRequest) {
     where.fornecedorId = fornecedorId;
   }
 
-  if (centroCustoId) {
+  if (centroCustoIds.length > 0) {
+    where.centroCustoId = { in: centroCustoIds };
+  } else if (centroCustoId) {
     where.centroCustoId = centroCustoId;
   }
 

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { SearchableMultiSelect } from "@/components/form/searchable-multi-select";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/form/searchable-select";
 import { calcularTotalOrdem, gerarParcelasOrdemCompra } from "@/lib/ordens-compra";
 import {
@@ -156,7 +157,7 @@ type FormState = {
 type FiltrosConsultaState = {
   search: string;
   fornecedorId: string;
-  centroCustoId: string;
+  centroCustoIds: string[];
   planoContaId: string;
   tipoCompra: "TODOS" | TipoCompra;
   status: "TODOS" | StatusOrdemCompra;
@@ -267,7 +268,7 @@ function createInitialFilters(): FiltrosConsultaState {
   return {
     search: "",
     fornecedorId: "",
-    centroCustoId: "",
+    centroCustoIds: [],
     planoContaId: "",
     tipoCompra: "TODOS",
     status: "TODOS",
@@ -317,8 +318,8 @@ function buildOrdensQuery(filters: FiltrosConsultaState) {
     params.set("fornecedorId", filters.fornecedorId);
   }
 
-  if (filters.centroCustoId) {
-    params.set("centroCustoId", filters.centroCustoId);
+  if (filters.centroCustoIds.length > 0) {
+    params.set("centroCustoIds", filters.centroCustoIds.join(","));
   }
 
   if (filters.planoContaId) {
@@ -534,6 +535,13 @@ export function OrdensCompraManager() {
       .filter((centro) => centro.status === "ATIVO")
       .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [centrosCusto]);
+
+  const centrosFiltroOpcoes = useMemo(() => {
+    return centrosFiltro.map((centro) => ({
+      value: centro.id,
+      label: centro.nome
+    }));
+  }, [centrosFiltro]);
 
   const catalogoDisponivel = useMemo(() => {
     return catalogoCompra
@@ -1511,7 +1519,7 @@ export function OrdensCompraManager() {
           <div>
             <h2 className="section-title">Consulta de ordens de compra</h2>
             <p className="section-copy">
-              Use os filtros abaixo para localizar ordens por fornecedor, plano de conta, periodo, centro de custo, status e tipo.
+              Use os filtros abaixo para localizar ordens por fornecedor, plano de conta, centros de custo, periodo, status e tipo.
             </p>
           </div>
         </div>
@@ -1541,18 +1549,13 @@ export function OrdensCompraManager() {
               </select>
             </Field>
             <Field label="Centro de custo">
-              <select
-                className="field-control"
-                value={filtrosConsulta.centroCustoId}
-                onChange={(event) => updateFiltro("centroCustoId", event.target.value)}
-              >
-                <option value="">Todos os centros de custo</option>
-                {centrosFiltro.map((centro) => (
-                  <option key={centro.id} value={centro.id}>
-                    {centro.nome}
-                  </option>
-                ))}
-              </select>
+              <SearchableMultiSelect
+                values={filtrosConsulta.centroCustoIds}
+                options={centrosFiltroOpcoes}
+                placeholder="Buscar centros de custo"
+                emptyLabel="Nenhum centro de custo encontrado."
+                onChange={(values) => updateFiltro("centroCustoIds", values)}
+              />
             </Field>
             <Field label="Plano de conta">
               <select

@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent
+} from "react";
+import { createPortal } from "react-dom";
 
 export type SearchableMultiSelectOption = {
   value: string;
@@ -27,6 +35,8 @@ export function SearchableMultiSelect(props: {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const selectedOptions = useMemo(
@@ -68,6 +78,47 @@ export function SearchableMultiSelect(props: {
     if (highlightedIndex < 0) return;
     optionRefs.current[highlightedIndex]?.scrollIntoView({ block: "nearest" });
   }, [highlightedIndex]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setMenuStyle(null);
+      return;
+    }
+
+    function updateMenuPosition() {
+      const wrapper = wrapperRef.current;
+
+      if (!wrapper) {
+        return;
+      }
+
+      const rect = wrapper.getBoundingClientRect();
+
+      setMenuStyle({
+        position: "fixed",
+        zIndex: 1200,
+        top: rect.bottom + 6,
+        left: rect.left,
+        width: rect.width,
+        maxHeight: 260,
+        overflowY: "auto",
+        border: "1px solid var(--line-strong)",
+        borderRadius: 14,
+        boxShadow: "var(--shadow-md)",
+        background: "var(--surface)"
+      });
+    }
+
+    updateMenuPosition();
+
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [isOpen]);
 
   function toggleValue(value: string) {
     const nextValues = values.includes(value)
@@ -126,7 +177,7 @@ export function SearchableMultiSelect(props: {
   }
 
   return (
-    <div style={{ position: "relative" }}>
+    <div ref={wrapperRef} style={{ position: "relative", width: "100%" }}>
       <div
         className="field-control"
         style={{
@@ -161,7 +212,7 @@ export function SearchableMultiSelect(props: {
                 }}
               >
                 {option.label}
-                <span aria-hidden="true">×</span>
+                <span aria-hidden="true">x</span>
               </button>
             ))}
           </div>
@@ -170,7 +221,7 @@ export function SearchableMultiSelect(props: {
         <input
           value={query}
           disabled={disabled}
-          placeholder={selectedOptions.length > 0 ? "Buscar mais equipamentos" : placeholder}
+          placeholder={placeholder}
           onFocus={() => setIsOpen(true)}
           onBlur={() => {
             window.setTimeout(() => setIsOpen(false), 120);
@@ -191,80 +242,68 @@ export function SearchableMultiSelect(props: {
         />
       </div>
 
-      {isOpen && !disabled ? (
-        <div
-          className="surface"
-          style={{
-            position: "absolute",
-            zIndex: 40,
-            top: "calc(100% + 6px)",
-            left: 0,
-            right: 0,
-            maxHeight: 260,
-            overflowY: "auto",
-            border: "1px solid var(--line-strong)",
-            borderRadius: 14,
-            boxShadow: "var(--shadow-md)",
-            background: "var(--surface)"
-          }}
-        >
-          {filteredOptions.length > 0 ? (
-            <>
-              {filteredOptions.map((option, index) => {
-                const selected = values.includes(option.value);
-                return (
-                  <button
-                    key={option.value}
-                    ref={(element) => {
-                      optionRefs.current[index] = element;
-                    }}
-                    type="button"
-                    onMouseDown={(event) => event.preventDefault()}
-                    onMouseEnter={() => setHighlightedIndex(index)}
-                    onClick={() => toggleValue(option.value)}
-                    style={{
-                      width: "100%",
-                      display: "grid",
-                      gridTemplateColumns: "18px 1fr",
-                      gap: 10,
-                      alignItems: "center",
-                      textAlign: "left",
-                      padding: "10px 12px",
-                      border: "none",
-                      background:
-                        highlightedIndex === index ? "rgba(249, 115, 22, 0.16)" : "transparent",
-                      cursor: "pointer",
-                      color: "var(--text)"
-                    }}
-                  >
-                    <span
-                      aria-hidden="true"
+      {isOpen && !disabled && menuStyle
+        ? createPortal(
+            <div className="surface" style={menuStyle}>
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option, index) => {
+                  const selected = values.includes(option.value);
+                  return (
+                    <button
+                      key={option.value}
+                      ref={(element) => {
+                        optionRefs.current[index] = element;
+                      }}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                      onClick={() => toggleValue(option.value)}
                       style={{
-                        width: 16,
-                        height: 16,
-                        borderRadius: 4,
-                        border: "1px solid var(--line-strong)",
-                        background: selected ? "rgba(249, 115, 22, 0.18)" : "transparent",
-                        display: "inline-flex",
+                        width: "100%",
+                        display: "grid",
+                        gridTemplateColumns: "18px 1fr",
+                        gap: 10,
                         alignItems: "center",
-                        justifyContent: "center",
-                        color: "var(--primary)",
-                        fontSize: 11,
-                        fontWeight: 800
+                        textAlign: "left",
+                        padding: "10px 12px",
+                        border: "none",
+                        background:
+                          highlightedIndex === index
+                            ? "rgba(249, 115, 22, 0.16)"
+                            : "transparent",
+                        cursor: "pointer",
+                        color: "var(--text)"
                       }}
                     >
-                      {selected ? "✓" : ""}
-                    </span>
-                    <span>{option.label}</span>
-                  </button>
-                );
-              })}
-            </>
-          ) : (
-            <div style={{ padding: "10px 12px", color: "var(--muted)" }}>{emptyLabel}</div>
-          )}
-        </div>
-      ) : null}
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          width: 16,
+                          height: 16,
+                          borderRadius: 4,
+                          border: "1px solid var(--line-strong)",
+                          background: selected ? "rgba(249, 115, 22, 0.18)" : "transparent",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "var(--primary)",
+                          fontSize: 11,
+                          fontWeight: 800
+                        }}
+                      >
+                        {selected ? "✓" : ""}
+                      </span>
+                      <span>{option.label}</span>
+                    </button>
+                  );
+                })
+              ) : (
+                <div style={{ padding: "10px 12px", color: "var(--muted)" }}>{emptyLabel}</div>
+              )}
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }
