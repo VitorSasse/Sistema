@@ -1,7 +1,12 @@
 import { Prisma, StatusOrdemCompra, TipoCatalogoCompra } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { calcularSubtotalItem, calcularTotalOrdem, gerarParcelasOrdemCompra } from "@/lib/ordens-compra";
+import {
+  calcularSubtotalItem,
+  calcularTotalOrdem,
+  calcularValorUnitarioItem,
+  gerarParcelasOrdemCompra
+} from "@/lib/ordens-compra";
 import { normalizarPagamentoOrdemCompra } from "@/lib/ordens-compra-pagamento";
 import { prisma } from "@/lib/prisma";
 import { generateOrdemCompraCode } from "@/lib/utils/code-generation";
@@ -25,7 +30,8 @@ function normalizePayload(payload: Record<string, unknown>) {
       return {
         ...current,
         quantidade: parseDecimalInput(current.quantidade),
-        valorUnitario: parseDecimalInput(current.valorUnitario)
+        valorUnitario: parseDecimalInput(current.valorUnitario),
+        subtotal: parseDecimalInput(current.subtotal)
       };
     })
   };
@@ -340,9 +346,16 @@ export async function POST(request: NextRequest) {
         throw new Error(`TIPO_CATALOGO_INVALIDO:${catalogo.id}`);
       }
 
+      const valorUnitario = calcularValorUnitarioItem({
+        quantidade: item.quantidade,
+        valorUnitario: item.valorUnitario,
+        subtotal: item.subtotal
+      });
+
       const subtotal = calcularSubtotalItem({
         quantidade: item.quantidade,
-        valorUnitario: item.valorUnitario
+        valorUnitario,
+        subtotal: item.subtotal
       });
 
       return {
@@ -353,7 +366,7 @@ export async function POST(request: NextRequest) {
         descricao: catalogo?.descricao ?? item.descricao,
         unidade: catalogo?.unidadePadrao ?? item.unidade,
         quantidade: item.quantidade,
-        valorUnitario: item.valorUnitario,
+        valorUnitario,
         subtotal
       };
     });

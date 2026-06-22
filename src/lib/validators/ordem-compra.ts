@@ -9,7 +9,8 @@ const ordemCompraItemSchema = z.object({
   descricao: z.string().trim().min(3).max(240),
   unidade: z.string().trim().min(1).max(20),
   quantidade: z.number().positive().max(999999),
-  valorUnitario: z.number().nonnegative().max(999999999)
+  valorUnitario: z.number().nonnegative().max(999999999),
+  subtotal: z.number().nonnegative().max(999999999)
 });
 
 export const ordemCompraSchema = z

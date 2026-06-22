@@ -1,6 +1,7 @@
 export type OrdemCompraItemCalculo = {
   quantidade: number;
   valorUnitario: number;
+  subtotal?: number;
 };
 
 export type ParcelaGerada = {
@@ -14,7 +15,24 @@ function roundCurrency(value: number) {
 }
 
 export function calcularSubtotalItem(input: OrdemCompraItemCalculo) {
+  if (typeof input.subtotal === "number" && Number.isFinite(input.subtotal) && input.subtotal >= 0) {
+    return roundCurrency(input.subtotal);
+  }
+
   return roundCurrency(input.quantidade * input.valorUnitario);
+}
+
+export function calcularValorUnitarioItem(input: OrdemCompraItemCalculo) {
+  if (
+    input.quantidade > 0 &&
+    typeof input.subtotal === "number" &&
+    Number.isFinite(input.subtotal) &&
+    input.subtotal >= 0
+  ) {
+    return roundCurrency(input.subtotal / input.quantidade);
+  }
+
+  return roundCurrency(input.valorUnitario);
 }
 
 export function calcularTotalOrdem(

@@ -4,7 +4,12 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { SearchableMultiSelect } from "@/components/form/searchable-multi-select";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/form/searchable-select";
-import { calcularTotalOrdem, gerarParcelasOrdemCompra } from "@/lib/ordens-compra";
+import {
+  calcularSubtotalItem,
+  calcularTotalOrdem,
+  calcularValorUnitarioItem,
+  gerarParcelasOrdemCompra
+} from "@/lib/ordens-compra";
 import {
   FORMAS_PAGAMENTO_ORDEM_COMPRA,
   normalizarPagamentoOrdemCompra,
@@ -134,6 +139,7 @@ type FormItem = {
   unidade: string;
   quantidade: string;
   valorUnitario: string;
+  valorTotal: string;
 };
 
 type FormState = {
@@ -239,7 +245,8 @@ function createEmptyItem(index: number): FormItem {
     descricao: "",
     unidade: "UN",
     quantidade: "1",
-    valorUnitario: "0"
+    valorUnitario: "0",
+    valorTotal: "0"
   };
 }
 
@@ -302,7 +309,8 @@ function createFormFromOrder(ordem: OrdemCompra): FormState {
       descricao: item.descricao,
       unidade: item.unidade,
       quantidade: numberToInput(item.quantidade),
-      valorUnitario: numberToInput(item.valorUnitario)
+      valorUnitario: numberToInput(item.valorUnitario),
+      valorTotal: numberToInput(item.subtotal)
     }))
   };
 }
@@ -623,7 +631,8 @@ export function OrdensCompraManager() {
     return calcularTotalOrdem(
       form.itens.map((item) => ({
         quantidade: toNumber(item.quantidade),
-        valorUnitario: toNumber(item.valorUnitario)
+        valorUnitario: toNumber(item.valorUnitario),
+        subtotal: toNumber(item.valorTotal)
       }))
     );
   }, [form.itens]);
@@ -699,9 +708,56 @@ export function OrdensCompraManager() {
   function updateItem(index: number, key: keyof FormItem, value: string) {
     setForm((current) => ({
       ...current,
-      itens: current.itens.map((item, itemIndex) =>
-        itemIndex === index ? { ...item, [key]: value } : item
-      )
+      itens: current.itens.map((item, itemIndex) => {
+        if (itemIndex !== index) {
+          return item;
+        }
+
+        const nextItem = { ...item, [key]: value };
+
+        if (key === "valorUnitario") {
+          nextItem.valorTotal = numberToInput(
+            calcularSubtotalItem({
+              quantidade: toNumber(nextItem.quantidade),
+              valorUnitario: toNumber(value)
+            })
+          );
+        }
+
+        if (key === "valorTotal") {
+          nextItem.valorUnitario = numberToInput(
+            calcularValorUnitarioItem({
+              quantidade: toNumber(nextItem.quantidade),
+              valorUnitario: toNumber(nextItem.valorUnitario),
+              subtotal: toNumber(value)
+            })
+          );
+        }
+
+        if (key === "quantidade") {
+          const quantidade = toNumber(value);
+          const valorTotalAtual = toNumber(item.valorTotal);
+
+          if (item.valorTotal.trim() && valorTotalAtual > 0) {
+            nextItem.valorUnitario = numberToInput(
+              calcularValorUnitarioItem({
+                quantidade,
+                valorUnitario: toNumber(item.valorUnitario),
+                subtotal: valorTotalAtual
+              })
+            );
+          } else {
+            nextItem.valorTotal = numberToInput(
+              calcularSubtotalItem({
+                quantidade,
+                valorUnitario: toNumber(item.valorUnitario)
+              })
+            );
+          }
+        }
+
+        return nextItem;
+      })
     }));
   }
 
@@ -746,7 +802,13 @@ export function OrdensCompraManager() {
           codigo: catalogo.codigo,
           descricao: catalogo.descricao,
           unidade: catalogo.unidadePadrao,
-          valorUnitario: numberToInput(catalogo.valorPadrao)
+          valorUnitario: numberToInput(catalogo.valorPadrao),
+          valorTotal: numberToInput(
+            calcularSubtotalItem({
+              quantidade: toNumber(item.quantidade),
+              valorUnitario: Number(catalogo.valorPadrao)
+            })
+          )
         };
       })
     }));
@@ -802,7 +864,13 @@ export function OrdensCompraManager() {
         descricao: item.descricao,
         unidade: item.unidade,
         quantidade: toNumber(item.quantidade),
-        valorUnitario: toNumber(item.valorUnitario)
+        valorUnitario: toNumber(item.valorUnitario),
+        subtotal: item.valorTotal.trim()
+          ? toNumber(item.valorTotal)
+          : calcularSubtotalItem({
+              quantidade: toNumber(item.quantidade),
+              valorUnitario: toNumber(item.valorUnitario)
+            })
       }))
     };
   }
@@ -1122,6 +1190,7 @@ export function OrdensCompraManager() {
                 </h3>
                 <p className="section-copy">
                   O catalogo abaixo muda automaticamente conforme o tipo selecionado.
+                  Se a nota vier apenas com valor total, informe o total do item e o sistema recalcula o unitario pela quantidade.
                 </p>
               </div>
               <button type="button" className="button-secondary" onClick={addItem}>
@@ -1140,14 +1209,12 @@ export function OrdensCompraManager() {
                     <th>Unidade</th>
                     <th>Quantidade</th>
                     <th>Valor unitario</th>
-                    <th>Subtotal</th>
+                    <th>Valor total</th>
                     <th>Acoes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {form.itens.map((item, index) => {
-                    const subtotal = toNumber(item.quantidade) * toNumber(item.valorUnitario);
-
                     return (
                       <tr key={`${item.item}-${index}`}>
                         <td>
@@ -1210,7 +1277,15 @@ export function OrdensCompraManager() {
                             style={{ minWidth: 120 }}
                           />
                         </td>
-                        <td>{formatCurrency(subtotal)}</td>
+                        <td>
+                          <input
+                            className="field-control"
+                            inputMode="decimal"
+                            value={item.valorTotal}
+                            onChange={(event) => updateItem(index, "valorTotal", event.target.value)}
+                            style={{ minWidth: 130 }}
+                          />
+                        </td>
                         <td>
                           <button
                             type="button"
