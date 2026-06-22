@@ -14,7 +14,6 @@ const navigationGroups = [
     icon: "dashboard",
     description: "Painel financeiro e acompanhamento consolidado da frota.",
     items: [
-      { href: "/inicio", label: "Home operacional" },
       { href: "/dashboard", label: "Dashboard de faturamento" },
       { href: "/frota/dashboard", label: "Dashboard da frota" },
       { href: "/dashboard/executivo", label: "Dashboard executivo" }
