@@ -6,7 +6,7 @@ export default async function LoginPage() {
   const session = await auth();
 
   if (session?.user) {
-    redirect("/dashboard");
+    redirect("/inicio");
   }
 
   return <AccessEntry mode="login" />;

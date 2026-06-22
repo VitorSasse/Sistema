@@ -1,4 +1,5 @@
 import type { Route } from "next";
+import Link from "next/link";
 import { ReactNode } from "react";
 import { logout } from "./actions";
 import { AdminNav } from "@/components/admin-nav";
@@ -13,6 +14,7 @@ const navigationGroups = [
     icon: "dashboard",
     description: "Painel financeiro e acompanhamento consolidado da frota.",
     items: [
+      { href: "/inicio", label: "Home operacional" },
       { href: "/dashboard", label: "Dashboard de faturamento" },
       { href: "/frota/dashboard", label: "Dashboard da frota" },
       { href: "/dashboard/executivo", label: "Dashboard executivo" }
@@ -104,7 +106,9 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
       <aside className="admin-sidebar">
         <SidebarScrollArea>
           <div className="admin-brand">
-            <BaseproLogo theme="dark" showTagline={false} className="admin-brand-logo" />
+            <Link href="/inicio" className="admin-brand-link" aria-label="Ir para a home operacional">
+              <BaseproLogo theme="dark" showTagline={false} className="admin-brand-logo" />
+            </Link>
           </div>
 
           <div className="admin-user-card">

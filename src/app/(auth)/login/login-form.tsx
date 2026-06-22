@@ -33,7 +33,7 @@ export function LoginForm() {
               return;
             }
 
-            router.replace("/dashboard");
+            router.replace("/inicio");
             router.refresh();
           } catch (submitError) {
             console.error("[login-form] erro ao autenticar", submitError);

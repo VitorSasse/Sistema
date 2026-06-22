@@ -28,5 +28,5 @@ export async function authenticate(_: LoginState, formData: FormData): Promise<L
     throw error;
   }
 
-  redirect("/dashboard");
+  redirect("/inicio");
 }
