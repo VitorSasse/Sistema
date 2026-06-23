@@ -105,18 +105,12 @@ function DashboardSkeleton() {
   return (
     <main className="fleet-dashboard maintenance-dashboard">
       <section className="surface section-card maintenance-toolbar fleet-skeleton-block" />
-      <section className="fleet-summary-grid">
-        {Array.from({ length: 5 }).map((_, index) => (
-          <article
-            key={index}
-            className="surface section-card fleet-summary-card fleet-skeleton-block"
-          />
+      <section className="maintenance-command-grid">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <article key={index} className="fleet-skeleton-block maintenance-stat-card" />
         ))}
       </section>
-      <section className="maintenance-panel-grid">
-        <article className="surface section-card fleet-skeleton-block" />
-        <article className="surface section-card fleet-skeleton-block" />
-      </section>
+      <section className="surface section-card fleet-skeleton-block" />
     </main>
   );
 }
@@ -177,23 +171,23 @@ export function FrotaManutencaoDashboard() {
   }
 
   const totalConsiderado = Math.max(1, data?.summary.total ?? 0);
+  const summaryItems = [
+    { key: "vencidas", label: "Vencidas", value: data?.summary.vencidas ?? 0, className: "danger" },
+    { key: "atencao", label: "Atencao", value: data?.summary.atencao ?? 0, className: "warn" },
+    { key: "emDia", label: "Em dia", value: data?.summary.emDia ?? 0, className: "success" },
+    { key: "semBase", label: "Sem base", value: data?.summary.semBase ?? 0, className: "neutral" },
+    { key: "semPlano", label: "Sem plano", value: data?.summary.semPlano ?? 0, className: "muted" }
+  ];
+  const urgentItems = (data?.highlights ?? []).slice(0, 6);
 
   return (
     <main className="fleet-dashboard maintenance-dashboard">
-      <section className="page-header fade-up">
-        <span className="page-kicker">Frota</span>
-        <h1 className="page-title">Painel visual de manutencao</h1>
-        <p className="page-copy">
-          Leitura rapida da manutencao dos equipamentos para saber o que vence primeiro e quanto falta em horas, KM ou dias.
-        </p>
-      </section>
-
       <section className="maintenance-toolbar surface section-card fade-up">
         <div className="maintenance-toolbar-copy">
-          <span className="fleet-kicker">Manutencao preventiva</span>
-          <h2 className="section-title">Proxima revisao por equipamento</h2>
+          <span className="page-kicker">Frota</span>
+          <h1 className="page-title">Painel visual de manutencao</h1>
           <p className="section-copy">
-            O painel usa a leitura atual e o plano preventivo mais relevante de cada equipamento.
+            Proxima revisao, criticidade e quanto falta por equipamento em uma leitura unica.
           </p>
         </div>
 
@@ -242,57 +236,42 @@ export function FrotaManutencaoDashboard() {
         </section>
       ) : null}
 
-      <section className="fleet-summary-grid fade-up fade-up-delay-1">
-        <article className="fleet-summary-card fleet-summary-card-strong">
-          <span className="fleet-card-label">Equipamentos monitorados</span>
-          <strong className="fleet-card-value">{data?.summary.total ?? 0}</strong>
-          <p className="fleet-card-copy">Leitura consolidada do filtro atual.</p>
+      <section className="maintenance-command-grid fade-up fade-up-delay-1">
+        <article className="maintenance-total-card">
+          <span>Monitorados</span>
+          <strong>{data?.summary.total ?? 0}</strong>
+          <small>equipamentos</small>
         </article>
-        <article className="fleet-summary-card fleet-summary-card-danger">
-          <span className="fleet-card-label">Revisoes vencidas</span>
-          <strong className="fleet-card-value">{data?.summary.vencidas ?? 0}</strong>
-          <p className="fleet-card-copy">Exigem acao imediata.</p>
-        </article>
-        <article className="fleet-summary-card fleet-summary-card-warn">
-          <span className="fleet-card-label">Em atencao</span>
-          <strong className="fleet-card-value">{data?.summary.atencao ?? 0}</strong>
-          <p className="fleet-card-copy">Ja entraram na faixa de alerta.</p>
-        </article>
-        <article className="fleet-summary-card fleet-summary-card-info">
-          <span className="fleet-card-label">Sem base de leitura</span>
-          <strong className="fleet-card-value">{data?.summary.semBase ?? 0}</strong>
-          <p className="fleet-card-copy">Nao ha dados suficientes para calcular.</p>
-        </article>
-        <article className="fleet-summary-card fleet-summary-card-neutral">
-          <span className="fleet-card-label">Sem plano ativo</span>
-          <strong className="fleet-card-value">{data?.summary.semPlano ?? 0}</strong>
-          <p className="fleet-card-copy">Equipamentos sem preventivo configurado.</p>
-        </article>
+
+        {summaryItems.map((item) => (
+          <article
+            key={item.key}
+            className={`maintenance-stat-card maintenance-stat-card-${item.className}`}
+          >
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+            <div className="maintenance-stat-meter">
+              <div style={{ width: `${(item.value / totalConsiderado) * 100}%` }} />
+            </div>
+          </article>
+        ))}
       </section>
 
-      <section className="maintenance-panel-grid fade-up fade-up-delay-2">
+      <section className="maintenance-overview-grid fade-up fade-up-delay-2">
         <article className="surface section-card maintenance-distribution-card">
           <div className="section-header">
             <div>
-              <h2 className="section-title">Distribuicao da manutencao</h2>
-              <p className="section-copy">
-                Situacao geral do parque de equipamentos dentro do filtro aplicado.
-              </p>
+              <h2 className="section-title">Distribuicao</h2>
+              <p className="section-copy">Situacao geral do filtro aplicado.</p>
             </div>
           </div>
 
           <div className="maintenance-distribution-list">
-            {[
-              { key: "vencidas", label: "Vencidas", value: data?.summary.vencidas ?? 0, className: "danger" },
-              { key: "atencao", label: "Atencao", value: data?.summary.atencao ?? 0, className: "warn" },
-              { key: "emDia", label: "Em dia", value: data?.summary.emDia ?? 0, className: "success" },
-              { key: "semBase", label: "Sem base", value: data?.summary.semBase ?? 0, className: "neutral" },
-              { key: "semPlano", label: "Sem plano", value: data?.summary.semPlano ?? 0, className: "muted" }
-            ].map((item) => (
+            {summaryItems.map((item) => (
               <div key={item.key} className="maintenance-distribution-item">
                 <div className="maintenance-distribution-copy">
                   <strong>{item.label}</strong>
-                  <span>{item.value} equipamento(s)</span>
+                  <span>{item.value}</span>
                 </div>
                 <div className="maintenance-distribution-track">
                   <div
@@ -308,21 +287,19 @@ export function FrotaManutencaoDashboard() {
         <article className="surface section-card maintenance-highlights-card">
           <div className="section-header">
             <div>
-              <h2 className="section-title">O que vence primeiro</h2>
-              <p className="section-copy">
-                Equipamentos mais urgentes para manutencao preventiva.
-              </p>
+              <h2 className="section-title">Fila critica</h2>
+              <p className="section-copy">Os primeiros equipamentos para revisar.</p>
             </div>
           </div>
 
           <div className="maintenance-highlight-list">
-            {(data?.highlights ?? []).length === 0 ? (
+            {urgentItems.length === 0 ? (
               <div className="fleet-empty-state fleet-empty-state-compact">
                 <strong>Nenhum equipamento no filtro</strong>
                 <p>Sem dados para destacar neste recorte.</p>
               </div>
             ) : (
-              data?.highlights.map((item) => (
+              urgentItems.map((item) => (
                 <article key={item.equipamentoId} className="maintenance-highlight-item">
                   <div className="maintenance-highlight-head">
                     <strong>{item.placaOuTag}</strong>
@@ -333,7 +310,7 @@ export function FrotaManutencaoDashboard() {
                   <span className="maintenance-highlight-subtitle">{item.descricao}</span>
                   <strong className="maintenance-highlight-value">{item.restanteLabel}</strong>
                   <span className="maintenance-highlight-meta">
-                    {item.tipoManutencao} · Alvo {item.alvoLabel}
+                    {item.tipoManutencao} - Alvo {item.alvoLabel}
                   </span>
                 </article>
               ))
@@ -342,70 +319,64 @@ export function FrotaManutencaoDashboard() {
         </article>
       </section>
 
-      <section className="maintenance-card-grid fade-up fade-up-delay-3">
+      <section className="surface section-card maintenance-compact-board fade-up fade-up-delay-3">
+        <div className="section-header">
+          <div>
+            <h2 className="section-title">Mapa preventivo</h2>
+            <p className="section-copy">Leitura atual, meta e ciclo consumido em formato compacto.</p>
+          </div>
+          <span className="maintenance-board-count">{data?.items.length ?? 0} linhas</span>
+        </div>
+
         {(data?.items ?? []).length === 0 ? (
-          <article className="surface section-card fleet-empty-state">
+          <article className="fleet-empty-state">
             <strong>Nenhum equipamento encontrado</strong>
             <p>Altere os filtros para visualizar o painel de manutencao.</p>
           </article>
         ) : (
-          data?.items.map((item) => (
-            <article
-              key={item.equipamentoId}
-              className={`surface section-card maintenance-equipment-card maintenance-equipment-card-${item.painelStatus.toLowerCase()}`}
-            >
-              <div className="maintenance-card-top">
-                <div className="maintenance-card-top-copy">
-                  <span className="fleet-kicker">{item.tipoRecurso}</span>
+          <div className="maintenance-compact-table" role="table">
+            <div className="maintenance-compact-row maintenance-compact-head" role="row">
+              <span>Equipamento</span>
+              <span>Situacao</span>
+              <span>Falta</span>
+              <span>Atual</span>
+              <span>Proxima</span>
+              <span>Ciclo</span>
+            </div>
+
+            {data?.items.map((item) => (
+              <article
+                key={item.equipamentoId}
+                className={`maintenance-compact-row maintenance-compact-row-${item.painelStatus.toLowerCase()}`}
+                role="row"
+              >
+                <div className="maintenance-compact-equipment">
                   <strong>{item.placaOuTag}</strong>
                   <span>{item.descricao}</span>
+                  <small>{item.planoTitulo}</small>
                 </div>
-                <span className={getStatusClass(item.painelStatus)}>
-                  {formatStatusLabel(item.painelStatus)}
-                </span>
-              </div>
-
-              <div className="maintenance-card-body">
-                <span className="maintenance-card-plan">{item.planoTitulo}</span>
-                <strong className="maintenance-card-value">{item.restanteLabel}</strong>
-                <p className="maintenance-card-copy">
-                  {item.tipoManutencao} · Leitura atual {item.leituraAtualLabel}
-                </p>
-              </div>
-
-              <div className="maintenance-progress">
-                <div className="maintenance-progress-track">
-                  <div
-                    className={getStatusTrackClass(item.painelStatus)}
-                    style={{ width: `${item.progresso ?? 0}%` }}
-                  />
+                <div>
+                  <span className={getStatusClass(item.painelStatus)}>
+                    {formatStatusLabel(item.painelStatus)}
+                  </span>
                 </div>
-                <span className="maintenance-progress-label">
-                  {item.progresso !== null
-                    ? `${item.progresso.toFixed(0)}% do ciclo usado`
-                    : "Progresso indisponivel"}
-                </span>
-              </div>
-
-              <div className="maintenance-card-footer">
-                <div className="maintenance-card-meta">
-                  <span className="maintenance-meta-label">Proxima meta</span>
-                  <strong>{item.alvoLabel}</strong>
+                <strong className="maintenance-compact-value">{item.restanteLabel}</strong>
+                <span>{item.leituraAtualLabel}</span>
+                <span>{item.alvoLabel}</span>
+                <div className="maintenance-compact-cycle">
+                  <div className="maintenance-progress-track">
+                    <div
+                      className={getStatusTrackClass(item.painelStatus)}
+                      style={{ width: `${item.progresso ?? 0}%` }}
+                    />
+                  </div>
+                  <span>
+                    {item.progresso !== null ? `${item.progresso.toFixed(0)}%` : "sem leitura"}
+                  </span>
                 </div>
-                <div className="maintenance-card-meta">
-                  <span className="maintenance-meta-label">Criterio</span>
-                  <strong>{item.criterioControle ?? "SEM PLANO"}</strong>
-                </div>
-                <div className="maintenance-card-meta">
-                  <span className="maintenance-meta-label">Intervalo</span>
-                  <strong>
-                    {item.periodicidadeValor !== null ? item.periodicidadeValor : "-"}
-                    {item.unidadeRestante ? ` ${item.unidadeRestante}` : ""}
-                  </strong>
-                </div>
-              </div>
-            </article>
-          ))
+              </article>
+            ))}
+          </div>
         )}
       </section>
     </main>
