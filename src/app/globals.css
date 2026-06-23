@@ -6720,3 +6720,314 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+.maintenance-dashboard {
+  display: grid;
+  gap: 24px;
+}
+
+.maintenance-toolbar,
+.maintenance-panel-grid,
+.maintenance-card-grid,
+.maintenance-toolbar-filters,
+.maintenance-distribution-list,
+.maintenance-highlight-list {
+  display: grid;
+  gap: 18px;
+}
+
+.maintenance-toolbar {
+  grid-template-columns: minmax(0, 1.15fr) minmax(300px, 0.85fr);
+  align-items: start;
+}
+
+.maintenance-toolbar-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.maintenance-toolbar-filters {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.maintenance-filter-field {
+  min-width: 0;
+}
+
+.maintenance-panel-grid {
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+}
+
+.maintenance-distribution-card,
+.maintenance-highlights-card {
+  display: grid;
+  gap: 18px;
+}
+
+.maintenance-distribution-item {
+  display: grid;
+  gap: 10px;
+}
+
+.maintenance-distribution-copy {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.maintenance-distribution-copy strong {
+  font-size: 0.94rem;
+}
+
+.maintenance-distribution-copy span,
+.maintenance-highlight-subtitle,
+.maintenance-highlight-meta,
+.maintenance-progress-label,
+.maintenance-meta-label {
+  color: var(--muted);
+}
+
+.maintenance-distribution-track,
+.maintenance-progress-track {
+  position: relative;
+  overflow: hidden;
+  min-height: 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--screen-surface-strong) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--line-soft) 78%, transparent);
+}
+
+.maintenance-distribution-fill,
+.maintenance-progress-fill {
+  min-height: 100%;
+  border-radius: inherit;
+}
+
+.maintenance-distribution-fill-danger,
+.maintenance-progress-fill-danger {
+  background: linear-gradient(90deg, #ef4444, #f97316);
+}
+
+.maintenance-distribution-fill-warn,
+.maintenance-progress-fill-warn {
+  background: linear-gradient(90deg, #f59e0b, #facc15);
+}
+
+.maintenance-distribution-fill-success,
+.maintenance-progress-fill-success {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.maintenance-distribution-fill-neutral,
+.maintenance-progress-fill-neutral {
+  background: linear-gradient(90deg, #38bdf8, #60a5fa);
+}
+
+.maintenance-distribution-fill-muted,
+.maintenance-progress-fill-muted {
+  background: linear-gradient(90deg, #64748b, #94a3b8);
+}
+
+.maintenance-highlight-list {
+  align-content: start;
+}
+
+.maintenance-highlight-item {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 84%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--screen-surface-strong) 88%, transparent),
+      color-mix(in srgb, var(--screen-surface-start) 96%, transparent)
+    );
+}
+
+.maintenance-highlight-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.maintenance-highlight-value {
+  font-size: 1.05rem;
+}
+
+.maintenance-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.maintenance-equipment-card {
+  display: grid;
+  gap: 18px;
+  position: relative;
+  overflow: hidden;
+  min-height: 260px;
+}
+
+.maintenance-equipment-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -32px -48px auto;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.9;
+}
+
+.maintenance-equipment-card-vencida::after {
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.2), transparent 70%);
+}
+
+.maintenance-equipment-card-atencao::after {
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.2), transparent 70%);
+}
+
+.maintenance-equipment-card-em_dia::after {
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.18), transparent 70%);
+}
+
+.maintenance-equipment-card-sem_base::after,
+.maintenance-equipment-card-sem_plano::after {
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.16), transparent 70%);
+}
+
+.maintenance-card-top,
+.maintenance-card-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.maintenance-card-top-copy,
+.maintenance-card-body,
+.maintenance-card-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.maintenance-card-top-copy strong {
+  font-size: 1.1rem;
+}
+
+.maintenance-card-top-copy span:last-child,
+.maintenance-card-copy {
+  color: var(--muted);
+}
+
+.maintenance-card-plan {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.maintenance-card-value {
+  font-size: clamp(1.35rem, 2.1vw, 1.9rem);
+  line-height: 1.05;
+}
+
+.maintenance-card-footer {
+  margin-top: auto;
+  align-items: stretch;
+}
+
+.maintenance-card-meta {
+  flex: 1 1 140px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 84%, transparent);
+  background: color-mix(in srgb, var(--screen-surface-strong) 76%, transparent);
+}
+
+.maintenance-meta-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.maintenance-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.maintenance-pill-danger {
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.42);
+  border-color: rgba(248, 113, 113, 0.28);
+}
+
+.maintenance-pill-warn {
+  color: #fde68a;
+  background: rgba(120, 53, 15, 0.42);
+  border-color: rgba(251, 191, 36, 0.26);
+}
+
+.maintenance-pill-success {
+  color: #bbf7d0;
+  background: rgba(20, 83, 45, 0.38);
+  border-color: rgba(74, 222, 128, 0.24);
+}
+
+.maintenance-pill-neutral {
+  color: #bae6fd;
+  background: rgba(12, 74, 110, 0.38);
+  border-color: rgba(56, 189, 248, 0.22);
+}
+
+.maintenance-pill-muted {
+  color: #dbeafe;
+  background: rgba(71, 85, 105, 0.34);
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+.fleet-summary-card-neutral {
+  background: linear-gradient(180deg, color-mix(in srgb, #94a3b8 12%, var(--surface)), var(--surface-strong));
+}
+
+@media (max-width: 1180px) {
+  .maintenance-toolbar,
+  .maintenance-panel-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .maintenance-toolbar-filters,
+  .maintenance-card-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .maintenance-card-footer {
+    display: grid;
+  }
+}
+
+@media (max-width: 640px) {
+  .maintenance-equipment-card {
+    min-height: auto;
+  }
+
+  .maintenance-card-meta {
+    flex-basis: 100%;
+  }
+}

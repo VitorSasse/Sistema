@@ -60,6 +60,7 @@ const navigationGroups = [
     icon: "frota",
     description: "Leituras, manutencao e acompanhamento dos recursos.",
     items: [
+      { href: "/frota/manutencao", label: "Painel de manutencao" },
       { href: "/frota/leituras", label: "Leituras de horimetro/KM" },
       { href: "/frota/planos", label: "Plano preventivo" }
     ]
