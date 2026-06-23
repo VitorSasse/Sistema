@@ -1,3 +1,5 @@
+import { rm } from "fs/promises";
+import path from "path";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import {
@@ -14,6 +16,8 @@ import { ordemCompraSchema } from "@/lib/validators/ordem-compra";
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
+
+export const runtime = "nodejs";
 
 function parseDateInput(value: string) {
   const [year, month, day] = value.split("-").map(Number);
@@ -355,7 +359,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
   if (!motivoExclusao) {
     return NextResponse.json(
-      { message: "Informe o motivo da exclusao antes de cancelar a ordem." },
+      { message: "Informe o motivo da exclusao antes de remover a ordem." },
       { status: 400 }
     );
   }
@@ -364,7 +368,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     where: { id },
     select: {
       id: true,
-      status: true
+      status: true,
+      numeroOrdem: true
     }
   });
 
@@ -374,28 +379,37 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
   if (ordemAtual.status === "RECEBIDA") {
     return NextResponse.json(
-      { message: "Ordem de compra concluida nao pode ser cancelada." },
+      { message: "Ordem de compra concluida nao pode ser excluida." },
       { status: 409 }
     );
   }
 
-  if (ordemAtual.status === "CANCELADA") {
-    return NextResponse.json(
-      { message: "Esta ordem de compra ja esta cancelada." },
-      { status: 409 }
-    );
-  }
-
-  const ordemCompra = await prisma.ordemCompra.update({
+  await prisma.ordemCompra.delete({
     where: { id },
-    data: {
-      status: "CANCELADA",
-      motivoExclusao,
-      excluidaEm: new Date(),
-      excluidaPorNome: session.user.name ?? session.user.email ?? "Usuario"
-    },
-    include: ordemCompraInclude
   });
 
-  return NextResponse.json(ordemCompra);
+  const uploadDir = path.join(
+    process.cwd(),
+    "public",
+    "uploads",
+    "ordens-compra",
+    ordemAtual.numeroOrdem
+  );
+
+  try {
+    await rm(uploadDir, { recursive: true, force: true });
+  } catch (error) {
+    console.warn("[ordens-compra.delete] nao foi possivel remover anexos em disco", {
+      ordemCompraId: id,
+      numeroOrdem: ordemAtual.numeroOrdem,
+      error: String(error)
+    });
+  }
+
+  return NextResponse.json({
+    id,
+    numeroOrdem: ordemAtual.numeroOrdem,
+    motivoExclusao,
+    removidaPorNome: session.user.name ?? session.user.email ?? "Usuario"
+  });
 }

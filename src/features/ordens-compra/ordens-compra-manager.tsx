@@ -414,8 +414,8 @@ function formatTipoCompra(value: TipoCompra) {
   return value === "SERVICO" ? "Servico" : "Produto";
 }
 
-function canCancelOrder(status: StatusOrdemCompra) {
-  return status !== "RECEBIDA" && status !== "CANCELADA";
+function canDeleteOrder(status: StatusOrdemCompra) {
+  return status !== "RECEBIDA";
 }
 
 export function OrdensCompraManager() {
@@ -933,7 +933,7 @@ export function OrdensCompraManager() {
 
   function handleCancelar(ordem: OrdemCompra) {
     const motivo = window.prompt(
-      `Informe o motivo da exclusao/cancelamento da ordem ${ordem.numeroOrdem}:`
+      `Informe o motivo da exclusao da ordem ${ordem.numeroOrdem}:`
     );
 
     if (motivo === null) {
@@ -943,7 +943,7 @@ export function OrdensCompraManager() {
     const motivoNormalizado = motivo.trim();
 
     if (!motivoNormalizado) {
-      setMessage("Informe o motivo da exclusao para cancelar a ordem.");
+      setMessage("Informe o motivo da exclusao para remover a ordem.");
       return;
     }
 
@@ -957,21 +957,17 @@ export function OrdensCompraManager() {
       const data = (await response.json().catch(() => ({}))) as { message?: string };
 
       if (!response.ok) {
-        setMessage(data.message ?? "Nao foi possivel cancelar a ordem de compra.");
+        setMessage(data.message ?? "Nao foi possivel excluir a ordem de compra.");
         return;
       }
 
       await loadOrdens(filtrosAplicados);
 
       if (form.id === ordem.id) {
-        const ordemAtualizada = await refreshSelectedOrder(ordem.id);
-
-        if (ordemAtualizada) {
-          setForm(createFormFromOrder(ordemAtualizada));
-        }
+        resetFormularioOrdemCompra();
       }
 
-      setMessage(`Ordem ${ordem.numeroOrdem} cancelada com sucesso.`);
+      setMessage(`Ordem ${ordem.numeroOrdem} excluida com sucesso.`);
     });
   }
 
@@ -1777,7 +1773,7 @@ export function OrdensCompraManager() {
                         >
                           PDF
                         </button>
-                        {canCancelOrder(ordem.status) ? (
+                        {canDeleteOrder(ordem.status) ? (
                           <button
                             type="button"
                             className="button-danger"
