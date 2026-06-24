@@ -167,17 +167,36 @@ type FiltrosConsultaState = {
   planoContaId: string;
   tipoCompra: "TODOS" | TipoCompra;
   status: "TODOS" | StatusOrdemCompra;
+  periodoRapido: PeriodoConsulta;
   dataInicial: string;
   dataFinal: string;
 };
 
 type StatusOrdemCompraVisivel = "ABERTA" | "COMPRADA" | "RECEBIDA" | "CANCELADA";
+type PeriodoConsulta =
+  | "HOJE"
+  | "ESTA_SEMANA"
+  | "MES_PASSADO"
+  | "ESTE_MES"
+  | "PROXIMO_MES"
+  | "TODO_PERIODO"
+  | "PERSONALIZADO";
 
 const STATUS_OPTIONS: Array<{ value: StatusOrdemCompraVisivel; label: string }> = [
   { value: "ABERTA", label: "Em aberto" },
   { value: "COMPRADA", label: "Em andamento" },
   { value: "RECEBIDA", label: "Confirmada" },
   { value: "CANCELADA", label: "Cancelada" }
+];
+
+const PERIODO_CONSULTA_OPTIONS: Array<{ value: PeriodoConsulta; label: string }> = [
+  { value: "HOJE", label: "Hoje" },
+  { value: "ESTA_SEMANA", label: "Esta semana" },
+  { value: "MES_PASSADO", label: "Mes passado" },
+  { value: "ESTE_MES", label: "Este mes" },
+  { value: "PROXIMO_MES", label: "Proximo mes" },
+  { value: "TODO_PERIODO", label: "Todo o periodo" },
+  { value: "PERSONALIZADO", label: "Escolha o periodo" }
 ];
 
 function normalizarStatusOrdemCompra(status: StatusOrdemCompra): StatusOrdemCompraVisivel {
@@ -237,6 +256,76 @@ function formatDateDisplay(value: string | Date) {
   return `${day}/${month}/${year}`;
 }
 
+function formatDateOnly(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getPeriodoConsultaRange(periodo: PeriodoConsulta) {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+
+  switch (periodo) {
+    case "HOJE":
+      return {
+        dataInicial: formatDateOnly(today),
+        dataFinal: formatDateOnly(today)
+      };
+    case "ESTA_SEMANA": {
+      const weekStart = new Date(today);
+      const day = weekStart.getDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      weekStart.setDate(weekStart.getDate() + diffToMonday);
+
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+
+      return {
+        dataInicial: formatDateOnly(weekStart),
+        dataFinal: formatDateOnly(weekEnd)
+      };
+    }
+    case "MES_PASSADO":
+      return {
+        dataInicial: formatDateOnly(new Date(year, month - 1, 1)),
+        dataFinal: formatDateOnly(new Date(year, month, 0))
+      };
+    case "ESTE_MES":
+      return {
+        dataInicial: formatDateOnly(new Date(year, month, 1)),
+        dataFinal: formatDateOnly(new Date(year, month + 1, 0))
+      };
+    case "PROXIMO_MES":
+      return {
+        dataInicial: formatDateOnly(new Date(year, month + 1, 1)),
+        dataFinal: formatDateOnly(new Date(year, month + 2, 0))
+      };
+    case "TODO_PERIODO":
+    case "PERSONALIZADO":
+    default:
+      return {
+        dataInicial: "",
+        dataFinal: ""
+      };
+  }
+}
+
+function formatPeriodoConsultaLabel(periodo: PeriodoConsulta) {
+  if (periodo !== "ESTE_MES") {
+    return PERIODO_CONSULTA_OPTIONS.find((option) => option.value === periodo)?.label ?? "Periodo";
+  }
+
+  const label = new Date().toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric"
+  });
+
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 function createEmptyItem(index: number): FormItem {
   return {
     item: `ITEM ${String(index).padStart(2, "0")}`,
@@ -272,6 +361,8 @@ function createInitialForm(): FormState {
 }
 
 function createInitialFilters(): FiltrosConsultaState {
+  const currentMonth = getPeriodoConsultaRange("ESTE_MES");
+
   return {
     search: "",
     fornecedorId: "",
@@ -279,8 +370,9 @@ function createInitialFilters(): FiltrosConsultaState {
     planoContaId: "",
     tipoCompra: "TODOS",
     status: "TODOS",
-    dataInicial: "",
-    dataFinal: ""
+    periodoRapido: "ESTE_MES",
+    dataInicial: currentMonth.dataInicial,
+    dataFinal: currentMonth.dataFinal
   };
 }
 
@@ -762,6 +854,31 @@ export function OrdensCompraManager() {
     value: FiltrosConsultaState[K]
   ) {
     setFiltrosConsulta((current) => ({ ...current, [key]: value }));
+  }
+
+  function handlePeriodoConsultaChange(periodoRapido: PeriodoConsulta) {
+    setFiltrosConsulta((current) => {
+      if (periodoRapido === "PERSONALIZADO") {
+        return {
+          ...current,
+          periodoRapido
+        };
+      }
+
+      return {
+        ...current,
+        periodoRapido,
+        ...getPeriodoConsultaRange(periodoRapido)
+      };
+    });
+  }
+
+  function handleDataPeriodoManualChange(key: "dataInicial" | "dataFinal", value: string) {
+    setFiltrosConsulta((current) => ({
+      ...current,
+      periodoRapido: "PERSONALIZADO",
+      [key]: value
+    }));
   }
 
   function handleTipoCompraChange(value: TipoCompra) {
@@ -1654,6 +1771,21 @@ export function OrdensCompraManager() {
           </div>
 
           <div className="form-grid-4">
+            <Field label="Periodo">
+              <select
+                className="field-control"
+                value={filtrosConsulta.periodoRapido}
+                onChange={(event) => handlePeriodoConsultaChange(event.target.value as PeriodoConsulta)}
+              >
+                {PERIODO_CONSULTA_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.value === "ESTE_MES"
+                      ? formatPeriodoConsultaLabel(option.value)
+                      : option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <Field label="Tipo da compra">
               <select
                 className="field-control"
@@ -1683,23 +1815,28 @@ export function OrdensCompraManager() {
                 ))}
               </select>
             </Field>
-            <Field label="Emissao inicial">
-              <input
-                className="field-control"
-                type="date"
-                value={filtrosConsulta.dataInicial}
-                onChange={(event) => updateFiltro("dataInicial", event.target.value)}
-              />
-            </Field>
-            <Field label="Emissao final">
-              <input
-                className="field-control"
-                type="date"
-                value={filtrosConsulta.dataFinal}
-                onChange={(event) => updateFiltro("dataFinal", event.target.value)}
-              />
-            </Field>
           </div>
+
+          {filtrosConsulta.periodoRapido === "PERSONALIZADO" ? (
+            <div className="form-grid-4">
+              <Field label="Emissao inicial">
+                <input
+                  className="field-control"
+                  type="date"
+                  value={filtrosConsulta.dataInicial}
+                  onChange={(event) => handleDataPeriodoManualChange("dataInicial", event.target.value)}
+                />
+              </Field>
+              <Field label="Emissao final">
+                <input
+                  className="field-control"
+                  type="date"
+                  value={filtrosConsulta.dataFinal}
+                  onChange={(event) => handleDataPeriodoManualChange("dataFinal", event.target.value)}
+                />
+              </Field>
+            </div>
+          ) : null}
 
           <div className="toolbar-actions">
             <button type="submit" className="button-primary" disabled={isPending}>
