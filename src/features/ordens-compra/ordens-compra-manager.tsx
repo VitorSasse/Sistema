@@ -998,7 +998,11 @@ export function OrdensCompraManager() {
         body
       });
 
-      const data = (await response.json()) as { message?: string };
+      const data = (await response
+        .json()
+        .catch(() => ({ message: "Nao foi possivel processar a resposta do upload." }))) as {
+        message?: string;
+      };
 
       if (!response.ok) {
         setErroAnexo(true);
@@ -1014,6 +1018,9 @@ export function OrdensCompraManager() {
       setChaveInputAnexo((current) => current + 1);
       setErroAnexo(false);
       setMensagemAnexo("Arquivo anexado com sucesso.");
+    } catch {
+      setErroAnexo(true);
+      setMensagemAnexo("Nao foi possivel anexar o arquivo. Tente novamente com uma foto ou documento valido.");
     } finally {
       setIsUploadingAttachment(false);
     }
@@ -1501,7 +1508,7 @@ export function OrdensCompraManager() {
                       key={chaveInputAnexo}
                       className="field-control"
                       type="file"
-                      accept=".pdf,.png,.jpg,.jpeg,.webp,.xml,.doc,.docx,.xls,.xlsx"
+                      accept="image/*,.pdf,.png,.jpg,.jpeg,.jfif,.webp,.avif,.heic,.heif,.gif,.bmp,.tif,.tiff,.xml,.doc,.docx,.xls,.xlsx"
                       onChange={(event) => setArquivoAnexo(event.target.files?.[0] ?? null)}
                     />
                   </Field>

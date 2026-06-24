@@ -14,8 +14,16 @@ type RouteContext = {
 
 const allowedMimeTypes = new Set([
   "application/pdf",
+  "image/avif",
+  "image/bmp",
+  "image/gif",
+  "image/heic",
+  "image/heif",
+  "image/jfif",
   "image/png",
   "image/jpeg",
+  "image/pjpeg",
+  "image/tiff",
   "image/webp",
   "text/xml",
   "application/xml",
@@ -27,9 +35,17 @@ const allowedMimeTypes = new Set([
 
 const allowedExtensions = new Set([
   ".pdf",
+  ".avif",
+  ".bmp",
+  ".gif",
+  ".heic",
+  ".heif",
+  ".jfif",
   ".png",
   ".jpg",
   ".jpeg",
+  ".tif",
+  ".tiff",
   ".webp",
   ".xml",
   ".doc",
@@ -46,7 +62,7 @@ function sanitizeFileName(value: string) {
 
 function isAllowedFile(name: string, mimeType: string) {
   const extension = path.extname(name).toLowerCase();
-  return allowedMimeTypes.has(mimeType) || allowedExtensions.has(extension);
+  return mimeType.startsWith("image/") || allowedMimeTypes.has(mimeType) || allowedExtensions.has(extension);
 }
 
 export async function GET(_: NextRequest, context: RouteContext) {
@@ -126,13 +142,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const bytes = Buffer.from(await file.arrayBuffer());
-  const safeName = sanitizeFileName(file.name);
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "ordens-compra", ordemCompra.numeroOrdem);
-  const storedName = `${Date.now()}-${randomUUID()}-${safeName}`;
+  let bytes: Buffer;
+  let storedName: string;
 
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(path.join(uploadDir, storedName), bytes);
+  try {
+    bytes = Buffer.from(await file.arrayBuffer());
+    const safeName = sanitizeFileName(file.name);
+    const uploadDir = path.join(process.cwd(), "public", "uploads", "ordens-compra", ordemCompra.numeroOrdem);
+    storedName = `${Date.now()}-${randomUUID()}-${safeName}`;
+
+    await mkdir(uploadDir, { recursive: true });
+    await writeFile(path.join(uploadDir, storedName), bytes);
+  } catch (error) {
+    console.error("[ordens-compra.anexos] falha ao gravar arquivo", error);
+    return NextResponse.json(
+      { message: "Nao foi possivel gravar o anexo. Verifique o formato e o tamanho do arquivo." },
+      { status: 500 }
+    );
+  }
 
   const anexo = await prisma.anexo.create({
     data: {
