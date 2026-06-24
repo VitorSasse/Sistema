@@ -142,35 +142,44 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  let bytes: Buffer;
-  let storedName: string;
-
   try {
-    bytes = Buffer.from(await file.arrayBuffer());
+    const bytes = Buffer.from(await file.arrayBuffer());
+    const mimeType = file.type || "application/octet-stream";
     const safeName = sanitizeFileName(file.name);
     const uploadDir = path.join(process.cwd(), "public", "uploads", "ordens-compra", ordemCompra.numeroOrdem);
-    storedName = `${Date.now()}-${randomUUID()}-${safeName}`;
+    const storedName = `${Date.now()}-${randomUUID()}-${safeName}`;
+    let urlArquivo = "";
 
-    await mkdir(uploadDir, { recursive: true });
-    await writeFile(path.join(uploadDir, storedName), bytes);
+    try {
+      await mkdir(uploadDir, { recursive: true });
+      await writeFile(path.join(uploadDir, storedName), bytes);
+      urlArquivo = `/uploads/ordens-compra/${ordemCompra.numeroOrdem}/${storedName}`;
+    } catch (error) {
+      console.warn("[ordens-compra.anexos] usando fallback em banco para anexo", {
+        ordemCompraId: ordemCompra.id,
+        numeroOrdem: ordemCompra.numeroOrdem,
+        error: String(error)
+      });
+      urlArquivo = `data:${mimeType};base64,${bytes.toString("base64")}`;
+    }
+
+    const anexo = await prisma.anexo.create({
+      data: {
+        ordemCompraId: ordemCompra.id,
+        tipo,
+        nomeArquivo: file.name,
+        mimeType,
+        tamanhoBytes: bytes.length,
+        urlArquivo
+      }
+    });
+
+    return NextResponse.json(anexo, { status: 201 });
   } catch (error) {
-    console.error("[ordens-compra.anexos] falha ao gravar arquivo", error);
+    console.error("[ordens-compra.anexos] falha ao processar anexo", error);
     return NextResponse.json(
-      { message: "Nao foi possivel gravar o anexo. Verifique o formato e o tamanho do arquivo." },
+      { message: "Nao foi possivel processar o anexo. Verifique o formato e o tamanho do arquivo." },
       { status: 500 }
     );
   }
-
-  const anexo = await prisma.anexo.create({
-    data: {
-      ordemCompraId: ordemCompra.id,
-      tipo,
-      nomeArquivo: file.name,
-      mimeType: file.type || "application/octet-stream",
-      tamanhoBytes: bytes.length,
-      urlArquivo: `/uploads/ordens-compra/${ordemCompra.numeroOrdem}/${storedName}`
-    }
-  });
-
-  return NextResponse.json(anexo, { status: 201 });
 }
