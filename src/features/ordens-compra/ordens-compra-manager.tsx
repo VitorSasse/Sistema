@@ -1553,7 +1553,12 @@ export function OrdensCompraManager() {
                             {new Date(anexo.createdAt).toLocaleDateString("pt-BR")}
                           </span>
                         </div>
-                        <a href={anexo.urlArquivo} target="_blank" rel="noreferrer" className="button-secondary">
+                        <a
+                          href={`/api/ordens-compra/${ordemSelecionada.id}/anexos/${anexo.id}/arquivo`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="button-secondary"
+                        >
                           Abrir anexo
                         </a>
                       </div>
