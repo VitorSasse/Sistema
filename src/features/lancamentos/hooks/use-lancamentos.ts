@@ -336,6 +336,17 @@ export function useLancamentos() {
       };
     }
 
+    if (!formToSubmit.possuiRomaneio) {
+      const confirmarSemRomaneio = window.confirm(
+        "Este lancamento esta marcado como sem romaneio. Confirma salvar mesmo assim?"
+      );
+
+      if (!confirmarSemRomaneio) {
+        setMessage("Salvamento cancelado. Informe os romaneios antes de salvar.");
+        return;
+      }
+    }
+
     startTransition(async () => {
       const { response, data } = editingLancamentoId
         ? await atualizarLancamento(editingLancamentoId, {
