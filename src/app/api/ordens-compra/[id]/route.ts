@@ -291,6 +291,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           formaPagamento: parsed.data.formaPagamento || null,
           numeroParcelas: pagamentoNormalizado.numeroParcelas,
           primeiroVencimento: dataBaseParcelas,
+          numeroNotaFiscal: parsed.data.numeroNotaFiscal || null,
           solicitanteNome: parsed.data.solicitanteNome || null,
           observacaoFinanceira: parsed.data.observacaoFinanceira || null,
           observacao: parsed.data.observacao || null,

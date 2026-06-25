@@ -95,6 +95,7 @@ type OrdemCompra = {
   formaPagamento: string | null;
   numeroParcelas: number;
   primeiroVencimento: string | null;
+  numeroNotaFiscal: string | null;
   solicitanteNome: string | null;
   observacaoFinanceira: string | null;
   observacao: string | null;
@@ -153,6 +154,7 @@ type FormState = {
   formaPagamento: string;
   numeroParcelas: string;
   primeiroVencimento: string;
+  numeroNotaFiscal: string;
   solicitanteNome: string;
   observacaoFinanceira: string;
   observacao: string;
@@ -352,6 +354,7 @@ function createInitialForm(): FormState {
     formaPagamento: "",
     numeroParcelas: "1",
     primeiroVencimento: today,
+    numeroNotaFiscal: "",
     solicitanteNome: "",
     observacaoFinanceira: "",
     observacao: "",
@@ -390,6 +393,7 @@ function createFormFromOrder(ordem: OrdemCompra): FormState {
     primeiroVencimento: formatDateInput(
       ordem.primeiroVencimento ?? ordem.parcelas[0]?.dataVencimento ?? ordem.dataEmissao
     ),
+    numeroNotaFiscal: ordem.numeroNotaFiscal ?? "",
     solicitanteNome: ordem.solicitanteNome ?? "",
     observacaoFinanceira: ordem.observacaoFinanceira ?? "",
     observacao: ordem.observacao ?? "",
@@ -966,6 +970,7 @@ export function OrdensCompraManager() {
       formaPagamento: form.formaPagamento,
       numeroParcelas,
       primeiroVencimento,
+      numeroNotaFiscal: form.numeroNotaFiscal,
       solicitanteNome: form.solicitanteNome,
       observacaoFinanceira: form.observacaoFinanceira,
       observacao: form.observacao,
@@ -1234,6 +1239,14 @@ export function OrdensCompraManager() {
                   type="date"
                   value={form.dataEmissao}
                   onChange={(event) => updateField("dataEmissao", event.target.value)}
+                />
+              </Field>
+              <Field label="Numero da nota fiscal">
+                <input
+                  className="field-control"
+                  placeholder="Opcional"
+                  value={form.numeroNotaFiscal}
+                  onChange={(event) => updateField("numeroNotaFiscal", event.target.value)}
                 />
               </Field>
               <Field label="Status">
@@ -1731,7 +1744,7 @@ export function OrdensCompraManager() {
             <Field label="Busca geral">
               <input
                 className="field-control"
-                placeholder="Numero da ordem, fornecedor, plano de conta, observacao, item ou centro de custo"
+                placeholder="Numero da ordem, nota fiscal, fornecedor, plano de conta, observacao, item ou centro de custo"
                 value={filtrosConsulta.search}
                 onChange={(event) => updateFiltro("search", event.target.value)}
               />
@@ -1881,6 +1894,9 @@ export function OrdensCompraManager() {
                   <tr key={ordem.id}>
                     <td>
                       <div>{ordem.numeroOrdem}</div>
+                      {ordem.numeroNotaFiscal ? (
+                        <div className="subtle">NF: {ordem.numeroNotaFiscal}</div>
+                      ) : null}
                       <div className="subtle">Criada por {ordem.criadoPor.nome}</div>
                       {ordem.motivoExclusao ? (
                         <div className="subtle">Motivo: {ordem.motivoExclusao}</div>

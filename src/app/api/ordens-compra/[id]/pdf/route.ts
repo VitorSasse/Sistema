@@ -57,6 +57,7 @@ export async function GET(_: Request, context: RouteContext) {
       dataEmissao: ordemCompra.dataEmissao,
       status: ordemCompra.status,
       tipoCompra: ordemCompra.tipoCompra,
+      numeroNotaFiscal: ordemCompra.numeroNotaFiscal,
       fornecedor: {
         codigo: ordemCompra.fornecedor.codigo,
         razaoSocial: ordemCompra.fornecedor.razaoSocial,

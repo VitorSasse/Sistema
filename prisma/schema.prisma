@@ -462,7 +462,8 @@ model OrdemCompra {
   formaPagamento           String?
   numeroParcelas           Int                        @default(1)
   primeiroVencimento       DateTime?
-  solicitanteNome         String?
+  numeroNotaFiscal         String?
+  solicitanteNome          String?
   observacaoFinanceira     String?
   observacao               String?
   motivoExclusao           String?
@@ -485,6 +486,7 @@ model OrdemCompra {
   @@index([fornecedorId, dataEmissao])
   @@index([centroCustoId, dataEmissao])
   @@index([planoContaId, dataEmissao])
+  @@index([numeroNotaFiscal])
   @@index([centroCustoNome, dataEmissao])
 }
 

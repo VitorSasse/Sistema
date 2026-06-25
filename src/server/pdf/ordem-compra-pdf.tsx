@@ -24,6 +24,7 @@ type OrdemCompraPdfProps = {
   dataEmissao: Date;
   status: string;
   tipoCompra: string;
+  numeroNotaFiscal: string | null;
   solicitanteNome: string | null;
   fornecedor: {
     codigo: string;
@@ -451,7 +452,7 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
 
         <View style={styles.titleBand}>
           <View style={styles.titleSide} />
-          <Text style={styles.titleText}>{tituloDocumento} No. {props.numeroOrdem}</Text>
+          <Text style={styles.titleText}>{tituloDocumento} Nº {props.numeroOrdem}</Text>
           <View style={styles.titleDateBox}>
             <Text style={styles.titleDate}>{formatDate(props.dataEmissao)}</Text>
           </View>
@@ -491,6 +492,7 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
             "Status:",
             props.status
           )}
+          {renderInfoRow("Nota fiscal:", props.numeroNotaFiscal?.trim() || "-", "Parcelas:", String(props.numeroParcelas))}
         </View>
 
         <View style={styles.sectionBand}>
