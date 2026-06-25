@@ -6711,12 +6711,98 @@ button {
   background: color-mix(in srgb, var(--primary-soft) 70%, transparent);
 }
 
+.romaneio-entry-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 76%, transparent);
+  border-radius: 14px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--screen-surface-strong) 82%, transparent),
+      color-mix(in srgb, var(--screen-surface-start) 94%, transparent)
+    );
+}
+
+.romaneio-entry-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.romaneio-counter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 34%, transparent);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.romaneio-counter strong {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.romaneio-counter span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.romaneio-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.romaneio-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 8px 6px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 42%, transparent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.romaneio-chip button {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 26%, transparent);
+  cursor: pointer;
+  font: inherit;
+}
+
+.romaneio-chip button:hover {
+  background: color-mix(in srgb, var(--danger) 30%, transparent);
+}
+
 @media (max-width: 900px) {
 
   .content-split-2,
   .content-split-detail,
   .content-split-detail-alt,
   .section-row-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .romaneio-entry-row {
     grid-template-columns: 1fr;
   }
 }

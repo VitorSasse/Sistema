@@ -18,6 +18,7 @@ export const lancamentoSchema = z.object({
   unidadeFaturada: unidadeFaturadaSchema,
   horimetroInformado: z.union([z.number().nonnegative(), z.null()]).optional(),
   kmInformado: z.union([z.number().nonnegative(), z.null()]).optional(),
+  possuiRomaneio: z.boolean().optional().default(false),
   romaneios: z.array(z.string().trim().min(1).max(60)).optional().default([]),
   observacao: z.string().trim().max(500).optional().or(z.literal("")),
   fichaObservacao: z.string().trim().max(500).optional().or(z.literal(""))

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { SearchableSelect } from "@/components/form/searchable-select";
 import { HorarioApontamentoCard } from "@/features/lancamentos/components/horario-apontamento-card";
 import {
@@ -10,6 +10,7 @@ import {
 } from "@/features/lancamentos/constants";
 import { useLancamentos } from "@/features/lancamentos/hooks/use-lancamentos";
 import { isRecursoTecnicoPadrao } from "@/lib/constants/recurso-tecnico";
+import { parseRomaneiosInput } from "@/lib/utils/romaneios";
 import { formatQuantidadeComUnidade } from "@/lib/utils/unidades";
 
 function SectionField({ label, children }: { label: string; children: ReactNode }) {
@@ -23,6 +24,7 @@ function SectionField({ label, children }: { label: string; children: ReactNode 
 
 export function LancamentosManager() {
   const quantidadeFaturadaRef = useRef<HTMLInputElement>(null);
+  const [romaneioDraft, setRomaneioDraft] = useState("");
   const {
     options,
     lancamentos,
@@ -62,6 +64,48 @@ export function LancamentosManager() {
     }
 
     return calculated;
+  }
+
+  const romaneiosSelecionados = parseRomaneiosInput(form.romaneios);
+  const quantidadeCargasEsperada = (() => {
+    const toNumber = (value: string) => {
+      const parsed = Number(value.trim().replace(/\s+/g, "").replace(",", "."));
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    if (form.unidadeFaturada === "CARGA") {
+      return toNumber(form.quantidadeFaturada);
+    }
+
+    if (form.unidadeApontada === "CARGA") {
+      return toNumber(form.quantidadeApontada);
+    }
+
+    return null;
+  })();
+
+  function updateRomaneiosSelecionados(items: string[]) {
+    updateField("romaneios", items.join("\n"));
+  }
+
+  function handleAddRomaneio() {
+    const nextItems = parseRomaneiosInput([...romaneiosSelecionados, romaneioDraft]);
+
+    if (nextItems.length === romaneiosSelecionados.length) {
+      setRomaneioDraft("");
+      return;
+    }
+
+    if (!form.possuiRomaneio) {
+      updateField("possuiRomaneio", true);
+    }
+
+    updateRomaneiosSelecionados(nextItems);
+    setRomaneioDraft("");
+  }
+
+  function handleRemoveRomaneio(numero: string) {
+    updateRomaneiosSelecionados(romaneiosSelecionados.filter((item) => item !== numero));
   }
 
   return (
@@ -370,14 +414,80 @@ export function LancamentosManager() {
                 placeholder="Observacao geral da ficha"
               />
             </SectionField>
-            <SectionField label="Romaneios da ficha">
-              <textarea
-                className="field-control textarea-lg"
-                value={form.romaneios}
-                onChange={(e) => updateField("romaneios", e.target.value)}
-                placeholder="Informe um romaneio por linha"
-              />
-            </SectionField>
+            <div className="field">
+              <span className="field-label">Romaneios da ficha</span>
+              <div className="romaneio-entry-panel">
+                <div className="form-grid-2">
+                  <select
+                    className="field-control"
+                    value={form.possuiRomaneio ? "SIM" : "NAO"}
+                    onChange={(event) => {
+                      const hasRomaneio = event.target.value === "SIM";
+                      updateField("possuiRomaneio", hasRomaneio);
+                      setRomaneioDraft("");
+                    }}
+                  >
+                    <option value="NAO">Nao possui romaneio</option>
+                    <option value="SIM">Possui romaneio</option>
+                  </select>
+                  <div className="romaneio-counter">
+                    <strong>{romaneiosSelecionados.length}</strong>
+                    <span>
+                      {quantidadeCargasEsperada !== null
+                        ? `de ${quantidadeCargasEsperada} carga(s)`
+                        : "sem carga definida"}
+                    </span>
+                  </div>
+                </div>
+
+                {form.possuiRomaneio ? (
+                  <>
+                    <div className="romaneio-entry-row">
+                      <input
+                        className="field-control"
+                        value={romaneioDraft}
+                        onChange={(event) => setRomaneioDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            handleAddRomaneio();
+                          }
+                        }}
+                        placeholder="Digite o romaneio e pressione Enter"
+                      />
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={handleAddRomaneio}
+                      >
+                        Adicionar
+                      </button>
+                    </div>
+
+                    {romaneiosSelecionados.length > 0 ? (
+                      <div className="romaneio-chip-list">
+                        {romaneiosSelecionados.map((numero) => (
+                          <span key={numero} className="romaneio-chip">
+                            {numero}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveRomaneio(numero)}
+                              aria-label={`Remover romaneio ${numero}`}
+                            >
+                              x
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="section-copy" style={{ margin: 0 }}>
+                        Nenhum romaneio pre-lancado.
+                      </p>
+                    )}
+                  </>
+                ) : null}
+              </div>
+            </div>
           </div>
 
           <div className="form-grid-2">

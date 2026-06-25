@@ -67,6 +67,7 @@ function buildDuplicatedState(
   return {
     ...current,
     fichaNumero: lancamento.ficha.numero,
+    possuiRomaneio: lancamento.romaneios.length > 0,
     romaneios: romaneiosToTextarea(lancamento.romaneios),
     clienteId: cliente?.id ?? "",
     obraId: obra?.id ?? "",
@@ -258,7 +259,8 @@ export function useLancamentos() {
       ...current,
       [key]: value,
       ...(key === "clienteId" ? { obraId: "" } : {}),
-      ...(key === "servicoId" ? { materialId: "" } : {})
+      ...(key === "servicoId" ? { materialId: "" } : {}),
+      ...(key === "possuiRomaneio" && value === false ? { romaneios: "" } : {})
     }));
   }
 

@@ -34,6 +34,7 @@ export type LancamentoFormState = {
   data: string;
   fichaNumero: string;
   fichaObservacao: string;
+  possuiRomaneio: boolean;
   romaneios: string;
   clienteId: string;
   obraId: string;

@@ -35,6 +35,52 @@ function parseNullableNumber(value: unknown) {
   return Number.isNaN(parsed) ? value : parsed;
 }
 
+function getQuantidadeCargasDoLancamento(data: {
+  quantidadeApontada: number | string;
+  unidadeApontada: string;
+  quantidadeFaturada: number | string;
+  unidadeFaturada: string;
+}) {
+  if (data.unidadeFaturada === "CARGA") {
+    return Number(data.quantidadeFaturada);
+  }
+
+  if (data.unidadeApontada === "CARGA") {
+    return Number(data.quantidadeApontada);
+  }
+
+  return null;
+}
+
+function validateRomaneiosPorCarga(data: {
+  possuiRomaneio?: boolean;
+  romaneios: string[];
+  quantidadeApontada: number | string;
+  unidadeApontada: string;
+  quantidadeFaturada: number | string;
+  unidadeFaturada: string;
+}) {
+  if (!data.possuiRomaneio) {
+    return null;
+  }
+
+  const quantidadeCargas = getQuantidadeCargasDoLancamento(data);
+
+  if (quantidadeCargas === null) {
+    return "Romaneios so podem ser exigidos quando a unidade apontada ou faturada for Carga.";
+  }
+
+  if (!Number.isInteger(quantidadeCargas) || quantidadeCargas <= 0) {
+    return "A quantidade de cargas deve ser um numero inteiro para validar romaneios.";
+  }
+
+  if (data.romaneios.length !== quantidadeCargas) {
+    return `A quantidade de romaneios (${data.romaneios.length}) precisa bater com a quantidade de cargas (${quantidadeCargas}).`;
+  }
+
+  return null;
+}
+
 export async function GET(request: NextRequest) {
   const session = await auth();
 
@@ -155,12 +201,16 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = (await request.json()) as Record<string, unknown>;
+  const romaneiosPayload = parseRomaneiosInput(payload.romaneios);
+  const possuiRomaneio =
+    typeof payload.possuiRomaneio === "boolean" ? payload.possuiRomaneio : romaneiosPayload.length > 0;
   const normalizedPayload = {
     ...payload,
     obraId: payload.obraId || null,
     materialId: payload.materialId || null,
     equipamentoId: payload.equipamentoId || null,
-    romaneios: parseRomaneiosInput(payload.romaneios),
+    possuiRomaneio,
+    romaneios: possuiRomaneio ? romaneiosPayload : [],
     quantidadeApontada: parseDecimalInput(payload.quantidadeApontada),
     quantidadeFaturada: parseDecimalInput(payload.quantidadeFaturada),
     horimetroInformado: parseNullableNumber(payload.horimetroInformado),
@@ -173,6 +223,12 @@ export async function POST(request: NextRequest) {
       { message: "Dados invalidos.", issues: parsed.error.flatten() },
       { status: 400 }
     );
+  }
+
+  const romaneioError = validateRomaneiosPorCarga(parsed.data);
+
+  if (romaneioError) {
+    return NextResponse.json({ message: romaneioError }, { status: 400 });
   }
 
   const dataReferencia = normalizeDate(parsed.data.data);

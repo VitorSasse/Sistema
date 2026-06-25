@@ -9,6 +9,7 @@ export const initialLancamentoForm: LancamentoFormState = {
   data: new Date().toISOString().slice(0, 10),
   fichaNumero: "",
   fichaObservacao: "",
+  possuiRomaneio: false,
   romaneios: "",
   clienteId: "",
   obraId: "",

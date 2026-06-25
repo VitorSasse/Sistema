@@ -8,7 +8,7 @@ function buildPayload(form: LancamentoFormState) {
     obraId: form.obraId || null,
     materialId: form.materialId || null,
     equipamentoId: form.equipamentoId || null,
-    romaneios: parseRomaneiosInput(form.romaneios)
+    romaneios: form.possuiRomaneio ? parseRomaneiosInput(form.romaneios) : []
   };
 }
 
