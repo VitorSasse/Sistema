@@ -26,6 +26,7 @@ type MedicaoPdfProps = {
   periodoFinal: Date;
   status: string;
   observacao: string | null;
+  descontoValor: string | number;
   itens: MedicaoPdfItem[];
   tipoRelatorio: MedicaoPdfTipo;
   logoPath?: string | null;
@@ -213,7 +214,9 @@ export function MedicaoPdfDocument(props: MedicaoPdfProps) {
   const detailedItems = normalizeDetailedItems(props.itens);
   const summaryItems = aggregateSummaryItems(props.itens);
   const items = isDetalhado ? detailedItems : summaryItems;
-  const totalValor = items.reduce((acc, item) => acc + Number(item.valorTotalItem), 0);
+  const valorBruto = items.reduce((acc, item) => acc + Number(item.valorTotalItem), 0);
+  const descontoValor = Math.max(0, Number(props.descontoValor || 0));
+  const valorComDesconto = Math.max(0, valorBruto - descontoValor);
 
   return (
     <Document>
@@ -334,7 +337,9 @@ export function MedicaoPdfDocument(props: MedicaoPdfProps) {
 
         <View style={styles.footer}>
           <Text style={styles.footerLine}>Total de itens: {items.length}</Text>
-          <Text style={styles.footerLine}>Valor total: {formatCurrency(totalValor)}</Text>
+          <Text style={styles.footerLine}>Valor bruto: {formatCurrency(valorBruto)}</Text>
+          <Text style={styles.footerLine}>Desconto: {formatCurrency(descontoValor)}</Text>
+          <Text style={styles.footerLine}>Valor com desconto: {formatCurrency(valorComDesconto)}</Text>
           <Text style={styles.footerLine}>Observacoes: {props.observacao ?? "-"}</Text>
         </View>
 

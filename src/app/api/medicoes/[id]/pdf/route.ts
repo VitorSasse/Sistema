@@ -135,6 +135,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       periodoFinal: medicao.periodoFinal,
       status: medicao.status,
       observacao: medicao.observacao,
+      descontoValor: Number(medicao.descontoValor ?? 0),
       tipoRelatorio,
       logoPath: resolveReportLogoSource(),
       itens: medicao.itens.map((item) => ({
