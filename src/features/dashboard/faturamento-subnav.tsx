@@ -8,14 +8,14 @@ const items = [
   { href: "/dashboard" as Route, label: "Faturamento por cliente" },
   { href: "/dashboard/mensal" as Route, label: "Faturamento mensal" },
   { href: "/dashboard/custos" as Route, label: "Custos" },
-  { href: "/dashboard/km-horimetro" as Route, label: "KM/Horimetro por obra" }
+  { href: "/dashboard/km-horimetro" as Route, label: "KM/Horimetro mensal" }
 ];
 
 export function FaturamentoSubnav() {
   const pathname = usePathname();
 
   return (
-    <nav className="page-subnav" aria-label="Modos da dashboard de faturamento">
+    <nav className="page-subnav" aria-label="Modos das dashboards">
       {items.map((item) => {
         const isActive = pathname === item.href;
 

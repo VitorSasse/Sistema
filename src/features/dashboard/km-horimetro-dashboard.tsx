@@ -1,220 +1,190 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SearchableMultiSelect } from "@/components/form/searchable-multi-select";
 import {
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
-  ComposedChart,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis
 } from "recharts";
 
-type PeriodPreset = "today" | "current_week" | "current_month" | "previous_month" | "current_year" | "custom";
-type TipoControleFiltro = "TODOS" | "KM" | "HORIMETRO";
+type MonthStatus = "OK" | "SEM_DADOS" | "SEM_LEITURA_ANTERIOR" | "INCONSISTENTE" | "SEM_TIPO_CONTROLE";
+type ControlType = "KM" | "HORIMETRO";
+type SortDirection = "asc" | "desc";
 
-type Option = {
+type EquipmentOption = {
   id: string;
   label: string;
-  status?: string;
-  clienteId?: string;
-  tipo?: string;
+  status: string;
+  tipo: ControlType;
 };
 
-type RankingEquipment = {
-  equipamentoId: string | null;
-  nome: string;
-  tipoControle: string;
+type MonthDefinition = {
+  key: string;
+  label: string;
+  month: number;
+};
+
+type ReadingDetail = {
+  data: string;
+  leitura: number;
+  origem: string;
+  ficha: string | null;
+  cliente: string | null;
+  obra: string | null;
+};
+
+type MonthCell = {
+  key: string;
+  label: string;
+  value: number;
+  status: MonthStatus;
+  initialReading: number | null;
+  finalReading: number | null;
+  firstReadingDate: string | null;
+  lastReadingDate: string | null;
+  readingsCount: number;
+  clientes: string[];
+  obras: string[];
+  readings: ReadingDetail[];
+};
+
+type MonthlyRow = {
+  equipamentoId: string;
+  equipamento: string;
+  tipoControle: ControlType;
+  tipoLabel: string;
   tipoRecurso: string;
-  totalKm: number;
-  totalHoras: number;
-  diasTrabalhados: number;
-  obras: number;
-  lancamentos: number;
-};
-
-type WorksiteRow = {
-  obraId: string | null;
-  nome: string;
-  clienteNome: string;
-  totalKm: number;
-  totalHoras: number;
-  equipamentos: number;
-  diasMovimento: number;
-  lancamentos: number;
+  unidade: "km" | "h";
+  total: number;
+  inconsistencias: number;
+  semLeituraAnterior: number;
+  months: MonthCell[];
 };
 
 type DashboardPayload = {
   period: {
-    preset: PeriodPreset;
+    year: number;
+    startMonth: number;
+    endMonth: number;
     start: string;
     end: string;
     label: string;
   };
   filters: {
     equipamentoIds: string[];
-    obraIds: string[];
-    clienteIds: string[];
-    colaboradorIds: string[];
-    tipoControle: TipoControleFiltro;
-    tipoRecursos: string[];
-    equipamentos: Option[];
-    obras: Option[];
-    clientes: Option[];
-    colaboradores: Option[];
+    equipamentos: EquipmentOption[];
   };
+  months: MonthDefinition[];
   summary: {
     totalKm: number;
     totalHoras: number;
-    totalLancamentos: number;
     totalEquipamentos: number;
-    totalObras: number;
-    totalClientes: number;
-    mediaKmDia: number;
-    mediaHorasDia: number;
-    equipamentoMaiorKm: { nome: string; valor: number } | null;
-    equipamentoMaiorHoras: { nome: string; valor: number } | null;
-    obraMaisAtiva: { nome: string; totalKm: number; totalHoras: number } | null;
-    clientePrincipal: { nome: string; totalKm: number; totalHoras: number } | null;
     inconsistencias: number;
-    leiturasSemBase: number;
-    calculosPorApontamento: number;
+    semLeituraAnterior: number;
+    equipamentoMaiorVariacao: {
+      equipamento: string;
+      tipoControle: ControlType;
+      unidade: "km" | "h";
+      total: number;
+    } | null;
   };
-  charts: {
-    kmByEquipment: RankingEquipment[];
-    hoursByEquipment: RankingEquipment[];
-    worksiteUsage: WorksiteRow[];
-    daily: Array<{ key: string; label: string; km: number; horas: number; lancamentos: number }>;
-    monthly: Array<{ key: string; label: string; km: number; horas: number; lancamentos: number }>;
-    clients: Array<{
-      clienteId: string | null;
-      nome: string;
-      totalKm: number;
-      totalHoras: number;
-      obras: number;
-      equipamentos: number;
-      sharePercent: number;
-    }>;
-  };
-  tables: {
-    equipamentos: RankingEquipment[];
-    obras: WorksiteRow[];
-  };
-  heatmap: {
-    days: Array<{ key: string; label: string; weekday: string }>;
-    rows: Array<{
-      equipamentoId: string | null;
+  rows: MonthlyRow[];
+  chart: {
+    monthlyTotals: Array<{
+      key: string;
       label: string;
-      tipoControle: string;
-      totalKm: number;
-      totalHoras: number;
-      cells: Array<{
-        key: string;
-        value: number;
-        km: number;
-        horas: number;
-        obra: string;
-        intensity: number;
-      }>;
+      km: number;
+      horas: number;
     }>;
   };
-  insights: Array<{ tone: "info" | "warning" | "danger"; title: string; message: string }>;
-  inconsistencies: Array<{
-    lancamentoId: string;
-    data: string;
-    equipamento: string;
-    ficha: string;
-    tipoControle: string;
-    leituraAnterior: number;
-    leituraInformada: number;
-  }>;
-  details: Array<{
-    data: string;
-    ficha: string;
-    equipamento: string;
-    tipoControle: string;
-    tipoRecurso: string;
-    obra: string;
-    cliente: string;
-    colaborador: string;
-    servico: string;
-    km: number;
-    horas: number;
-    leituraInicial: number | null;
-    leituraFinal: number | null;
-    metodo: string;
-    observacao: string | null;
-  }>;
 };
 
-const periodOptions: Array<{ value: PeriodPreset; label: string }> = [
-  { value: "today", label: "Hoje" },
-  { value: "current_week", label: "Esta semana" },
-  { value: "current_month", label: "Mes atual" },
-  { value: "previous_month", label: "Mes anterior" },
-  { value: "current_year", label: "Ano atual" },
-  { value: "custom", label: "Personalizado" }
+const monthOptions = [
+  { value: 1, label: "Janeiro" },
+  { value: 2, label: "Fevereiro" },
+  { value: 3, label: "Marco" },
+  { value: 4, label: "Abril" },
+  { value: 5, label: "Maio" },
+  { value: 6, label: "Junho" },
+  { value: 7, label: "Julho" },
+  { value: 8, label: "Agosto" },
+  { value: 9, label: "Setembro" },
+  { value: 10, label: "Outubro" },
+  { value: 11, label: "Novembro" },
+  { value: 12, label: "Dezembro" }
 ];
 
-const tipoRecursoOptions = [
-  { value: "CAMINHAO", label: "Caminhao" },
-  { value: "MAQUINA", label: "Maquina" },
-  { value: "CARRETA", label: "Carreta" },
-  { value: "EQUIPAMENTO_APOIO", label: "Apoio" },
-  { value: "OUTRO", label: "Outro" }
-];
-
-function toInputDate(date: Date) {
-  return date.toISOString().slice(0, 10);
+function formatNumber(value: number, unidade: "km" | "h") {
+  const precision = unidade === "km" ? 1 : 2;
+  return Number(value ?? 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: value % 1 === 0 ? 0 : 1,
+    maximumFractionDigits: precision
+  });
 }
 
-function formatKm(value: number) {
-  return `${Number(value ?? 0).toLocaleString("pt-BR", {
-    maximumFractionDigits: 1,
-    minimumFractionDigits: value % 1 === 0 ? 0 : 1
-  })} km`;
+function formatValue(value: number, unidade: "km" | "h") {
+  return `${formatNumber(value, unidade)} ${unidade}`;
 }
 
-function formatHoras(value: number) {
-  return `${Number(value ?? 0).toLocaleString("pt-BR", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: value % 1 === 0 ? 0 : 1
-  })} h`;
+function formatReading(value: number | null, unidade: "km" | "h") {
+  if (value === null || value === undefined) return "-";
+  return formatValue(value, unidade);
 }
 
-function formatPercent(value: number) {
-  return `${Number(value ?? 0).toFixed(1).replace(".", ",")}%`;
+function formatDate(value: string | null) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
 
-function escapeCsv(value: string | number | null | undefined) {
-  const raw = String(value ?? "");
-  return `"${raw.replace(/"/g, '""')}"`;
+function statusLabel(status: MonthStatus) {
+  const labels: Record<MonthStatus, string> = {
+    OK: "Calculado",
+    SEM_DADOS: "Sem dados",
+    SEM_LEITURA_ANTERIOR: "Sem leitura anterior",
+    INCONSISTENTE: "Possivel inconsistencia",
+    SEM_TIPO_CONTROLE: "Sem tipo de controle"
+  };
+  return labels[status];
 }
 
-function downloadCsv(fileName: string, rows: Array<Array<string | number | null | undefined>>) {
-  const csv = rows.map((row) => row.map(escapeCsv).join(";")).join("\n");
-  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  link.click();
-  URL.revokeObjectURL(url);
+function statusClass(status: MonthStatus) {
+  if (status === "INCONSISTENTE") return "is-inconsistent";
+  if (status === "SEM_LEITURA_ANTERIOR" || status === "SEM_TIPO_CONTROLE") return "is-warning";
+  if (status === "SEM_DADOS") return "is-empty";
+  return "is-ok";
 }
 
-function MetricTooltip({
+function typeClass(tipo: ControlType) {
+  return tipo === "KM" ? "is-km" : "is-hour";
+}
+
+function buildYearOptions(currentYear: number) {
+  return Array.from({ length: 6 }, (_, index) => currentYear - 3 + index);
+}
+
+function KpiCard(props: { label: string; value: string; helper: string; tone: "km" | "hour" | "neutral" }) {
+  return (
+    <article className={`monthly-km-kpi monthly-km-kpi-${props.tone}`}>
+      <span>{props.label}</span>
+      <strong>{props.value}</strong>
+      <small>{props.helper}</small>
+    </article>
+  );
+}
+
+function FleetEvolutionTooltip({
   active,
   payload,
   label
 }: {
   active?: boolean;
-  payload?: Array<{ name?: string; value?: number; color?: string }>;
+  payload?: Array<{ dataKey?: string; value?: number; color?: string }>;
   label?: string;
 }) {
   if (!active || !payload?.length) return null;
@@ -223,95 +193,44 @@ function MetricTooltip({
     <div className="km-tooltip">
       <strong>{label}</strong>
       {payload.map((item) => (
-        <span key={`${item.name}-${item.color}`}>
-          {item.name}: {String(item.name).toLowerCase().includes("km")
-            ? formatKm(Number(item.value ?? 0))
-            : formatHoras(Number(item.value ?? 0))}
+        <span key={item.dataKey} style={{ color: item.color }}>
+          {item.dataKey === "km" ? "KM" : "Horas"}:{" "}
+          {item.dataKey === "km" ? formatValue(Number(item.value ?? 0), "km") : formatValue(Number(item.value ?? 0), "h")}
         </span>
       ))}
     </div>
   );
 }
 
-function KpiCard(props: { label: string; value: string; helper: string; tone?: "orange" | "blue" | "green" | "red" }) {
-  return (
-    <article className={`km-kpi-card km-kpi-${props.tone ?? "orange"}`}>
-      <span>{props.label}</span>
-      <strong>{props.value}</strong>
-      <small>{props.helper}</small>
-    </article>
-  );
-}
-
-function DashboardSkeleton() {
-  return (
-    <main className="km-dashboard">
-      <section className="km-hero surface section-card km-skeleton" />
-      <section className="km-kpi-grid">
-        {Array.from({ length: 8 }).map((_, index) => (
-          <article key={index} className="km-kpi-card km-skeleton" />
-        ))}
-      </section>
-      <section className="km-chart-grid">
-        <article className="surface section-card km-skeleton" />
-        <article className="surface section-card km-skeleton" />
-      </section>
-    </main>
-  );
-}
-
 export function KmHorimetroDashboard() {
-  const [period, setPeriod] = useState<PeriodPreset>("current_month");
-  const [customStart, setCustomStart] = useState(() => toInputDate(new Date()));
-  const [customEnd, setCustomEnd] = useState(() => toInputDate(new Date()));
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const [year, setYear] = useState(currentYear);
+  const [startMonth, setStartMonth] = useState(1);
+  const [endMonth, setEndMonth] = useState(currentMonth);
   const [equipamentoIds, setEquipamentoIds] = useState<string[]>([]);
-  const [obraIds, setObraIds] = useState<string[]>([]);
-  const [clienteIds, setClienteIds] = useState<string[]>([]);
-  const [colaboradorIds, setColaboradorIds] = useState<string[]>([]);
-  const [tipoControle, setTipoControle] = useState<TipoControleFiltro>("TODOS");
-  const [tipoRecursos, setTipoRecursos] = useState<string[]>([]);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [selectedRow, setSelectedRow] = useState<MonthlyRow | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const yearOptions = useMemo(() => buildYearOptions(currentYear), [currentYear]);
 
-  async function loadDashboard(
-    nextPeriod = period,
-    overrides?: Partial<{
-      equipamentoIds: string[];
-      obraIds: string[];
-      clienteIds: string[];
-      colaboradorIds: string[];
-      tipoControle: TipoControleFiltro;
-      tipoRecursos: string[];
-      customStart: string;
-      customEnd: string;
-    }>
-  ) {
+  async function loadDashboard() {
     setLoading(true);
     setError("");
 
     try {
-      const activeEquipamentoIds = overrides?.equipamentoIds ?? equipamentoIds;
-      const activeObraIds = overrides?.obraIds ?? obraIds;
-      const activeClienteIds = overrides?.clienteIds ?? clienteIds;
-      const activeColaboradorIds = overrides?.colaboradorIds ?? colaboradorIds;
-      const activeTipoControle = overrides?.tipoControle ?? tipoControle;
-      const activeTipoRecursos = overrides?.tipoRecursos ?? tipoRecursos;
-      const activeCustomStart = overrides?.customStart ?? customStart;
-      const activeCustomEnd = overrides?.customEnd ?? customEnd;
-      const params = new URLSearchParams({ period: nextPeriod });
+      const params = new URLSearchParams({
+        year: String(year),
+        startMonth: String(startMonth),
+        endMonth: String(endMonth)
+      });
 
-      if (nextPeriod === "custom") {
-        params.set("start", activeCustomStart);
-        params.set("end", activeCustomEnd);
+      if (equipamentoIds.length) {
+        params.set("equipamentoIds", equipamentoIds.join(","));
       }
-
-      if (activeEquipamentoIds.length) params.set("equipamentoIds", activeEquipamentoIds.join(","));
-      if (activeObraIds.length) params.set("obraIds", activeObraIds.join(","));
-      if (activeClienteIds.length) params.set("clienteIds", activeClienteIds.join(","));
-      if (activeColaboradorIds.length) params.set("colaboradorIds", activeColaboradorIds.join(","));
-      if (activeTipoControle !== "TODOS") params.set("tipoControle", activeTipoControle);
-      if (activeTipoRecursos.length) params.set("tipoRecursos", activeTipoRecursos.join(","));
 
       const response = await fetch(`/api/dashboard/km-horimetro?${params.toString()}`, {
         cache: "no-store"
@@ -319,14 +238,14 @@ export function KmHorimetroDashboard() {
       const payload = (await response.json()) as DashboardPayload & { message?: string };
 
       if (!response.ok) {
-        setError(payload.message ?? "Nao foi possivel carregar a dashboard de KM e horimetro.");
+        setError(payload.message ?? "Nao foi possivel carregar a dashboard mensal.");
         setData(null);
         return;
       }
 
       setData(payload);
     } catch {
-      setError("Nao foi possivel carregar a dashboard de KM e horimetro.");
+      setError("Nao foi possivel carregar a dashboard mensal.");
       setData(null);
     } finally {
       setLoading(false);
@@ -334,211 +253,100 @@ export function KmHorimetroDashboard() {
   }
 
   useEffect(() => {
-    void loadDashboard("current_month");
+    const timeout = window.setTimeout(() => {
+      void loadDashboard();
+    }, 220);
+
+    return () => window.clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [year, startMonth, endMonth, equipamentoIds.join(",")]);
 
-  const filteredObras = useMemo(() => {
-    const all = data?.filters.obras ?? [];
-    if (!clienteIds.length) return all;
-    return all.filter((obra) => obra.clienteId && clienteIds.includes(obra.clienteId));
-  }, [clienteIds, data]);
-
-  const kmChart = useMemo(() => (data?.charts.kmByEquipment ?? []).slice(0, 10), [data]);
-  const hoursChart = useMemo(() => (data?.charts.hoursByEquipment ?? []).slice(0, 10), [data]);
-  const worksiteChart = useMemo(() => (data?.charts.worksiteUsage ?? []).slice(0, 10), [data]);
-  const clientChart = useMemo(() => (data?.charts.clients ?? []).slice(0, 8), [data]);
-  const hasData = (data?.summary.totalLancamentos ?? 0) > 0;
-
-  function handleApply() {
-    void loadDashboard(period);
-  }
-
-  function handleReset() {
-    setPeriod("current_month");
-    setEquipamentoIds([]);
-    setObraIds([]);
-    setClienteIds([]);
-    setColaboradorIds([]);
-    setTipoControle("TODOS");
-    setTipoRecursos([]);
-    void loadDashboard("current_month", {
-      equipamentoIds: [],
-      obraIds: [],
-      clienteIds: [],
-      colaboradorIds: [],
-      tipoControle: "TODOS",
-      tipoRecursos: []
+  const rows = useMemo(() => {
+    const list = [...(data?.rows ?? [])];
+    return list.sort((a, b) => {
+      const result = a.total - b.total;
+      return sortDirection === "asc" ? result : -result;
     });
+  }, [data, sortDirection]);
+
+  const selectedMonthDetails = useMemo(() => {
+    if (!selectedRow) return [];
+    if (!selectedMonth) return selectedRow.months;
+    return selectedRow.months.filter((month) => month.key === selectedMonth);
+  }, [selectedMonth, selectedRow]);
+
+  function openDetails(row: MonthlyRow, monthKey?: string) {
+    setSelectedRow(row);
+    setSelectedMonth(monthKey ?? null);
   }
 
-  function exportDetails() {
-    const rows = [
-      [
-        "Data",
-        "Ficha",
-        "Equipamento",
-        "Tipo controle",
-        "Tipo recurso",
-        "Obra",
-        "Cliente",
-        "Colaborador",
-        "Servico",
-        "KM",
-        "Horas",
-        "Leitura inicial",
-        "Leitura final",
-        "Metodo",
-        "Observacao"
-      ],
-      ...(data?.details ?? []).map((item) => [
-        new Date(item.data).toLocaleDateString("pt-BR"),
-        item.ficha,
-        item.equipamento,
-        item.tipoControle,
-        item.tipoRecurso,
-        item.obra,
-        item.cliente,
-        item.colaborador,
-        item.servico,
-        item.km,
-        item.horas,
-        item.leituraInicial,
-        item.leituraFinal,
-        item.metodo,
-        item.observacao
-      ])
-    ];
-
-    downloadCsv("dashboard-km-horimetro-detalhado.csv", rows);
-  }
-
-  if (loading && !data) {
-    return <DashboardSkeleton />;
+  function clearFilters() {
+    setYear(currentYear);
+    setStartMonth(1);
+    setEndMonth(currentMonth);
+    setEquipamentoIds([]);
   }
 
   return (
-    <main className="km-dashboard">
-      <section className="km-hero surface section-card fade-up">
+    <main className="km-dashboard monthly-km-dashboard">
+      <section className="monthly-km-hero surface section-card fade-up">
         <div>
-          <span className="km-kicker">Operacao por obra</span>
-          <h1 className="page-title">KM e horimetro por obra</h1>
+          <span className="km-kicker">KM e horimetro mensal</span>
+          <h1 className="page-title">Evolucao mensal por equipamento</h1>
           <p className="page-copy">
-            Controle quanto cada caminhao rodou e quantas horas cada maquina trabalhou em cada obra,
-            usando as leituras dos lancamentos diarios.
+            Consulta simples das leituras ja registradas, separando caminhoes por KM e maquinas por horimetro.
           </p>
         </div>
-        <div className="km-hero-actions">
-          <span className="km-period-badge">
-            <strong>{data?.period.label ?? "Periodo atual"}</strong>
-            <small>{data?.summary.totalLancamentos ?? 0} lancamento(s)</small>
-          </span>
-          <button type="button" className="button-secondary" onClick={() => window.print()}>
-            PDF / imprimir
-          </button>
-          <button type="button" className="button-primary" onClick={exportDetails} disabled={!data?.details.length}>
-            Excel detalhado
-          </button>
-        </div>
+        <span className="monthly-km-period">
+          <strong>{data?.period.label ?? "Carregando periodo"}</strong>
+          <small>{loading ? "Atualizando..." : `${data?.summary.totalEquipamentos ?? 0} equipamento(s)`}</small>
+        </span>
       </section>
 
-      <section className="km-filter-card surface section-card fade-up fade-up-delay-1">
-        <div className="km-filter-grid">
-          <label className="field">
-            <span className="field-label">Periodo</span>
-            <select className="field-control" value={period} onChange={(event) => setPeriod(event.target.value as PeriodPreset)}>
-              {periodOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          {period === "custom" ? (
-            <>
-              <label className="field">
-                <span className="field-label">Data inicial</span>
-                <input className="field-control" type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} />
-              </label>
-              <label className="field">
-                <span className="field-label">Data final</span>
-                <input className="field-control" type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} />
-              </label>
-            </>
-          ) : null}
-          <label className="field">
-            <span className="field-label">Tipo de controle</span>
-            <select className="field-control" value={tipoControle} onChange={(event) => setTipoControle(event.target.value as TipoControleFiltro)}>
-              <option value="TODOS">KM e Horimetro</option>
-              <option value="KM">Somente KM</option>
-              <option value="HORIMETRO">Somente horimetro</option>
-            </select>
-          </label>
-          <label className="field">
-            <span className="field-label">Tipo de equipamento</span>
-            <SearchableMultiSelect
-              values={tipoRecursos}
-              options={tipoRecursoOptions}
-              placeholder="Buscar tipo"
-              onChange={setTipoRecursos}
-            />
-          </label>
-        </div>
-
-        <div className="km-filter-grid km-filter-grid-wide">
-          <label className="field">
-            <span className="field-label">Equipamento</span>
-            <SearchableMultiSelect
-              values={equipamentoIds}
-              options={(data?.filters.equipamentos ?? []).map((item) => ({ value: item.id, label: item.label }))}
-              placeholder="Buscar equipamentos"
-              onChange={setEquipamentoIds}
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Cliente</span>
-            <SearchableMultiSelect
-              values={clienteIds}
-              options={(data?.filters.clientes ?? []).map((item) => ({ value: item.id, label: item.label }))}
-              placeholder="Buscar clientes"
-              onChange={(values) => {
-                setClienteIds(values);
-                const allowedObras =
-                  values.length === 0
-                    ? data?.filters.obras ?? []
-                    : (data?.filters.obras ?? []).filter((obra) => obra.clienteId && values.includes(obra.clienteId));
-                setObraIds((current) => current.filter((obraId) => allowedObras.some((obra) => obra.id === obraId)));
-              }}
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Obra</span>
-            <SearchableMultiSelect
-              values={obraIds}
-              options={filteredObras.map((item) => ({ value: item.id, label: item.label }))}
-              placeholder="Buscar obras"
-              onChange={setObraIds}
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Operador / motorista</span>
-            <SearchableMultiSelect
-              values={colaboradorIds}
-              options={(data?.filters.colaboradores ?? []).map((item) => ({ value: item.id, label: item.label }))}
-              placeholder="Buscar colaborador"
-              onChange={setColaboradorIds}
-            />
-          </label>
-        </div>
-
-        <div className="toolbar-actions">
-          <button type="button" className="button-primary" onClick={handleApply} disabled={loading}>
-            {loading ? "Carregando..." : "Aplicar filtros"}
-          </button>
-          <button type="button" className="button-secondary" onClick={handleReset}>
-            Limpar filtros
-          </button>
-        </div>
+      <section className="monthly-km-filter-card surface section-card fade-up fade-up-delay-1">
+        <label className="field">
+          <span className="field-label">Ano</span>
+          <select className="field-control" value={year} onChange={(event) => setYear(Number(event.target.value))}>
+            {yearOptions.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="field-label">Mes inicial</span>
+          <select className="field-control" value={startMonth} onChange={(event) => setStartMonth(Number(event.target.value))}>
+            {monthOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="field-label">Mes final</span>
+          <select className="field-control" value={endMonth} onChange={(event) => setEndMonth(Number(event.target.value))}>
+            {monthOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field monthly-km-equipment-filter">
+          <span className="field-label">Equipamento</span>
+          <SearchableMultiSelect
+            values={equipamentoIds}
+            options={(data?.filters.equipamentos ?? []).map((item) => ({ value: item.id, label: item.label }))}
+            placeholder="Todos os equipamentos"
+            emptyLabel="Nenhum equipamento encontrado."
+            onChange={setEquipamentoIds}
+          />
+        </label>
+        <button type="button" className="button-secondary monthly-km-clear-button" onClick={clearFilters}>
+          Limpar
+        </button>
       </section>
 
       {error ? (
@@ -547,299 +355,225 @@ export function KmHorimetroDashboard() {
         </section>
       ) : null}
 
-      <section className="km-kpi-grid fade-up fade-up-delay-2">
-        <KpiCard label="KM total rodado" value={formatKm(data?.summary.totalKm ?? 0)} helper={`${data?.summary.totalEquipamentos ?? 0} equipamento(s) no periodo`} tone="blue" />
-        <KpiCard label="Horas totais" value={formatHoras(data?.summary.totalHoras ?? 0)} helper={`${data?.summary.totalObras ?? 0} obra(s) com movimento`} tone="orange" />
-        <KpiCard label="Maior KM" value={data?.summary.equipamentoMaiorKm?.nome ?? "-"} helper={formatKm(data?.summary.equipamentoMaiorKm?.valor ?? 0)} tone="blue" />
-        <KpiCard label="Maior horimetro" value={data?.summary.equipamentoMaiorHoras?.nome ?? "-"} helper={formatHoras(data?.summary.equipamentoMaiorHoras?.valor ?? 0)} tone="orange" />
-        <KpiCard label="Obra mais ativa" value={data?.summary.obraMaisAtiva?.nome ?? "-"} helper={`${formatKm(data?.summary.obraMaisAtiva?.totalKm ?? 0)} | ${formatHoras(data?.summary.obraMaisAtiva?.totalHoras ?? 0)}`} tone="green" />
-        <KpiCard label="Cliente principal" value={data?.summary.clientePrincipal?.nome ?? "-"} helper={`${formatKm(data?.summary.clientePrincipal?.totalKm ?? 0)} | ${formatHoras(data?.summary.clientePrincipal?.totalHoras ?? 0)}`} tone="green" />
-        <KpiCard label="Media por dia" value={`${formatKm(data?.summary.mediaKmDia ?? 0)} / ${formatHoras(data?.summary.mediaHorasDia ?? 0)}`} helper="Media no periodo filtrado" tone="blue" />
-        <KpiCard label="Alertas de leitura" value={String(data?.summary.inconsistencias ?? 0)} helper={`${data?.summary.leiturasSemBase ?? 0} sem leitura inicial | ${data?.summary.calculosPorApontamento ?? 0} por apontamento`} tone="red" />
+      <section className="monthly-km-kpi-grid fade-up fade-up-delay-2">
+        <KpiCard
+          label="KM Total"
+          value={formatValue(data?.summary.totalKm ?? 0, "km")}
+          helper="Soma dos equipamentos controlados por KM."
+          tone="km"
+        />
+        <KpiCard
+          label="Horas Totais"
+          value={formatValue(data?.summary.totalHoras ?? 0, "h")}
+          helper="Soma dos equipamentos controlados por horimetro."
+          tone="hour"
+        />
+        <KpiCard
+          label="Maior Variacao"
+          value={data?.summary.equipamentoMaiorVariacao?.equipamento ?? "-"}
+          helper={
+            data?.summary.equipamentoMaiorVariacao
+              ? formatValue(data.summary.equipamentoMaiorVariacao.total, data.summary.equipamentoMaiorVariacao.unidade)
+              : "Sem dados no periodo."
+          }
+          tone={data?.summary.equipamentoMaiorVariacao?.unidade === "km" ? "km" : "hour"}
+        />
       </section>
 
-      {!hasData ? (
-        <section className="surface section-card km-empty-state">
-          <strong>Sem dados para o periodo selecionado</strong>
-          <p>Nenhum movimento encontrado para os filtros aplicados. Ajuste o periodo ou limpe os filtros.</p>
-        </section>
-      ) : (
-        <>
-          <section className="km-chart-grid fade-up fade-up-delay-3">
-            <article className="surface section-card km-chart-card">
-              <div className="km-card-header">
-                <div>
-                  <span className="km-kicker">KM</span>
-                  <h2 className="section-title">KM rodado por equipamento</h2>
-                </div>
-              </div>
-              {kmChart.length ? (
-                <ResponsiveContainer width="100%" height={Math.max(260, kmChart.length * 44 + 80)}>
-                  <BarChart data={kmChart} layout="vertical" margin={{ top: 8, right: 24, left: 12, bottom: 8 }}>
-                    <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
-                    <XAxis type="number" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} tickFormatter={(value) => formatKm(Number(value)).replace(" km", "")} />
-                    <YAxis type="category" dataKey="nome" width={160} tick={{ fill: "var(--screen-chart-tick)", fontSize: 11 }} />
-                    <Tooltip content={<MetricTooltip />} />
-                    <Bar dataKey="totalKm" name="KM" fill="#38BDF8" radius={[0, 12, 12, 0]} maxBarSize={30} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="section-copy">Sem equipamentos controlados por KM no periodo.</p>
-              )}
-            </article>
+      <section className="monthly-km-table-card surface section-card fade-up fade-up-delay-3">
+        <div className="monthly-km-section-header">
+          <div>
+            <span className="km-kicker">Tabela mensal principal</span>
+            <h2 className="section-title">Quanto cada equipamento percorreu ou trabalhou por mes</h2>
+          </div>
+          <button
+            type="button"
+            className="monthly-km-sort-button"
+            onClick={() => setSortDirection((current) => (current === "asc" ? "desc" : "asc"))}
+          >
+            Total {sortDirection === "desc" ? "maior primeiro" : "menor primeiro"}
+          </button>
+        </div>
 
-            <article className="surface section-card km-chart-card">
-              <div className="km-card-header">
-                <div>
-                  <span className="km-kicker">Horimetro</span>
-                  <h2 className="section-title">Horas trabalhadas por equipamento</h2>
-                </div>
-              </div>
-              {hoursChart.length ? (
-                <ResponsiveContainer width="100%" height={Math.max(260, hoursChart.length * 44 + 80)}>
-                  <BarChart data={hoursChart} layout="vertical" margin={{ top: 8, right: 24, left: 12, bottom: 8 }}>
-                    <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
-                    <XAxis type="number" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} tickFormatter={(value) => formatHoras(Number(value)).replace(" h", "")} />
-                    <YAxis type="category" dataKey="nome" width={160} tick={{ fill: "var(--screen-chart-tick)", fontSize: 11 }} />
-                    <Tooltip content={<MetricTooltip />} />
-                    <Bar dataKey="totalHoras" name="Horas" fill="#F97316" radius={[0, 12, 12, 0]} maxBarSize={30} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="section-copy">Sem equipamentos controlados por horimetro no periodo.</p>
-              )}
-            </article>
-          </section>
-
-          <section className="km-chart-grid km-chart-grid-wide fade-up fade-up-delay-3">
-            <article className="surface section-card km-chart-card">
-              <div className="km-card-header">
-                <div>
-                  <span className="km-kicker">Obras</span>
-                  <h2 className="section-title">KM e horas por obra</h2>
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={360}>
-                <ComposedChart data={worksiteChart} margin={{ top: 18, right: 28, left: 8, bottom: 70 }}>
-                  <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
-                  <XAxis dataKey="nome" interval={0} angle={-32} textAnchor="end" height={88} tick={{ fill: "var(--screen-chart-tick)", fontSize: 11 }} />
-                  <YAxis yAxisId="km" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-                  <YAxis yAxisId="horas" orientation="right" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-                  <Tooltip content={<MetricTooltip />} />
-                  <Bar yAxisId="km" dataKey="totalKm" name="KM" fill="#38BDF8" radius={[10, 10, 0, 0]} />
-                  <Line yAxisId="horas" type="monotone" dataKey="totalHoras" name="Horas" stroke="#F97316" strokeWidth={3} dot={{ r: 4, fill: "#F97316" }} />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </article>
-
-            <article className="surface section-card km-chart-card">
-              <div className="km-card-header">
-                <div>
-                  <span className="km-kicker">Evolucao</span>
-                  <h2 className="section-title">Evolucao diaria</h2>
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={360}>
-                <LineChart data={data?.charts.daily ?? []} margin={{ top: 18, right: 24, left: 8, bottom: 20 }}>
-                  <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: "var(--screen-chart-tick)", fontSize: 11 }} />
-                  <YAxis yAxisId="km" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-                  <YAxis yAxisId="horas" orientation="right" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-                  <Tooltip content={<MetricTooltip />} />
-                  <Line yAxisId="km" type="monotone" dataKey="km" name="KM" stroke="#38BDF8" strokeWidth={3} dot={false} />
-                  <Line yAxisId="horas" type="monotone" dataKey="horas" name="Horas" stroke="#F97316" strokeWidth={3} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </article>
-          </section>
-
-          <section className="km-heatmap-card surface section-card fade-up fade-up-delay-3">
-            <div className="km-card-header">
-              <div>
-                <span className="km-kicker">Heatmap</span>
-                <h2 className="section-title">Leitura instantanea por dia</h2>
-                <p className="section-copy">A intensidade indica maior KM ou maior hora no proprio equipamento.</p>
-              </div>
-              <div className="km-heatmap-legend">
-                <span><i className="is-empty" /> Sem lancamento</span>
-                <span><i className="is-low" /> Baixo</span>
-                <span><i className="is-high" /> Alto</span>
-              </div>
-            </div>
-            <div className="km-heatmap-scroll">
-              <div className="km-heatmap-grid" style={{ gridTemplateColumns: `220px repeat(${data?.heatmap.days.length ?? 0}, minmax(74px, 1fr))` }}>
-                <div className="km-heatmap-head km-heatmap-fixed">Equipamento</div>
-                {(data?.heatmap.days ?? []).map((day) => (
-                  <div key={day.key} className="km-heatmap-head">
-                    <strong>{day.weekday}</strong>
-                    <span>{day.label}</span>
-                  </div>
-                ))}
-                {(data?.heatmap.rows ?? []).map((row) => (
-                  <Fragment key={row.equipamentoId ?? row.label}>
-                    <div key={`${row.equipamentoId}-label`} className="km-heatmap-equipment">
-                      <strong>{row.label}</strong>
-                      <span>{row.tipoControle === "KM" ? formatKm(row.totalKm) : formatHoras(row.totalHoras)}</span>
-                    </div>
-                    {row.cells.map((cell) => (
-                      <div key={`${row.equipamentoId}-${cell.key}`} className={`km-heatmap-cell intensity-${cell.intensity}`} title={`${row.label} | ${cell.obra || "Sem obra"} | ${row.tipoControle === "KM" ? formatKm(cell.km) : formatHoras(cell.horas)}`}>
-                        <strong>{cell.value > 0 ? (row.tipoControle === "KM" ? formatKm(cell.km) : formatHoras(cell.horas)) : "-"}</strong>
-                        <span>{cell.obra ? cell.obra.replace(/^[^-]+ - /, "") : ""}</span>
-                      </div>
-                    ))}
-                  </Fragment>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          <section className="km-chart-grid fade-up fade-up-delay-3">
-            <article className="surface section-card km-chart-card">
-              <div className="km-card-header">
-                <div>
-                  <span className="km-kicker">Mensal</span>
-                  <h2 className="section-title">Evolucao mensal</h2>
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={data?.charts.monthly ?? []} margin={{ top: 18, right: 20, left: 8, bottom: 12 }}>
-                  <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-                  <YAxis tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-                  <Tooltip content={<MetricTooltip />} />
-                  <Bar dataKey="km" name="KM" fill="#38BDF8" radius={[10, 10, 0, 0]} />
-                  <Bar dataKey="horas" name="Horas" fill="#F97316" radius={[10, 10, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </article>
-
-            <article className="surface section-card km-chart-card">
-              <div className="km-card-header">
-                <div>
-                  <span className="km-kicker">Clientes</span>
-                  <h2 className="section-title">Participacao por cliente</h2>
-                </div>
-              </div>
-              <div className="km-client-list">
-                {clientChart.length ? (
-                  clientChart.map((item, index) => (
-                    <article key={`${item.clienteId}-${index}`} className="km-client-row">
-                      <div>
-                        <strong>{item.nome}</strong>
-                        <span>{item.obras} obra(s) | {item.equipamentos} equipamento(s)</span>
-                      </div>
-                      <div className="km-client-meter">
-                        <span style={{ width: `${Math.min(100, item.sharePercent)}%` }} />
-                      </div>
-                      <b>{formatPercent(item.sharePercent)}</b>
-                    </article>
-                  ))
-                ) : (
-                  <p className="section-copy">Sem clientes com movimento no periodo.</p>
-                )}
-              </div>
-            </article>
-          </section>
-
-          <section className="km-list-grid fade-up fade-up-delay-3">
-            <RankingTable title="Visao por equipamento" rows={data?.tables.equipamentos ?? []} type="equipment" />
-            <RankingTable title="Visao por obra" rows={data?.tables.obras ?? []} type="worksite" />
-            <InsightsPanel insights={data?.insights ?? []} inconsistencies={data?.inconsistencies ?? []} />
-          </section>
-        </>
-      )}
-    </main>
-  );
-}
-
-function RankingTable({
-  title,
-  rows,
-  type
-}: {
-  title: string;
-  rows: RankingEquipment[] | WorksiteRow[];
-  type: "equipment" | "worksite";
-}) {
-  return (
-    <article className="surface section-card km-table-card">
-      <span className="km-kicker">{type === "equipment" ? "Equipamentos" : "Obras"}</span>
-      <h2 className="section-title">{title}</h2>
-      <div className="km-table-scroll">
-        <table className="km-table">
-          <thead>
-            <tr>
-              <th>{type === "equipment" ? "Equipamento" : "Obra"}</th>
-              <th>{type === "equipment" ? "Tipo" : "Cliente"}</th>
-              <th>KM</th>
-              <th>Horas</th>
-              <th>{type === "equipment" ? "Obras" : "Equip."}</th>
-              <th>Dias</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length ? (
-              rows.slice(0, 12).map((row, index) => {
-                const equipment = row as RankingEquipment;
-                const worksite = row as WorksiteRow;
-                return (
-                  <tr key={`${type}-${index}`}>
-                    <td>{type === "equipment" ? equipment.nome : worksite.nome}</td>
-                    <td>{type === "equipment" ? `${equipment.tipoRecurso} / ${equipment.tipoControle}` : worksite.clienteNome}</td>
-                    <td>{formatKm(type === "equipment" ? equipment.totalKm : worksite.totalKm)}</td>
-                    <td>{formatHoras(type === "equipment" ? equipment.totalHoras : worksite.totalHoras)}</td>
-                    <td>{type === "equipment" ? equipment.obras : worksite.equipamentos}</td>
-                    <td>{type === "equipment" ? equipment.diasTrabalhados : worksite.diasMovimento}</td>
-                  </tr>
-                );
-              })
-            ) : (
+        <div className="monthly-km-table-scroll">
+          <table className="monthly-km-table">
+            <thead>
               <tr>
-                <td colSpan={6}>Sem dados para o periodo selecionado.</td>
+                <th>Equipamento</th>
+                <th>Tipo</th>
+                {(data?.months ?? []).map((month) => (
+                  <th key={month.key}>{month.label}</th>
+                ))}
+                <th>Total</th>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </article>
-  );
-}
+            </thead>
+            <tbody>
+              {rows.length ? (
+                rows.map((row) => (
+                  <tr key={row.equipamentoId} className={row.total <= 0 ? "is-zero-row" : ""}>
+                    <td>
+                      <button type="button" className="monthly-km-equipment-button" onClick={() => openDetails(row)}>
+                        <strong>{row.equipamento}</strong>
+                        <small>{row.tipoRecurso}</small>
+                      </button>
+                    </td>
+                    <td>
+                      <span className={`monthly-km-type ${typeClass(row.tipoControle)}`}>{row.tipoLabel}</span>
+                    </td>
+                    {(data?.months ?? []).map((month) => {
+                      const cell = row.months.find((item) => item.key === month.key);
+                      if (!cell) {
+                        return (
+                          <td key={month.key} className="monthly-km-cell is-empty">
+                            0
+                          </td>
+                        );
+                      }
 
-function InsightsPanel({
-  insights,
-  inconsistencies
-}: {
-  insights: DashboardPayload["insights"];
-  inconsistencies: DashboardPayload["inconsistencies"];
-}) {
-  return (
-    <article className="surface section-card km-insights-card">
-      <span className="km-kicker">Alertas</span>
-      <h2 className="section-title">Insights automaticos</h2>
-      <div className="km-insight-list">
-        {insights.length ? (
-          insights.map((item, index) => (
-            <div key={`${item.title}-${index}`} className={`km-insight km-insight-${item.tone}`}>
-              <strong>{item.title}</strong>
-              <span>{item.message}</span>
-            </div>
-          ))
+                      return (
+                        <td key={cell.key} className={`monthly-km-cell ${statusClass(cell.status)}`}>
+                          <button type="button" onClick={() => openDetails(row, cell.key)}>
+                            <strong>{formatValue(cell.value, row.unidade)}</strong>
+                            {cell.status !== "OK" && cell.status !== "SEM_DADOS" ? <small>{statusLabel(cell.status)}</small> : null}
+                          </button>
+                        </td>
+                      );
+                    })}
+                    <td className={`monthly-km-total ${typeClass(row.tipoControle)}`}>
+                      <strong>{formatValue(row.total, row.unidade)}</strong>
+                      {row.inconsistencias > 0 ? <small>{row.inconsistencias} inconsistencia(s)</small> : null}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={(data?.months.length ?? 0) + 3} className="monthly-km-empty-state">
+                    {loading ? "Carregando dados..." : "Sem dados no periodo."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="monthly-km-legend">
+          <span><i className="is-km" /> KM</span>
+          <span><i className="is-hour" /> Horimetro</span>
+          <span><i className="is-empty" /> Zero ou sem dados</span>
+          <span><i className="is-inconsistent" /> Possivel inconsistencia</span>
+        </div>
+      </section>
+
+      <section className="monthly-km-chart-card surface section-card fade-up fade-up-delay-4">
+        <div className="monthly-km-section-header">
+          <div>
+            <span className="km-kicker">Grafico simples</span>
+            <h2 className="section-title">Evolucao mensal da frota</h2>
+          </div>
+          <span className="monthly-km-chart-note">Totais gerais por mes, sem converter unidades.</span>
+        </div>
+        {(data?.chart.monthlyTotals.length ?? 0) > 0 ? (
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={data?.chart.monthlyTotals ?? []} margin={{ top: 18, right: 18, bottom: 8, left: 0 }}>
+              <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
+              <YAxis yAxisId="km" orientation="left" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
+              <YAxis yAxisId="horas" orientation="right" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
+              <Tooltip content={<FleetEvolutionTooltip />} />
+              <Bar yAxisId="km" dataKey="km" name="KM" radius={[10, 10, 0, 0]} maxBarSize={32}>
+                {(data?.chart.monthlyTotals ?? []).map((item) => (
+                  <Cell key={`km-${item.key}`} fill={item.km > 0 ? "#38bdf8" : "#64748b"} />
+                ))}
+              </Bar>
+              <Bar yAxisId="horas" dataKey="horas" name="Horas" radius={[10, 10, 0, 0]} maxBarSize={32}>
+                {(data?.chart.monthlyTotals ?? []).map((item) => (
+                  <Cell key={`h-${item.key}`} fill={item.horas > 0 ? "#22c55e" : "#64748b"} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         ) : (
-          <p className="section-copy">Nenhum alerta operacional para o periodo.</p>
+          <p className="section-copy">Sem dados no periodo.</p>
         )}
-      </div>
-      {inconsistencies.length ? (
-        <div className="km-inconsistency-list">
-          {inconsistencies.slice(0, 5).map((item) => (
-            <div key={item.lancamentoId}>
-              <strong>{item.equipamento}</strong>
-              <span>
-                Ficha {item.ficha}: {item.leituraInformada.toLocaleString("pt-BR")} menor que {item.leituraAnterior.toLocaleString("pt-BR")}
-              </span>
+      </section>
+
+      {selectedRow ? (
+        <div className="monthly-km-drawer-backdrop" role="presentation" onClick={() => setSelectedRow(null)}>
+          <aside
+            className="monthly-km-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Detalhe mensal do equipamento"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button type="button" className="monthly-km-drawer-close" onClick={() => setSelectedRow(null)}>
+              Fechar
+            </button>
+            <span className={`monthly-km-type ${typeClass(selectedRow.tipoControle)}`}>{selectedRow.tipoLabel}</span>
+            <h2>{selectedRow.equipamento}</h2>
+            <p>
+              Total no periodo: <strong>{formatValue(selectedRow.total, selectedRow.unidade)}</strong>
+            </p>
+
+            <div className="monthly-km-detail-list">
+              {selectedMonthDetails.map((month) => (
+                <article key={month.key} className={`monthly-km-detail-card ${statusClass(month.status)}`}>
+                  <header>
+                    <div>
+                      <span>{month.label}</span>
+                      <strong>{formatValue(month.value, selectedRow.unidade)}</strong>
+                    </div>
+                    <b>{statusLabel(month.status)}</b>
+                  </header>
+                  <dl>
+                    <div>
+                      <dt>Leitura inicial</dt>
+                      <dd>{formatReading(month.initialReading, selectedRow.unidade)}</dd>
+                    </div>
+                    <div>
+                      <dt>Leitura final</dt>
+                      <dd>{formatReading(month.finalReading, selectedRow.unidade)}</dd>
+                    </div>
+                    <div>
+                      <dt>Primeira leitura do mes</dt>
+                      <dd>{formatDate(month.firstReadingDate)}</dd>
+                    </div>
+                    <div>
+                      <dt>Ultima leitura do mes</dt>
+                      <dd>{formatDate(month.lastReadingDate)}</dd>
+                    </div>
+                  </dl>
+
+                  {month.clientes.length || month.obras.length ? (
+                    <div className="monthly-km-chip-grid">
+                      {month.clientes.map((cliente) => (
+                        <span key={cliente}>Cliente: {cliente}</span>
+                      ))}
+                      {month.obras.map((obra) => (
+                        <span key={obra}>Obra: {obra}</span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  {month.readings.length ? (
+                    <div className="monthly-km-reading-list">
+                      {month.readings.map((reading) => (
+                        <div key={reading.data}>
+                          <span>{formatDate(reading.data)}</span>
+                          <strong>{formatReading(reading.leitura, selectedRow.unidade)}</strong>
+                          <small>{reading.ficha ? `Ficha ${reading.ficha}` : reading.origem}</small>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <small>Nenhuma leitura registrada dentro deste mes.</small>
+                  )}
+                </article>
+              ))}
             </div>
-          ))}
+          </aside>
         </div>
       ) : null}
-    </article>
+    </main>
   );
 }
