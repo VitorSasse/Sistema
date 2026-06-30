@@ -81,6 +81,8 @@ type DashboardPayload = {
     totalManutencao: number;
     totalCombustivel: number;
     custoMedioPorEquipamento: number;
+    custoSemEquipamento: number;
+    totalEquipamentosVinculados: number;
     totalOrdens: number;
     totalItens: number;
     equipamentoMaisCaro: { nome: string; total: number } | null;
@@ -329,6 +331,7 @@ export function CustosDashboard() {
 
   const hasData = (data?.summary.totalCusto ?? 0) > 0;
   const topEquipamentos = useMemo(() => (data?.charts.equipamentos ?? []).slice(0, 10), [data]);
+  const equipmentChartHeight = Math.max(260, Math.min(440, topEquipamentos.length * 46 + 96));
   const topFornecedores = useMemo(() => (data?.charts.fornecedores ?? []).slice(0, 8), [data]);
   const topCentros = useMemo(() => (data?.charts.centrosCusto ?? []).slice(0, 8), [data]);
   const topPareto = useMemo(() => (data?.charts.pareto ?? []).slice(0, 8), [data]);
@@ -577,7 +580,7 @@ export function CustosDashboard() {
         <KpiCard label="Custo total" value={formatCurrency(data?.summary.totalCusto ?? 0)} helper={`Periodo anterior: ${formatCurrency(data?.summary.totalAnterior ?? 0)} | ${formatPercent(data?.summary.variacaoPercentual ?? 0)}`} tone="orange" />
         <KpiCard label="Manutencao" value={formatCurrency(data?.summary.totalManutencao ?? 0)} helper="Pecas, servicos e revisoes." tone="red" />
         <KpiCard label="Combustivel" value={formatCurrency(data?.summary.totalCombustivel ?? 0)} helper="Diesel, Arla e abastecimentos." tone="blue" />
-        <KpiCard label="Media por equipamento" value={formatCurrency(data?.summary.custoMedioPorEquipamento ?? 0)} helper="Baseada nos equipamentos com custo." tone="green" />
+        <KpiCard label="Media por equipamento" value={formatCurrency(data?.summary.custoMedioPorEquipamento ?? 0)} helper={`${data?.summary.totalEquipamentosVinculados ?? 0} equipamento(s) vinculado(s).`} tone="green" />
         <KpiCard label="Equipamento mais caro" value={data?.summary.equipamentoMaisCaro?.nome ?? "-"} helper={formatCurrency(data?.summary.equipamentoMaisCaro?.total ?? 0)} tone="purple" />
         <KpiCard label="Maior fornecedor" value={data?.summary.fornecedorPrincipal?.nome ?? "-"} helper={formatCurrency(data?.summary.fornecedorPrincipal?.total ?? 0)} tone="blue" />
         <KpiCard label="Centro principal" value={data?.summary.centroCustoPrincipal?.nome ?? "-"} helper={formatCurrency(data?.summary.centroCustoPrincipal?.total ?? 0)} tone="green" />
@@ -648,15 +651,28 @@ export function CustosDashboard() {
                   <h2 className="section-title">Ranking de custo por equipamento</h2>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={420}>
-                <BarChart data={topEquipamentos} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
-                  <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
-                  <XAxis type="number" tickFormatter={(value) => formatCurrency(value).replace(",00", "")} tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-                  <YAxis type="category" dataKey="nome" width={180} tick={{ fill: "var(--screen-chart-tick)", fontSize: 11 }} />
-                  <Tooltip content={<MoneyTooltip />} />
-                  <Bar dataKey="total" name="Custo" radius={[0, 12, 12, 0]} fill="#F97316" />
-                </BarChart>
-              </ResponsiveContainer>
+              {(data?.summary.custoSemEquipamento ?? 0) > 0 ? (
+                <div className="cost-unlinked-alert">
+                  <strong>{formatCurrency(data?.summary.custoSemEquipamento ?? 0)}</strong>
+                  <span>em custos sem equipamento vinculado. Eles nao entram neste ranking.</span>
+                </div>
+              ) : null}
+              {topEquipamentos.length === 0 ? (
+                <div className="cost-empty-state cost-empty-state-compact">
+                  <strong>Nenhum equipamento vinculado no periodo</strong>
+                  <p>As ordens encontradas nao possuem equipamento associado ao centro de custo.</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={equipmentChartHeight}>
+                  <BarChart data={topEquipamentos} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }} barCategoryGap={12}>
+                    <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
+                    <XAxis type="number" tickFormatter={(value) => formatCurrency(value).replace(",00", "")} tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
+                    <YAxis type="category" dataKey="nome" width={190} tick={{ fill: "var(--screen-chart-tick)", fontSize: 11 }} />
+                    <Tooltip content={<MoneyTooltip />} />
+                    <Bar dataKey="total" name="Custo" radius={[0, 12, 12, 0]} fill="#F97316" maxBarSize={34} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </article>
 
             <article className="surface section-card cost-chart-card">

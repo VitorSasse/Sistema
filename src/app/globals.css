@@ -6686,9 +6686,45 @@ button {
   color: var(--muted);
 }
 
+.cost-empty-state-compact {
+  min-height: 220px;
+  place-content: center;
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 18px;
+  background: rgba(15, 42, 68, 0.2);
+  padding: 22px;
+}
+
 .cost-empty-state strong {
   color: var(--text);
   font-size: 20px;
+}
+
+.cost-unlinked-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 14px;
+  border: 1px solid rgba(249, 115, 22, 0.28);
+  border-radius: 16px;
+  background:
+    linear-gradient(90deg, rgba(249, 115, 22, 0.18), rgba(15, 42, 68, 0.08)),
+    rgba(249, 115, 22, 0.06);
+  padding: 12px 14px;
+}
+
+.cost-unlinked-alert strong {
+  color: var(--primary);
+  font-size: 18px;
+  white-space: nowrap;
+}
+
+.cost-unlinked-alert span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
 }
 
 .cost-skeleton {

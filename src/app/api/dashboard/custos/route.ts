@@ -483,11 +483,16 @@ export async function GET(request: NextRequest) {
       };
     })
     .sort((a, b) => b.total - a.total);
+  const rankingEquipamentosComVinculo = rankingEquipamentos.filter((item) => item.equipamentoId);
+  const custosSemEquipamento = rankingEquipamentos.find((item) => !item.equipamentoId)?.total ?? 0;
+  const totalCustoEquipamentosVinculados = Number(
+    rankingEquipamentosComVinculo.reduce((acc, item) => acc + item.total, 0).toFixed(2)
+  );
 
   const categoriaRows = Array.from(byCategoria.values())
     .map((item) => ({ ...item, total: Number(item.total.toFixed(2)), sharePercent: totalCusto > 0 ? (item.total / totalCusto) * 100 : 0 }))
     .sort((a, b) => b.total - a.total);
-  const equipamentoMaisCaro = rankingEquipamentos[0] ?? null;
+  const equipamentoMaisCaro = rankingEquipamentosComVinculo[0] ?? null;
   const rankingFornecedores = Array.from(byFornecedor.values()).map((item) => ({ ...item, total: Number(item.total.toFixed(2)), sharePercent: totalCusto > 0 ? (item.total / totalCusto) * 100 : 0 })).sort((a, b) => b.total - a.total);
   const rankingCentros = Array.from(byCentro.values()).map((item) => ({ ...item, total: Number(item.total.toFixed(2)), sharePercent: totalCusto > 0 ? (item.total / totalCusto) * 100 : 0 })).sort((a, b) => b.total - a.total);
   const rankingPlanos = Array.from(byPlano.values()).map((item) => ({ ...item, total: Number(item.total.toFixed(2)), sharePercent: totalCusto > 0 ? (item.total / totalCusto) * 100 : 0 })).sort((a, b) => b.total - a.total);
@@ -533,7 +538,12 @@ export async function GET(request: NextRequest) {
       variacaoPercentual,
       totalManutencao: categoriaRows.find((item) => item.categoria === "MANUTENCAO")?.total ?? 0,
       totalCombustivel: categoriaRows.find((item) => item.categoria === "COMBUSTIVEL")?.total ?? 0,
-      custoMedioPorEquipamento: rankingEquipamentos.length > 0 ? Number((totalCusto / rankingEquipamentos.length).toFixed(2)) : 0,
+      custoMedioPorEquipamento:
+        rankingEquipamentosComVinculo.length > 0
+          ? Number((totalCustoEquipamentosVinculados / rankingEquipamentosComVinculo.length).toFixed(2))
+          : 0,
+      custoSemEquipamento: Number(custosSemEquipamento.toFixed(2)),
+      totalEquipamentosVinculados: rankingEquipamentosComVinculo.length,
       totalOrdens: new Set(items.map((item) => item.ordemId)).size,
       totalItens: items.length,
       equipamentoMaisCaro: equipamentoMaisCaro ? { nome: equipamentoMaisCaro.nome, total: equipamentoMaisCaro.total } : null,
@@ -542,7 +552,7 @@ export async function GET(request: NextRequest) {
     },
     charts: {
       categorias: categoriaRows,
-      equipamentos: rankingEquipamentos,
+      equipamentos: rankingEquipamentosComVinculo,
       centrosCusto: rankingCentros,
       fornecedores: rankingFornecedores,
       planosConta: rankingPlanos,
