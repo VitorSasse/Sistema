@@ -16,6 +16,7 @@ const navigationGroups = [
     items: [
       { href: "/dashboard", label: "Dashboard de faturamento" },
       { href: "/dashboard/custos", label: "Dashboard de custos" },
+      { href: "/dashboard/km-horimetro", label: "KM/Horimetro por obra" },
       { href: "/frota/dashboard", label: "Dashboard da frota" },
       { href: "/dashboard/executivo", label: "Dashboard executivo" }
     ]
