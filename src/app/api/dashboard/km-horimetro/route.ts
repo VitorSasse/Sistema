@@ -211,6 +211,7 @@ export async function GET(request: NextRequest) {
 
   let totalKm = 0;
   let totalHoras = 0;
+  let totalHorasMaquinas = 0;
   let totalInconsistencias = 0;
   let totalSemLeituraAnterior = 0;
 
@@ -319,6 +320,9 @@ export async function GET(request: NextRequest) {
         totalKm = round(totalKm + variation, 1);
       } else {
         totalHoras = round(totalHoras + variation, 2);
+        if (equipamento.tipoRecurso === "MAQUINA") {
+          totalHorasMaquinas = round(totalHorasMaquinas + variation, 2);
+        }
       }
 
       return {
@@ -388,6 +392,10 @@ export async function GET(request: NextRequest) {
   });
 
   const topEquipment = [...usefulRows].sort((a, b) => b.total - a.total)[0] ?? null;
+  const topMachineByHours =
+    [...usefulRows]
+      .filter((row) => row.tipoControle === "HORIMETRO" && row.tipoRecurso === "MAQUINA")
+      .sort((a, b) => b.total - a.total)[0] ?? null;
 
   return NextResponse.json({
     period: {
@@ -415,6 +423,7 @@ export async function GET(request: NextRequest) {
     summary: {
       totalKm,
       totalHoras,
+      totalHorasMaquinas,
       totalEquipamentos: usefulRows.length,
       inconsistencias: totalInconsistencias,
       semLeituraAnterior: totalSemLeituraAnterior,
@@ -424,6 +433,12 @@ export async function GET(request: NextRequest) {
             tipoControle: topEquipment.tipoControle,
             unidade: topEquipment.unidade,
             total: topEquipment.total
+          }
+        : null,
+      maquinaMaiorHoras: topMachineByHours
+        ? {
+            equipamento: topMachineByHours.equipamento,
+            total: topMachineByHours.total
           }
         : null
     },

@@ -8918,21 +8918,21 @@ button {
 
 .monthly-km-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .monthly-km-kpi {
   display: grid;
-  gap: 8px;
-  min-height: 118px;
-  border-radius: 20px;
-  padding: 18px;
+  gap: 5px;
+  min-height: 84px;
+  border-radius: 16px;
+  padding: 12px 14px;
 }
 
 .monthly-km-kpi span {
   color: rgba(226, 232, 240, 0.74);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 900;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -8940,12 +8940,14 @@ button {
 
 .monthly-km-kpi strong {
   color: #ffffff;
-  font-size: clamp(1.25rem, 1.8vw, 2rem);
+  font-size: clamp(1.05rem, 1.45vw, 1.55rem);
   line-height: 1.08;
+  overflow-wrap: anywhere;
 }
 
 .monthly-km-kpi small {
   color: rgba(226, 232, 240, 0.72);
+  font-size: 0.68rem;
   line-height: 1.45;
 }
 
@@ -9368,6 +9370,10 @@ button {
 
 @media (max-width: 1180px) {
   .monthly-km-filter-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .monthly-km-kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

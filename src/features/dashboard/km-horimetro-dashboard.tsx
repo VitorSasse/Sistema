@@ -84,6 +84,7 @@ type DashboardPayload = {
   summary: {
     totalKm: number;
     totalHoras: number;
+    totalHorasMaquinas: number;
     totalEquipamentos: number;
     inconsistencias: number;
     semLeituraAnterior: number;
@@ -91,6 +92,10 @@ type DashboardPayload = {
       equipamento: string;
       tipoControle: ControlType;
       unidade: "km" | "h";
+      total: number;
+    } | null;
+    maquinaMaiorHoras: {
+      equipamento: string;
       total: number;
     } | null;
   };
@@ -366,6 +371,16 @@ export function KmHorimetroDashboard() {
           label="Horas Totais"
           value={formatValue(data?.summary.totalHoras ?? 0, "h")}
           helper="Soma dos equipamentos controlados por horimetro."
+          tone="hour"
+        />
+        <KpiCard
+          label="Maquina Mais Horas"
+          value={data?.summary.maquinaMaiorHoras?.equipamento ?? "-"}
+          helper={
+            data?.summary.maquinaMaiorHoras
+              ? formatValue(data.summary.maquinaMaiorHoras.total, "h")
+              : "Sem horas de maquina no periodo."
+          }
           tone="hour"
         />
         <KpiCard
