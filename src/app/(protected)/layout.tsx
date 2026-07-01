@@ -39,6 +39,7 @@ const navigationGroups = [
     icon: "operacao",
     description: "Lancamento diario, consulta e medicao operacional.",
     items: [
+      { href: "/orcamentos" as Route, label: "Orcamentos" },
       { href: "/programacao", label: "Agenda de programacao" },
       { href: "/lancamentos", label: "Lancamentos" },
       { href: "/historico", label: "Historico" },

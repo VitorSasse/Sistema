@@ -3,6 +3,7 @@ import { RoleCodigo } from "@prisma/client";
 export type PermissionAction =
   | "users.manage"
   | "masters.manage"
+  | "orcamentos.manage"
   | "lancamentos.create"
   | "lancamentos.update"
   | "medicoes.close"
@@ -13,6 +14,7 @@ const rolePermissions: Record<RoleCodigo, PermissionAction[]> = {
   ADMIN: [
     "users.manage",
     "masters.manage",
+    "orcamentos.manage",
     "lancamentos.create",
     "lancamentos.update",
     "medicoes.close",
@@ -21,6 +23,7 @@ const rolePermissions: Record<RoleCodigo, PermissionAction[]> = {
   ],
   GESTOR: [
     "masters.manage",
+    "orcamentos.manage",
     "lancamentos.create",
     "lancamentos.update",
     "medicoes.close",
@@ -28,7 +31,7 @@ const rolePermissions: Record<RoleCodigo, PermissionAction[]> = {
     "auditoria.read"
   ],
   OPERACIONAL: ["lancamentos.create", "lancamentos.update"],
-  FINANCEIRO: ["medicoes.close"],
+  FINANCEIRO: ["orcamentos.manage", "medicoes.close"],
   CONSULTA: []
 };
 
