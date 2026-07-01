@@ -118,9 +118,14 @@ const styles = StyleSheet.create({
   detailTotal: { width: "8%" },
   footer: {
     marginTop: 16,
+    alignItems: "flex-end",
+  },
+  footerSummary: {
+    width: 230,
   },
   footerLine: {
     marginBottom: 3,
+    textAlign: "right",
   },
   signatureBlock: {
     marginTop: 40,
@@ -336,11 +341,13 @@ export function MedicaoPdfDocument(props: MedicaoPdfProps) {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.footerLine}>Total de itens: {items.length}</Text>
-          <Text style={styles.footerLine}>Valor bruto: {formatCurrency(valorBruto)}</Text>
-          <Text style={styles.footerLine}>Desconto: {formatCurrency(descontoValor)}</Text>
-          <Text style={styles.footerLine}>Valor com desconto: {formatCurrency(valorComDesconto)}</Text>
-          <Text style={styles.footerLine}>Observacoes: {props.observacao ?? "-"}</Text>
+          <View style={styles.footerSummary}>
+            <Text style={styles.footerLine}>Total de itens: {items.length}</Text>
+            <Text style={styles.footerLine}>Valor bruto: {formatCurrency(valorBruto)}</Text>
+            <Text style={styles.footerLine}>Desconto: {formatCurrency(descontoValor)}</Text>
+            <Text style={styles.footerLine}>Valor com desconto: {formatCurrency(valorComDesconto)}</Text>
+            <Text style={styles.footerLine}>Observacoes: {props.observacao ?? "-"}</Text>
+          </View>
         </View>
 
         {!isDetalhado ? (
