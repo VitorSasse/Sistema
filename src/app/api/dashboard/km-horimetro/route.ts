@@ -170,12 +170,22 @@ export async function GET(request: NextRequest) {
     readingsByEquipment.set(equipamento.id, []);
   }
 
+  const hasPositiveReadingByEquipment = new Map<string, boolean>();
+
   for (const reading of readings) {
     const equipamento = equipamentos.find((item) => item.id === reading.equipamentoId);
     if (!equipamento) continue;
 
     const value = getReadingValue(reading, equipamento.tipoControle);
     if (value === null) continue;
+
+    const hasPositiveHistory = hasPositiveReadingByEquipment.get(reading.equipamentoId) ?? false;
+
+    // Leituras zeradas depois de historico positivo normalmente sao campo nao preenchido.
+    // Elas nao podem derrubar horimetro/KM e distorcer os meses seguintes.
+    if (value === 0 && hasPositiveHistory) {
+      continue;
+    }
 
     const bucket = readingsByEquipment.get(reading.equipamentoId) ?? [];
     bucket.push({
@@ -191,6 +201,11 @@ export async function GET(request: NextRequest) {
         ? `${reading.lancamentoDiario.obra.codigo} - ${reading.lancamentoDiario.obra.nome}`
         : null
     });
+
+    if (value > 0) {
+      hasPositiveReadingByEquipment.set(reading.equipamentoId, true);
+    }
+
     readingsByEquipment.set(reading.equipamentoId, bucket);
   }
 
