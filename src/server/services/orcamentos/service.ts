@@ -515,9 +515,14 @@ export async function listarOrcamentos(
     dataFinal?: string | null;
   }
 ) {
-  const where: Prisma.OrcamentoWhereInput = {
-    deletedAt: null
-  };
+  const status =
+    filters.status &&
+    filters.status !== "TODOS" &&
+    Object.values(StatusOrcamento).includes(filters.status as StatusOrcamento)
+      ? (filters.status as StatusOrcamento)
+      : null;
+  const where: Prisma.OrcamentoWhereInput =
+    status === StatusOrcamento.ARQUIVADO ? {} : { deletedAt: null };
 
   if (filters.clienteId) {
     where.clienteId = filters.clienteId;
@@ -539,12 +544,8 @@ export async function listarOrcamentos(
     where.tipo = filters.tipo as TipoOrcamento;
   }
 
-  if (
-    filters.status &&
-    filters.status !== "TODOS" &&
-    Object.values(StatusOrcamento).includes(filters.status as StatusOrcamento)
-  ) {
-    where.status = filters.status as StatusOrcamento;
+  if (status) {
+    where.status = status;
   }
 
   const dataInicial = parseDateInput(filters.dataInicial);
@@ -606,8 +607,7 @@ export async function listarOrcamentos(
 export async function buscarOrcamento(db: DbClient, id: string) {
   return db.orcamento.findFirst({
     where: {
-      id,
-      deletedAt: null
+      id
     },
     include: orcamentoInclude
   });
