@@ -212,6 +212,19 @@ type OrcamentoApi = {
   }>;
 };
 
+type OrcamentoResumoApi = Pick<
+  OrcamentoApi,
+  | "id"
+  | "codigo"
+  | "tipo"
+  | "status"
+  | "titulo"
+  | "objeto"
+  | "valorTotal"
+  | "cliente"
+  | "obra"
+>;
+
 const statusOptions: { value: StatusOrcamento; label: string }[] = [
   { value: "RASCUNHO", label: "Rascunho" },
   { value: "EM_ELABORACAO", label: "Em elaboracao" },
@@ -420,7 +433,7 @@ function calcItemCost(item: Pick<ItemForm, "quantidade" | "custoUnitario">) {
 }
 
 export function OrcamentosManager() {
-  const [items, setItems] = useState<OrcamentoApi[]>([]);
+  const [items, setItems] = useState<OrcamentoResumoApi[]>([]);
   const [options, setOptions] = useState<OptionsState>(emptyOptions);
   const [form, setForm] = useState<OrcamentoForm>(() => createEmptyForm());
   const [selectedId, setSelectedId] = useState<string>("");
@@ -530,15 +543,17 @@ export function OrcamentosManager() {
   );
 
   useEffect(() => {
-    loadOptions();
-    loadOrcamentos();
+    async function init() {
+      await loadOptions();
+      await loadOrcamentos();
+    }
+
+    init();
   }, []);
 
   async function loadOptions() {
-    const [operacionaisResponse, usuariosResponse] = await Promise.all([
-      fetch("/api/opcoes/operacionais"),
-      fetch("/api/usuarios")
-    ]);
+    const operacionaisResponse = await fetch("/api/opcoes/operacionais");
+    const usuariosResponse = await fetch("/api/usuarios");
 
     const operacionais = operacionaisResponse.ok ? await operacionaisResponse.json() : emptyOptions;
     const usuarios = usuariosResponse.ok ? await usuariosResponse.json() : { items: [] };
@@ -728,7 +743,7 @@ export function OrcamentosManager() {
     setError("");
   }
 
-  async function abrirOrcamento(orcamento: OrcamentoApi) {
+  async function abrirOrcamento(orcamento: OrcamentoResumoApi) {
     setSelectedId(orcamento.id);
     setMessage("");
     setError("");

@@ -97,6 +97,30 @@ export const orcamentoInclude = {
   }
 } satisfies Prisma.OrcamentoInclude;
 
+export const orcamentoListInclude = {
+  cliente: {
+    select: {
+      id: true,
+      codigo: true,
+      nome: true,
+      nomeFantasia: true
+    }
+  },
+  obra: {
+    select: {
+      id: true,
+      codigo: true,
+      nome: true
+    }
+  },
+  responsavel: {
+    select: {
+      id: true,
+      nome: true
+    }
+  }
+} satisfies Prisma.OrcamentoInclude;
+
 export type OrcamentoDetalhe = Prisma.OrcamentoGetPayload<{
   include: typeof orcamentoInclude;
 }>;
@@ -574,7 +598,7 @@ export async function listarOrcamentos(
 
   return db.orcamento.findMany({
     where,
-    include: orcamentoInclude,
+    include: orcamentoListInclude,
     orderBy: [{ dataOrcamento: "desc" }, { createdAt: "desc" }]
   });
 }

@@ -80,6 +80,17 @@ export function handleOrcamentoApiError(error: unknown) {
         { status: 409 }
       );
     }
+
+    if (error.code === "P2024") {
+      return NextResponse.json(
+        {
+          message:
+            "O banco demorou para liberar conexao. Tente novamente em alguns segundos.",
+          detail: String(error)
+        },
+        { status: 503 }
+      );
+    }
   }
 
   return NextResponse.json(
