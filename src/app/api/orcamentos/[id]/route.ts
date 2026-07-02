@@ -8,7 +8,10 @@ import {
   buscarOrcamento,
   excluirOrcamento
 } from "@/server/services/orcamentos/service";
-import { handleOrcamentoApiError } from "@/app/api/orcamentos/_utils";
+import {
+  handleOrcamentoApiError,
+  orcamentoTransactionOptions
+} from "@/app/api/orcamentos/_utils";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -50,12 +53,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   try {
-    const orcamento = await prisma.$transaction((tx) =>
-      atualizarOrcamento(tx, {
-        id,
-        input: parsed.data,
-        userId: permission.session.user.id
-      })
+    const orcamento = await prisma.$transaction(
+      (tx) =>
+        atualizarOrcamento(tx, {
+          id,
+          input: parsed.data,
+          userId: permission.session.user.id
+        }),
+      orcamentoTransactionOptions
     );
 
     return NextResponse.json(orcamento);
@@ -74,7 +79,10 @@ export async function DELETE(_: NextRequest, context: RouteContext) {
   const { id } = await context.params;
 
   try {
-    const orcamento = await prisma.$transaction((tx) => excluirOrcamento(tx, id));
+    const orcamento = await prisma.$transaction(
+      (tx) => excluirOrcamento(tx, id),
+      orcamentoTransactionOptions
+    );
     return NextResponse.json(orcamento);
   } catch (error) {
     return handleOrcamentoApiError(error);

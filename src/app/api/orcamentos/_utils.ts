@@ -52,6 +52,11 @@ const errorMap: Record<string, { message: string; status: number }> = {
   }
 };
 
+export const orcamentoTransactionOptions = {
+  maxWait: 10000,
+  timeout: 20000
+} as const;
+
 export function handleOrcamentoApiError(error: unknown) {
   if (error instanceof Error) {
     const mapped = errorMap[error.message];

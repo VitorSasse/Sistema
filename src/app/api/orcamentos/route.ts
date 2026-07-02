@@ -7,7 +7,10 @@ import {
   criarOrcamento,
   listarOrcamentos
 } from "@/server/services/orcamentos/service";
-import { handleOrcamentoApiError } from "@/app/api/orcamentos/_utils";
+import {
+  handleOrcamentoApiError,
+  orcamentoTransactionOptions
+} from "@/app/api/orcamentos/_utils";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -54,11 +57,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const orcamento = await prisma.$transaction((tx) =>
-      criarOrcamento(tx, {
-        input: parsed.data,
-        userId: permission.session.user.id
-      })
+    const orcamento = await prisma.$transaction(
+      (tx) =>
+        criarOrcamento(tx, {
+          input: parsed.data,
+          userId: permission.session.user.id
+        }),
+      orcamentoTransactionOptions
     );
 
     return NextResponse.json(orcamento, { status: 201 });
