@@ -1599,6 +1599,7 @@ function PremissasSection(props: {
 
 function buildPayload(form: OrcamentoForm) {
   const itensPreenchidos = form.itens.filter(isItemPreenchido);
+  const formacaoPreco = buildFormacaoPayload(form.formacaoPreco);
 
   return {
     tipo: form.tipo,
@@ -1614,7 +1615,7 @@ function buildPayload(form: OrcamentoForm) {
     observacaoCliente: form.observacaoCliente,
     valorDesconto: Number(form.valorDesconto) || 0,
     valorAcrescimo: Number(form.valorAcrescimo) || 0,
-    formacaoPreco: form.formacaoPreco,
+    formacaoPreco,
     frentes: form.tipo === "OPERACIONAL" ? form.frentes.map(mapFrentePayload) : [],
     itens: itensPreenchidos.map((item) => ({
       frenteTempId: form.tipo === "OPERACIONAL" ? item.frenteTempId : "",
@@ -1639,6 +1640,39 @@ function buildPayload(form: OrcamentoForm) {
       descricao: premissa.descricao
     }))
   };
+}
+
+function toNumberOrZero(value: string) {
+  if (!value.trim()) {
+    return 0;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function buildFormacaoPayload(formacaoPreco: FormacaoPrecoForm) {
+  const payload = {
+    custoDireto: toNumberOrZero(formacaoPreco.custoDireto),
+    custoIndireto: toNumberOrZero(formacaoPreco.custoIndireto),
+    impostosPercentual: toNumberOrZero(formacaoPreco.impostosPercentual),
+    impostosValor: toNumberOrZero(formacaoPreco.impostosValor),
+    margemPercentual: toNumberOrZero(formacaoPreco.margemPercentual),
+    margemValor: toNumberOrZero(formacaoPreco.margemValor),
+    precoSugerido: toNumberOrZero(formacaoPreco.precoSugerido),
+    precoFinal: toNumberOrZero(formacaoPreco.precoFinal),
+    observacao: formacaoPreco.observacao.trim()
+  };
+
+  const hasNumericValue = Object.entries(payload).some(
+    ([key, value]) => key !== "observacao" && typeof value === "number" && value > 0
+  );
+
+  if (!hasNumericValue && !payload.observacao) {
+    return null;
+  }
+
+  return payload;
 }
 
 function isItemPreenchido(item: ItemForm) {

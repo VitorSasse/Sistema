@@ -30,6 +30,24 @@ export function parseRomaneiosInput(value: unknown) {
   return items;
 }
 
+export function calcularQuantidadeRomaneiosEsperada(quantidadeCargas: number | null | undefined) {
+  if (
+    typeof quantidadeCargas !== "number" ||
+    !Number.isFinite(quantidadeCargas) ||
+    quantidadeCargas <= 0
+  ) {
+    return null;
+  }
+
+  return Math.max(1, Math.ceil(quantidadeCargas));
+}
+
+export function formatarQuantidadeCarga(quantidadeCargas: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: 3
+  }).format(quantidadeCargas);
+}
+
 export function romaneiosToTextarea(
   value: Array<{ numero: string }> | string[] | null | undefined
 ) {

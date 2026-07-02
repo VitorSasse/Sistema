@@ -3,7 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
-import { parseRomaneiosInput } from "@/lib/utils/romaneios";
+import {
+  calcularQuantidadeRomaneiosEsperada,
+  formatarQuantidadeCarga,
+  parseRomaneiosInput
+} from "@/lib/utils/romaneios";
 import { lancamentoSchema } from "@/lib/validators/lancamento";
 import { sincronizarLeituraPorLancamento } from "@/server/services/frota/leitura-sync";
 import { substituirRomaneiosDoLancamento } from "@/server/services/lancamentos/romaneios";
@@ -70,12 +74,14 @@ function validateRomaneiosPorCarga(data: {
     return "Romaneios so podem ser exigidos quando a unidade apontada ou faturada for Carga.";
   }
 
-  if (!Number.isInteger(quantidadeCargas) || quantidadeCargas <= 0) {
-    return "A quantidade de cargas deve ser um numero inteiro para validar romaneios.";
+  const romaneiosEsperados = calcularQuantidadeRomaneiosEsperada(quantidadeCargas);
+
+  if (romaneiosEsperados === null) {
+    return "A quantidade de cargas deve ser maior que zero para validar romaneios.";
   }
 
-  if (data.romaneios.length !== quantidadeCargas) {
-    return `A quantidade de romaneios (${data.romaneios.length}) precisa bater com a quantidade de cargas (${quantidadeCargas}).`;
+  if (data.romaneios.length !== romaneiosEsperados) {
+    return `A quantidade de romaneios (${data.romaneios.length}) precisa bater com a quantidade esperada (${romaneiosEsperados}) para ${formatarQuantidadeCarga(quantidadeCargas)} carga(s).`;
   }
 
   return null;

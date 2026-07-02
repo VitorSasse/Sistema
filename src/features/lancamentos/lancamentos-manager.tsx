@@ -10,7 +10,11 @@ import {
 } from "@/features/lancamentos/constants";
 import { useLancamentos } from "@/features/lancamentos/hooks/use-lancamentos";
 import { isRecursoTecnicoPadrao } from "@/lib/constants/recurso-tecnico";
-import { parseRomaneiosInput } from "@/lib/utils/romaneios";
+import {
+  calcularQuantidadeRomaneiosEsperada,
+  formatarQuantidadeCarga,
+  parseRomaneiosInput
+} from "@/lib/utils/romaneios";
 import { formatQuantidadeComUnidade } from "@/lib/utils/unidades";
 
 function SectionField({ label, children }: { label: string; children: ReactNode }) {
@@ -83,6 +87,10 @@ export function LancamentosManager() {
 
     return null;
   })();
+  const quantidadeRomaneiosEsperada =
+    quantidadeCargasEsperada === null
+      ? null
+      : calcularQuantidadeRomaneiosEsperada(quantidadeCargasEsperada);
 
   function updateRomaneiosSelecionados(items: string[]) {
     updateField("romaneios", items.join("\n"));
@@ -433,8 +441,8 @@ export function LancamentosManager() {
                   <div className="romaneio-counter">
                     <strong>{romaneiosSelecionados.length}</strong>
                     <span>
-                      {quantidadeCargasEsperada !== null
-                        ? `de ${quantidadeCargasEsperada} carga(s)`
+                      {quantidadeRomaneiosEsperada !== null && quantidadeCargasEsperada !== null
+                        ? `de ${quantidadeRomaneiosEsperada} romaneio(s) (${formatarQuantidadeCarga(quantidadeCargasEsperada)} carga(s))`
                         : "sem carga definida"}
                     </span>
                   </div>

@@ -16,7 +16,17 @@ function optionalUuid() {
 
 function numeroDecimal(max = 999999999) {
   return z.preprocess(
-    (value) => parseDecimalInput(value),
+    (value) => {
+      if (value === null || value === undefined) {
+        return 0;
+      }
+
+      if (typeof value === "string" && value.trim() === "") {
+        return 0;
+      }
+
+      return parseDecimalInput(value);
+    },
     z.number().finite().min(0).max(max)
   );
 }
