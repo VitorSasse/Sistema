@@ -18,18 +18,22 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams;
 
-  const items = await listarOrcamentos(prisma, {
-    search: searchParams.get("search"),
-    clienteId: searchParams.get("clienteId"),
-    obraId: searchParams.get("obraId"),
-    responsavelId: searchParams.get("responsavelId"),
-    tipo: searchParams.get("tipo"),
-    status: searchParams.get("status"),
-    dataInicial: searchParams.get("dataInicial"),
-    dataFinal: searchParams.get("dataFinal")
-  });
+  try {
+    const items = await listarOrcamentos(prisma, {
+      search: searchParams.get("search"),
+      clienteId: searchParams.get("clienteId"),
+      obraId: searchParams.get("obraId"),
+      responsavelId: searchParams.get("responsavelId"),
+      tipo: searchParams.get("tipo"),
+      status: searchParams.get("status"),
+      dataInicial: searchParams.get("dataInicial"),
+      dataFinal: searchParams.get("dataFinal")
+    });
 
-  return NextResponse.json({ items });
+    return NextResponse.json({ items });
+  } catch (error) {
+    return handleOrcamentoApiError(error);
+  }
 }
 
 export async function POST(request: NextRequest) {
