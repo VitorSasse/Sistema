@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { TipoCatalogoCompra } from "@prisma/client";
+import { Prisma, TipoCatalogoCompra } from "@prisma/client";
 
 function padSequence(value: number) {
   return String(value).padStart(3, "0");
@@ -111,8 +111,8 @@ export async function generateOrdemCompraCode(tipoCompra: TipoCatalogoCompra) {
   );
 }
 
-export async function generateOrcamentoCode() {
-  const existentes = await prisma.orcamento.findMany({
+export async function generateOrcamentoCode(db: Prisma.TransactionClient | typeof prisma = prisma) {
+  const existentes = await db.orcamento.findMany({
     select: { codigo: true }
   });
 

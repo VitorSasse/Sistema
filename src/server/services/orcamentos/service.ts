@@ -624,7 +624,7 @@ export async function criarOrcamento(
 
   const orcamento = await db.orcamento.create({
     data: {
-      codigo: await generateOrcamentoCode(),
+      codigo: await generateOrcamentoCode(db),
       ...buildOrcamentoData(params.input, params.userId)
     },
     select: {
@@ -730,7 +730,7 @@ export async function duplicarOrcamento(
 
   const novo = await db.orcamento.create({
     data: {
-      codigo: await generateOrcamentoCode(),
+      codigo: await generateOrcamentoCode(db),
       tipo: origem.tipo,
       status: StatusOrcamento.RASCUNHO,
       clienteId: origem.clienteId,
