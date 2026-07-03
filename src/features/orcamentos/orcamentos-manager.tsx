@@ -438,6 +438,72 @@ function calcItemCost(item: Pick<ItemForm, "quantidade" | "custoUnitario">) {
   return (Number(item.quantidade) || 0) * (Number(item.custoUnitario) || 0);
 }
 
+function roundMoney(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function buildEconomicPreview(form: OrcamentoForm) {
+  const isOperational = form.tipo === "OPERACIONAL";
+  const subtotalItens = roundMoney(form.itens.reduce((sum, item) => sum + calcItemTotal(item), 0));
+  const itensParaCusto = isOperational
+    ? form.itens.filter((item) => item.frenteTempId)
+    : form.itens;
+  const custoItens = roundMoney(itensParaCusto.reduce((sum, item) => sum + calcItemCost(item), 0));
+  const custoDiretoManual = Number(form.formacaoPreco.custoDireto) || 0;
+  const custoDireto = roundMoney(custoItens > 0 ? custoItens : custoDiretoManual);
+  const custoIndireto = roundMoney(Number(form.formacaoPreco.custoIndireto) || 0);
+  const baseCustos = roundMoney(custoDireto + custoIndireto);
+  const margemPercentual = Number(form.formacaoPreco.margemPercentual) || 0;
+  const margemManual = Number(form.formacaoPreco.margemValor) || 0;
+  const margemValor = roundMoney(
+    margemManual > 0 ? margemManual : baseCustos * (margemPercentual / 100)
+  );
+  const impostosPercentual = Number(form.formacaoPreco.impostosPercentual) || 0;
+  const impostosManual = Number(form.formacaoPreco.impostosValor) || 0;
+  const impostosValor = roundMoney(
+    impostosManual > 0
+      ? impostosManual
+      : (baseCustos + margemValor) * (impostosPercentual / 100)
+  );
+  const precoSugeridoCalculado = roundMoney(baseCustos + margemValor + impostosValor);
+  const precoSugeridoManual = isOperational ? 0 : Number(form.formacaoPreco.precoSugerido) || 0;
+  const precoSugerido = roundMoney(
+    precoSugeridoManual > 0 ? precoSugeridoManual : precoSugeridoCalculado
+  );
+  const precoFinalManual = roundMoney(Number(form.formacaoPreco.precoFinal) || 0);
+  const baseVenda = roundMoney(
+    isOperational
+      ? precoFinalManual > 0
+        ? precoFinalManual
+        : precoSugerido
+      : precoFinalManual > 0
+        ? precoFinalManual
+        : subtotalItens > 0
+          ? subtotalItens
+          : precoSugerido
+  );
+  const desconto = roundMoney(Number(form.valorDesconto) || 0);
+  const acrescimo = roundMoney(Number(form.valorAcrescimo) || 0);
+  const total = roundMoney(Math.max(0, baseVenda - desconto + acrescimo));
+
+  return {
+    isOperational,
+    subtotalItens,
+    custoItens,
+    custoDireto,
+    custoIndireto,
+    baseCustos,
+    margemValor,
+    impostosValor,
+    precoSugerido,
+    precoFinalManual,
+    baseVenda,
+    desconto,
+    acrescimo,
+    total
+  };
+}
+
 export function OrcamentosManager() {
   const [items, setItems] = useState<OrcamentoResumoApi[]>([]);
   const [options, setOptions] = useState<OptionsState>(emptyOptions);
@@ -511,34 +577,16 @@ export function OrcamentosManager() {
     [options.equipamentos]
   );
 
-  const subtotalForm = useMemo(
-    () => form.itens.reduce((sum, item) => sum + calcItemTotal(item), 0),
-    [form.itens]
-  );
-  const custoItensForm = useMemo(
-    () => form.itens.reduce((sum, item) => sum + calcItemCost(item), 0),
-    [form.itens]
-  );
-  const custoDiretoForm = custoItensForm > 0 ? custoItensForm : Number(form.formacaoPreco.custoDireto) || 0;
-  const custoIndiretoForm = Number(form.formacaoPreco.custoIndireto) || 0;
-  const baseCustosForm = custoDiretoForm + custoIndiretoForm;
-  const margemValorForm =
-    Number(form.formacaoPreco.margemValor) ||
-    baseCustosForm * ((Number(form.formacaoPreco.margemPercentual) || 0) / 100);
-  const impostosValorForm =
-    Number(form.formacaoPreco.impostosValor) ||
-    (baseCustosForm + margemValorForm) *
-      ((Number(form.formacaoPreco.impostosPercentual) || 0) / 100);
-  const precoSugeridoForm =
-    Number(form.formacaoPreco.precoSugerido) ||
-    baseCustosForm + margemValorForm + impostosValorForm;
-  const precoFinalManual = Number(form.formacaoPreco.precoFinal) || 0;
-  const baseVendaForm =
-    precoFinalManual > 0 ? precoFinalManual : subtotalForm > 0 ? subtotalForm : precoSugeridoForm;
-  const totalForm = Math.max(
-    0,
-    baseVendaForm - (Number(form.valorDesconto) || 0) + (Number(form.valorAcrescimo) || 0)
-  );
+  const economicPreview = useMemo(() => buildEconomicPreview(form), [form]);
+  const subtotalForm = economicPreview.subtotalItens;
+  const custoDiretoForm = economicPreview.custoDireto;
+  const custoIndiretoForm = economicPreview.custoIndireto;
+  const baseCustosForm = economicPreview.baseCustos;
+  const margemValorForm = economicPreview.margemValor;
+  const impostosValorForm = economicPreview.impostosValor;
+  const precoSugeridoForm = economicPreview.precoSugerido;
+  const baseVendaForm = economicPreview.baseVenda;
+  const totalForm = economicPreview.total;
   const prazoEstimadoForm = useMemo(
     () =>
       form.frentes.reduce(
@@ -1165,11 +1213,13 @@ export function OrcamentosManager() {
           <div className="orcamentos-form-section">
             <div className="orcamentos-form-heading">
               <span>{form.tipo === "OPERACIONAL" ? "03" : "04"}</span>
-              <h3>{form.tipo === "OPERACIONAL" ? "Resultado comercial" : "Formacao preliminar"}</h3>
+              <h3>{form.tipo === "OPERACIONAL" ? "Engenharia economica" : "Formacao preliminar"}</h3>
             </div>
             <div className="orcamentos-form-grid">
               <label className="manager-field">
-                <span className="manager-field-label">Custo direto</span>
+                <span className="manager-field-label">
+                  {form.tipo === "OPERACIONAL" ? "Custo direto manual" : "Custo direto"}
+                </span>
                 <input
                   className="field-control"
                   type="number"
@@ -1213,7 +1263,11 @@ export function OrcamentosManager() {
                 />
               </label>
               <label className="manager-field">
-                <span className="manager-field-label">Preco final manual</span>
+                <span className="manager-field-label">
+                  {form.tipo === "OPERACIONAL"
+                    ? "Ajuste final do engenheiro"
+                    : "Preco final manual"}
+                </span>
                 <input
                   className="field-control"
                   type="number"
@@ -1257,32 +1311,71 @@ export function OrcamentosManager() {
             </div>
 
             <div className="orcamentos-summary-strip">
-              <span>Subtotal: {formatCurrency(subtotalForm)}</span>
-              <span>Desconto: {formatCurrency(form.valorDesconto)}</span>
-              <span>Acrescimo: {formatCurrency(form.valorAcrescimo)}</span>
-              <strong>Total: {formatCurrency(totalForm)}</strong>
+              {form.tipo === "OPERACIONAL" ? (
+                <>
+                  <span>Custo direto: {formatCurrency(custoDiretoForm)}</span>
+                  <span>Indireto: {formatCurrency(custoIndiretoForm)}</span>
+                  <span>Sugerido: {formatCurrency(precoSugeridoForm)}</span>
+                  <strong>Final: {formatCurrency(totalForm)}</strong>
+                </>
+              ) : (
+                <>
+                  <span>Subtotal: {formatCurrency(subtotalForm)}</span>
+                  <span>Desconto: {formatCurrency(form.valorDesconto)}</span>
+                  <span>Acrescimo: {formatCurrency(form.valorAcrescimo)}</span>
+                  <strong>Total: {formatCurrency(totalForm)}</strong>
+                </>
+              )}
             </div>
 
             <div className="orcamentos-resumo-grid">
               <article>
                 <span>Preco sugerido</span>
                 <strong>{formatCurrency(precoSugeridoForm)}</strong>
-                <small>Custo + margem + impostos.</small>
+                <small>
+                  {form.tipo === "OPERACIONAL"
+                    ? "Calculado pelo planejamento da frente."
+                    : "Custo + margem + impostos."}
+                </small>
               </article>
               <article>
-                <span>Custo estimado</span>
+                <span>{form.tipo === "OPERACIONAL" ? "Custo direto calculado" : "Custo estimado"}</span>
                 <strong>{formatCurrency(baseCustosForm)}</strong>
-                <small>Direto dos itens ou valor manual + indireto.</small>
+                <small>
+                  {form.tipo === "OPERACIONAL"
+                    ? "Recursos planejados + custo indireto."
+                    : "Direto dos itens ou valor manual + indireto."}
+                </small>
               </article>
               <article>
-                <span>Margem estimada</span>
-                <strong>{formatCurrency(margemValorForm)}</strong>
-                <small>{form.formacaoPreco.margemPercentual || 0}% sobre a base de custos.</small>
+                <span>{form.tipo === "OPERACIONAL" ? "Margem + impostos" : "Margem estimada"}</span>
+                <strong>
+                  {form.tipo === "OPERACIONAL"
+                    ? formatCurrency(margemValorForm + impostosValorForm)
+                    : formatCurrency(margemValorForm)}
+                </strong>
+                <small>
+                  {form.tipo === "OPERACIONAL"
+                    ? `${form.formacaoPreco.margemPercentual || 0}% margem / ${
+                        form.formacaoPreco.impostosPercentual || 0
+                      }% impostos.`
+                    : `${form.formacaoPreco.margemPercentual || 0}% sobre a base de custos.`}
+                </small>
               </article>
               <article>
-                <span>Prazo operacional</span>
-                <strong>{prazoEstimadoForm ? `${prazoEstimadoForm} dia(s)` : "-"}</strong>
-                <small>Maior prazo informado nas frentes.</small>
+                <span>{form.tipo === "OPERACIONAL" ? "Base de venda" : "Prazo operacional"}</span>
+                <strong>
+                  {form.tipo === "OPERACIONAL"
+                    ? formatCurrency(baseVendaForm)
+                    : prazoEstimadoForm
+                      ? `${prazoEstimadoForm} dia(s)`
+                      : "-"}
+                </strong>
+                <small>
+                  {form.tipo === "OPERACIONAL"
+                    ? "Preco sugerido ou ajuste final antes de desconto/acrescimo."
+                    : "Maior prazo informado nas frentes."}
+                </small>
               </article>
             </div>
           </div>

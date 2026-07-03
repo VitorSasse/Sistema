@@ -7,6 +7,11 @@ import {
 } from "@prisma/client";
 import { generateOrcamentoCode } from "@/lib/utils/code-generation";
 import type { OrcamentoInput } from "@/lib/validators/orcamento";
+import {
+  buildOrcamentoTotals,
+  buildPricingSnapshot,
+  calcularValorItem
+} from "@/server/services/orcamentos/pricing";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -154,75 +159,6 @@ function endOfDay(value?: string | null) {
 function clean(value?: string | null) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
-}
-
-function toMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-function calcularValorItem(input: OrcamentoInput["itens"][number]) {
-  return toMoney(Number(input.quantidade) * Number(input.valorUnitario));
-}
-
-function calcularCustoItem(input: OrcamentoInput["itens"][number]) {
-  return toMoney(Number(input.quantidade) * Number(input.custoUnitario));
-}
-
-function buildPricingSnapshot(input: OrcamentoInput) {
-  const subtotalItens = toMoney(
-    input.itens.reduce((sum, item) => sum + calcularValorItem(item), 0)
-  );
-  const custoDiretoItens = toMoney(
-    input.itens.reduce((sum, item) => sum + calcularCustoItem(item), 0)
-  );
-  const formacao = input.formacaoPreco;
-  const custoDiretoManual = toMoney(Number(formacao?.custoDireto ?? 0));
-  const custoDireto = custoDiretoItens > 0 ? custoDiretoItens : custoDiretoManual;
-  const custoIndireto = toMoney(Number(formacao?.custoIndireto ?? 0));
-  const margemPercentual = toMoney(Number(formacao?.margemPercentual ?? 0));
-  const margemManual = toMoney(Number(formacao?.margemValor ?? 0));
-  const baseCustos = toMoney(custoDireto + custoIndireto);
-  const margemValor =
-    margemManual > 0 ? margemManual : toMoney(baseCustos * (margemPercentual / 100));
-  const impostosPercentual = toMoney(Number(formacao?.impostosPercentual ?? 0));
-  const impostosManual = toMoney(Number(formacao?.impostosValor ?? 0));
-  const baseComMargem = toMoney(baseCustos + margemValor);
-  const impostosValor =
-    impostosManual > 0 ? impostosManual : toMoney(baseComMargem * (impostosPercentual / 100));
-  const precoSugeridoCalculado = toMoney(baseComMargem + impostosValor);
-  const precoSugeridoManual = toMoney(Number(formacao?.precoSugerido ?? 0));
-  const precoSugerido = precoSugeridoManual > 0 ? precoSugeridoManual : precoSugeridoCalculado;
-  const precoFinalManual = toMoney(Number(formacao?.precoFinal ?? 0));
-  const valorSubtotal = toMoney(
-    precoFinalManual > 0 ? precoFinalManual : subtotalItens > 0 ? subtotalItens : precoSugerido
-  );
-  const valorDesconto = toMoney(Number(input.valorDesconto ?? 0));
-  const valorAcrescimo = toMoney(Number(input.valorAcrescimo ?? 0));
-  const valorTotal = toMoney(Math.max(0, valorSubtotal - valorDesconto + valorAcrescimo));
-
-  return {
-    formacaoPreco: {
-      custoDireto,
-      custoIndireto,
-      impostosPercentual,
-      impostosValor,
-      margemPercentual,
-      margemValor,
-      precoSugerido,
-      precoFinal: valorTotal,
-      observacao: clean(formacao?.observacao)
-    },
-    totals: {
-      valorSubtotal,
-      valorDesconto,
-      valorAcrescimo,
-      valorTotal
-    }
-  };
-}
-
-function buildOrcamentoTotals(input: OrcamentoInput) {
-  return buildPricingSnapshot(input).totals;
 }
 
 const statusTransitions: Record<StatusOrcamento, StatusOrcamento[]> = {
