@@ -6646,6 +6646,49 @@ button {
   margin-top: 14px;
 }
 
+.cost-center-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.cost-center-chart {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 12px 10px 8px;
+  background:
+    radial-gradient(circle at 85% 10%, rgba(56, 189, 248, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
+}
+
+.cost-center-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px 2px;
+}
+
+.cost-center-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cost-center-chart-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
 .cost-ranking-row {
   grid-template-columns: 44px minmax(0, 1fr) auto;
 }

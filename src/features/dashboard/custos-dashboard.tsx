@@ -37,6 +37,11 @@ type RankingRow = {
   sharePercent: number;
 };
 
+type CentroCustoRow = RankingRow & {
+  manutencao: number;
+  combustivel: number;
+};
+
 type EquipamentoRow = {
   equipamentoId: string | null;
   nome: string;
@@ -98,7 +103,7 @@ type DashboardPayload = {
       sharePercent: number;
     }>;
     equipamentos: EquipamentoRow[];
-    centrosCusto: RankingRow[];
+    centrosCusto: CentroCustoRow[];
     fornecedores: Array<RankingRow & { status: string }>;
     planosConta: RankingRow[];
     mensal: Array<{
@@ -716,12 +721,67 @@ export function CustosDashboard() {
 
           <section className="cost-list-grid fade-up fade-up-delay-3">
             <RankingPanel title="Fornecedores com maior despesa" kicker="Fornecedores" rows={topFornecedores} />
-            <RankingPanel title="Centros de custo mais pesados" kicker="Centro de custo" rows={topCentros} />
+            <CenterCostPanel rows={topCentros} />
             <ParetoPanel rows={topPareto} />
           </section>
         </>
       )}
     </main>
+  );
+}
+
+function CenterCostPanel({ rows }: { rows: CentroCustoRow[] }) {
+  const chartRows = rows
+    .filter((item) => item.combustivel > 0 || item.manutencao > 0)
+    .map((item) => ({
+      ...item,
+      nomeCurto: item.nome.length > 18 ? `${item.nome.slice(0, 18)}...` : item.nome
+    }));
+  const chartHeight = Math.max(220, Math.min(360, chartRows.length * 42 + 80));
+
+  return (
+    <article className="surface section-card cost-ranking-panel cost-center-panel">
+      <span className="cost-kicker">Centro de custo</span>
+      <h2 className="section-title">Centros de custo mais pesados</h2>
+
+      {chartRows.length === 0 ? (
+        <p className="section-copy">Sem custos de manutencao ou combustivel no periodo.</p>
+      ) : (
+        <div className="cost-center-chart">
+          <div className="cost-center-chart-legend">
+            <span><i style={{ background: categoryColors.COMBUSTIVEL }} /> Combustivel</span>
+            <span><i style={{ background: categoryColors.MANUTENCAO }} /> Manutencao</span>
+          </div>
+          <ResponsiveContainer width="100%" height={chartHeight}>
+            <BarChart data={chartRows} layout="vertical" margin={{ top: 6, right: 10, left: 0, bottom: 4 }} barCategoryGap={10}>
+              <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
+              <XAxis type="number" tickFormatter={(value) => formatCurrency(value).replace(",00", "")} tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }} />
+              <YAxis type="category" dataKey="nomeCurto" width={112} tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }} />
+              <Tooltip content={<MoneyTooltip />} />
+              <Bar dataKey="combustivel" name="Combustivel" stackId="centro" fill={categoryColors.COMBUSTIVEL} radius={[0, 0, 0, 0]} maxBarSize={22} />
+              <Bar dataKey="manutencao" name="Manutencao" stackId="centro" fill={categoryColors.MANUTENCAO} radius={[0, 10, 10, 0]} maxBarSize={22} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      <div className="cost-ranking-list">
+        {rows.length === 0 ? (
+          <p className="section-copy">Sem dados para o periodo selecionado.</p>
+        ) : (
+          rows.map((item, index) => (
+            <div key={`${item.nome}-${index}`} className="cost-ranking-row">
+              <span>#{String(index + 1).padStart(2, "0")}</span>
+              <div>
+                <strong>{item.nome}</strong>
+                <small>{item.count} item(ns) | {formatPercent(item.sharePercent)}</small>
+              </div>
+              <b>{formatCurrency(item.total)}</b>
+            </div>
+          ))
+        )}
+      </div>
+    </article>
   );
 }
 
