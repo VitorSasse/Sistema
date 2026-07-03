@@ -251,6 +251,8 @@ const tipoItemOptions: { value: TipoItemOrcamento; label: string }[] = [
   { value: "OUTRO", label: "Outro" }
 ];
 
+const tipoItemOperacionalOptions = tipoItemOptions.filter((option) => option.value !== "COMERCIAL");
+
 const premissaTipoOptions: { value: TipoPremissaOrcamento; label: string; helper: string }[] = [
   {
     value: "PREMISSA",
@@ -374,6 +376,10 @@ function createEmptyPremissa(tipo: TipoPremissaOrcamento, ordem: number): Premis
     titulo: "",
     descricao: ""
   };
+}
+
+function reordenarItens(itens: ItemForm[]) {
+  return itens.map((item, index) => ({ ...item, ordem: index + 1 }));
 }
 
 function formatCurrency(value: unknown) {
@@ -636,18 +642,29 @@ export function OrcamentosManager() {
 
   function handleTipoChange(tipo: TipoOrcamento) {
     setForm((current) => {
-      if (tipo === "OPERACIONAL" && current.frentes.length === 0) {
-        const frente = createEmptyFrente(1);
+      if (tipo === "OPERACIONAL") {
+        const frente = current.frentes[0] ?? createEmptyFrente(1);
+        const itensPreenchidos = current.itens.filter(isItemPreenchido);
+        const itensOperacionais = itensPreenchidos.length
+          ? itensPreenchidos.map((item, index) => ({
+              ...item,
+              ordem: index + 1,
+              tipoItem:
+                index === 0
+                  ? "SERVICO_PRINCIPAL"
+                  : item.tipoItem === "COMERCIAL"
+                    ? "SERVICO_AUXILIAR"
+                    : item.tipoItem,
+              frenteTempId: item.frenteTempId || frente.localId
+            }))
+          : [createEmptyItem("SERVICO_PRINCIPAL", 1, frente.localId)];
+
         return {
           ...current,
           tipo,
           status: current.status === "RASCUNHO" ? "EM_ELABORACAO" : current.status,
-          frentes: [frente],
-          itens: current.itens.map((item) => ({
-            ...item,
-            tipoItem: item.tipoItem === "COMERCIAL" ? "SERVICO_PRINCIPAL" : item.tipoItem,
-            frenteTempId: item.frenteTempId || frente.localId
-          }))
+          frentes: current.frentes.length ? current.frentes : [frente],
+          itens: itensOperacionais
         };
       }
 
@@ -672,19 +689,25 @@ export function OrcamentosManager() {
   }
 
   function addFrente() {
-    setForm((current) => ({
-      ...current,
-      frentes: [...current.frentes, createEmptyFrente(current.frentes.length + 1)]
-    }));
+    setForm((current) => {
+      const frente = createEmptyFrente(current.frentes.length + 1);
+
+      return {
+        ...current,
+        frentes: [...current.frentes, frente],
+        itens:
+          current.tipo === "OPERACIONAL"
+            ? [...current.itens, createEmptyItem("SERVICO_PRINCIPAL", current.itens.length + 1, frente.localId)]
+            : current.itens
+      };
+    });
   }
 
   function removeFrente(localId: string) {
     setForm((current) => ({
       ...current,
       frentes: current.frentes.filter((frente) => frente.localId !== localId),
-      itens: current.itens.map((item) =>
-        item.frenteTempId === localId ? { ...item, frenteTempId: "" } : item
-      )
+      itens: reordenarItens(current.itens.filter((item) => item.frenteTempId !== localId))
     }));
   }
 
@@ -701,10 +724,17 @@ export function OrcamentosManager() {
     });
   }
 
+  function addItemToFrente(frenteLocalId: string, tipoItem: TipoItemOrcamento) {
+    setForm((current) => ({
+      ...current,
+      itens: [...current.itens, createEmptyItem(tipoItem, current.itens.length + 1, frenteLocalId)]
+    }));
+  }
+
   function removeItem(localId: string) {
     setForm((current) => ({
       ...current,
-      itens: current.itens.filter((item) => item.localId !== localId)
+      itens: reordenarItens(current.itens.filter((item) => item.localId !== localId))
     }));
   }
 
@@ -1105,30 +1135,37 @@ export function OrcamentosManager() {
           </div>
 
           {form.tipo === "OPERACIONAL" ? (
-            <FrentesSection
+            <FrentesOperacionaisSection
               frentes={form.frentes}
+              itens={form.itens}
+              servicoOptions={servicoOptions}
+              materialOptions={materialOptions}
+              equipamentoOptions={equipamentoOptions}
               onAdd={addFrente}
               onRemove={removeFrente}
               onUpdate={updateFrente}
+              onAddItem={addItemToFrente}
+              onRemoveItem={removeItem}
+              onUpdateItem={updateItem}
             />
-          ) : null}
-
-          <ItensSection
-            tipo={form.tipo}
-            itens={form.itens}
-            frentes={form.frentes}
-            servicoOptions={servicoOptions}
-            materialOptions={materialOptions}
-            equipamentoOptions={equipamentoOptions}
-            onAdd={addItem}
-            onRemove={removeItem}
-            onUpdate={updateItem}
-          />
+          ) : (
+            <ItensSection
+              tipo={form.tipo}
+              itens={form.itens}
+              frentes={form.frentes}
+              servicoOptions={servicoOptions}
+              materialOptions={materialOptions}
+              equipamentoOptions={equipamentoOptions}
+              onAdd={addItem}
+              onRemove={removeItem}
+              onUpdate={updateItem}
+            />
+          )}
 
           <div className="orcamentos-form-section">
             <div className="orcamentos-form-heading">
-              <span>04</span>
-              <h3>Formacao preliminar</h3>
+              <span>{form.tipo === "OPERACIONAL" ? "03" : "04"}</span>
+              <h3>{form.tipo === "OPERACIONAL" ? "Resultado comercial" : "Formacao preliminar"}</h3>
             </div>
             <div className="orcamentos-form-grid">
               <label className="manager-field">
@@ -1251,6 +1288,7 @@ export function OrcamentosManager() {
           </div>
 
           <PremissasSection
+            stepLabel={form.tipo === "OPERACIONAL" ? "04" : "05"}
             premissas={form.premissas}
             onAdd={addPremissa}
             onRemove={removePremissa}
@@ -1286,78 +1324,364 @@ export function OrcamentosManager() {
   );
 }
 
-function FrentesSection(props: {
+function FrentesOperacionaisSection(props: {
   frentes: FrenteForm[];
+  itens: ItemForm[];
+  servicoOptions: { value: string; label: string }[];
+  materialOptions: { value: string; label: string }[];
+  equipamentoOptions: { value: string; label: string }[];
   onAdd: () => void;
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, key: keyof FrenteForm, value: string | number) => void;
+  onAddItem: (frenteLocalId: string, tipoItem: TipoItemOrcamento) => void;
+  onRemoveItem: (localId: string) => void;
+  onUpdateItem: (localId: string, key: keyof ItemForm, value: string | number) => void;
 }) {
   return (
-    <div className="orcamentos-form-section">
+    <div className="orcamentos-form-section orcamentos-operational-section">
       <div className="orcamentos-form-heading">
         <span>02</span>
-        <h3>Frentes de servico</h3>
+        <div>
+          <h3>Frentes de servico</h3>
+          <small>Profundidade progressiva: preencha somente o nivel necessario para a decisao atual.</small>
+        </div>
         <button type="button" className="button-secondary" onClick={props.onAdd}>
           Adicionar frente
         </button>
       </div>
 
       <div className="orcamentos-card-stack">
-        {props.frentes.map((frente) => (
-          <article key={frente.localId} className="orcamentos-subcard">
-            <div className="orcamentos-subcard-title">
-              <strong>#{frente.ordem}</strong>
-              <button type="button" onClick={() => props.onRemove(frente.localId)}>
-                Remover
-              </button>
-            </div>
-            <div className="orcamentos-form-grid">
-              <label className="manager-field">
-                <span className="manager-field-label">Nome da frente</span>
-                <input
-                  className="field-control"
-                  value={frente.nome}
-                  onChange={(event) => props.onUpdate(frente.localId, "nome", event.target.value)}
+        {props.frentes.length === 0 ? (
+          <div className="orcamentos-empty orcamentos-operational-empty">
+            Nenhuma frente criada. Adicione uma frente para iniciar o orcamento operacional.
+          </div>
+        ) : null}
+
+        {props.frentes.map((frente) => {
+          const itensDaFrente = props.itens.filter((item) => item.frenteTempId === frente.localId);
+          const servicosPrincipais = itensDaFrente.filter((item) => item.tipoItem === "SERVICO_PRINCIPAL");
+          const servicosAuxiliares = itensDaFrente.filter((item) => item.tipoItem === "SERVICO_AUXILIAR");
+          const recursosPlanejamento = itensDaFrente.filter(
+            (item) => item.tipoItem !== "SERVICO_PRINCIPAL" && item.tipoItem !== "SERVICO_AUXILIAR"
+          );
+
+          return (
+            <article key={frente.localId} className="orcamentos-subcard orcamentos-front-card">
+              <div className="orcamentos-subcard-title">
+                <div>
+                  <strong>Frente #{frente.ordem}</strong>
+                  <small>{frente.nome}</small>
+                </div>
+                <button type="button" onClick={() => props.onRemove(frente.localId)}>
+                  Remover frente
+                </button>
+              </div>
+
+              <div className="orcamentos-form-grid">
+                <label className="manager-field">
+                  <span className="manager-field-label">Nome da frente</span>
+                  <input
+                    className="field-control"
+                    value={frente.nome}
+                    onChange={(event) => props.onUpdate(frente.localId, "nome", event.target.value)}
+                  />
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Unidade de producao</span>
+                  <input
+                    className="field-control"
+                    value={frente.unidadeProducao}
+                    placeholder="m3, dia, hora"
+                    onChange={(event) =>
+                      props.onUpdate(frente.localId, "unidadeProducao", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Quantidade prevista</span>
+                  <input
+                    className="field-control"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={frente.quantidadePrevista}
+                    onChange={(event) =>
+                      props.onUpdate(frente.localId, "quantidadePrevista", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Produtividade/dia</span>
+                  <input
+                    className="field-control"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={frente.produtividadeDia}
+                    onChange={(event) =>
+                      props.onUpdate(frente.localId, "produtividadeDia", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Prazo estimado</span>
+                  <input
+                    className="field-control"
+                    type="number"
+                    min="0"
+                    value={frente.prazoEstimadoDias}
+                    onChange={(event) =>
+                      props.onUpdate(frente.localId, "prazoEstimadoDias", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="manager-field orcamentos-span-2">
+                  <span className="manager-field-label">Descricao da frente</span>
+                  <textarea
+                    className="field-control"
+                    rows={2}
+                    value={frente.descricao}
+                    onChange={(event) => props.onUpdate(frente.localId, "descricao", event.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="orcamentos-depth-block">
+                <div className="orcamentos-depth-heading">
+                  <div>
+                    <span>Nivel 1</span>
+                    <strong>Servico principal</strong>
+                    <small>Define o que sera executado nesta frente.</small>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => props.onAddItem(frente.localId, "SERVICO_PRINCIPAL")}
+                  >
+                    Adicionar principal
+                  </button>
+                </div>
+                <OperationalItemList
+                  emptyLabel="Nenhum servico principal informado nesta frente."
+                  itens={servicosPrincipais}
+                  servicoOptions={props.servicoOptions}
+                  materialOptions={props.materialOptions}
+                  equipamentoOptions={props.equipamentoOptions}
+                  onRemove={props.onRemoveItem}
+                  onUpdate={props.onUpdateItem}
                 />
-              </label>
-              <label className="manager-field">
-                <span className="manager-field-label">Unidade</span>
-                <input
-                  className="field-control"
-                  value={frente.unidadeProducao}
-                  placeholder="m3, dia, hora"
-                  onChange={(event) =>
-                    props.onUpdate(frente.localId, "unidadeProducao", event.target.value)
-                  }
-                />
-              </label>
-              <label className="manager-field">
-                <span className="manager-field-label">Prazo estimado</span>
-                <input
-                  className="field-control"
-                  type="number"
-                  min="0"
-                  value={frente.prazoEstimadoDias}
-                  onChange={(event) =>
-                    props.onUpdate(frente.localId, "prazoEstimadoDias", event.target.value)
-                  }
-                />
-              </label>
-              <label className="manager-field orcamentos-span-3">
-                <span className="manager-field-label">Metodo executivo</span>
+              </div>
+
+              <div className="orcamentos-depth-block">
+                <div className="orcamentos-depth-heading">
+                  <div>
+                    <span>Nivel 2</span>
+                    <strong>Metodo executivo</strong>
+                    <small>Opcional. Registra como a frente sera executada.</small>
+                  </div>
+                </div>
                 <textarea
                   className="field-control"
-                  rows={2}
+                  rows={3}
                   value={frente.metodoExecutivo}
+                  placeholder="Ex: escavacao, carga, transporte, espalhamento e compactacao..."
                   onChange={(event) =>
                     props.onUpdate(frente.localId, "metodoExecutivo", event.target.value)
                   }
                 />
-              </label>
-            </div>
-          </article>
-        ))}
+              </div>
+
+              <div className="orcamentos-depth-block">
+                <div className="orcamentos-depth-heading">
+                  <div>
+                    <span>Nivel 3</span>
+                    <strong>Servicos auxiliares</strong>
+                    <small>Opcional. Complementos da execucao principal.</small>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => props.onAddItem(frente.localId, "SERVICO_AUXILIAR")}
+                  >
+                    Adicionar auxiliar
+                  </button>
+                </div>
+                <OperationalItemList
+                  emptyLabel="Nenhum servico auxiliar informado."
+                  itens={servicosAuxiliares}
+                  servicoOptions={props.servicoOptions}
+                  materialOptions={props.materialOptions}
+                  equipamentoOptions={props.equipamentoOptions}
+                  onRemove={props.onRemoveItem}
+                  onUpdate={props.onUpdateItem}
+                />
+              </div>
+
+              <div className="orcamentos-depth-block">
+                <div className="orcamentos-depth-heading">
+                  <div>
+                    <span>Niveis 4 a 6</span>
+                    <strong>Planejamento e engenharia economica</strong>
+                    <small>Opcional. Recursos, custos, produtividade, margem e preco.</small>
+                  </div>
+                  <button type="button" onClick={() => props.onAddItem(frente.localId, "RECURSO")}>
+                    Adicionar recurso/custo
+                  </button>
+                </div>
+                <OperationalItemList
+                  emptyLabel="Nenhum recurso, material ou custo detalhado."
+                  itens={recursosPlanejamento}
+                  servicoOptions={props.servicoOptions}
+                  materialOptions={props.materialOptions}
+                  equipamentoOptions={props.equipamentoOptions}
+                  onRemove={props.onRemoveItem}
+                  onUpdate={props.onUpdateItem}
+                />
+                <textarea
+                  className="field-control"
+                  rows={2}
+                  value={frente.observacao}
+                  placeholder="Observacoes internas desta frente."
+                  onChange={(event) => props.onUpdate(frente.localId, "observacao", event.target.value)}
+                />
+              </div>
+            </article>
+          );
+        })}
       </div>
+    </div>
+  );
+}
+
+function OperationalItemList(props: {
+  emptyLabel: string;
+  itens: ItemForm[];
+  servicoOptions: { value: string; label: string }[];
+  materialOptions: { value: string; label: string }[];
+  equipamentoOptions: { value: string; label: string }[];
+  onRemove: (localId: string) => void;
+  onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
+}) {
+  if (props.itens.length === 0) {
+    return <p className="orcamentos-operational-empty">{props.emptyLabel}</p>;
+  }
+
+  return (
+    <div className="orcamentos-items-list">
+      {props.itens.map((item) => (
+        <article key={item.localId} className="orcamentos-item-card orcamentos-operational-item">
+          <div className="orcamentos-item-head">
+            <strong>Item {item.ordem}</strong>
+            <span>{formatCurrency(calcItemTotal(item))}</span>
+            <button type="button" onClick={() => props.onRemove(item.localId)}>
+              Remover
+            </button>
+          </div>
+          <div className="orcamentos-form-grid">
+            <label className="manager-field">
+              <span className="manager-field-label">Tipo</span>
+              <select
+                className="field-control"
+                value={item.tipoItem}
+                onChange={(event) =>
+                  props.onUpdate(item.localId, "tipoItem", event.target.value as TipoItemOrcamento)
+                }
+              >
+                {tipoItemOperacionalOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Servico</span>
+              <SearchableSelect
+                value={item.servicoId}
+                options={props.servicoOptions}
+                placeholder="Buscar servico"
+                onChange={(value) => props.onUpdate(item.localId, "servicoId", value)}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Equipamento</span>
+              <SearchableSelect
+                value={item.equipamentoId}
+                options={props.equipamentoOptions}
+                placeholder="Opcional"
+                onChange={(value) => props.onUpdate(item.localId, "equipamentoId", value)}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Material</span>
+              <SearchableSelect
+                value={item.materialId}
+                options={props.materialOptions}
+                placeholder="Opcional"
+                onChange={(value) => props.onUpdate(item.localId, "materialId", value)}
+              />
+            </label>
+            <label className="manager-field orcamentos-span-2">
+              <span className="manager-field-label">Descricao</span>
+              <input
+                className="field-control"
+                value={item.descricao}
+                onChange={(event) => props.onUpdate(item.localId, "descricao", event.target.value)}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Unidade</span>
+              <input
+                className="field-control"
+                value={item.unidade}
+                onChange={(event) => props.onUpdate(item.localId, "unidade", event.target.value)}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Quantidade</span>
+              <input
+                className="field-control"
+                type="number"
+                min="0"
+                step="0.01"
+                value={item.quantidade}
+                onChange={(event) => props.onUpdate(item.localId, "quantidade", event.target.value)}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Custo unitario</span>
+              <input
+                className="field-control"
+                type="number"
+                min="0"
+                step="0.01"
+                value={item.custoUnitario}
+                onChange={(event) => props.onUpdate(item.localId, "custoUnitario", event.target.value)}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Valor unitario</span>
+              <input
+                className="field-control"
+                type="number"
+                min="0"
+                step="0.01"
+                value={item.valorUnitario}
+                onChange={(event) => props.onUpdate(item.localId, "valorUnitario", event.target.value)}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Produtividade</span>
+              <input
+                className="field-control"
+                type="number"
+                min="0"
+                step="0.01"
+                value={item.produtividade}
+                onChange={(event) => props.onUpdate(item.localId, "produtividade", event.target.value)}
+              />
+            </label>
+          </div>
+        </article>
+      ))}
     </div>
   );
 }
@@ -1545,6 +1869,7 @@ function ItensSection(props: {
 }
 
 function PremissasSection(props: {
+  stepLabel: string;
   premissas: PremissaForm[];
   onAdd: (tipo: TipoPremissaOrcamento) => void;
   onRemove: (localId: string) => void;
@@ -1553,7 +1878,7 @@ function PremissasSection(props: {
   return (
     <div className="orcamentos-form-section">
       <div className="orcamentos-form-heading">
-        <span>05</span>
+        <span>{props.stepLabel}</span>
         <div>
           <h3>Premissas e condicoes</h3>
           <small>Arquitetura preparada para futuras sugestoes automaticas.</small>
@@ -1614,6 +1939,10 @@ function PremissasSection(props: {
 
 function buildPayload(form: OrcamentoForm) {
   const itensPreenchidos = form.itens.filter(isItemPreenchido);
+  const itensValidos =
+    form.tipo === "OPERACIONAL"
+      ? itensPreenchidos.filter((item) => Boolean(item.frenteTempId))
+      : itensPreenchidos;
   const formacaoPreco = buildFormacaoPayload(form.formacaoPreco);
 
   return {
@@ -1632,7 +1961,7 @@ function buildPayload(form: OrcamentoForm) {
     valorAcrescimo: Number(form.valorAcrescimo) || 0,
     formacaoPreco,
     frentes: form.tipo === "OPERACIONAL" ? form.frentes.map(mapFrentePayload) : [],
-    itens: itensPreenchidos.map((item) => ({
+    itens: itensValidos.map((item) => ({
       frenteTempId: form.tipo === "OPERACIONAL" ? item.frenteTempId : "",
       tipoItem: item.tipoItem,
       servicoId: item.servicoId || null,
@@ -1764,6 +2093,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
     prazoEstimadoDias: toStringValue(frente.prazoEstimadoDias),
     observacao: frente.observacao ?? ""
   }));
+  const firstFrenteId = frentes[0]?.localId ?? "";
 
   return {
     id: item.id,
@@ -1811,7 +2141,13 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
             valorUnitario: toStringValue(orcamentoItem.valorUnitario),
             observacao: orcamentoItem.observacao ?? ""
           }))
-        : [createEmptyItem(item.tipo === "OPERACIONAL" ? "SERVICO_PRINCIPAL" : "COMERCIAL", 1)],
+        : [
+            createEmptyItem(
+              item.tipo === "OPERACIONAL" ? "SERVICO_PRINCIPAL" : "COMERCIAL",
+              1,
+              item.tipo === "OPERACIONAL" ? firstFrenteId : ""
+            )
+          ],
     premissas: buildPremissasForm(item)
   };
 }

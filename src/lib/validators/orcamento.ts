@@ -133,7 +133,7 @@ export const orcamentoSchema = z
       data.status !== StatusOrcamento.RASCUNHO &&
       data.status !== StatusOrcamento.EM_ELABORACAO;
 
-    if (statusExigeItem && data.itens.length === 0) {
+    if (data.tipo === TipoOrcamento.COMERCIAL && statusExigeItem && data.itens.length === 0) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["itens"],
@@ -141,12 +141,27 @@ export const orcamentoSchema = z
       });
     }
 
-    if (data.tipo === TipoOrcamento.OPERACIONAL && statusExigeItem && data.frentes.length === 0) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["frentes"],
-        message: "Inclua pelo menos uma frente para orcamentos operacionais."
-      });
+    if (data.tipo === TipoOrcamento.OPERACIONAL) {
+      const itensComFrente = data.itens.filter((item) => item.frenteTempId || item.frenteOrdem);
+      const possuiServicoPrincipal = itensComFrente.some(
+        (item) => item.tipoItem === TipoItemOrcamento.SERVICO_PRINCIPAL
+      );
+
+      if (statusExigeItem && data.frentes.length === 0) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["frentes"],
+          message: "Inclua pelo menos uma frente para orcamentos operacionais."
+        });
+      }
+
+      if (statusExigeItem && !possuiServicoPrincipal) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["itens"],
+          message: "Defina pelo menos um servico principal vinculado a uma frente."
+        });
+      }
     }
   });
 

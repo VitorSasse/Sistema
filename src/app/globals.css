@@ -7395,6 +7395,91 @@ button {
   gap: 12px;
 }
 
+.orcamentos-operational-section {
+  background:
+    radial-gradient(circle at 88% 8%, rgba(249, 115, 22, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(15, 42, 68, 0.78), rgba(15, 42, 68, 0.46));
+}
+
+.orcamentos-front-card {
+  gap: 18px;
+  border-color: color-mix(in srgb, var(--primary) 26%, var(--screen-border));
+}
+
+.orcamentos-subcard-title div {
+  display: grid;
+  gap: 4px;
+}
+
+.orcamentos-subcard-title small,
+.orcamentos-form-heading small {
+  color: var(--screen-muted);
+}
+
+.orcamentos-depth-block {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--screen-border) 78%, transparent);
+  border-radius: 18px;
+  background: rgba(2, 6, 23, 0.18);
+}
+
+.orcamentos-depth-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.orcamentos-depth-heading div {
+  display: grid;
+  gap: 4px;
+}
+
+.orcamentos-depth-heading span {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: rgba(249, 115, 22, 0.14);
+  color: #fdba74;
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.orcamentos-depth-heading strong {
+  color: var(--screen-text);
+}
+
+.orcamentos-depth-heading small,
+.orcamentos-operational-empty {
+  color: var(--screen-muted);
+}
+
+.orcamentos-depth-heading button {
+  width: fit-content;
+  border: 1px solid var(--screen-border);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--screen-text);
+  font-weight: 800;
+}
+
+.orcamentos-operational-item {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.orcamentos-operational-empty {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px dashed color-mix(in srgb, var(--screen-border) 82%, transparent);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
 .orcamentos-item-head strong,
 .orcamentos-subcard-title strong {
   color: #fdba74;
