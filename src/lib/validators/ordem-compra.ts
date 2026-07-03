@@ -2,8 +2,14 @@ import { StatusOrdemCompra, TipoCatalogoCompra, TipoCentroCustoOrdemCompra } fro
 import { z } from "zod";
 import { obterFormaPagamentoOrdemCompra } from "@/lib/ordens-compra-pagamento";
 
+const tipoItemOrdemCompraSchema = z.union([
+  z.literal(TipoCatalogoCompra.PRODUTO),
+  z.literal(TipoCatalogoCompra.SERVICO)
+]);
+
 const ordemCompraItemSchema = z.object({
   catalogoCompraId: z.string().uuid().optional().nullable().or(z.literal("")),
+  tipoItem: tipoItemOrdemCompraSchema.default(TipoCatalogoCompra.PRODUTO),
   item: z.string().trim().min(1).max(80),
   codigo: z.string().trim().max(60).optional().or(z.literal("")),
   descricao: z.string().trim().min(3).max(240),
@@ -68,6 +74,19 @@ export const ordemCompraSchema = z
         path: ["motivoExclusao"],
         message: "Informe o motivo da exclusao para cancelar a ordem."
       });
+    }
+
+    if (data.tipoCompra === TipoCatalogoCompra.MISTA) {
+      const possuiProduto = data.itens.some((item) => item.tipoItem === TipoCatalogoCompra.PRODUTO);
+      const possuiServico = data.itens.some((item) => item.tipoItem === TipoCatalogoCompra.SERVICO);
+
+      if (!possuiProduto || !possuiServico) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["itens"],
+          message: "Ordem mista precisa ter ao menos um produto e um servico."
+        });
+      }
     }
   });
 

@@ -30,6 +30,7 @@ enum TipoCentroCustoOrdemCompra {
 enum TipoCatalogoCompra {
   PRODUTO
   SERVICO
+  MISTA
 }
 
 enum TipoOrcamento {

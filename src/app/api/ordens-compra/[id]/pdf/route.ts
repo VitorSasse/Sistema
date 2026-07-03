@@ -86,6 +86,7 @@ export async function GET(_: Request, context: RouteContext) {
       observacao: ordemCompra.observacao,
       valorTotal: Number(ordemCompra.valorTotal),
       itens: ordemCompra.itens.map((item) => ({
+        tipoItem: item.tipoItem,
         item: item.item,
         codigo: item.codigo,
         descricao: item.descricao,

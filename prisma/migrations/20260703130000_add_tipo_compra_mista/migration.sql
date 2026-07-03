@@ -1,0 +1,1 @@
+ALTER TYPE "TipoCatalogoCompra" ADD VALUE IF NOT EXISTS 'MISTA';

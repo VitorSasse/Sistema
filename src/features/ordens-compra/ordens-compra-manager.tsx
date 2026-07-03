@@ -26,7 +26,8 @@ type StatusOrdemCompra =
   | "RECEBIDA"
   | "CANCELADA";
 
-type TipoCompra = "PRODUTO" | "SERVICO";
+type TipoItemCompra = "PRODUTO" | "SERVICO";
+type TipoCompra = TipoItemCompra | "MISTA";
 type TipoAnexo = "RELATORIO_MEDICAO" | "PEDIDO" | "NOTA_FISCAL" | "OUTRO";
 
 type Fornecedor = {
@@ -56,7 +57,7 @@ type CentroCusto = {
 type CatalogoCompra = {
   id: string;
   codigo: string;
-  tipo: TipoCompra;
+  tipo: TipoItemCompra;
   descricao: string;
   unidadePadrao: string;
   valorPadrao: string | number;
@@ -113,7 +114,7 @@ type OrdemCompra = {
   itens: Array<{
     id: string;
     catalogoCompraId: string | null;
-    tipoItem: TipoCompra;
+    tipoItem: TipoItemCompra;
     item: string;
     codigo: string | null;
     descricao: string;
@@ -134,6 +135,7 @@ type OrdemCompra = {
 
 type FormItem = {
   item: string;
+  tipoItem: TipoItemCompra;
   catalogoCompraId: string;
   codigo: string;
   descricao: string;
@@ -328,9 +330,10 @@ function formatPeriodoConsultaLabel(periodo: PeriodoConsulta) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function createEmptyItem(index: number): FormItem {
+function createEmptyItem(index: number, tipoItem: TipoItemCompra = "PRODUTO"): FormItem {
   return {
     item: `ITEM ${String(index).padStart(2, "0")}`,
+    tipoItem,
     catalogoCompraId: "",
     codigo: "",
     descricao: "",
@@ -400,6 +403,7 @@ function createFormFromOrder(ordem: OrdemCompra): FormState {
     motivoExclusao: ordem.motivoExclusao ?? "",
     itens: ordem.itens.map((item, index) => ({
       item: item.item || `ITEM ${String(index + 1).padStart(2, "0")}`,
+      tipoItem: item.tipoItem ?? (ordem.tipoCompra === "SERVICO" ? "SERVICO" : "PRODUTO"),
       catalogoCompraId: item.catalogoCompraId ?? "",
       codigo: item.codigo ?? "",
       descricao: item.descricao,
@@ -507,7 +511,9 @@ function getStatusBadgeClass(status: StatusOrdemCompra) {
 }
 
 function formatTipoCompra(value: TipoCompra) {
-  return value === "SERVICO" ? "Servico" : "Produto";
+  if (value === "SERVICO") return "Servico";
+  if (value === "MISTA") return "Mista";
+  return "Produto";
 }
 
 function canDeleteOrder(status: StatusOrdemCompra) {
@@ -650,21 +656,35 @@ export function OrdensCompraManager() {
     }));
   }, [centrosFiltro]);
 
-  const catalogoDisponivel = useMemo(() => {
-    return catalogoCompra
-      .filter((item) => item.tipo === form.tipoCompra)
-      .filter(
-        (item) => item.status === "ATIVO" || form.itens.some((linha) => linha.catalogoCompraId === item.id)
-      )
-      .sort((a, b) => a.descricao.localeCompare(b.descricao));
-  }, [catalogoCompra, form.tipoCompra, form.itens]);
+  const catalogoDisponivelPorTipo = useMemo<Record<TipoItemCompra, CatalogoCompra[]>>(() => {
+    const catalogosSelecionados = new Set(
+      form.itens.map((linha) => linha.catalogoCompraId).filter(Boolean)
+    );
 
-  const catalogoOpcoes = useMemo<SearchableSelectOption[]>(() => {
-    return catalogoDisponivel.map((item) => ({
-      value: item.id,
-      label: formatCatalogoLabel(item)
-    }));
-  }, [catalogoDisponivel]);
+    return {
+      PRODUTO: catalogoCompra
+        .filter((item) => item.tipo === "PRODUTO")
+        .filter((item) => item.status === "ATIVO" || catalogosSelecionados.has(item.id))
+        .sort((a, b) => a.descricao.localeCompare(b.descricao)),
+      SERVICO: catalogoCompra
+        .filter((item) => item.tipo === "SERVICO")
+        .filter((item) => item.status === "ATIVO" || catalogosSelecionados.has(item.id))
+        .sort((a, b) => a.descricao.localeCompare(b.descricao))
+    };
+  }, [catalogoCompra, form.itens]);
+
+  const catalogoOpcoesPorTipo = useMemo<Record<TipoItemCompra, SearchableSelectOption[]>>(() => {
+    return {
+      PRODUTO: catalogoDisponivelPorTipo.PRODUTO.map((item) => ({
+        value: item.id,
+        label: formatCatalogoLabel(item)
+      })),
+      SERVICO: catalogoDisponivelPorTipo.SERVICO.map((item) => ({
+        value: item.id,
+        label: formatCatalogoLabel(item)
+      }))
+    };
+  }, [catalogoDisponivelPorTipo]);
 
   const planosContaDisponiveis = useMemo(() => {
     return planosConta
@@ -805,6 +825,19 @@ export function OrdensCompraManager() {
           return item;
         }
 
+        if (key === "tipoItem") {
+          return {
+            ...item,
+            tipoItem: value as TipoItemCompra,
+            catalogoCompraId: "",
+            codigo: "",
+            descricao: "",
+            unidade: "UN",
+            valorUnitario: "0",
+            valorTotal: "0"
+          };
+        }
+
         const nextItem = { ...item, [key]: value };
 
         if (key === "valorUnitario") {
@@ -891,20 +924,29 @@ export function OrdensCompraManager() {
       tipoCompra: value,
       itens: current.itens.map((item) => ({
         ...item,
-        catalogoCompraId: ""
+        tipoItem: value === "MISTA" ? item.tipoItem : value,
+        catalogoCompraId: "",
+        codigo: "",
+        descricao: "",
+        unidade: "UN",
+        valorUnitario: "0",
+        valorTotal: "0"
       }))
     }));
   }
 
   function handleSelectCatalogo(index: number, catalogoId: string) {
-    const catalogo = catalogoDisponivel.find((item) => item.id === catalogoId);
-
     setForm((current) => ({
       ...current,
       itens: current.itens.map((item, itemIndex) => {
         if (itemIndex !== index) {
           return item;
         }
+
+        const tipoItem = current.tipoCompra === "MISTA" ? item.tipoItem : current.tipoCompra;
+        const catalogo = catalogoCompra.find(
+          (catalogoItem) => catalogoItem.id === catalogoId && catalogoItem.tipo === tipoItem
+        );
 
         if (!catalogo) {
           return {
@@ -934,7 +976,13 @@ export function OrdensCompraManager() {
   function addItem() {
     setForm((current) => ({
       ...current,
-      itens: [...current.itens, createEmptyItem(current.itens.length + 1)]
+      itens: [
+        ...current.itens,
+        createEmptyItem(
+          current.itens.length + 1,
+          current.tipoCompra === "MISTA" ? "PRODUTO" : current.tipoCompra
+        )
+      ]
     }));
   }
 
@@ -977,6 +1025,7 @@ export function OrdensCompraManager() {
       motivoExclusao: form.motivoExclusao,
       itens: form.itens.map((item) => ({
         catalogoCompraId: item.catalogoCompraId,
+        tipoItem: form.tipoCompra === "MISTA" ? item.tipoItem : form.tipoCompra,
         item: item.item,
         codigo: item.codigo,
         descricao: item.descricao,
@@ -1212,6 +1261,13 @@ export function OrdensCompraManager() {
               >
                 Compra de servico
               </button>
+              <button
+                type="button"
+                className={form.tipoCompra === "MISTA" ? "button-primary" : "button-secondary"}
+                onClick={() => handleTipoCompraChange("MISTA")}
+              >
+                Compra mista
+              </button>
             </div>
 
             <div className="form-grid-4">
@@ -1317,7 +1373,7 @@ export function OrdensCompraManager() {
                   Itens da compra
                 </h3>
                 <p className="section-copy">
-                  O catalogo abaixo muda automaticamente conforme o tipo selecionado.
+                  O catalogo abaixo muda automaticamente conforme o tipo da ordem ou da linha.
                   Se a nota vier apenas com valor total, informe o total do item e o sistema recalcula o unitario pela quantidade.
                 </p>
               </div>
@@ -1331,7 +1387,8 @@ export function OrdensCompraManager() {
                 <thead>
                   <tr>
                     <th>Item</th>
-                    <th>{formatTipoCompra(form.tipoCompra)}</th>
+                    {form.tipoCompra === "MISTA" ? <th>Tipo</th> : null}
+                    <th>{form.tipoCompra === "MISTA" ? "Catalogo" : formatTipoCompra(form.tipoCompra)}</th>
                     <th>Codigo</th>
                     <th>Descricao</th>
                     <th>Unidade</th>
@@ -1352,13 +1409,40 @@ export function OrdensCompraManager() {
                             onChange={(event) => updateItem(index, "item", event.target.value)}
                           />
                         </td>
+                        {form.tipoCompra === "MISTA" ? (
+                          <td>
+                            <select
+                              className="field-control"
+                              value={item.tipoItem}
+                              onChange={(event) =>
+                                updateItem(index, "tipoItem", event.target.value as TipoItemCompra)
+                              }
+                              style={{ minWidth: 120 }}
+                            >
+                              <option value="PRODUTO">Produto</option>
+                              <option value="SERVICO">Servico</option>
+                            </select>
+                          </td>
+                        ) : null}
                         <td>
                           <div style={{ minWidth: 300 }}>
                             <SearchableSelect
                               value={item.catalogoCompraId}
-                              options={catalogoOpcoes}
-                              placeholder={`Digite para buscar ${form.tipoCompra === "SERVICO" ? "o servico" : "o produto"}`}
-                              emptyLabel={`Nenhum ${form.tipoCompra === "SERVICO" ? "servico" : "produto"} encontrado.`}
+                              options={
+                                catalogoOpcoesPorTipo[
+                                  form.tipoCompra === "MISTA" ? item.tipoItem : form.tipoCompra
+                                ]
+                              }
+                              placeholder={`Digite para buscar ${
+                                (form.tipoCompra === "MISTA" ? item.tipoItem : form.tipoCompra) === "SERVICO"
+                                  ? "o servico"
+                                  : "o produto"
+                              }`}
+                              emptyLabel={`Nenhum ${
+                                (form.tipoCompra === "MISTA" ? item.tipoItem : form.tipoCompra) === "SERVICO"
+                                  ? "servico"
+                                  : "produto"
+                              } encontrado.`}
                               onChange={(value) => handleSelectCatalogo(index, value)}
                             />
                           </div>
@@ -1810,6 +1894,7 @@ export function OrdensCompraManager() {
                 <option value="TODOS">Todos os tipos</option>
                 <option value="PRODUTO">Produto</option>
                 <option value="SERVICO">Servico</option>
+                <option value="MISTA">Mista</option>
               </select>
             </Field>
             <Field label="Status">

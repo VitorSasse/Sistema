@@ -1,5 +1,6 @@
 import { rm } from "fs/promises";
 import path from "path";
+import { TipoCatalogoCompra } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import {
@@ -41,6 +42,13 @@ function normalizePayload(payload: Record<string, unknown>) {
       };
     })
   };
+}
+
+function resolveTipoItemOrdem(
+  tipoCompra: TipoCatalogoCompra,
+  tipoItem: TipoCatalogoCompra
+) {
+  return tipoCompra === TipoCatalogoCompra.MISTA ? tipoItem : tipoCompra;
 }
 
 const ordemCompraInclude = {
@@ -217,13 +225,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   try {
     const itensCalculados = parsed.data.itens.map((item) => {
+      const tipoItem = resolveTipoItemOrdem(parsed.data.tipoCompra, item.tipoItem);
       const catalogo = item.catalogoCompraId ? catalogoMap.get(item.catalogoCompraId) : null;
 
       if (item.catalogoCompraId && !catalogo) {
         throw new Error(`CATALOGO_NAO_ENCONTRADO:${item.catalogoCompraId}`);
       }
 
-      if (catalogo && catalogo.tipo !== parsed.data.tipoCompra) {
+      if (catalogo && catalogo.tipo !== tipoItem) {
         throw new Error(`TIPO_CATALOGO_INVALIDO:${catalogo.id}`);
       }
 
@@ -241,7 +250,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       return {
         catalogoCompraId: catalogo?.id ?? null,
-        tipoItem: parsed.data.tipoCompra,
+        tipoItem,
         item: item.item,
         codigo: catalogo?.codigo ?? (item.codigo || null),
         descricao: catalogo?.descricao ?? item.descricao,
@@ -335,7 +344,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (error instanceof Error && error.message.startsWith("TIPO_CATALOGO_INVALIDO")) {
       return NextResponse.json(
-        { message: "Existe item selecionado com tipo diferente do tipo da compra." },
+        { message: "Existe item selecionado com tipo diferente do tipo da linha." },
         { status: 409 }
       );
     }

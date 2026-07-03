@@ -20,7 +20,7 @@ import { formatCurrency } from "@/lib/utils/formatters";
 
 type PeriodPreset = "current_month" | "previous_month" | "last_3_months" | "current_year" | "custom";
 type CategoriaCusto = "MANUTENCAO" | "COMBUSTIVEL" | "OPERACIONAL" | "ADMINISTRATIVO" | "NAO_INFORMADO";
-type TipoCompraFiltro = "TODOS" | "PRODUTO" | "SERVICO";
+type TipoCompraFiltro = "TODOS" | "PRODUTO" | "SERVICO" | "MISTA";
 
 type Option = {
   id: string;
@@ -492,6 +492,7 @@ export function CustosDashboard() {
               <option value="TODOS">Produtos e servicos</option>
               <option value="PRODUTO">Produto</option>
               <option value="SERVICO">Servico</option>
+              <option value="MISTA">Mista</option>
             </select>
           </label>
         </div>

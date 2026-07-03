@@ -4,6 +4,7 @@ import { obterFormaPagamentoOrdemCompra } from "@/lib/ordens-compra-pagamento";
 import { formatCurrency } from "@/lib/utils/formatters";
 
 type OrdemCompraPdfItem = {
+  tipoItem: string;
   item: string;
   codigo: string | null;
   descricao: string;
@@ -379,11 +380,41 @@ function formatNumber(value: number, fractionDigits = 2) {
 }
 
 function formatTipoCompra(value: string) {
-  return value === "SERVICO" ? "SERVICOS" : "PRODUTOS";
+  if (value === "SERVICO") return "SERVICOS";
+  if (value === "MISTA") return "PRODUTOS E SERVICOS";
+  return "PRODUTOS";
 }
 
 function formatTituloDocumento(value: string) {
   return value === "SERVICO" ? "ORDEM DE SERVICO" : "ORDEM DE COMPRA";
+}
+
+function formatTipoCompraResumo(value: string) {
+  if (value === "SERVICO") return "Servico";
+  if (value === "MISTA") return "Mista";
+  return "Produto";
+}
+
+function getGruposItens(props: OrdemCompraPdfProps) {
+  if (props.tipoCompra !== "MISTA") {
+    return [
+      {
+        titulo: formatTipoCompra(props.tipoCompra),
+        itens: props.itens
+      }
+    ];
+  }
+
+  return [
+    {
+      titulo: "PRODUTOS",
+      itens: props.itens.filter((item) => item.tipoItem === "PRODUTO")
+    },
+    {
+      titulo: "SERVICOS",
+      itens: props.itens.filter((item) => item.tipoItem === "SERVICO")
+    }
+  ].filter((grupo) => grupo.itens.length > 0);
 }
 
 function formatFormaPagamento(value: string | null) {
@@ -426,6 +457,7 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
   const secaoItens = formatTipoCompra(props.tipoCompra);
   const tituloDocumento = formatTituloDocumento(props.tipoCompra);
   const enderecoFornecedor = joinAddress(props.fornecedor);
+  const gruposItens = getGruposItens(props);
 
   return (
     <Document>
@@ -488,45 +520,49 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
           )}
           {renderInfoRow(
             "Tipo da compra:",
-            props.tipoCompra === "SERVICO" ? "Servico" : "Produto",
+            formatTipoCompraResumo(props.tipoCompra),
             "Status:",
             props.status
           )}
           {renderInfoRow("Nota fiscal:", props.numeroNotaFiscal?.trim() || "-", "Parcelas:", String(props.numeroParcelas))}
         </View>
 
-        <View style={styles.sectionBand}>
-          <Text style={styles.sectionBandText}>{secaoItens}</Text>
-        </View>
+        {gruposItens.map((grupo) => (
+          <React.Fragment key={grupo.titulo}>
+            <View style={styles.sectionBand}>
+              <Text style={styles.sectionBandText}>{grupo.titulo}</Text>
+            </View>
 
-        <View style={styles.tableHeader}>
-          <Text style={[styles.headerCell, styles.colItem]}>ITEM</Text>
-          <Text style={[styles.headerCell, styles.colCodigo]}>CODIGO</Text>
-          <Text style={[styles.headerCell, styles.colDescricao]}>NOME</Text>
-          <Text style={[styles.headerCell, styles.colUnidade, styles.alignCenter]}>UN</Text>
-          <Text style={[styles.headerCell, styles.colQuantidade, styles.alignRight]}>QTD.</Text>
-          <Text style={[styles.headerCell, styles.colValorUnitario, styles.alignRight]}>VR. UNIT.</Text>
-          <Text style={[styles.headerCell, styles.colSubtotal, styles.alignRight, styles.headerCellLast]}>
-            SUBTOTAL
-          </Text>
-        </View>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.headerCell, styles.colItem]}>ITEM</Text>
+              <Text style={[styles.headerCell, styles.colCodigo]}>CODIGO</Text>
+              <Text style={[styles.headerCell, styles.colDescricao]}>NOME</Text>
+              <Text style={[styles.headerCell, styles.colUnidade, styles.alignCenter]}>UN</Text>
+              <Text style={[styles.headerCell, styles.colQuantidade, styles.alignRight]}>QTD.</Text>
+              <Text style={[styles.headerCell, styles.colValorUnitario, styles.alignRight]}>VR. UNIT.</Text>
+              <Text style={[styles.headerCell, styles.colSubtotal, styles.alignRight, styles.headerCellLast]}>
+                SUBTOTAL
+              </Text>
+            </View>
 
-        {props.itens.map((item, index) => (
-          <View key={`${item.item}-${index}`} style={styles.tableRow} wrap={false}>
-            <Text style={[styles.cell, styles.colItem]}>{item.item || String(index + 1)}</Text>
-            <Text style={[styles.cell, styles.colCodigo]}>{item.codigo ?? "-"}</Text>
-            <Text style={[styles.cell, styles.colDescricao]}>{item.descricao}</Text>
-            <Text style={[styles.cell, styles.colUnidade, styles.alignCenter]}>{item.unidade}</Text>
-            <Text style={[styles.cell, styles.colQuantidade, styles.alignRight]}>
-              {formatNumber(item.quantidade, 3)}
-            </Text>
-            <Text style={[styles.cell, styles.colValorUnitario, styles.alignRight]}>
-              {formatNumber(item.valorUnitario, 2)}
-            </Text>
-            <Text style={[styles.cell, styles.colSubtotal, styles.alignRight, styles.cellLast]}>
-              {formatNumber(item.subtotal, 2)}
-            </Text>
-          </View>
+            {grupo.itens.map((item, index) => (
+              <View key={`${grupo.titulo}-${item.item}-${index}`} style={styles.tableRow} wrap={false}>
+                <Text style={[styles.cell, styles.colItem]}>{item.item || String(index + 1)}</Text>
+                <Text style={[styles.cell, styles.colCodigo]}>{item.codigo ?? "-"}</Text>
+                <Text style={[styles.cell, styles.colDescricao]}>{item.descricao}</Text>
+                <Text style={[styles.cell, styles.colUnidade, styles.alignCenter]}>{item.unidade}</Text>
+                <Text style={[styles.cell, styles.colQuantidade, styles.alignRight]}>
+                  {formatNumber(item.quantidade, 3)}
+                </Text>
+                <Text style={[styles.cell, styles.colValorUnitario, styles.alignRight]}>
+                  {formatNumber(item.valorUnitario, 2)}
+                </Text>
+                <Text style={[styles.cell, styles.colSubtotal, styles.alignRight, styles.cellLast]}>
+                  {formatNumber(item.subtotal, 2)}
+                </Text>
+              </View>
+            ))}
+          </React.Fragment>
         ))}
 
         <View style={styles.totalRow}>
