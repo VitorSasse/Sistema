@@ -4,6 +4,15 @@ import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  BarChart3,
+  ClipboardList,
+  Database,
+  ShieldCheck,
+  Truck,
+  WalletCards,
+  type LucideIcon
+} from "lucide-react";
 
 type NavigationItem = {
   href: Route;
@@ -19,6 +28,15 @@ type NavigationGroup = {
 
 type AdminNavProps = {
   groups: NavigationGroup[];
+};
+
+const iconByGroup: Record<string, LucideIcon> = {
+  dashboard: BarChart3,
+  cadastros: Database,
+  operacao: ClipboardList,
+  financeiro: WalletCards,
+  frota: Truck,
+  seguranca: ShieldCheck
 };
 
 export function AdminNav({ groups }: AdminNavProps) {
@@ -62,7 +80,10 @@ export function AdminNav({ groups }: AdminNavProps) {
           >
             <span className="admin-nav-group-trigger-heading">
               <span className={`admin-nav-group-icon${group.icon ? ` is-${group.icon}` : ""}`} aria-hidden="true">
-                <span className="admin-nav-group-icon-shape" />
+                {(() => {
+                  const Icon = group.icon ? iconByGroup[group.icon] : null;
+                  return Icon ? <Icon size={18} strokeWidth={2.2} /> : <span className="admin-nav-group-icon-shape" />;
+                })()}
               </span>
               <span className="admin-nav-group-trigger-label">{group.label}</span>
             </span>
@@ -80,6 +101,7 @@ export function AdminNav({ groups }: AdminNavProps) {
                   key={item.href}
                   href={item.href}
                   className={`admin-nav-link${isActive ? " admin-nav-link-active" : ""}`}
+                  aria-current={isActive ? "page" : undefined}
                 >
                   <span>{item.label}</span>
                 </Link>

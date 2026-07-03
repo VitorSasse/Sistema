@@ -4,8 +4,8 @@ import { ReactNode } from "react";
 import { logout } from "./actions";
 import { AdminNav } from "@/components/admin-nav";
 import { BaseproLogo } from "@/components/branding/basepro-logo";
+import { AppHeader } from "@/components/layout/app-header";
 import { SidebarScrollArea } from "@/components/layout/sidebar-scroll-area";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { hasRoleAccess, requireSession } from "@/lib/auth-guards";
 
 const navigationGroups = [
@@ -48,7 +48,7 @@ const navigationGroups = [
   },
   {
     label: "Financeiro",
-    icon: "dashboard",
+    icon: "financeiro",
     description: "Compras, fornecedores e documentos de apoio financeiro.",
     items: [
       { href: "/fornecedores", label: "Cadastro de fornecedores" },
@@ -117,7 +117,6 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
           <div className="admin-user-card">
             <p className="admin-user-label">Sessao ativa</p>
             <p className="admin-user-email">{session.user.email}</p>
-            <ThemeToggle />
           </div>
 
           <AdminNav groups={navigation} />
@@ -131,6 +130,7 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
       </aside>
 
       <div className="admin-main">
+        <AppHeader userEmail={session.user.email ?? ""} userName={session.user.name} />
         <div className="admin-content">{children}</div>
       </div>
     </div>
