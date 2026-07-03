@@ -10337,6 +10337,31 @@ button {
   }
 }
 
+/* Layout safety fix after app header adoption */
+
+.admin-main {
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) !important;
+  overflow: hidden !important;
+}
+
+.admin-content {
+  height: auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  padding-top: 28px;
+}
+
+.app-header {
+  position: relative;
+  top: auto;
+}
+
+.admin-content > .page-stack:first-child,
+.admin-content > main:first-child {
+  margin-top: 0;
+}
+
 @media (max-width: 1180px) {
   .monthly-km-filter-card {
     grid-template-columns: repeat(2, minmax(0, 1fr));
