@@ -336,7 +336,6 @@ export function CustosDashboard() {
 
   const hasData = (data?.summary.totalCusto ?? 0) > 0;
   const topEquipamentos = useMemo(() => (data?.charts.equipamentos ?? []).slice(0, 10), [data]);
-  const equipmentChartHeight = Math.max(260, Math.min(440, topEquipamentos.length * 46 + 96));
   const topFornecedores = useMemo(() => (data?.charts.fornecedores ?? []).slice(0, 8), [data]);
   const topCentros = useMemo(() => (data?.charts.centrosCusto ?? []).slice(0, 8), [data]);
   const topPareto = useMemo(() => (data?.charts.pareto ?? []).slice(0, 8), [data]);
@@ -650,36 +649,10 @@ export function CustosDashboard() {
           </section>
 
           <section className="cost-wide-grid fade-up fade-up-delay-3">
-            <article className="surface section-card cost-chart-card">
-              <div className="cost-card-header">
-                <div>
-                  <span className="cost-kicker">Equipamentos</span>
-                  <h2 className="section-title">Ranking de custo por equipamento</h2>
-                </div>
-              </div>
-              {(data?.summary.custoSemEquipamento ?? 0) > 0 ? (
-                <div className="cost-unlinked-alert">
-                  <strong>{formatCurrency(data?.summary.custoSemEquipamento ?? 0)}</strong>
-                  <span>em custos sem equipamento vinculado. Eles nao entram neste ranking.</span>
-                </div>
-              ) : null}
-              {topEquipamentos.length === 0 ? (
-                <div className="cost-empty-state cost-empty-state-compact">
-                  <strong>Nenhum equipamento vinculado no periodo</strong>
-                  <p>As ordens encontradas nao possuem equipamento associado ao centro de custo.</p>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={equipmentChartHeight}>
-                  <BarChart data={topEquipamentos} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }} barCategoryGap={12}>
-                    <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
-                    <XAxis type="number" tickFormatter={(value) => formatCurrency(value).replace(",00", "")} tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-                    <YAxis type="category" dataKey="nome" width={190} tick={{ fill: "var(--screen-chart-tick)", fontSize: 11 }} />
-                    <Tooltip content={<MoneyTooltip />} />
-                    <Bar dataKey="total" name="Custo" radius={[0, 12, 12, 0]} fill="#F97316" maxBarSize={34} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </article>
+            <EquipmentCostPanel
+              rows={topEquipamentos}
+              unlinkedCost={data?.summary.custoSemEquipamento ?? 0}
+            />
 
             <article className="surface section-card cost-chart-card">
               <div className="cost-card-header">
@@ -701,21 +674,6 @@ export function CustosDashboard() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-
-              <div className="cost-equipment-list">
-                {topEquipamentos.slice(0, 6).map((item) => (
-                  <article key={item.nome} className="cost-equipment-item">
-                    <div>
-                      <strong>{item.nome}</strong>
-                      <span>{item.ordens} item(ns) | {item.fornecedores.join(", ") || "Sem fornecedor"}</span>
-                    </div>
-                    <div>
-                      <strong>{formatCurrency(item.total)}</strong>
-                      <span>{item.custoPorHora ? `${formatCurrency(item.custoPorHora)}/h` : "Sem referencia operacional"}</span>
-                    </div>
-                  </article>
-                ))}
-              </div>
             </article>
           </section>
 
@@ -727,6 +685,84 @@ export function CustosDashboard() {
         </>
       )}
     </main>
+  );
+}
+
+function EquipmentCostPanel({
+  rows,
+  unlinkedCost
+}: {
+  rows: EquipamentoRow[];
+  unlinkedCost: number;
+}) {
+  const chartRows = rows
+    .filter((item) => item.combustivel > 0 || item.manutencao > 0)
+    .map((item) => ({
+      ...item,
+      nomeCurto: item.nome.length > 18 ? `${item.nome.slice(0, 18)}...` : item.nome
+    }));
+  const chartHeight = Math.max(240, Math.min(380, chartRows.length * 42 + 86));
+
+  return (
+    <article className="surface section-card cost-chart-card cost-equipment-ranking-card">
+      <div className="cost-card-header">
+        <div>
+          <span className="cost-kicker">Equipamentos</span>
+          <h2 className="section-title">Ranking de custo por equipamento</h2>
+        </div>
+      </div>
+
+      {unlinkedCost > 0 ? (
+        <div className="cost-unlinked-alert">
+          <strong>{formatCurrency(unlinkedCost)}</strong>
+          <span>em custos sem equipamento vinculado. Eles nao entram neste ranking.</span>
+        </div>
+      ) : null}
+
+      {rows.length === 0 ? (
+        <div className="cost-empty-state cost-empty-state-compact">
+          <strong>Nenhum equipamento vinculado no periodo</strong>
+          <p>As ordens encontradas nao possuem equipamento associado ao centro de custo.</p>
+        </div>
+      ) : (
+        <div className="cost-equipment-ranking-body">
+          <div className="cost-equipment-stacked-chart">
+            <div className="cost-center-chart-legend">
+              <span><i style={{ background: categoryColors.COMBUSTIVEL }} /> Combustivel</span>
+              <span><i style={{ background: categoryColors.MANUTENCAO }} /> Manutencao</span>
+            </div>
+
+            {chartRows.length === 0 ? (
+              <p className="section-copy">Sem custos de combustivel ou manutencao no periodo.</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={chartHeight}>
+                <BarChart data={chartRows} layout="vertical" margin={{ top: 6, right: 12, left: 0, bottom: 4 }} barCategoryGap={10}>
+                  <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
+                  <XAxis type="number" tickFormatter={(value) => formatCurrency(value).replace(",00", "")} tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }} />
+                  <YAxis type="category" dataKey="nomeCurto" width={112} tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }} />
+                  <Tooltip content={<MoneyTooltip />} />
+                  <Bar dataKey="combustivel" name="Combustivel" stackId="equipamento" fill={categoryColors.COMBUSTIVEL} radius={[0, 0, 0, 0]} maxBarSize={22} />
+                  <Bar dataKey="manutencao" name="Manutencao" stackId="equipamento" fill={categoryColors.MANUTENCAO} radius={[0, 10, 10, 0]} maxBarSize={22} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="cost-ranking-list cost-equipment-ranking-list">
+            {rows.slice(0, 8).map((item, index) => (
+              <div key={`${item.nome}-${index}`} className="cost-ranking-row">
+                <span>#{String(index + 1).padStart(2, "0")}</span>
+                <div>
+                  <strong>{item.nome}</strong>
+                  <small>{item.ordens} item(ns) | {item.fornecedores.join(", ") || "Sem fornecedor"}</small>
+                </div>
+                <b>{formatCurrency(item.total)}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </article>
   );
 }
 

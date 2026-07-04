@@ -6651,6 +6651,33 @@ button {
   flex-direction: column;
 }
 
+.cost-equipment-ranking-card {
+  min-width: 0;
+}
+
+.cost-equipment-ranking-body {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.95fr) minmax(280px, 1.05fr);
+  gap: 14px;
+  align-items: stretch;
+  margin-top: 14px;
+}
+
+.cost-equipment-stacked-chart {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 12px 10px 8px;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(56, 189, 248, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
+}
+
+.cost-equipment-ranking-list {
+  margin-top: 0;
+  align-content: start;
+}
+
 .cost-center-chart {
   margin-top: 14px;
   border: 1px solid var(--line);
@@ -6818,7 +6845,8 @@ button {
   .cost-filter-grid-wide,
   .cost-layout-grid,
   .cost-wide-grid,
-  .cost-list-grid {
+  .cost-list-grid,
+  .cost-equipment-ranking-body {
     grid-template-columns: 1fr;
   }
 }
