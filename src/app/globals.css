@@ -6600,13 +6600,6 @@ button {
   display: inline-block;
 }
 
-.cost-equipment-list {
-  display: grid;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.cost-equipment-item,
 .cost-ranking-row {
   display: grid;
   align-items: center;
@@ -6617,24 +6610,17 @@ button {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.cost-equipment-item {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.cost-equipment-item div,
 .cost-ranking-row div {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
-.cost-equipment-item strong,
 .cost-ranking-row strong,
 .cost-ranking-row b {
   color: var(--text);
 }
 
-.cost-equipment-item span,
 .cost-ranking-row small {
   color: var(--muted);
   font-size: 12px;
@@ -6649,33 +6635,6 @@ button {
 .cost-center-panel {
   display: flex;
   flex-direction: column;
-}
-
-.cost-equipment-ranking-card {
-  min-width: 0;
-}
-
-.cost-equipment-ranking-body {
-  display: grid;
-  grid-template-columns: minmax(300px, 0.95fr) minmax(280px, 1.05fr);
-  gap: 14px;
-  align-items: stretch;
-  margin-top: 14px;
-}
-
-.cost-equipment-stacked-chart {
-  min-width: 0;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 12px 10px 8px;
-  background:
-    radial-gradient(circle at 12% 12%, rgba(56, 189, 248, 0.18), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02));
-}
-
-.cost-equipment-ranking-list {
-  margin-top: 0;
-  align-content: start;
 }
 
 .cost-center-chart {
@@ -6845,8 +6804,7 @@ button {
   .cost-filter-grid-wide,
   .cost-layout-grid,
   .cost-wide-grid,
-  .cost-list-grid,
-  .cost-equipment-ranking-body {
+  .cost-list-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -6866,8 +6824,7 @@ button {
     width: 100%;
   }
 
-  .cost-ranking-row,
-  .cost-equipment-item {
+  .cost-ranking-row {
     grid-template-columns: 1fr;
   }
 }
