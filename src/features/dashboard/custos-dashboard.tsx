@@ -336,7 +336,8 @@ export function CustosDashboard() {
 
   const hasData = (data?.summary.totalCusto ?? 0) > 0;
   const topFornecedores = useMemo(() => (data?.charts.fornecedores ?? []).slice(0, 8), [data]);
-  const topCentros = useMemo(() => (data?.charts.centrosCusto ?? []).slice(0, 8), [data]);
+  const centrosCusto = useMemo(() => data?.charts.centrosCusto ?? [], [data]);
+  const topCentros = useMemo(() => centrosCusto.slice(0, 8), [centrosCusto]);
   const topPareto = useMemo(() => (data?.charts.pareto ?? []).slice(0, 8), [data]);
   const manutencaoCombustivel = useMemo(
     () => [
@@ -648,7 +649,7 @@ export function CustosDashboard() {
           </section>
 
           <section className="cost-wide-grid fade-up fade-up-delay-3">
-            <CenterCostChartPanel rows={topCentros} />
+            <CenterCostChartPanel rows={centrosCusto} />
 
             <article className="surface section-card cost-chart-card">
               <div className="cost-card-header">
@@ -689,9 +690,9 @@ function CenterCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
     .filter((item) => item.combustivel > 0 || item.manutencao > 0)
     .map((item) => ({
       ...item,
-      nomeCurto: item.nome.length > 18 ? `${item.nome.slice(0, 18)}...` : item.nome
+      nomeCurto: item.nome.length > 16 ? `${item.nome.slice(0, 16)}...` : item.nome
     }));
-  const chartHeight = Math.max(260, Math.min(420, chartRows.length * 46 + 86));
+  const chartMinWidth = Math.max(760, chartRows.length * 96);
 
   return (
     <article className="surface section-card cost-chart-card">
@@ -708,21 +709,39 @@ function CenterCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
           <p>Nao existem centros de custo com combustivel ou manutencao para montar o grafico.</p>
         </div>
       ) : (
-        <div className="cost-center-chart">
+        <div className="cost-center-chart cost-center-chart-vertical">
           <div className="cost-center-chart-legend">
             <span><i style={{ background: categoryColors.COMBUSTIVEL }} /> Combustivel</span>
             <span><i style={{ background: categoryColors.MANUTENCAO }} /> Manutencao</span>
           </div>
-          <ResponsiveContainer width="100%" height={chartHeight}>
-            <BarChart data={chartRows} layout="vertical" margin={{ top: 6, right: 10, left: 0, bottom: 4 }} barCategoryGap={10}>
-              <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
-              <XAxis type="number" tickFormatter={(value) => formatCurrency(value).replace(",00", "")} tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }} />
-              <YAxis type="category" dataKey="nomeCurto" width={112} tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }} />
-              <Tooltip content={<MoneyTooltip />} />
-              <Bar dataKey="combustivel" name="Combustivel" stackId="centro" fill={categoryColors.COMBUSTIVEL} radius={[0, 0, 0, 0]} maxBarSize={22} />
-              <Bar dataKey="manutencao" name="Manutencao" stackId="centro" fill={categoryColors.MANUTENCAO} radius={[0, 10, 10, 0]} maxBarSize={22} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="cost-chart-scroll">
+            <div className="cost-chart-scroll-inner" style={{ minWidth: chartMinWidth }}>
+              <ResponsiveContainer width="100%" height={360}>
+                <BarChart data={chartRows} margin={{ top: 16, right: 20, left: 6, bottom: 76 }} barCategoryGap={14}>
+                  <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+                  <XAxis
+                    dataKey="nomeCurto"
+                    interval={0}
+                    height={72}
+                    tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }}
+                    tickLine={false}
+                    angle={-38}
+                    textAnchor="end"
+                  />
+                  <YAxis
+                    tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
+                    tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={92}
+                  />
+                  <Tooltip content={<MoneyTooltip />} />
+                  <Bar dataKey="combustivel" name="Combustivel" stackId="centro" fill={categoryColors.COMBUSTIVEL} radius={[0, 0, 0, 0]} maxBarSize={34} />
+                  <Bar dataKey="manutencao" name="Manutencao" stackId="centro" fill={categoryColors.MANUTENCAO} radius={[10, 10, 0, 0]} maxBarSize={34} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
       )}
     </article>
