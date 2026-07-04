@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ExpandableChart } from "@/components/dashboard/expandable-chart";
 import {
   Bar,
   CartesianGrid,
@@ -365,57 +366,61 @@ export function FaturamentoMensalDashboard() {
               </div>
 
               <div className="billing-chart-shell">
-                <ResponsiveContainer width="100%" height={420}>
-                  <ComposedChart data={monthlyRows} margin={{ top: 18, right: 24, left: 8, bottom: 12 }}>
-                    <defs>
-                      <linearGradient id="billingMonthlyBar" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--dashboard-chart-faturado-start)" />
-                        <stop offset="100%" stopColor="var(--dashboard-chart-faturado-end)" />
-                      </linearGradient>
-                      <linearGradient id="billingBarPendente" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--dashboard-chart-pendente-start)" />
-                        <stop offset="100%" stopColor="var(--dashboard-chart-pendente-end)" />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
-                    <XAxis
-                      dataKey="label"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                    />
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                      width={110}
-                    />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--dashboard-chart-cursor)" }} />
-                    <Bar
-                      dataKey="totalFaturado"
-                      stackId="monthly"
-                      radius={[0, 0, 0, 0]}
-                      fill="url(#billingMonthlyBar)"
-                      maxBarSize={48}
-                    />
-                    <Bar
-                      dataKey="totalAFaturar"
-                      stackId="monthly"
-                      radius={[12, 12, 0, 0]}
-                      fill="url(#billingBarPendente)"
-                      maxBarSize={48}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="mediaMensal"
-                      stroke="var(--dashboard-chart-line-share)"
-                      strokeWidth={3}
-                      dot={false}
-                      activeDot={{ r: 6, fill: "var(--dashboard-chart-line-share-active)" }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                <ExpandableChart title="Faturamento mensal" height={420}>
+                  {({ height }) => (
+                    <ResponsiveContainer width="100%" height={height}>
+                      <ComposedChart data={monthlyRows} margin={{ top: 18, right: 24, left: 8, bottom: 12 }}>
+                        <defs>
+                          <linearGradient id="billingMonthlyBar" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--dashboard-chart-faturado-start)" />
+                            <stop offset="100%" stopColor="var(--dashboard-chart-faturado-end)" />
+                          </linearGradient>
+                          <linearGradient id="billingBarPendente" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--dashboard-chart-pendente-start)" />
+                            <stop offset="100%" stopColor="var(--dashboard-chart-pendente-end)" />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+                        <XAxis
+                          dataKey="label"
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                        />
+                        <YAxis
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
+                          tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                          width={110}
+                        />
+                        <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--dashboard-chart-cursor)" }} />
+                        <Bar
+                          dataKey="totalFaturado"
+                          stackId="monthly"
+                          radius={[0, 0, 0, 0]}
+                          fill="url(#billingMonthlyBar)"
+                          maxBarSize={48}
+                        />
+                        <Bar
+                          dataKey="totalAFaturar"
+                          stackId="monthly"
+                          radius={[12, 12, 0, 0]}
+                          fill="url(#billingBarPendente)"
+                          maxBarSize={48}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="mediaMensal"
+                          stroke="var(--dashboard-chart-line-share)"
+                          strokeWidth={3}
+                          dot={false}
+                          activeDot={{ r: 6, fill: "var(--dashboard-chart-line-share-active)" }}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  )}
+                </ExpandableChart>
               </div>
             </div>
           )}

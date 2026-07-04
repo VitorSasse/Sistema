@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SearchableMultiSelect } from "@/components/form/searchable-multi-select";
+import { ExpandableChart } from "@/components/dashboard/expandable-chart";
 import {
   Bar,
   CartesianGrid,
@@ -565,106 +566,110 @@ export function FrotaFaturamentoMensalDashboard() {
                   </div>
 
                   <div className="fleet-chart-shell fleet-monthly-chart-shell">
-                    {isComparingMultiple ? (
-                      <ResponsiveContainer width="100%" height={420}>
-                        <LineChart
-                          data={comparisonRows}
-                          margin={{ top: 18, right: 24, left: 8, bottom: 12 }}
-                        >
-                          <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
-                          <XAxis
-                            dataKey="label"
-                            tickLine={false}
-                            axisLine={false}
-                            tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                          />
-                          <YAxis
-                            tickLine={false}
-                            axisLine={false}
-                            tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                            tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                            width={120}
-                          />
-                          <Tooltip
-                            content={<ComparisonTooltip equipmentMap={equipmentMap} />}
-                            cursor={{ stroke: "rgba(56, 189, 248, 0.35)", strokeWidth: 1 }}
-                          />
-                          {equipmentSeries.map((item) => (
-                            <Line
-                              key={item.id}
-                              type="monotone"
-                              dataKey={`equipment_${item.id}`}
-                              name={item.placaOuTag}
-                              stroke={equipmentColorMap.get(item.id) ?? "#F97316"}
-                              strokeWidth={3}
-                              dot={{
-                                r: 3,
-                                fill: equipmentColorMap.get(item.id) ?? "#F97316"
-                              }}
-                              activeDot={{
-                                r: 6,
-                                fill: equipmentColorMap.get(item.id) ?? "#F97316"
-                              }}
-                            />
-                          ))}
-                          <Line
-                            type="monotone"
-                            dataKey="mediaMensal"
-                            stroke="#94A3B8"
-                            strokeWidth={2}
-                            strokeDasharray="6 6"
-                            dot={false}
-                            activeDot={false}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <ResponsiveContainer width="100%" height={420}>
-                        <ComposedChart
-                          data={monthlyRows}
-                          margin={{ top: 18, right: 24, left: 8, bottom: 12 }}
-                        >
-                          <defs>
-                            <linearGradient id="fleetMonthlyBar" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#FB923C" />
-                              <stop offset="100%" stopColor="#F97316" />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
-                          <XAxis
-                            dataKey="label"
-                            tickLine={false}
-                            axisLine={false}
-                            tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                          />
-                          <YAxis
-                            tickLine={false}
-                            axisLine={false}
-                            tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                            tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                            width={120}
-                          />
-                          <Tooltip
-                            content={<SingleEquipmentTooltip />}
-                            cursor={{ fill: "rgba(249, 115, 22, 0.08)" }}
-                          />
-                          <Bar
-                            dataKey="totalValor"
-                            radius={[14, 14, 0, 0]}
-                            fill="url(#fleetMonthlyBar)"
-                            maxBarSize={48}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="mediaMensal"
-                            stroke="#2563EB"
-                            strokeWidth={3}
-                            dot={false}
-                            activeDot={{ r: 6, fill: "#2563EB" }}
-                          />
-                        </ComposedChart>
-                      </ResponsiveContainer>
-                    )}
+                    <ExpandableChart title="Faturamento mensal por equipamento" height={420}>
+                      {({ height }) =>
+                        isComparingMultiple ? (
+                          <ResponsiveContainer width="100%" height={height}>
+                            <LineChart
+                              data={comparisonRows}
+                              margin={{ top: 18, right: 24, left: 8, bottom: 12 }}
+                            >
+                              <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+                              <XAxis
+                                dataKey="label"
+                                tickLine={false}
+                                axisLine={false}
+                                tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                              />
+                              <YAxis
+                                tickLine={false}
+                                axisLine={false}
+                                tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
+                                tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                                width={120}
+                              />
+                              <Tooltip
+                                content={<ComparisonTooltip equipmentMap={equipmentMap} />}
+                                cursor={{ stroke: "rgba(56, 189, 248, 0.35)", strokeWidth: 1 }}
+                              />
+                              {equipmentSeries.map((item) => (
+                                <Line
+                                  key={item.id}
+                                  type="monotone"
+                                  dataKey={`equipment_${item.id}`}
+                                  name={item.placaOuTag}
+                                  stroke={equipmentColorMap.get(item.id) ?? "#F97316"}
+                                  strokeWidth={3}
+                                  dot={{
+                                    r: 3,
+                                    fill: equipmentColorMap.get(item.id) ?? "#F97316"
+                                  }}
+                                  activeDot={{
+                                    r: 6,
+                                    fill: equipmentColorMap.get(item.id) ?? "#F97316"
+                                  }}
+                                />
+                              ))}
+                              <Line
+                                type="monotone"
+                                dataKey="mediaMensal"
+                                stroke="#94A3B8"
+                                strokeWidth={2}
+                                strokeDasharray="6 6"
+                                dot={false}
+                                activeDot={false}
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <ResponsiveContainer width="100%" height={height}>
+                            <ComposedChart
+                              data={monthlyRows}
+                              margin={{ top: 18, right: 24, left: 8, bottom: 12 }}
+                            >
+                              <defs>
+                                <linearGradient id="fleetMonthlyBar" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="#FB923C" />
+                                  <stop offset="100%" stopColor="#F97316" />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+                              <XAxis
+                                dataKey="label"
+                                tickLine={false}
+                                axisLine={false}
+                                tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                              />
+                              <YAxis
+                                tickLine={false}
+                                axisLine={false}
+                                tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
+                                tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                                width={120}
+                              />
+                              <Tooltip
+                                content={<SingleEquipmentTooltip />}
+                                cursor={{ fill: "rgba(249, 115, 22, 0.08)" }}
+                              />
+                              <Bar
+                                dataKey="totalValor"
+                                radius={[14, 14, 0, 0]}
+                                fill="url(#fleetMonthlyBar)"
+                                maxBarSize={48}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="mediaMensal"
+                                stroke="#2563EB"
+                                strokeWidth={3}
+                                dot={false}
+                                activeDot={{ r: 6, fill: "#2563EB" }}
+                              />
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                        )
+                      }
+                    </ExpandableChart>
                   </div>
                 </div>
               )}

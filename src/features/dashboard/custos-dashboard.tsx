@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SearchableMultiSelect } from "@/components/form/searchable-multi-select";
+import { ExpandableChart } from "@/components/dashboard/expandable-chart";
 import {
   Bar,
   BarChart,
@@ -607,16 +608,20 @@ export function CustosDashboard() {
                   <h2 className="section-title">Custo por categoria</h2>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={320}>
-                <PieChart>
-                  <Pie data={data?.charts.categorias ?? []} dataKey="total" nameKey="label" innerRadius={72} outerRadius={120} paddingAngle={3}>
-                    {(data?.charts.categorias ?? []).map((item) => (
-                      <Cell key={item.categoria} fill={categoryColors[item.categoria]} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<MoneyTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
+              <ExpandableChart title="Custo por categoria" height={320}>
+                {({ height }) => (
+                  <ResponsiveContainer width="100%" height={height}>
+                    <PieChart>
+                      <Pie data={data?.charts.categorias ?? []} dataKey="total" nameKey="label" innerRadius={72} outerRadius={120} paddingAngle={3}>
+                        {(data?.charts.categorias ?? []).map((item) => (
+                          <Cell key={item.categoria} fill={categoryColors[item.categoria]} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<MoneyTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </ExpandableChart>
               <div className="cost-category-list">
                 {(data?.charts.categorias ?? []).map((item) => (
                   <span key={item.categoria}>
@@ -634,17 +639,21 @@ export function CustosDashboard() {
                   <h2 className="section-title">Custos por mes</h2>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={340}>
-                <LineChart data={data?.charts.mensal ?? []} margin={{ top: 16, right: 20, left: 8, bottom: 10 }}>
-                  <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
-                  <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-                  <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => formatCurrency(value).replace(",00", "")} tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} width={110} />
-                  <Tooltip content={<MoneyTooltip />} />
-                  <Line type="monotone" dataKey="total" name="Total" stroke="#F97316" strokeWidth={3} dot={{ r: 4, fill: "#F97316" }} />
-                  <Line type="monotone" dataKey="manutencao" name="Manutencao" stroke={categoryColors.MANUTENCAO} strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="combustivel" name="Combustivel" stroke={categoryColors.COMBUSTIVEL} strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+              <ExpandableChart title="Custos por mes" height={340}>
+                {({ height }) => (
+                  <ResponsiveContainer width="100%" height={height}>
+                    <LineChart data={data?.charts.mensal ?? []} margin={{ top: 16, right: 20, left: 8, bottom: 10 }}>
+                      <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
+                      <YAxis tickLine={false} axisLine={false} tickFormatter={(value) => formatCurrency(value).replace(",00", "")} tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} width={110} />
+                      <Tooltip content={<MoneyTooltip />} />
+                      <Line type="monotone" dataKey="total" name="Total" stroke="#F97316" strokeWidth={3} dot={{ r: 4, fill: "#F97316" }} />
+                      <Line type="monotone" dataKey="manutencao" name="Manutencao" stroke={categoryColors.MANUTENCAO} strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="combustivel" name="Combustivel" stroke={categoryColors.COMBUSTIVEL} strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </ExpandableChart>
             </article>
           </section>
 
@@ -658,19 +667,23 @@ export function CustosDashboard() {
                   <h2 className="section-title">Manutencao x combustivel</h2>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={manutencaoCombustivel} margin={{ top: 16, right: 18, left: 8, bottom: 8 }}>
-                  <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-                  <YAxis tickFormatter={(value) => formatCurrency(value).replace(",00", "")} tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-                  <Tooltip content={<MoneyTooltip />} />
-                  <Bar dataKey="total" name="Total" radius={[12, 12, 0, 0]}>
-                    {manutencaoCombustivel.map((item) => (
-                      <Cell key={item.label} fill={item.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <ExpandableChart title="Manutencao x combustivel" height={220}>
+                {({ height }) => (
+                  <ResponsiveContainer width="100%" height={height}>
+                    <BarChart data={manutencaoCombustivel} margin={{ top: 16, right: 18, left: 8, bottom: 8 }}>
+                      <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+                      <XAxis dataKey="label" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
+                      <YAxis tickFormatter={(value) => formatCurrency(value).replace(",00", "")} tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
+                      <Tooltip content={<MoneyTooltip />} />
+                      <Bar dataKey="total" name="Total" radius={[12, 12, 0, 0]}>
+                        {manutencaoCombustivel.map((item) => (
+                          <Cell key={item.label} fill={item.fill} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </ExpandableChart>
             </article>
           </section>
 
@@ -714,34 +727,38 @@ function CenterCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
             <span><i style={{ background: categoryColors.COMBUSTIVEL }} /> Combustivel</span>
             <span><i style={{ background: categoryColors.MANUTENCAO }} /> Manutencao</span>
           </div>
-          <div className="cost-chart-scroll">
-            <div className="cost-chart-scroll-inner" style={{ minWidth: chartMinWidth }}>
-              <ResponsiveContainer width="100%" height={360}>
-                <BarChart data={chartRows} margin={{ top: 16, right: 20, left: 6, bottom: 76 }} barCategoryGap={14}>
-                  <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
-                  <XAxis
-                    dataKey="nomeCurto"
-                    interval={0}
-                    height={72}
-                    tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }}
-                    tickLine={false}
-                    angle={-38}
-                    textAnchor="end"
-                  />
-                  <YAxis
-                    tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                    tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={92}
-                  />
-                  <Tooltip content={<MoneyTooltip />} />
-                  <Bar dataKey="combustivel" name="Combustivel" stackId="centro" fill={categoryColors.COMBUSTIVEL} radius={[0, 0, 0, 0]} maxBarSize={34} />
-                  <Bar dataKey="manutencao" name="Manutencao" stackId="centro" fill={categoryColors.MANUTENCAO} radius={[10, 10, 0, 0]} maxBarSize={34} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          <ExpandableChart title="Ranking de custo por equipamento" height={360}>
+            {({ height }) => (
+              <div className="cost-chart-scroll">
+                <div className="cost-chart-scroll-inner" style={{ minWidth: chartMinWidth, height }}>
+                  <ResponsiveContainer width="100%" height={height}>
+                    <BarChart data={chartRows} margin={{ top: 16, right: 20, left: 6, bottom: 76 }} barCategoryGap={14}>
+                      <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+                      <XAxis
+                        dataKey="nomeCurto"
+                        interval={0}
+                        height={72}
+                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }}
+                        tickLine={false}
+                        angle={-38}
+                        textAnchor="end"
+                      />
+                      <YAxis
+                        tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
+                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }}
+                        tickLine={false}
+                        axisLine={false}
+                        width={92}
+                      />
+                      <Tooltip content={<MoneyTooltip />} />
+                      <Bar dataKey="combustivel" name="Combustivel" stackId="centro" fill={categoryColors.COMBUSTIVEL} radius={[0, 0, 0, 0]} maxBarSize={34} />
+                      <Bar dataKey="manutencao" name="Manutencao" stackId="centro" fill={categoryColors.MANUTENCAO} radius={[10, 10, 0, 0]} maxBarSize={34} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+          </ExpandableChart>
         </div>
       )}
     </article>

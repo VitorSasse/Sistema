@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SearchableMultiSelect } from "@/components/form/searchable-multi-select";
+import { ExpandableChart } from "@/components/dashboard/expandable-chart";
 import {
   Bar,
   BarChart,
@@ -488,25 +489,29 @@ export function KmHorimetroDashboard() {
           <span className="monthly-km-chart-note">Totais gerais por mes, sem converter unidades.</span>
         </div>
         {(data?.chart.monthlyTotals.length ?? 0) > 0 ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data?.chart.monthlyTotals ?? []} margin={{ top: 18, right: 18, bottom: 8, left: 0 }}>
-              <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-              <YAxis yAxisId="km" orientation="left" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-              <YAxis yAxisId="horas" orientation="right" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
-              <Tooltip content={<FleetEvolutionTooltip />} />
-              <Bar yAxisId="km" dataKey="km" name="KM" radius={[10, 10, 0, 0]} maxBarSize={32}>
-                {(data?.chart.monthlyTotals ?? []).map((item) => (
-                  <Cell key={`km-${item.key}`} fill={item.km > 0 ? "#38bdf8" : "#64748b"} />
-                ))}
-              </Bar>
-              <Bar yAxisId="horas" dataKey="horas" name="Horas" radius={[10, 10, 0, 0]} maxBarSize={32}>
-                {(data?.chart.monthlyTotals ?? []).map((item) => (
-                  <Cell key={`h-${item.key}`} fill={item.horas > 0 ? "#22c55e" : "#64748b"} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <ExpandableChart title="Evolucao mensal da frota" height={300}>
+            {({ height }) => (
+              <ResponsiveContainer width="100%" height={height}>
+                <BarChart data={data?.chart.monthlyTotals ?? []} margin={{ top: 18, right: 18, bottom: 8, left: 0 }}>
+                  <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
+                  <YAxis yAxisId="km" orientation="left" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
+                  <YAxis yAxisId="horas" orientation="right" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
+                  <Tooltip content={<FleetEvolutionTooltip />} />
+                  <Bar yAxisId="km" dataKey="km" name="KM" radius={[10, 10, 0, 0]} maxBarSize={32}>
+                    {(data?.chart.monthlyTotals ?? []).map((item) => (
+                      <Cell key={`km-${item.key}`} fill={item.km > 0 ? "#38bdf8" : "#64748b"} />
+                    ))}
+                  </Bar>
+                  <Bar yAxisId="horas" dataKey="horas" name="Horas" radius={[10, 10, 0, 0]} maxBarSize={32}>
+                    {(data?.chart.monthlyTotals ?? []).map((item) => (
+                      <Cell key={`h-${item.key}`} fill={item.horas > 0 ? "#22c55e" : "#64748b"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </ExpandableChart>
         ) : (
           <p className="section-copy">Sem dados no periodo.</p>
         )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ExpandableChart } from "@/components/dashboard/expandable-chart";
 import {
   Bar,
   CartesianGrid,
@@ -331,84 +332,88 @@ export function FaturamentoDashboard() {
               </div>
 
               <div className="billing-chart-shell">
-                <ResponsiveContainer width="100%" height={420}>
-                  <ComposedChart
-                    data={chartData}
-                    margin={{ top: 18, right: 24, left: 8, bottom: 32 }}
-                  >
-                    <defs>
-                      <linearGradient id="billingBarFaturado" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--dashboard-chart-faturado-start)" />
-                        <stop offset="100%" stopColor="var(--dashboard-chart-faturado-end)" />
-                      </linearGradient>
-                      <linearGradient id="billingBarPendente" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--dashboard-chart-pendente-start)" />
-                        <stop offset="100%" stopColor="var(--dashboard-chart-pendente-end)" />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
-                    <XAxis
-                      dataKey="label"
-                      tickLine={false}
-                      axisLine={false}
-                      interval={0}
-                      angle={-24}
-                      textAnchor="end"
-                      height={72}
-                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                    />
-                    <YAxis
-                      yAxisId="currency"
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                      width={110}
-                    />
-                    <YAxis
-                      yAxisId="share"
-                      orientation="right"
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) => `${value}%`}
-                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                      width={56}
-                    />
-                    <Tooltip
-                      content={<CustomTooltip />}
-                      cursor={{ fill: "var(--dashboard-chart-cursor)" }}
-                    />
-                    <Bar
-                      yAxisId="currency"
-                      dataKey="totalFaturado"
-                      name="totalFaturado"
-                      stackId="billing"
-                      radius={[0, 0, 0, 0]}
-                      fill="url(#billingBarFaturado)"
-                      maxBarSize={56}
-                    />
-                    <Bar
-                      yAxisId="currency"
-                      dataKey="totalAFaturar"
-                      name="totalAFaturar"
-                      stackId="billing"
-                      radius={[12, 12, 0, 0]}
-                      fill="url(#billingBarPendente)"
-                      maxBarSize={56}
-                    />
-                    <Line
-                      yAxisId="share"
-                      type="monotone"
-                      dataKey="sharePercent"
-                      name="sharePercent"
-                      stroke="var(--dashboard-chart-line-share)"
-                      strokeWidth={3}
-                      strokeDasharray="0"
-                      dot={{ r: 4, strokeWidth: 0, fill: "var(--dashboard-chart-line-share)" }}
-                      activeDot={{ r: 6, fill: "var(--dashboard-chart-line-share-active)" }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
+                <ExpandableChart title="Faturamento por cliente" height={420}>
+                  {({ height }) => (
+                    <ResponsiveContainer width="100%" height={height}>
+                      <ComposedChart
+                        data={chartData}
+                        margin={{ top: 18, right: 24, left: 8, bottom: 32 }}
+                      >
+                        <defs>
+                          <linearGradient id="billingBarFaturado" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--dashboard-chart-faturado-start)" />
+                            <stop offset="100%" stopColor="var(--dashboard-chart-faturado-end)" />
+                          </linearGradient>
+                          <linearGradient id="billingBarPendente" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--dashboard-chart-pendente-start)" />
+                            <stop offset="100%" stopColor="var(--dashboard-chart-pendente-end)" />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+                        <XAxis
+                          dataKey="label"
+                          tickLine={false}
+                          axisLine={false}
+                          interval={0}
+                          angle={-24}
+                          textAnchor="end"
+                          height={72}
+                          tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                        />
+                        <YAxis
+                          yAxisId="currency"
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
+                          tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                          width={110}
+                        />
+                        <YAxis
+                          yAxisId="share"
+                          orientation="right"
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) => `${value}%`}
+                          tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                          width={56}
+                        />
+                        <Tooltip
+                          content={<CustomTooltip />}
+                          cursor={{ fill: "var(--dashboard-chart-cursor)" }}
+                        />
+                        <Bar
+                          yAxisId="currency"
+                          dataKey="totalFaturado"
+                          name="totalFaturado"
+                          stackId="billing"
+                          radius={[0, 0, 0, 0]}
+                          fill="url(#billingBarFaturado)"
+                          maxBarSize={56}
+                        />
+                        <Bar
+                          yAxisId="currency"
+                          dataKey="totalAFaturar"
+                          name="totalAFaturar"
+                          stackId="billing"
+                          radius={[12, 12, 0, 0]}
+                          fill="url(#billingBarPendente)"
+                          maxBarSize={56}
+                        />
+                        <Line
+                          yAxisId="share"
+                          type="monotone"
+                          dataKey="sharePercent"
+                          name="sharePercent"
+                          stroke="var(--dashboard-chart-line-share)"
+                          strokeWidth={3}
+                          strokeDasharray="0"
+                          dot={{ r: 4, strokeWidth: 0, fill: "var(--dashboard-chart-line-share)" }}
+                          activeDot={{ r: 6, fill: "var(--dashboard-chart-line-share-active)" }}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  )}
+                </ExpandableChart>
               </div>
             </div>
           )}

@@ -6678,6 +6678,173 @@ button {
   height: 360px;
 }
 
+.expandable-chart {
+  position: relative;
+  min-width: 0;
+}
+
+.expandable-chart-content {
+  min-width: 0;
+}
+
+.expandable-chart-trigger {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid color-mix(in srgb, var(--screen-border) 82%, var(--primary));
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--screen-surface-strong) 88%, transparent), color-mix(in srgb, var(--screen-surface-start) 94%, transparent));
+  color: var(--screen-text);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+  opacity: 0;
+  transform: translateY(-4px) scale(0.96);
+  transition: opacity 160ms ease, transform 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.expandable-chart:hover .expandable-chart-trigger,
+.expandable-chart-trigger:focus-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.expandable-chart-trigger:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.expandable-chart-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: clamp(16px, 3vw, 34px);
+  background:
+    radial-gradient(circle at top right, rgba(249, 115, 22, 0.18), transparent 30%),
+    rgba(3, 7, 18, 0.72);
+  backdrop-filter: blur(14px);
+  animation: chartOverlayIn 160ms ease both;
+}
+
+.expandable-chart-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(85vw, 1440px);
+  height: min(80vh, 900px);
+  min-height: 520px;
+  border: 1px solid color-mix(in srgb, var(--screen-border) 84%, var(--primary));
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(56, 189, 248, 0.16), transparent 28%),
+    linear-gradient(180deg, var(--screen-surface-strong), var(--screen-surface-start));
+  color: var(--screen-text);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.38);
+  overflow: hidden;
+  animation: chartDialogIn 180ms ease both;
+}
+
+.expandable-chart-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px clamp(20px, 3vw, 34px);
+  border-bottom: 1px solid var(--screen-border);
+}
+
+.expandable-chart-dialog-header span {
+  display: inline-flex;
+  margin-bottom: 6px;
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 950;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.expandable-chart-dialog-header h2 {
+  margin: 0;
+  color: var(--screen-text);
+  font-size: clamp(1.35rem, 2.3vw, 2.25rem);
+  line-height: 1.05;
+}
+
+.expandable-chart-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  border: 1px solid var(--screen-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--screen-surface-soft) 88%, transparent);
+  color: var(--screen-text);
+  transition: border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.expandable-chart-close:hover,
+.expandable-chart-close:focus-visible {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.expandable-chart-dialog-body {
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(16px, 2vw, 28px);
+}
+
+.expandable-chart-dialog-body .recharts-wrapper {
+  max-width: 100%;
+}
+
+@keyframes chartOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes chartDialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 760px) {
+  .expandable-chart-trigger {
+    opacity: 1;
+    transform: none;
+  }
+
+  .expandable-chart-dialog {
+    width: 94vw;
+    height: 84vh;
+    min-height: 420px;
+    border-radius: 22px;
+  }
+
+  .expandable-chart-dialog-header {
+    padding: 18px;
+  }
+}
+
 .cost-center-chart-legend {
   display: flex;
   flex-wrap: wrap;

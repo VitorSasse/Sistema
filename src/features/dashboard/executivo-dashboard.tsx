@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { SearchableMultiSelect } from "@/components/form/searchable-multi-select";
+import { ExpandableChart } from "@/components/dashboard/expandable-chart";
 import {
   Bar,
   BarChart,
@@ -585,40 +586,44 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
             </div>
           </div>
           <div className="executive-chart-shell" style={{ height: `${utilizationChartHeight}px` }}>
-            <ResponsiveContainer width="100%" height={utilizationChartHeight}>
-              <BarChart
-                data={utilizationTop}
-                layout="vertical"
-                margin={{ top: 12, right: 16, left: 4, bottom: 12 }}
-              >
-                <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
-                <XAxis
-                  type="number"
-                  domain={[0, 100]}
-                  tickFormatter={(value) => `${value}%`}
-                  tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="placaOuTag"
-                  width={86}
-                  tick={{ fill: "var(--screen-text)", fontSize: 12, fontWeight: 700 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip content={<UtilizationTooltip />} cursor={{ fill: "var(--dashboard-chart-cursor)" }} />
-                <Bar dataKey="utilizationPercent" radius={[0, 12, 12, 0]} barSize={18}>
-                  {utilizationTop.map((item) => (
-                    <Cell
-                      key={item.equipamentoId}
-                      fill={utilizationBandPalette[item.band] ?? "#F97316"}
+            <ExpandableChart title="Utilizacao real da frota" height={utilizationChartHeight}>
+              {({ height }) => (
+                <ResponsiveContainer width="100%" height={height}>
+                  <BarChart
+                    data={utilizationTop}
+                    layout="vertical"
+                    margin={{ top: 12, right: 16, left: 4, bottom: 12 }}
+                  >
+                    <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      domain={[0, 100]}
+                      tickFormatter={(value) => `${value}%`}
+                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
                     />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                    <YAxis
+                      type="category"
+                      dataKey="placaOuTag"
+                      width={86}
+                      tick={{ fill: "var(--screen-text)", fontSize: 12, fontWeight: 700 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip content={<UtilizationTooltip />} cursor={{ fill: "var(--dashboard-chart-cursor)" }} />
+                    <Bar dataKey="utilizationPercent" radius={[0, 12, 12, 0]} barSize={18}>
+                      {utilizationTop.map((item) => (
+                        <Cell
+                          key={item.equipamentoId}
+                          fill={utilizationBandPalette[item.band] ?? "#F97316"}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </ExpandableChart>
           </div>
         </article>
 
@@ -641,56 +646,60 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
             </div>
           </div>
           <div className="executive-chart-shell" style={{ height: `${mechanicalChartHeight}px` }}>
-            <ResponsiveContainer width="100%" height={mechanicalChartHeight}>
-              <BarChart
-                data={mechanicalTop}
-                layout="vertical"
-                margin={{ top: 12, right: 16, left: 4, bottom: 12 }}
-              >
-                <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
-                <XAxis
-                  type="number"
-                  domain={[0, 100]}
-                  tickFormatter={(value) => `${value}%`}
-                  tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="placaOuTag"
-                  width={86}
-                  tick={{ fill: "var(--screen-text)", fontSize: 12, fontWeight: 700 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    const item = payload[0].payload as DashboardPayload["mechanical"]["ranking"][number];
-                    return (
-                      <div className="executive-tooltip">
-                        <strong>{item.placaOuTag}</strong>
-                        <span>{item.descricao}</span>
-                        <span>Disponibilidade: {formatPercent(item.mechanicalPercent)}</span>
-                        <span>Preventiva: {formatHours(item.preventiveHours)}</span>
-                        <span>Corretiva: {formatHours(item.correctiveHours)}</span>
-                        <span>Oficina externa: {formatHours(item.externalHours)}</span>
-                      </div>
-                    );
-                  }}
-                  cursor={{ fill: "var(--dashboard-chart-cursor)" }}
-                />
-                <Bar dataKey="mechanicalPercent" radius={[0, 12, 12, 0]} barSize={18}>
-                  {mechanicalTop.map((item) => (
-                    <Cell
-                      key={item.equipamentoId}
-                      fill={mechanicalBandPalette[item.band] ?? "#F97316"}
+            <ExpandableChart title="Disponibilidade mecanica" height={mechanicalChartHeight}>
+              {({ height }) => (
+                <ResponsiveContainer width="100%" height={height}>
+                  <BarChart
+                    data={mechanicalTop}
+                    layout="vertical"
+                    margin={{ top: 12, right: 16, left: 4, bottom: 12 }}
+                  >
+                    <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      domain={[0, 100]}
+                      tickFormatter={(value) => `${value}%`}
+                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
                     />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                    <YAxis
+                      type="category"
+                      dataKey="placaOuTag"
+                      width={86}
+                      tick={{ fill: "var(--screen-text)", fontSize: 12, fontWeight: 700 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const item = payload[0].payload as DashboardPayload["mechanical"]["ranking"][number];
+                        return (
+                          <div className="executive-tooltip">
+                            <strong>{item.placaOuTag}</strong>
+                            <span>{item.descricao}</span>
+                            <span>Disponibilidade: {formatPercent(item.mechanicalPercent)}</span>
+                            <span>Preventiva: {formatHours(item.preventiveHours)}</span>
+                            <span>Corretiva: {formatHours(item.correctiveHours)}</span>
+                            <span>Oficina externa: {formatHours(item.externalHours)}</span>
+                          </div>
+                        );
+                      }}
+                      cursor={{ fill: "var(--dashboard-chart-cursor)" }}
+                    />
+                    <Bar dataKey="mechanicalPercent" radius={[0, 12, 12, 0]} barSize={18}>
+                      {mechanicalTop.map((item) => (
+                        <Cell
+                          key={item.equipamentoId}
+                          fill={mechanicalBandPalette[item.band] ?? "#F97316"}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </ExpandableChart>
           </div>
           <div className="executive-inline-stats">
             <span>Preventiva: {formatHours(data?.mechanical.summary.preventiveHours ?? 0)}</span>
@@ -710,38 +719,42 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
             <strong className="executive-panel-highlight">{formatHours(data?.losses.totalHours ?? 0)}</strong>
           </div>
           <div className="executive-chart-shell" style={{ height: `${lossChartHeight}px` }}>
-            <ResponsiveContainer width="100%" height={lossChartHeight}>
-              <BarChart
-                data={lossTop}
-                layout="vertical"
-                margin={{ top: 12, right: 16, left: 4, bottom: 12 }}
-              >
-                <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
-                <XAxis
-                  type="number"
-                  tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="label"
-                  width={150}
-                  tick={{ fill: "var(--screen-text)", fontSize: 12, fontWeight: 700 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip content={<LossTooltip />} cursor={{ fill: "var(--dashboard-chart-cursor)" }} />
-                <Bar dataKey="hours" radius={[0, 12, 12, 0]} barSize={18}>
-                  {lossTop.map((item) => (
-                    <Cell
-                      key={item.key}
-                      fill={lossPalette[item.group] ?? "#f0b544"}
+            <ExpandableChart title="Pareto operacional" height={lossChartHeight}>
+              {({ height }) => (
+                <ResponsiveContainer width="100%" height={height}>
+                  <BarChart
+                    data={lossTop}
+                    layout="vertical"
+                    margin={{ top: 12, right: 16, left: 4, bottom: 12 }}
+                  >
+                    <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
                     />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                    <YAxis
+                      type="category"
+                      dataKey="label"
+                      width={150}
+                      tick={{ fill: "var(--screen-text)", fontSize: 12, fontWeight: 700 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip content={<LossTooltip />} cursor={{ fill: "var(--dashboard-chart-cursor)" }} />
+                    <Bar dataKey="hours" radius={[0, 12, 12, 0]} barSize={18}>
+                      {lossTop.map((item) => (
+                        <Cell
+                          key={item.key}
+                          fill={lossPalette[item.group] ?? "#f0b544"}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </ExpandableChart>
           </div>
         </article>
 
@@ -756,35 +769,39 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
             </strong>
           </div>
           <div className="executive-chart-shell" style={{ height: `${financialChartHeight}px` }}>
-            <ResponsiveContainer width="100%" height={financialChartHeight}>
-              <BarChart
-                data={financialTop}
-                layout="vertical"
-                margin={{ top: 12, right: 16, left: 4, bottom: 12 }}
-              >
-                <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
-                <XAxis
-                  type="number"
-                  tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                  tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="placaOuTag"
-                  width={86}
-                  tick={{ fill: "var(--screen-text)", fontSize: 12, fontWeight: 700 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  content={<FinancialTooltip />}
-                  cursor={{ fill: "var(--dashboard-chart-cursor)" }}
-                />
-                <Bar dataKey="estimatedLoss" radius={[0, 12, 12, 0]} barSize={18} fill="var(--primary)" />
-              </BarChart>
-            </ResponsiveContainer>
+            <ExpandableChart title="Impacto da indisponibilidade" height={financialChartHeight}>
+              {({ height }) => (
+                <ResponsiveContainer width="100%" height={height}>
+                  <BarChart
+                    data={financialTop}
+                    layout="vertical"
+                    margin={{ top: 12, right: 16, left: 4, bottom: 12 }}
+                  >
+                    <CartesianGrid stroke="var(--dashboard-chart-grid)" horizontal={false} />
+                    <XAxis
+                      type="number"
+                      tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
+                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="placaOuTag"
+                      width={86}
+                      tick={{ fill: "var(--screen-text)", fontSize: 12, fontWeight: 700 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip
+                      content={<FinancialTooltip />}
+                      cursor={{ fill: "var(--dashboard-chart-cursor)" }}
+                    />
+                    <Bar dataKey="estimatedLoss" radius={[0, 12, 12, 0]} barSize={18} fill="var(--primary)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </ExpandableChart>
           </div>
         </article>
       </section>

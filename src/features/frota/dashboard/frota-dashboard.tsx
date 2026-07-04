@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SearchableMultiSelect } from "@/components/form/searchable-multi-select";
+import { ExpandableChart } from "@/components/dashboard/expandable-chart";
 import {
   Bar,
   BarChart,
@@ -212,42 +213,46 @@ function SectionPanel({
               </div>
 
               <div className="fleet-chart-shell" style={{ height: `${chartHeight}px` }}>
-                <ResponsiveContainer width="100%" height={chartHeight}>
-                  <BarChart
-                    data={chartData}
-                    layout="vertical"
-                    margin={{ top: 8, right: 18, left: 8, bottom: 8 }}
-                  >
-                    <CartesianGrid stroke="var(--line-soft)" horizontal={false} />
-                    <XAxis
-                      type="number"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                      tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="label"
-                      tickLine={false}
-                      axisLine={false}
-                      width={96}
-                      tick={{ fill: "var(--screen-chart-tick)", fontSize: 12, fontWeight: 700 }}
-                    />
-                    <Tooltip
-                      content={<CustomTooltip />}
-                      cursor={{ fill: "rgba(249, 115, 22, 0.08)" }}
-                    />
-                    <Bar dataKey="totalValor" radius={[0, 14, 14, 0]} barSize={22}>
-                      {chartData.map((item, index) => (
-                        <Cell
-                          key={item.equipamentoId}
-                          fill={chartPalette[index % chartPalette.length] ?? "#F97316"}
+                <ExpandableChart title={title} height={chartHeight}>
+                  {({ height }) => (
+                    <ResponsiveContainer width="100%" height={height}>
+                      <BarChart
+                        data={chartData}
+                        layout="vertical"
+                        margin={{ top: 8, right: 18, left: 8, bottom: 8 }}
+                      >
+                        <CartesianGrid stroke="var(--line-soft)" horizontal={false} />
+                        <XAxis
+                          type="number"
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                          tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
                         />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                        <YAxis
+                          type="category"
+                          dataKey="label"
+                          tickLine={false}
+                          axisLine={false}
+                          width={96}
+                          tick={{ fill: "var(--screen-chart-tick)", fontSize: 12, fontWeight: 700 }}
+                        />
+                        <Tooltip
+                          content={<CustomTooltip />}
+                          cursor={{ fill: "rgba(249, 115, 22, 0.08)" }}
+                        />
+                        <Bar dataKey="totalValor" radius={[0, 14, 14, 0]} barSize={22}>
+                          {chartData.map((item, index) => (
+                            <Cell
+                              key={item.equipamentoId}
+                              fill={chartPalette[index % chartPalette.length] ?? "#F97316"}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </ExpandableChart>
               </div>
             </>
           )}
