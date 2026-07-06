@@ -28,7 +28,7 @@ function buildYearRange(year: number) {
 
 const monthLabels = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
 const valorBaseSql = Prisma.sql`GREATEST(COALESCE(medicao."valorTotal", 0) - COALESCE(medicao."descontoValor", 0), 0)`;
-const valorLiquidoSql = Prisma.sql`GREATEST(${valorBaseSql} - (${valorBaseSql} * COALESCE(medicao."permutaPercentual", 0) / 100), 0)`;
+const valorLiquidoSql = valorBaseSql;
 
 function parseSelectedMonths(value: string | null) {
   if (!value?.trim()) {

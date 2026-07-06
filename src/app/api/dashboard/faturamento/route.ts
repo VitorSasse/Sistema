@@ -42,7 +42,7 @@ type PermutaClienteRow = {
 };
 
 const valorBaseSql = Prisma.sql`GREATEST(COALESCE(medicao."valorTotal", 0) - COALESCE(medicao."descontoValor", 0), 0)`;
-const valorLiquidoSql = Prisma.sql`GREATEST(${valorBaseSql} - (${valorBaseSql} * COALESCE(medicao."permutaPercentual", 0) / 100), 0)`;
+const valorLiquidoSql = valorBaseSql;
 
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
