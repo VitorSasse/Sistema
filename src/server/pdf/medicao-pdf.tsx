@@ -222,6 +222,7 @@ export function MedicaoPdfDocument(props: MedicaoPdfProps) {
   const items = isDetalhado ? detailedItems : summaryItems;
   const valorBruto = items.reduce((acc, item) => acc + Number(item.valorTotalItem), 0);
   const descontoValor = Math.max(0, Number(props.descontoValor || 0));
+  const hasDesconto = descontoValor > 0;
   const valorComDesconto = Math.max(0, valorBruto - descontoValor);
   const permutaPercentual = Math.min(100, Math.max(0, Number(props.permutaPercentual || 0)));
   const valorPermuta = valorComDesconto * (permutaPercentual / 100);
@@ -347,9 +348,13 @@ export function MedicaoPdfDocument(props: MedicaoPdfProps) {
         <View style={styles.footer}>
           <View style={styles.footerSummary}>
             <Text style={styles.footerLine}>Total de itens: {items.length}</Text>
-            <Text style={styles.footerLine}>Valor bruto: {formatCurrency(valorBruto)}</Text>
-            <Text style={styles.footerLine}>Desconto: {formatCurrency(descontoValor)}</Text>
-            <Text style={styles.footerLine}>Valor com desconto: {formatCurrency(valorComDesconto)}</Text>
+            {hasDesconto ? (
+              <>
+                <Text style={styles.footerLine}>Valor bruto: {formatCurrency(valorBruto)}</Text>
+                <Text style={styles.footerLine}>Desconto: {formatCurrency(descontoValor)}</Text>
+                <Text style={styles.footerLine}>Valor com desconto: {formatCurrency(valorComDesconto)}</Text>
+              </>
+            ) : null}
             <Text style={styles.footerLine}>
               Permuta: {permutaPercentual.toFixed(2).replace(".", ",")}% / {formatCurrency(valorPermuta)}
             </Text>
