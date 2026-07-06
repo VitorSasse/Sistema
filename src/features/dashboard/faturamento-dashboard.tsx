@@ -44,6 +44,21 @@ type DashboardPayload = {
     totalMedicoes: number;
     sharePercent: number;
   }>;
+  permuta: {
+    percentualGeral: number;
+    valorPermuta: number;
+    valorNaoPermuta: number;
+    valorBase: number;
+    totalServicosComPermuta: number;
+    servicos: Array<{
+      tipoServico: string;
+      valorServico: number;
+      valorPermuta: number;
+      valorNaoPermuta: number;
+      percentualPermuta: number;
+      totalItens: number;
+    }>;
+  };
 };
 
 const periodOptions: Array<{ value: PeriodPreset; label: string }> = [
@@ -83,6 +98,31 @@ function CustomTooltip({
       <span>Total: {formatCurrency(item.totalGeral)}</span>
       <span>Participacao: {formatPercent(item.sharePercent)}</span>
       <span>Medicoes: {item.totalMedicoes}</span>
+    </div>
+  );
+}
+
+function PermutaTooltip({
+  active,
+  payload
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: DashboardPayload["permuta"]["servicos"][number] & { label: string } }>;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const item = payload[0].payload;
+
+  return (
+    <div className="billing-tooltip">
+      <strong>{item.tipoServico}</strong>
+      <span>Base do servico: {formatCurrency(item.valorServico)}</span>
+      <span>Permuta: {formatCurrency(item.valorPermuta)}</span>
+      <span>Sem permuta: {formatCurrency(item.valorNaoPermuta)}</span>
+      <span>Percentual em permuta: {formatPercent(item.percentualPermuta)}</span>
+      <span>Itens medidos: {item.totalItens}</span>
     </div>
   );
 }
@@ -179,6 +219,16 @@ export function FaturamentoDashboard() {
   );
 
   const topFive = useMemo(() => (data?.ranking ?? []).slice(0, 5), [data]);
+  const permutaData = useMemo(
+    () =>
+      (data?.permuta.servicos ?? [])
+        .filter((item) => item.valorServico > 0)
+        .map((item) => ({
+          ...item,
+          label: item.tipoServico.length > 18 ? `${item.tipoServico.slice(0, 18)}...` : item.tipoServico
+        })),
+    [data]
+  );
 
   if (loading && !data) {
     return <DashboardSkeleton />;
@@ -455,6 +505,133 @@ export function FaturamentoDashboard() {
             </div>
           )}
         </aside>
+      </section>
+
+      <section className="billing-permuta-card surface section-card fade-up fade-up-delay-3">
+        <div className="billing-ranking-header">
+          <div>
+            <span className="billing-kicker">Permuta</span>
+            <h2 className="section-title">Percentual de permuta por servico</h2>
+            <p className="section-copy">
+              Leitura paralela ao faturamento principal. A permuta nao altera o grafico de receita por cliente.
+            </p>
+          </div>
+          <span className="badge badge-info">
+            {formatPercent(data?.permuta.percentualGeral ?? 0)} em permuta
+          </span>
+        </div>
+
+        {permutaData.length === 0 ? (
+          <div className="billing-empty-state billing-empty-state-compact">
+            <strong>Sem permuta no periodo</strong>
+            <p>Nenhum item de medicao foi marcado como permuta nos filtros atuais.</p>
+          </div>
+        ) : (
+          <div className="billing-chart-panel">
+            <div className="billing-chart-summary">
+              <article className="billing-chart-summary-card is-neutral">
+                <span>Base analisada</span>
+                <strong>{formatCurrency(data?.permuta.valorBase ?? 0)}</strong>
+                <small>Total dos itens medidos no periodo.</small>
+              </article>
+              <article className="billing-chart-summary-card is-warn">
+                <span>Valor em permuta</span>
+                <strong>{formatCurrency(data?.permuta.valorPermuta ?? 0)}</strong>
+                <small>{data?.permuta.totalServicosComPermuta ?? 0} servico(s) com permuta.</small>
+              </article>
+              <article className="billing-chart-summary-card is-success">
+                <span>Sem permuta</span>
+                <strong>{formatCurrency(data?.permuta.valorNaoPermuta ?? 0)}</strong>
+                <small>Parcela sem marcacao de permuta.</small>
+              </article>
+            </div>
+
+            <div className="billing-chart-legend">
+              <span className="billing-chart-legend-item">
+                <i className="billing-chart-dot is-permuta" />
+                Permuta
+              </span>
+              <span className="billing-chart-legend-item">
+                <i className="billing-chart-dot is-sem-permuta" />
+                Sem permuta
+              </span>
+            </div>
+
+            <div className="billing-chart-shell">
+              <ExpandableChart title="Percentual de permuta por servico" height={360}>
+                {({ height, width }) => (
+                  <ResponsiveContainer width={width} height={height}>
+                    <ComposedChart
+                      data={permutaData}
+                      margin={{ top: 18, right: 28, left: 8, bottom: 52 }}
+                    >
+                      <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+                      <XAxis
+                        dataKey="label"
+                        tickLine={false}
+                        axisLine={false}
+                        interval={0}
+                        angle={-20}
+                        textAnchor="end"
+                        height={68}
+                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                      />
+                      <YAxis
+                        yAxisId="currency"
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
+                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                        width={110}
+                      />
+                      <YAxis
+                        yAxisId="percent"
+                        orientation="right"
+                        domain={[0, 100]}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) => `${value}%`}
+                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                        width={56}
+                      />
+                      <Tooltip
+                        content={<PermutaTooltip />}
+                        cursor={{ fill: "var(--dashboard-chart-cursor)" }}
+                      />
+                      <Bar
+                        yAxisId="currency"
+                        dataKey="valorNaoPermuta"
+                        name="Sem permuta"
+                        stackId="permuta"
+                        fill="var(--dashboard-chart-pendente-end)"
+                        radius={[0, 0, 0, 0]}
+                        maxBarSize={52}
+                      />
+                      <Bar
+                        yAxisId="currency"
+                        dataKey="valorPermuta"
+                        name="Permuta"
+                        stackId="permuta"
+                        fill="var(--primary)"
+                        radius={[12, 12, 0, 0]}
+                        maxBarSize={52}
+                      />
+                      <Line
+                        yAxisId="percent"
+                        type="monotone"
+                        dataKey="percentualPermuta"
+                        stroke="var(--dashboard-chart-line-share)"
+                        strokeWidth={3}
+                        dot={{ r: 4, strokeWidth: 0, fill: "var(--dashboard-chart-line-share)" }}
+                        activeDot={{ r: 6, fill: "var(--dashboard-chart-line-share-active)" }}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                )}
+              </ExpandableChart>
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );

@@ -7,6 +7,7 @@ import type {
   MedicaoFilters,
   MedicaoFormState,
   MedicaoListItem,
+  MedicaoPreviewPermutaMap,
   MedicaoPreviewValueMap,
   MedicaoPreviewResumo,
   MedicaoStatus,
@@ -73,7 +74,8 @@ export async function previsualizarMedicao(form: MedicaoFormState) {
 
 export async function gerarMedicaoComValores(
   form: MedicaoFormState,
-  itemValues: MedicaoPreviewValueMap
+  itemValues: MedicaoPreviewValueMap,
+  itemPermutaValues: MedicaoPreviewPermutaMap = {}
 ) {
   const response = await fetch("/api/medicoes", {
     method: "POST",
@@ -82,7 +84,10 @@ export async function gerarMedicaoComValores(
       ...toPayload(form),
       itens: Object.entries(itemValues).map(([lancamentoId, valorUnitario]) => ({
         lancamentoId,
-        valorUnitario: valorUnitario.trim() ? Number(valorUnitario.replace(",", ".")) : null
+        valorUnitario: valorUnitario.trim() ? Number(valorUnitario.replace(",", ".")) : null,
+        permutaPercentual: itemPermutaValues[lancamentoId]?.trim()
+          ? Number(itemPermutaValues[lancamentoId].replace(",", "."))
+          : 0
       }))
     })
   });
@@ -181,6 +186,7 @@ export async function atualizarValorItemMedicao(params: {
   valorUnitario: number;
   quantidadeFaturada?: number;
   unidadeFaturada?: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
+  permutaPercentual?: number;
 }) {
   const response = await fetch(`/api/medicoes/${params.medicaoId}/itens/${params.itemId}`, {
     method: "PATCH",
@@ -188,7 +194,8 @@ export async function atualizarValorItemMedicao(params: {
     body: JSON.stringify({
       valorUnitario: params.valorUnitario,
       quantidadeFaturada: params.quantidadeFaturada,
-      unidadeFaturada: params.unidadeFaturada
+      unidadeFaturada: params.unidadeFaturada,
+      permutaPercentual: params.permutaPercentual
     })
   });
   return {

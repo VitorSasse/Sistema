@@ -111,6 +111,7 @@ export type MedicaoDetail = {
     quantidadeFaturada: string;
     valorUnitario: string;
     valorTotalItem: string;
+    permutaPercentual: string;
     lancamento: {
       id: string;
       clienteId: string;
@@ -204,6 +205,7 @@ export type MedicaoPreviewResumo = {
 };
 
 export type MedicaoPreviewValueMap = Record<string, string>;
+export type MedicaoPreviewPermutaMap = Record<string, string>;
 
 export type MedicaoEligiblePayload = {
   cobrancaMaterial: MedicaoCobrancaMaterial;

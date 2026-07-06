@@ -1,0 +1,2 @@
+ALTER TABLE "MedicaoItem"
+ADD COLUMN "permutaPercentual" DECIMAL(5, 2) NOT NULL DEFAULT 0;

@@ -15,7 +15,8 @@ export const medicaoCreateSchema = medicaoPreviewSchema.extend({
     .array(
       z.object({
         lancamentoId: z.string().uuid(),
-        valorUnitario: z.number().min(0)
+        valorUnitario: z.number().min(0),
+        permutaPercentual: z.number().min(0).max(100).default(0)
       })
     )
     .min(1)

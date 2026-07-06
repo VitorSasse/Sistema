@@ -32,6 +32,13 @@ type TotalsRow = {
   totalClientes: bigint;
 };
 
+type PermutaServicoRow = {
+  tipoServico: string;
+  valorServico: Prisma.Decimal | null;
+  valorPermuta: Prisma.Decimal | null;
+  totalItens: bigint;
+};
+
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
 }
@@ -145,7 +152,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const [ranking, totals] = await Promise.all([
+  const [ranking, totals, permutaServicoRows] = await Promise.all([
     prisma.$queryRaw<RankingRow[]>(Prisma.sql`
       WITH medicoes_periodo AS (
         SELECT
@@ -204,6 +211,31 @@ export async function GET(request: NextRequest) {
         COUNT(DISTINCT CASE WHEN medicao.status <> 'CONCLUIDA'::"StatusMedicao" THEN medicao.id END) AS "totalMedicoesAFaturar",
         COUNT(DISTINCT medicao."clienteId") AS "totalClientes"
       FROM medicoes_periodo medicao
+    `),
+    prisma.$queryRaw<PermutaServicoRow[]>(Prisma.sql`
+      WITH medicoes_periodo AS (
+        SELECT medicao.id
+        FROM "Medicao" medicao
+        INNER JOIN "MedicaoItem" item
+          ON item."medicaoId" = medicao.id
+         AND item."deletedAt" IS NULL
+        WHERE medicao."deletedAt" IS NULL
+          AND medicao.status <> 'CANCELADA'::"StatusMedicao"
+        GROUP BY medicao.id
+        HAVING MAX(item."data") >= ${period.start}
+           AND MAX(item."data") <= ${period.end}
+      )
+      SELECT
+        COALESCE(item."tipoServico", 'Servico nao informado') AS "tipoServico",
+        COALESCE(SUM(item."valorTotalItem"), 0) AS "valorServico",
+        COALESCE(SUM(item."valorTotalItem" * item."permutaPercentual" / 100), 0) AS "valorPermuta",
+        COUNT(item.id) AS "totalItens"
+      FROM "MedicaoItem" item
+      INNER JOIN medicoes_periodo medicao ON medicao.id = item."medicaoId"
+      WHERE item."deletedAt" IS NULL
+      GROUP BY item."tipoServico"
+      HAVING COALESCE(SUM(item."valorTotalItem"), 0) > 0
+      ORDER BY "valorPermuta" DESC, "valorServico" DESC, "tipoServico" ASC
     `)
   ]);
 
@@ -244,6 +276,32 @@ export async function GET(request: NextRequest) {
     };
   });
 
+  const permutaServicos = permutaServicoRows.map((item) => {
+    const valorServico = Number(item.valorServico ?? 0);
+    const valorPermuta = Number(item.valorPermuta ?? 0);
+    const percentualPermuta = valorServico > 0 ? (valorPermuta / valorServico) * 100 : 0;
+
+    return {
+      tipoServico: item.tipoServico,
+      valorServico,
+      valorPermuta,
+      valorNaoPermuta: Math.max(0, valorServico - valorPermuta),
+      percentualPermuta,
+      totalItens: Number(item.totalItens)
+    };
+  });
+
+  const totalValorServicoPermuta = permutaServicos.reduce(
+    (acc, item) => acc + item.valorServico,
+    0
+  );
+  const totalValorPermuta = permutaServicos.reduce(
+    (acc, item) => acc + item.valorPermuta,
+    0
+  );
+  const percentualPermutaGeral =
+    totalValorServicoPermuta > 0 ? (totalValorPermuta / totalValorServicoPermuta) * 100 : 0;
+
   return NextResponse.json({
     period: {
       preset: period.preset,
@@ -261,6 +319,14 @@ export async function GET(request: NextRequest) {
       totalClientes,
       ticketMedioPorCliente: totalClientes > 0 ? totalGeral / totalClientes : 0
     },
-    ranking: rankingItems
+    ranking: rankingItems,
+    permuta: {
+      percentualGeral: percentualPermutaGeral,
+      valorPermuta: totalValorPermuta,
+      valorNaoPermuta: Math.max(0, totalValorServicoPermuta - totalValorPermuta),
+      valorBase: totalValorServicoPermuta,
+      totalServicosComPermuta: permutaServicos.filter((item) => item.valorPermuta > 0).length,
+      servicos: permutaServicos
+    }
   });
 }

@@ -813,6 +813,14 @@ h3,
   background: #0f2a44;
 }
 
+.billing-chart-dot.is-permuta {
+  background: #f97316;
+}
+
+.billing-chart-dot.is-sem-permuta {
+  background: #2563eb;
+}
+
 .billing-tooltip,
 .executive-tooltip {
   background: rgba(11, 11, 11, 0.96);

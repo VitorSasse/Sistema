@@ -35,6 +35,7 @@ import type {
   MedicaoFormState,
   MedicaoListItem,
   MedicaoOptionsState,
+  MedicaoPreviewPermutaMap,
   MedicaoPreviewValueMap,
   MedicaoPreviewResumo,
   MedicaoStatus,
@@ -116,6 +117,8 @@ export function MedicoesManager() {
   const [medicoes, setMedicoes] = useState<MedicaoListItem[]>([]);
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>([]);
   const [previewItemValues, setPreviewItemValues] = useState<MedicaoPreviewValueMap>({});
+  const [previewItemPermutaValues, setPreviewItemPermutaValues] =
+    useState<MedicaoPreviewPermutaMap>({});
   const [previewResumo, setPreviewResumo] = useState<MedicaoPreviewResumo | null>(null);
   const [form, setForm] = useState<MedicaoFormState>(initialMedicaoForm);
   const [filters, setFilters] = useState<MedicaoFilters>(initialMedicaoFilters);
@@ -168,6 +171,7 @@ export function MedicoesManager() {
       setMessage(data.message ?? "Nao foi possivel gerar a pre-visualizacao.");
       setPreviewItems([]);
       setPreviewItemValues({});
+      setPreviewItemPermutaValues({});
       setPreviewResumo(null);
       setEditing(null);
       setEditingSource(null);
@@ -182,6 +186,9 @@ export function MedicoesManager() {
           current[item.id] ?? buildSuggestedPreviewValue(item, options.servicos)
         ])
       )
+    );
+    setPreviewItemPermutaValues((current) =>
+      Object.fromEntries(nextItems.map((item) => [item.id, current[item.id] ?? "0"]))
     );
     setPreviewResumo(data.resumo ?? null);
     setEditing(null);
@@ -341,15 +348,24 @@ export function MedicoesManager() {
       previewItems.length > 0 &&
       previewItems.every((item) => {
         const rawValue = previewItemValues[item.id]?.replace(",", ".").trim() ?? "";
+        const rawPermuta =
+          previewItemPermutaValues[item.id]?.replace(",", ".").trim() ?? "0";
 
         if (!rawValue) {
           return false;
         }
 
         const parsedValue = Number(rawValue);
-        return Number.isFinite(parsedValue) && parsedValue >= 0;
+        const parsedPermuta = Number(rawPermuta || 0);
+        return (
+          Number.isFinite(parsedValue) &&
+          parsedValue >= 0 &&
+          Number.isFinite(parsedPermuta) &&
+          parsedPermuta >= 0 &&
+          parsedPermuta <= 100
+        );
       }),
-    [previewItemValues, previewItems]
+    [previewItemPermutaValues, previewItemValues, previewItems]
   );
 
   const selectedMedicaoCanEdit = useMemo(
@@ -388,6 +404,13 @@ export function MedicoesManager() {
 
   function updatePreviewItemValue(itemId: string, value: string) {
     setPreviewItemValues((current) => ({
+      ...current,
+      [itemId]: value
+    }));
+  }
+
+  function updatePreviewItemPermuta(itemId: string, value: string) {
+    setPreviewItemPermutaValues((current) => ({
       ...current,
       [itemId]: value
     }));
@@ -473,7 +496,11 @@ export function MedicoesManager() {
         return;
       }
 
-      const { response, data } = await gerarMedicaoComValores(form, previewItemValues);
+      const { response, data } = await gerarMedicaoComValores(
+        form,
+        previewItemValues,
+        previewItemPermutaValues
+      );
       if (!response.ok) {
         setMessage(data.message ?? "Nao foi possivel gerar a medicao.");
         return;
@@ -481,6 +508,7 @@ export function MedicoesManager() {
       setMessage("Medicao gerada com sucesso.");
       setPreviewItems([]);
       setPreviewItemValues({});
+      setPreviewItemPermutaValues({});
       setPreviewResumo(null);
       setEditing(null);
       setEditingSource(null);
@@ -633,7 +661,8 @@ export function MedicoesManager() {
     itemId: string,
     valorUnitario: number,
     quantidadeFaturada: number,
-    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO"
+    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO",
+    permutaPercentual: number
   ) {
     if (!selectedMedicaoId) return;
 
@@ -643,7 +672,8 @@ export function MedicoesManager() {
         itemId,
         valorUnitario,
         quantidadeFaturada,
-        unidadeFaturada
+        unidadeFaturada,
+        permutaPercentual
       });
 
       if (!response.ok) {
@@ -822,8 +852,10 @@ export function MedicoesManager() {
         items={previewItems}
         resumo={previewResumo}
         itemValues={previewItemValues}
+        itemPermutaValues={previewItemPermutaValues}
         editingId={editing?.id ?? null}
         onChangeItemValue={updatePreviewItemValue}
+        onChangeItemPermuta={updatePreviewItemPermuta}
         onEdit={handleStartEdit}
       />
 

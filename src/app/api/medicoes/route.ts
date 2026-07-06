@@ -84,14 +84,16 @@ export async function POST(request: NextRequest) {
         "VALOR_UNITARIO_DUPLICADO",
         "ITEM_MEDICAO_INVALIDO",
         "VALOR_UNITARIO_OBRIGATORIO",
-        "VALOR_UNITARIO_INVALIDO"
+        "VALOR_UNITARIO_INVALIDO",
+        "PERMUTA_PERCENTUAL_INVALIDA"
       ].includes(error.message)
     ) {
       const messageByCode: Record<string, string> = {
         VALOR_UNITARIO_DUPLICADO: "Ha valores unitarios duplicados no envio da medicao.",
         ITEM_MEDICAO_INVALIDO: "A lista de itens da medicao nao confere com a pre-visualizacao atual.",
         VALOR_UNITARIO_OBRIGATORIO: "Preencha o valor unitario de todos os itens antes de gerar a medicao.",
-        VALOR_UNITARIO_INVALIDO: "Existe valor unitario invalido em um ou mais itens."
+        VALOR_UNITARIO_INVALIDO: "Existe valor unitario invalido em um ou mais itens.",
+        PERMUTA_PERCENTUAL_INVALIDA: "Existe percentual de permuta invalido em um ou mais itens."
       };
 
       return NextResponse.json(

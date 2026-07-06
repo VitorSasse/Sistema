@@ -74,7 +74,8 @@ export function MedicaoDetailSection(props: {
     itemId: string,
     valorUnitario: number,
     quantidadeFaturada: number,
-    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO"
+    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO",
+    permutaPercentual: number
   ) => void;
   editingLancamentoId: string | null;
   onStartDetailEdit: (item: MedicaoDetail["itens"][number]) => void;
@@ -152,6 +153,7 @@ export function MedicaoDetailSection(props: {
         valorUnitario: string;
         quantidadeFaturada: string;
         unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
+        permutaPercentual: string;
       }
     >
   >({});
@@ -164,7 +166,8 @@ export function MedicaoDetailSection(props: {
           {
             valorUnitario: item.valorUnitario ?? "0",
             quantidadeFaturada: item.quantidadeFaturada ?? "0",
-            unidadeFaturada: item.unidadeFaturada
+            unidadeFaturada: item.unidadeFaturada,
+            permutaPercentual: item.permutaPercentual ?? "0"
           }
         ])
       )
@@ -619,6 +622,7 @@ export function MedicaoDetailSection(props: {
                   <th>Faturado</th>
                   <th>Unid. faturada</th>
                   <th>Valor unit.</th>
+                  <th>Permuta</th>
                   <th>Total</th>
                   <th>Acoes</th>
                 </tr>
@@ -651,7 +655,9 @@ export function MedicaoDetailSection(props: {
                               [item.id]: {
                                 valorUnitario: current[item.id]?.valorUnitario ?? item.valorUnitario,
                                 quantidadeFaturada: event.target.value,
-                                unidadeFaturada: current[item.id]?.unidadeFaturada ?? item.unidadeFaturada
+                                unidadeFaturada: current[item.id]?.unidadeFaturada ?? item.unidadeFaturada,
+                                permutaPercentual:
+                                  current[item.id]?.permutaPercentual ?? item.permutaPercentual ?? "0"
                               }
                             }))
                           }
@@ -676,7 +682,9 @@ export function MedicaoDetailSection(props: {
                               valorUnitario: current[item.id]?.valorUnitario ?? item.valorUnitario,
                               quantidadeFaturada:
                                 current[item.id]?.quantidadeFaturada ?? item.quantidadeFaturada,
-                              unidadeFaturada: event.target.value as "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO"
+                              unidadeFaturada: event.target.value as "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO",
+                              permutaPercentual:
+                                current[item.id]?.permutaPercentual ?? item.permutaPercentual ?? "0"
                             }
                           }))
                         }
@@ -703,7 +711,9 @@ export function MedicaoDetailSection(props: {
                                 valorUnitario: event.target.value,
                                 quantidadeFaturada:
                                   current[item.id]?.quantidadeFaturada ?? item.quantidadeFaturada,
-                                unidadeFaturada: current[item.id]?.unidadeFaturada ?? item.unidadeFaturada
+                                unidadeFaturada: current[item.id]?.unidadeFaturada ?? item.unidadeFaturada,
+                                permutaPercentual:
+                                  current[item.id]?.permutaPercentual ?? item.permutaPercentual ?? "0"
                               }
                             }))
                           }
@@ -719,17 +729,22 @@ export function MedicaoDetailSection(props: {
                               draft?.quantidadeFaturada ?? item.quantidadeFaturada ?? 0
                             );
                             const unidadeFaturada = draft?.unidadeFaturada ?? item.unidadeFaturada;
+                            const permutaPercentual = Number(
+                              draft?.permutaPercentual ?? item.permutaPercentual ?? 0
+                            );
 
-                            const teveMudancaFaturamento =
+                            const teveMudanca =
                               unidadeFaturada !== item.unidadeFaturada ||
-                              quantidadeFaturada !== Number(item.quantidadeFaturada);
+                              quantidadeFaturada !== Number(item.quantidadeFaturada) ||
+                              permutaPercentual !== Number(item.permutaPercentual ?? 0);
 
-                            if (teveMudancaFaturamento) {
+                            if (teveMudanca) {
                               onUpdateItemFaturamento(
                                 item.id,
                                 valorUnitario,
                                 quantidadeFaturada,
-                                unidadeFaturada
+                                unidadeFaturada,
+                                permutaPercentual
                               );
                               return;
                             }
@@ -739,6 +754,74 @@ export function MedicaoDetailSection(props: {
                         >
                           Salvar item
                         </button>
+                      </div>
+                    </td>
+                    <td style={{ minWidth: 220 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "92px 1fr", gap: 8 }}>
+                        <select
+                          className="field-control"
+                          disabled={!canEditContent || isPending}
+                          value={
+                            Number(itemDrafts[item.id]?.permutaPercentual ?? item.permutaPercentual ?? 0) > 0
+                              ? "SIM"
+                              : "NAO"
+                          }
+                          onChange={(event) =>
+                            setItemDrafts((current) => {
+                              const currentPermuta =
+                                current[item.id]?.permutaPercentual ?? item.permutaPercentual ?? "0";
+
+                              return {
+                                ...current,
+                                [item.id]: {
+                                  valorUnitario: current[item.id]?.valorUnitario ?? item.valorUnitario,
+                                  quantidadeFaturada:
+                                    current[item.id]?.quantidadeFaturada ?? item.quantidadeFaturada,
+                                  unidadeFaturada:
+                                    current[item.id]?.unidadeFaturada ?? item.unidadeFaturada,
+                                  permutaPercentual:
+                                    event.target.value === "SIM"
+                                      ? currentPermuta && currentPermuta !== "0" ? currentPermuta : "100"
+                                      : "0"
+                                }
+                              };
+                            })
+                          }
+                        >
+                          <option value="NAO">Nao</option>
+                          <option value="SIM">Sim</option>
+                        </select>
+                        <input
+                          className="field-control"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          placeholder="%"
+                          disabled={
+                            !canEditContent ||
+                            isPending ||
+                            Number(itemDrafts[item.id]?.permutaPercentual ?? item.permutaPercentual ?? 0) <= 0
+                          }
+                          value={
+                            Number(itemDrafts[item.id]?.permutaPercentual ?? item.permutaPercentual ?? 0) > 0
+                              ? itemDrafts[item.id]?.permutaPercentual ?? item.permutaPercentual ?? "0"
+                              : ""
+                          }
+                          onChange={(event) =>
+                            setItemDrafts((current) => ({
+                              ...current,
+                              [item.id]: {
+                                valorUnitario: current[item.id]?.valorUnitario ?? item.valorUnitario,
+                                quantidadeFaturada:
+                                  current[item.id]?.quantidadeFaturada ?? item.quantidadeFaturada,
+                                unidadeFaturada:
+                                  current[item.id]?.unidadeFaturada ?? item.unidadeFaturada,
+                                permutaPercentual: event.target.value
+                              }
+                            }))
+                          }
+                        />
                       </div>
                     </td>
                     <td>
