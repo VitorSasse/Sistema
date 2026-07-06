@@ -7,6 +7,7 @@ export const medicaoPreviewSchema = z.object({
   obraId: z.string().uuid().optional().nullable(),
   tipoMedicao: z.enum(["UNICA", "SEMANAL", "QUINZENAL", "MENSAL"]),
   cobrancaMaterial: z.enum(["CARGA", "M3"]).default("CARGA"),
+  permutaPercentual: z.number().min(0).max(100).default(0),
   observacao: z.string().trim().max(500).optional().or(z.literal(""))
 });
 
@@ -15,8 +16,7 @@ export const medicaoCreateSchema = medicaoPreviewSchema.extend({
     .array(
       z.object({
         lancamentoId: z.string().uuid(),
-        valorUnitario: z.number().min(0),
-        permutaPercentual: z.number().min(0).max(100).default(0)
+        valorUnitario: z.number().min(0)
       })
     )
     .min(1)

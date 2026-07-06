@@ -1052,6 +1052,7 @@ model Medicao {
   status                    StatusMedicao @default(CRIADA)
   valorTotal                Decimal       @default(0) @db.Decimal(14, 2)
   descontoValor             Decimal       @default(0) @db.Decimal(14, 2)
+  permutaPercentual         Decimal       @default(0) @db.Decimal(5, 2)
   observacao                String?
   observacaoInterna         String?
   justificativaCancelamento String?
@@ -1095,7 +1096,6 @@ model MedicaoItem {
   m3SeAplicavel      Decimal?         @db.Decimal(12, 2)
   valorUnitario      Decimal          @default(0) @db.Decimal(12, 2)
   valorTotalItem     Decimal          @default(0) @db.Decimal(14, 2)
-  permutaPercentual  Decimal          @default(0) @db.Decimal(5, 2)
   origem             OrigemLancamento
   deletedAt          DateTime?
   createdAt          DateTime         @default(now())

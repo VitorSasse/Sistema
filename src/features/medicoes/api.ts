@@ -7,7 +7,6 @@ import type {
   MedicaoFilters,
   MedicaoFormState,
   MedicaoListItem,
-  MedicaoPreviewPermutaMap,
   MedicaoPreviewValueMap,
   MedicaoPreviewResumo,
   MedicaoStatus,
@@ -31,7 +30,10 @@ function buildListQuery(filters: MedicaoFilters) {
 function toPayload(form: MedicaoFormState) {
   return {
     ...form,
-    obraId: form.obraId || null
+    obraId: form.obraId || null,
+    permutaPercentual: form.permutaPercentual.trim()
+      ? Number(form.permutaPercentual.replace(",", "."))
+      : 0
   };
 }
 
@@ -74,8 +76,7 @@ export async function previsualizarMedicao(form: MedicaoFormState) {
 
 export async function gerarMedicaoComValores(
   form: MedicaoFormState,
-  itemValues: MedicaoPreviewValueMap,
-  itemPermutaValues: MedicaoPreviewPermutaMap = {}
+  itemValues: MedicaoPreviewValueMap
 ) {
   const response = await fetch("/api/medicoes", {
     method: "POST",
@@ -84,10 +85,7 @@ export async function gerarMedicaoComValores(
       ...toPayload(form),
       itens: Object.entries(itemValues).map(([lancamentoId, valorUnitario]) => ({
         lancamentoId,
-        valorUnitario: valorUnitario.trim() ? Number(valorUnitario.replace(",", ".")) : null,
-        permutaPercentual: itemPermutaValues[lancamentoId]?.trim()
-          ? Number(itemPermutaValues[lancamentoId].replace(",", "."))
-          : 0
+        valorUnitario: valorUnitario.trim() ? Number(valorUnitario.replace(",", ".")) : null
       }))
     })
   });
@@ -186,7 +184,6 @@ export async function atualizarValorItemMedicao(params: {
   valorUnitario: number;
   quantidadeFaturada?: number;
   unidadeFaturada?: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
-  permutaPercentual?: number;
 }) {
   const response = await fetch(`/api/medicoes/${params.medicaoId}/itens/${params.itemId}`, {
     method: "PATCH",
@@ -194,8 +191,7 @@ export async function atualizarValorItemMedicao(params: {
     body: JSON.stringify({
       valorUnitario: params.valorUnitario,
       quantidadeFaturada: params.quantidadeFaturada,
-      unidadeFaturada: params.unidadeFaturada,
-      permutaPercentual: params.permutaPercentual
+      unidadeFaturada: params.unidadeFaturada
     })
   });
   return {
@@ -211,6 +207,7 @@ export async function atualizarDadosMedicao(
   observacao: string,
   observacaoInterna: string,
   descontoValor: string,
+  permutaPercentual: string,
   numeroPedido: string,
   numeroNotaFiscal: string
 ) {
@@ -223,6 +220,9 @@ export async function atualizarDadosMedicao(
       observacao,
       observacaoInterna,
       descontoValor: descontoValor.trim() ? Number(descontoValor.replace(",", ".")) : 0,
+      permutaPercentual: permutaPercentual.trim()
+        ? Number(permutaPercentual.replace(",", "."))
+        : 0,
       numeroPedido,
       numeroNotaFiscal
     })

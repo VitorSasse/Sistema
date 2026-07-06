@@ -31,7 +31,6 @@ type MedicaoEditavelSnapshot = {
     material: string | null;
     unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
     valorUnitario: Prisma.Decimal;
-    permutaPercentual: Prisma.Decimal;
   }>;
 };
 
@@ -295,8 +294,7 @@ async function buscarMedicaoEditavel(db: DbClient, id: string) {
           tipoServico: true,
           material: true,
           unidadeFaturada: true,
-          valorUnitario: true,
-          permutaPercentual: true
+          valorUnitario: true
         }
       }
     }
@@ -363,6 +361,7 @@ export async function buscarLancamentosElegiveisParaMedicao(
     obraId: medicao.obraId,
     tipoMedicao: medicao.tipoMedicao,
     cobrancaMaterial,
+    permutaPercentual: 0,
     observacao: medicao.observacao ?? ""
   });
 
@@ -414,7 +413,6 @@ export async function adicionarLancamentosNaMedicao(
       m3SeAplicavel: item.unidadeFaturada === "M3" ? item.quantidadeFaturada : null,
       valorUnitario,
       valorTotalItem,
-      permutaPercentual: 0,
       origem: item.origem
     };
   });
@@ -470,9 +468,6 @@ export async function criarMedicao(
   const valorPorLancamento = new Map(
     input.itens.map((item) => [item.lancamentoId, item.valorUnitario])
   );
-  const permutaPorLancamento = new Map(
-    input.itens.map((item) => [item.lancamentoId, item.permutaPercentual ?? 0])
-  );
   const eligibleIds = new Set(eligibleItems.map((item) => item.id));
 
   if (valorPorLancamento.size !== input.itens.length) {
@@ -489,16 +484,15 @@ export async function criarMedicao(
 
   const itensMedicao = eligibleItems.map((item) => {
     const valorUnitario = valorPorLancamento.get(item.id);
-    const permutaPercentual = permutaPorLancamento.get(item.id) ?? 0;
 
     if (valorUnitario === undefined || Number.isNaN(valorUnitario) || valorUnitario < 0) {
       throw new Error("VALOR_UNITARIO_INVALIDO");
     }
 
     if (
-      Number.isNaN(permutaPercentual) ||
-      permutaPercentual < 0 ||
-      permutaPercentual > 100
+      !Number.isFinite(input.permutaPercentual) ||
+      input.permutaPercentual < 0 ||
+      input.permutaPercentual > 100
     ) {
       throw new Error("PERMUTA_PERCENTUAL_INVALIDA");
     }
@@ -506,7 +500,6 @@ export async function criarMedicao(
     return {
       item,
       valorUnitario,
-      permutaPercentual,
       valorTotalItem: Number(item.quantidadeFaturada) * valorUnitario
     };
   });
@@ -530,6 +523,7 @@ export async function criarMedicao(
           periodoFinal,
           observacao: input.observacao || null,
           valorTotal,
+          permutaPercentual: input.permutaPercentual ?? 0,
           fechadoPorId: null,
           fechadoEm: null,
           status: "CRIADA"
@@ -568,7 +562,6 @@ export async function criarMedicao(
           : null,
       valorUnitario: medicaoItem.valorUnitario,
       valorTotalItem: medicaoItem.valorTotalItem,
-      permutaPercentual: medicaoItem.permutaPercentual,
       origem: medicaoItem.item.origem
     }))
   });
@@ -606,7 +599,6 @@ export async function atualizarValorItemMedicao(
     valorUnitario: number;
     quantidadeFaturada?: number;
     unidadeFaturada?: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
-    permutaPercentual?: number;
   }
 ) {
   const item = await db.medicaoItem.findFirst({
@@ -624,7 +616,6 @@ export async function atualizarValorItemMedicao(
       quantidadeFaturada: true,
       unidadeFaturada: true,
       valorTotalItem: true,
-      permutaPercentual: true,
       medicao: {
         select: {
           status: true
@@ -642,15 +633,6 @@ export async function atualizarValorItemMedicao(
   }
 
   const quantidadeFaturada = params.quantidadeFaturada ?? Number(item.quantidadeFaturada);
-  const permutaPercentual =
-    params.permutaPercentual === undefined
-      ? Number(item.permutaPercentual ?? 0)
-      : params.permutaPercentual;
-
-  if (!Number.isFinite(permutaPercentual) || permutaPercentual < 0 || permutaPercentual > 100) {
-    throw new Error("PERMUTA_PERCENTUAL_INVALIDA");
-  }
-
   const valorTotalItem = quantidadeFaturada * params.valorUnitario;
   const deltaValorTotal = Number((valorTotalItem - Number(item.valorTotalItem)).toFixed(2));
 
@@ -660,8 +642,7 @@ export async function atualizarValorItemMedicao(
       quantidadeFaturada,
       unidadeFaturada: params.unidadeFaturada ?? item.unidadeFaturada,
       valorUnitario: params.valorUnitario,
-      valorTotalItem,
-      permutaPercentual
+      valorTotalItem
     }
   });
 
@@ -694,6 +675,7 @@ export async function atualizarDadosMedicao(
     observacao: string | null;
     observacaoInterna: string | null;
     descontoValor: number;
+    permutaPercentual: number;
     numeroPedido: string | null;
     numeroNotaFiscal: string | null;
   }
@@ -748,6 +730,14 @@ export async function atualizarDadosMedicao(
     throw new Error("PERIODO_INVALIDO");
   }
 
+  if (
+    !Number.isFinite(params.permutaPercentual) ||
+    params.permutaPercentual < 0 ||
+    params.permutaPercentual > 100
+  ) {
+    throw new Error("PERMUTA_PERCENTUAL_INVALIDA");
+  }
+
   if (medicao.itens.length > 0) {
     const menorDataItem = medicao.itens.reduce((current, item) =>
       item.data.getTime() < current.getTime() ? item.data : current
@@ -774,6 +764,7 @@ export async function atualizarDadosMedicao(
       observacao: params.observacao,
       observacaoInterna: params.observacaoInterna,
       descontoValor: params.descontoValor,
+      permutaPercentual: params.permutaPercentual,
       numeroPedido: params.numeroPedido,
       numeroNotaFiscal: params.numeroNotaFiscal
     }

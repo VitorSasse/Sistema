@@ -50,6 +50,8 @@ export function MedicaoFormSection(props: {
     submitLabel = "Buscar lancamentos validos",
     generateLabel = "Gerar medicao"
   } = props;
+  const permutaPercentual = Number(form.permutaPercentual.replace(",", ".") || 0);
+  const possuiPermuta = Number.isFinite(permutaPercentual) && permutaPercentual > 0;
 
   return (
     <section className="surface section-card">
@@ -110,6 +112,38 @@ export function MedicaoFormSection(props: {
               }))}
               placeholder="Digite a primeira letra da obra"
               emptyLabel="Nenhuma obra encontrada para esse cliente."
+            />
+          </MedicaoField>
+          <MedicaoField label="Permuta">
+            <select
+              className="field-control"
+              value={possuiPermuta ? "SIM" : "NAO"}
+              onChange={(event) =>
+                onChange(
+                  "permutaPercentual",
+                  event.target.value === "SIM"
+                    ? form.permutaPercentual.trim() && form.permutaPercentual !== "0"
+                      ? form.permutaPercentual
+                      : "100"
+                    : "0"
+                )
+              }
+            >
+              <option value="NAO">Nao</option>
+              <option value="SIM">Sim</option>
+            </select>
+          </MedicaoField>
+          <MedicaoField label="Percentual da permuta (%)">
+            <input
+              className="field-control"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={possuiPermuta ? form.permutaPercentual : ""}
+              onChange={(event) => onChange("permutaPercentual", event.target.value)}
+              placeholder="Ex.: 30"
+              disabled={!possuiPermuta}
             />
           </MedicaoField>
         </div>

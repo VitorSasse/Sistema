@@ -136,6 +136,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       status: medicao.status,
       observacao: medicao.observacao,
       descontoValor: Number(medicao.descontoValor ?? 0),
+      permutaPercentual: Number(medicao.permutaPercentual ?? 0),
       tipoRelatorio,
       logoPath: resolveReportLogoSource(),
       itens: medicao.itens.map((item) => ({

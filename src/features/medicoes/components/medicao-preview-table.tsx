@@ -1,5 +1,4 @@
 import type {
-  MedicaoPreviewPermutaMap,
   MedicaoPreviewResumo,
   MedicaoPreviewValueMap,
   PreviewItem
@@ -11,10 +10,8 @@ export function MedicaoPreviewTable(props: {
   items: PreviewItem[];
   resumo: MedicaoPreviewResumo | null;
   itemValues: MedicaoPreviewValueMap;
-  itemPermutaValues?: MedicaoPreviewPermutaMap;
   editingId: string | null;
   onChangeItemValue: (itemId: string, value: string) => void;
-  onChangeItemPermuta?: (itemId: string, value: string) => void;
   onEdit?: (item: PreviewItem) => void;
   title?: string;
   description?: string;
@@ -24,17 +21,14 @@ export function MedicaoPreviewTable(props: {
     items,
     resumo,
     itemValues,
-    itemPermutaValues,
     editingId,
     onChangeItemValue,
-    onChangeItemPermuta,
     onEdit,
     title = "Itens elegiveis",
     description = "Nenhuma pre-visualizacao carregada.",
     emptyDescription
   } = props;
   const showActions = Boolean(onEdit);
-  const showPermuta = Boolean(itemPermutaValues && onChangeItemPermuta);
   const valorTotalPreview = items.reduce((acc, item) => {
     const value = itemValues[item.id]?.replace(",", ".").trim() ?? "";
     const valorUnitario = value ? Number(value) : 0;
@@ -83,7 +77,6 @@ export function MedicaoPreviewTable(props: {
               <th>Colaborador</th>
               <th>Faturado</th>
               <th>Valor unit.</th>
-              {showPermuta ? <th>Permuta</th> : null}
               <th>Valor total</th>
               {showActions ? <th>Acoes</th> : null}
             </tr>
@@ -96,10 +89,6 @@ export function MedicaoPreviewTable(props: {
                 parsedValue !== null && Number.isFinite(parsedValue)
                   ? Number(item.quantidadeFaturada) * parsedValue
                   : null;
-              const rawPermuta = itemPermutaValues?.[item.id] ?? "0";
-              const permutaPercentual = Number(rawPermuta.replace(",", ".") || 0);
-              const possuiPermuta = Number.isFinite(permutaPercentual) && permutaPercentual > 0;
-
               return (
                 <tr
                   key={item.id}
@@ -131,36 +120,6 @@ export function MedicaoPreviewTable(props: {
                       onChange={(event) => onChangeItemValue(item.id, event.target.value)}
                     />
                   </td>
-                  {showPermuta ? (
-                    <td style={{ minWidth: 220 }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "92px 1fr", gap: 8 }}>
-                        <select
-                          className="field-control"
-                          value={possuiPermuta ? "SIM" : "NAO"}
-                          onChange={(event) =>
-                            onChangeItemPermuta?.(
-                              item.id,
-                              event.target.value === "SIM" ? rawPermuta && rawPermuta !== "0" ? rawPermuta : "100" : "0"
-                            )
-                          }
-                        >
-                          <option value="NAO">Nao</option>
-                          <option value="SIM">Sim</option>
-                        </select>
-                        <input
-                          className="field-control"
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          placeholder="%"
-                          disabled={!possuiPermuta}
-                          value={possuiPermuta ? rawPermuta : ""}
-                          onChange={(event) => onChangeItemPermuta?.(item.id, event.target.value)}
-                        />
-                      </div>
-                    </td>
-                  ) : null}
                   <td>{valorTotalItem !== null ? formatCurrency(valorTotalItem) : "--"}</td>
                   {showActions ? (
                     <td>

@@ -27,6 +27,8 @@ function buildYearRange(year: number) {
 }
 
 const monthLabels = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+const valorBaseSql = Prisma.sql`GREATEST(COALESCE(medicao."valorTotal", 0) - COALESCE(medicao."descontoValor", 0), 0)`;
+const valorLiquidoSql = Prisma.sql`GREATEST(${valorBaseSql} - (${valorBaseSql} * COALESCE(medicao."permutaPercentual", 0) / 100), 0)`;
 
 function parseSelectedMonths(value: string | null) {
   if (!value?.trim()) {
@@ -65,7 +67,7 @@ export async function GET(request: NextRequest) {
           medicao.id,
           medicao.status,
           DATE_TRUNC('month', MAX(item."data")) AS competencia,
-          COALESCE(medicao."valorTotal", 0) - COALESCE(medicao."descontoValor", 0) AS "valorLiquido"
+          ${valorLiquidoSql} AS "valorLiquido"
         FROM "Medicao" medicao
         INNER JOIN "MedicaoItem" item
           ON item."medicaoId" = medicao.id

@@ -24,6 +24,22 @@ function optionLabel(option: OperationalOption) {
     .join(" - ");
 }
 
+function calcularValorLiquidoMedicao(medicao: MedicaoListItem) {
+  const bruto = Number(medicao.valorTotal);
+  const desconto = Number(medicao.descontoValor ?? 0);
+  const permutaPercentual = Number(medicao.permutaPercentual ?? 0);
+  const base = Math.max(0, bruto - desconto);
+  const valorPermuta = base * (permutaPercentual / 100);
+
+  return {
+    bruto,
+    desconto,
+    permutaPercentual,
+    valorPermuta,
+    liquido: Math.max(0, base - valorPermuta)
+  };
+}
+
 export function MedicaoListSection(props: {
   filters: MedicaoFilters;
   clientes: OperationalOption[];
@@ -192,7 +208,10 @@ export function MedicaoListSection(props: {
               </tr>
             </thead>
             <tbody>
-              {visibleItems.map((medicao) => (
+              {visibleItems.map((medicao) => {
+                const valores = calcularValorLiquidoMedicao(medicao);
+
+                return (
                 <tr key={medicao.id}>
                   <td>{medicao.codigoMedicao}</td>
                   <td>
@@ -224,10 +243,14 @@ export function MedicaoListSection(props: {
                   </td>
                   <td>{medicao.itens.length}</td>
                   <td>
-                    <div>{formatCurrency(Number(medicao.valorTotal) - Number(medicao.descontoValor ?? 0))}</div>
-                    {Number(medicao.descontoValor ?? 0) > 0 ? (
+                    <div>{formatCurrency(valores.liquido)}</div>
+                    {valores.desconto > 0 || valores.valorPermuta > 0 ? (
                       <div className="subtle">
-                        Bruto: {formatCurrency(medicao.valorTotal)}
+                        Bruto: {formatCurrency(valores.bruto)}
+                        {valores.desconto > 0 ? ` | Desc.: ${formatCurrency(valores.desconto)}` : ""}
+                        {valores.valorPermuta > 0
+                          ? ` | Permuta ${valores.permutaPercentual.toFixed(2).replace(".", ",")}%: ${formatCurrency(valores.valorPermuta)}`
+                          : ""}
                       </div>
                     ) : null}
                   </td>
@@ -250,7 +273,8 @@ export function MedicaoListSection(props: {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

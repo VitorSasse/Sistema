@@ -27,6 +27,7 @@ type MedicaoPdfProps = {
   status: string;
   observacao: string | null;
   descontoValor: string | number;
+  permutaPercentual: string | number;
   itens: MedicaoPdfItem[];
   tipoRelatorio: MedicaoPdfTipo;
   logoPath?: string | null;
@@ -222,6 +223,9 @@ export function MedicaoPdfDocument(props: MedicaoPdfProps) {
   const valorBruto = items.reduce((acc, item) => acc + Number(item.valorTotalItem), 0);
   const descontoValor = Math.max(0, Number(props.descontoValor || 0));
   const valorComDesconto = Math.max(0, valorBruto - descontoValor);
+  const permutaPercentual = Math.min(100, Math.max(0, Number(props.permutaPercentual || 0)));
+  const valorPermuta = valorComDesconto * (permutaPercentual / 100);
+  const valorFinal = Math.max(0, valorComDesconto - valorPermuta);
 
   return (
     <Document>
@@ -346,6 +350,10 @@ export function MedicaoPdfDocument(props: MedicaoPdfProps) {
             <Text style={styles.footerLine}>Valor bruto: {formatCurrency(valorBruto)}</Text>
             <Text style={styles.footerLine}>Desconto: {formatCurrency(descontoValor)}</Text>
             <Text style={styles.footerLine}>Valor com desconto: {formatCurrency(valorComDesconto)}</Text>
+            <Text style={styles.footerLine}>
+              Permuta: {permutaPercentual.toFixed(2).replace(".", ",")}% / {formatCurrency(valorPermuta)}
+            </Text>
+            <Text style={styles.footerLine}>Valor final: {formatCurrency(valorFinal)}</Text>
             <Text style={styles.footerLine}>Observacoes: {props.observacao ?? "-"}</Text>
           </View>
         </View>

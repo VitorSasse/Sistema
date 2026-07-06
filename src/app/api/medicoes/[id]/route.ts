@@ -43,6 +43,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     observacao?: string | null;
     observacaoInterna?: string | null;
     descontoValor?: number | null;
+    permutaPercentual?: number | null;
     numeroPedido?: string | null;
     numeroNotaFiscal?: string | null;
   };
@@ -61,6 +62,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           payload.descontoValor == null || Number.isNaN(Number(payload.descontoValor))
             ? 0
             : Math.max(0, Number(payload.descontoValor)),
+        permutaPercentual:
+          payload.permutaPercentual == null || Number.isNaN(Number(payload.permutaPercentual))
+            ? 0
+            : Number(payload.permutaPercentual),
         numeroPedido: payload.numeroPedido?.trim() ? payload.numeroPedido.trim() : null,
         numeroNotaFiscal: payload.numeroNotaFiscal?.trim()
           ? payload.numeroNotaFiscal.trim()
@@ -106,6 +111,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           message: `O novo periodo precisa abranger todos os itens ja vinculados a esta medicao, entre ${dataInicialItem} e ${dataFinalItem}.`
         },
         { status: 409 }
+      );
+    }
+
+    if (error instanceof Error && error.message === "PERMUTA_PERCENTUAL_INVALIDA") {
+      return NextResponse.json(
+        { message: "O percentual de permuta precisa estar entre 0% e 100%." },
+        { status: 400 }
       );
     }
 

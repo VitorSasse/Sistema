@@ -49,14 +49,16 @@ type DashboardPayload = {
     valorPermuta: number;
     valorNaoPermuta: number;
     valorBase: number;
-    totalServicosComPermuta: number;
-    servicos: Array<{
-      tipoServico: string;
-      valorServico: number;
+    totalMedicoesComPermuta: number;
+    clientes: Array<{
+      clienteId: string;
+      clienteCodigo: string;
+      clienteNome: string;
+      valorBase: number;
       valorPermuta: number;
       valorNaoPermuta: number;
       percentualPermuta: number;
-      totalItens: number;
+      totalMedicoes: number;
     }>;
   };
 };
@@ -107,7 +109,7 @@ function PermutaTooltip({
   payload
 }: {
   active?: boolean;
-  payload?: Array<{ payload: DashboardPayload["permuta"]["servicos"][number] & { label: string } }>;
+  payload?: Array<{ payload: DashboardPayload["permuta"]["clientes"][number] & { label: string } }>;
 }) {
   if (!active || !payload?.length) {
     return null;
@@ -117,12 +119,13 @@ function PermutaTooltip({
 
   return (
     <div className="billing-tooltip">
-      <strong>{item.tipoServico}</strong>
-      <span>Base do servico: {formatCurrency(item.valorServico)}</span>
+      <strong>{item.clienteNome}</strong>
+      <span>{item.clienteCodigo}</span>
+      <span>Base da medicao: {formatCurrency(item.valorBase)}</span>
       <span>Permuta: {formatCurrency(item.valorPermuta)}</span>
       <span>Sem permuta: {formatCurrency(item.valorNaoPermuta)}</span>
       <span>Percentual em permuta: {formatPercent(item.percentualPermuta)}</span>
-      <span>Itens medidos: {item.totalItens}</span>
+      <span>Medicoes: {item.totalMedicoes}</span>
     </div>
   );
 }
@@ -221,11 +224,11 @@ export function FaturamentoDashboard() {
   const topFive = useMemo(() => (data?.ranking ?? []).slice(0, 5), [data]);
   const permutaData = useMemo(
     () =>
-      (data?.permuta.servicos ?? [])
-        .filter((item) => item.valorServico > 0)
+      (data?.permuta.clientes ?? [])
+        .filter((item) => item.valorBase > 0)
         .map((item) => ({
           ...item,
-          label: item.tipoServico.length > 18 ? `${item.tipoServico.slice(0, 18)}...` : item.tipoServico
+          label: shortClientName(item.clienteNome)
         })),
     [data]
   );
@@ -511,9 +514,9 @@ export function FaturamentoDashboard() {
         <div className="billing-ranking-header">
           <div>
             <span className="billing-kicker">Permuta</span>
-            <h2 className="section-title">Percentual de permuta por servico</h2>
+            <h2 className="section-title">Percentual de permuta por cliente</h2>
             <p className="section-copy">
-              Leitura paralela ao faturamento principal. A permuta nao altera o grafico de receita por cliente.
+              Leitura do abatimento aplicado no valor final das medicoes, sem abrir percentual por item.
             </p>
           </div>
           <span className="badge badge-info">
@@ -524,7 +527,7 @@ export function FaturamentoDashboard() {
         {permutaData.length === 0 ? (
           <div className="billing-empty-state billing-empty-state-compact">
             <strong>Sem permuta no periodo</strong>
-            <p>Nenhum item de medicao foi marcado como permuta nos filtros atuais.</p>
+            <p>Nenhuma medicao recebeu percentual de permuta nos filtros atuais.</p>
           </div>
         ) : (
           <div className="billing-chart-panel">
@@ -532,17 +535,17 @@ export function FaturamentoDashboard() {
               <article className="billing-chart-summary-card is-neutral">
                 <span>Base analisada</span>
                 <strong>{formatCurrency(data?.permuta.valorBase ?? 0)}</strong>
-                <small>Total dos itens medidos no periodo.</small>
+                <small>Valor bruto menos desconto das medicoes no periodo.</small>
               </article>
               <article className="billing-chart-summary-card is-warn">
                 <span>Valor em permuta</span>
                 <strong>{formatCurrency(data?.permuta.valorPermuta ?? 0)}</strong>
-                <small>{data?.permuta.totalServicosComPermuta ?? 0} servico(s) com permuta.</small>
+                <small>{data?.permuta.totalMedicoesComPermuta ?? 0} medicao(oes) com permuta.</small>
               </article>
               <article className="billing-chart-summary-card is-success">
                 <span>Sem permuta</span>
                 <strong>{formatCurrency(data?.permuta.valorNaoPermuta ?? 0)}</strong>
-                <small>Parcela sem marcacao de permuta.</small>
+                <small>Parcela restante apos o abatimento de permuta.</small>
               </article>
             </div>
 
@@ -558,7 +561,7 @@ export function FaturamentoDashboard() {
             </div>
 
             <div className="billing-chart-shell">
-              <ExpandableChart title="Percentual de permuta por servico" height={360}>
+              <ExpandableChart title="Percentual de permuta por cliente" height={360}>
                 {({ height, width }) => (
                   <ResponsiveContainer width={width} height={height}>
                     <ComposedChart

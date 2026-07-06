@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         ITEM_MEDICAO_INVALIDO: "A lista de itens da medicao nao confere com a pre-visualizacao atual.",
         VALOR_UNITARIO_OBRIGATORIO: "Preencha o valor unitario de todos os itens antes de gerar a medicao.",
         VALOR_UNITARIO_INVALIDO: "Existe valor unitario invalido em um ou mais itens.",
-        PERMUTA_PERCENTUAL_INVALIDA: "Existe percentual de permuta invalido em um ou mais itens."
+        PERMUTA_PERCENTUAL_INVALIDA: "O percentual de permuta da medicao precisa estar entre 0% e 100%."
       };
 
       return NextResponse.json(

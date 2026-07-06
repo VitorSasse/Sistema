@@ -20,7 +20,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     valorUnitario?: number;
     quantidadeFaturada?: number;
     unidadeFaturada?: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
-    permutaPercentual?: number;
   };
   const valorUnitario = Number(payload.valorUnitario);
   const quantidadeFaturada =
@@ -28,10 +27,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       ? undefined
       : parseDecimalInput(payload.quantidadeFaturada);
   const unidadeFaturada = payload.unidadeFaturada;
-  const permutaPercentual =
-    payload.permutaPercentual === undefined
-      ? undefined
-      : parseDecimalInput(payload.permutaPercentual);
 
   if (!Number.isFinite(valorUnitario) || valorUnitario < 0) {
     return NextResponse.json(
@@ -64,16 +59,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
-  if (
-    permutaPercentual !== undefined &&
-    (!Number.isFinite(permutaPercentual) || permutaPercentual < 0 || permutaPercentual > 100)
-  ) {
-    return NextResponse.json(
-      { message: "Percentual de permuta invalido." },
-      { status: 400 }
-    );
-  }
-
   try {
     const medicao = await prisma.$transaction((tx) =>
       atualizarValorItemMedicao(tx, {
@@ -81,8 +66,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         itemId,
         valorUnitario,
         quantidadeFaturada,
-        unidadeFaturada,
-        permutaPercentual
+        unidadeFaturada
       })
     );
 
@@ -100,8 +84,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         message:
           error instanceof Error && error.message === "ITEM_MEDICAO_NAO_ENCONTRADO"
             ? "Item da medicao nao encontrado."
-            : error instanceof Error && error.message === "PERMUTA_PERCENTUAL_INVALIDA"
-              ? "Percentual de permuta invalido."
             : "Nao foi possivel atualizar o valor do item."
       },
       { status: 400 }

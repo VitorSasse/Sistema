@@ -32,12 +32,17 @@ type TotalsRow = {
   totalClientes: bigint;
 };
 
-type PermutaServicoRow = {
-  tipoServico: string;
-  valorServico: Prisma.Decimal | null;
+type PermutaClienteRow = {
+  clienteId: string;
+  clienteCodigo: string;
+  clienteNome: string;
+  valorBase: Prisma.Decimal | null;
   valorPermuta: Prisma.Decimal | null;
-  totalItens: bigint;
+  totalMedicoes: bigint;
 };
+
+const valorBaseSql = Prisma.sql`GREATEST(COALESCE(medicao."valorTotal", 0) - COALESCE(medicao."descontoValor", 0), 0)`;
+const valorLiquidoSql = Prisma.sql`GREATEST(${valorBaseSql} - (${valorBaseSql} * COALESCE(medicao."permutaPercentual", 0) / 100), 0)`;
 
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1, 0, 0, 0, 0);
@@ -152,7 +157,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const [ranking, totals, permutaServicoRows] = await Promise.all([
+  const [ranking, totals, permutaClienteRows] = await Promise.all([
     prisma.$queryRaw<RankingRow[]>(Prisma.sql`
       WITH medicoes_periodo AS (
         SELECT
@@ -160,7 +165,7 @@ export async function GET(request: NextRequest) {
           medicao.status,
           medicao."clienteId",
           medicao."codigoMedicao",
-          COALESCE(medicao."valorTotal", 0) - COALESCE(medicao."descontoValor", 0) AS "valorLiquido"
+          ${valorLiquidoSql} AS "valorLiquido"
         FROM "Medicao" medicao
         INNER JOIN "MedicaoItem" item
           ON item."medicaoId" = medicao.id
@@ -191,7 +196,7 @@ export async function GET(request: NextRequest) {
           medicao.status,
           medicao."clienteId",
           medicao."codigoMedicao",
-          COALESCE(medicao."valorTotal", 0) - COALESCE(medicao."descontoValor", 0) AS "valorLiquido"
+          ${valorLiquidoSql} AS "valorLiquido"
         FROM "Medicao" medicao
         INNER JOIN "MedicaoItem" item
           ON item."medicaoId" = medicao.id
@@ -212,9 +217,13 @@ export async function GET(request: NextRequest) {
         COUNT(DISTINCT medicao."clienteId") AS "totalClientes"
       FROM medicoes_periodo medicao
     `),
-    prisma.$queryRaw<PermutaServicoRow[]>(Prisma.sql`
+    prisma.$queryRaw<PermutaClienteRow[]>(Prisma.sql`
       WITH medicoes_periodo AS (
-        SELECT medicao.id
+        SELECT
+          medicao.id,
+          medicao."clienteId",
+          ${valorBaseSql} AS "valorBase",
+          COALESCE(medicao."permutaPercentual", 0) AS "permutaPercentual"
         FROM "Medicao" medicao
         INNER JOIN "MedicaoItem" item
           ON item."medicaoId" = medicao.id
@@ -226,16 +235,17 @@ export async function GET(request: NextRequest) {
            AND MAX(item."data") <= ${period.end}
       )
       SELECT
-        COALESCE(item."tipoServico", 'Servico nao informado') AS "tipoServico",
-        COALESCE(SUM(item."valorTotalItem"), 0) AS "valorServico",
-        COALESCE(SUM(item."valorTotalItem" * item."permutaPercentual" / 100), 0) AS "valorPermuta",
-        COUNT(item.id) AS "totalItens"
-      FROM "MedicaoItem" item
-      INNER JOIN medicoes_periodo medicao ON medicao.id = item."medicaoId"
-      WHERE item."deletedAt" IS NULL
-      GROUP BY item."tipoServico"
-      HAVING COALESCE(SUM(item."valorTotalItem"), 0) > 0
-      ORDER BY "valorPermuta" DESC, "valorServico" DESC, "tipoServico" ASC
+        cliente.id AS "clienteId",
+        cliente.codigo AS "clienteCodigo",
+        cliente.nome AS "clienteNome",
+        COALESCE(SUM(medicao."valorBase"), 0) AS "valorBase",
+        COALESCE(SUM(medicao."valorBase" * medicao."permutaPercentual" / 100), 0) AS "valorPermuta",
+        COUNT(DISTINCT medicao.id) AS "totalMedicoes"
+      FROM medicoes_periodo medicao
+      INNER JOIN "Cliente" cliente ON cliente.id = medicao."clienteId"
+      GROUP BY cliente.id, cliente.codigo, cliente.nome
+      HAVING COALESCE(SUM(medicao."valorBase"), 0) > 0
+      ORDER BY "valorPermuta" DESC, "valorBase" DESC, cliente.nome ASC
     `)
   ]);
 
@@ -276,31 +286,33 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  const permutaServicos = permutaServicoRows.map((item) => {
-    const valorServico = Number(item.valorServico ?? 0);
+  const permutaClientes = permutaClienteRows.map((item) => {
+    const valorBase = Number(item.valorBase ?? 0);
     const valorPermuta = Number(item.valorPermuta ?? 0);
-    const percentualPermuta = valorServico > 0 ? (valorPermuta / valorServico) * 100 : 0;
+    const percentualPermuta = valorBase > 0 ? (valorPermuta / valorBase) * 100 : 0;
 
     return {
-      tipoServico: item.tipoServico,
-      valorServico,
+      clienteId: item.clienteId,
+      clienteCodigo: item.clienteCodigo,
+      clienteNome: item.clienteNome,
+      valorBase,
       valorPermuta,
-      valorNaoPermuta: Math.max(0, valorServico - valorPermuta),
+      valorNaoPermuta: Math.max(0, valorBase - valorPermuta),
       percentualPermuta,
-      totalItens: Number(item.totalItens)
+      totalMedicoes: Number(item.totalMedicoes)
     };
   });
 
-  const totalValorServicoPermuta = permutaServicos.reduce(
-    (acc, item) => acc + item.valorServico,
+  const totalValorBasePermuta = permutaClientes.reduce(
+    (acc, item) => acc + item.valorBase,
     0
   );
-  const totalValorPermuta = permutaServicos.reduce(
+  const totalValorPermuta = permutaClientes.reduce(
     (acc, item) => acc + item.valorPermuta,
     0
   );
   const percentualPermutaGeral =
-    totalValorServicoPermuta > 0 ? (totalValorPermuta / totalValorServicoPermuta) * 100 : 0;
+    totalValorBasePermuta > 0 ? (totalValorPermuta / totalValorBasePermuta) * 100 : 0;
 
   return NextResponse.json({
     period: {
@@ -323,10 +335,10 @@ export async function GET(request: NextRequest) {
     permuta: {
       percentualGeral: percentualPermutaGeral,
       valorPermuta: totalValorPermuta,
-      valorNaoPermuta: Math.max(0, totalValorServicoPermuta - totalValorPermuta),
-      valorBase: totalValorServicoPermuta,
-      totalServicosComPermuta: permutaServicos.filter((item) => item.valorPermuta > 0).length,
-      servicos: permutaServicos
+      valorNaoPermuta: Math.max(0, totalValorBasePermuta - totalValorPermuta),
+      valorBase: totalValorBasePermuta,
+      totalMedicoesComPermuta: permutaClientes.filter((item) => item.valorPermuta > 0).length,
+      clientes: permutaClientes
     }
   });
 }

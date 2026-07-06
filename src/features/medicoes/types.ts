@@ -50,6 +50,7 @@ export type MedicaoListItem = {
   periodoFinal: string;
   valorTotal: string;
   descontoValor: string;
+  permutaPercentual: string;
   numeroPedido: string | null;
   numeroNotaFiscal: string | null;
   cliente: { id: string; codigo: string; nome: string };
@@ -68,6 +69,7 @@ export type MedicaoDetail = {
   periodoFinal: string;
   valorTotal: string;
   descontoValor: string;
+  permutaPercentual: string;
   observacao: string | null;
   observacaoInterna: string | null;
   justificativaCancelamento: string | null;
@@ -111,7 +113,6 @@ export type MedicaoDetail = {
     quantidadeFaturada: string;
     valorUnitario: string;
     valorTotalItem: string;
-    permutaPercentual: string;
     lancamento: {
       id: string;
       clienteId: string;
@@ -151,6 +152,7 @@ export type MedicaoFormState = {
   obraId: string;
   tipoMedicao: MedicaoTipo;
   cobrancaMaterial: MedicaoCobrancaMaterial;
+  permutaPercentual: string;
   observacao: string;
 };
 
@@ -205,7 +207,6 @@ export type MedicaoPreviewResumo = {
 };
 
 export type MedicaoPreviewValueMap = Record<string, string>;
-export type MedicaoPreviewPermutaMap = Record<string, string>;
 
 export type MedicaoEligiblePayload = {
   cobrancaMaterial: MedicaoCobrancaMaterial;

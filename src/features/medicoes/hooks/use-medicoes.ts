@@ -24,7 +24,6 @@ import type {
   MedicaoFormState,
   MedicaoListItem,
   MedicaoOptionsState,
-  MedicaoPreviewPermutaMap,
   MedicaoPreviewResumo,
   MedicaoPreviewValueMap,
   MedicaoStatus,
@@ -67,8 +66,6 @@ export function useMedicoes() {
   const [medicoes, setMedicoes] = useState<MedicaoListItem[]>([]);
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>([]);
   const [previewItemValues, setPreviewItemValues] = useState<MedicaoPreviewValueMap>({});
-  const [previewItemPermutaValues, setPreviewItemPermutaValues] =
-    useState<MedicaoPreviewPermutaMap>({});
   const [previewResumo, setPreviewResumo] = useState<MedicaoPreviewResumo | null>(null);
   const [form, setForm] = useState<MedicaoFormState>(initialMedicaoForm);
   const [filters, setFilters] = useState<MedicaoFilters>(initialMedicaoFilters);
@@ -111,7 +108,6 @@ export function useMedicoes() {
       setMessage(data.message ?? "Nao foi possivel gerar a pre-visualizacao.");
       setPreviewItems([]);
       setPreviewItemValues({});
-      setPreviewItemPermutaValues({});
       setPreviewResumo(null);
       setEditing(null);
       return;
@@ -120,9 +116,6 @@ export function useMedicoes() {
     setPreviewItems(nextItems);
     setPreviewItemValues((current) =>
       Object.fromEntries(nextItems.map((item) => [item.id, current[item.id] ?? ""]))
-    );
-    setPreviewItemPermutaValues((current) =>
-      Object.fromEntries(nextItems.map((item) => [item.id, current[item.id] ?? "0"]))
     );
     setPreviewResumo(data.resumo ?? null);
     setEditing(null);
@@ -187,28 +180,29 @@ export function useMedicoes() {
   );
 
   const previewValoresValidos = useMemo(
-    () =>
-      previewItems.length > 0 &&
-      previewItems.every((item) => {
+    () => {
+      const permutaPercentual = Number(form.permutaPercentual.replace(",", ".") || 0);
+      const permutaValida =
+        Number.isFinite(permutaPercentual) &&
+        permutaPercentual >= 0 &&
+        permutaPercentual <= 100;
+
+      return (
+        permutaValida &&
+        previewItems.length > 0 &&
+        previewItems.every((item) => {
         const rawValue = previewItemValues[item.id]?.replace(",", ".").trim() ?? "";
-        const rawPermuta =
-          previewItemPermutaValues[item.id]?.replace(",", ".").trim() ?? "0";
 
         if (!rawValue) {
           return false;
         }
 
         const parsedValue = Number(rawValue);
-        const parsedPermuta = Number(rawPermuta || 0);
-        return (
-          Number.isFinite(parsedValue) &&
-          parsedValue >= 0 &&
-          Number.isFinite(parsedPermuta) &&
-          parsedPermuta >= 0 &&
-          parsedPermuta <= 100
-        );
-      }),
-    [previewItemPermutaValues, previewItemValues, previewItems]
+          return Number.isFinite(parsedValue) && parsedValue >= 0;
+        })
+      );
+    },
+    [form.permutaPercentual, previewItemValues, previewItems]
   );
 
   function updateForm<K extends keyof MedicaoFormState>(key: K, value: MedicaoFormState[K]) {
@@ -233,13 +227,6 @@ export function useMedicoes() {
 
   function updatePreviewItemValue(itemId: string, value: string) {
     setPreviewItemValues((current) => ({
-      ...current,
-      [itemId]: value
-    }));
-  }
-
-  function updatePreviewItemPermuta(itemId: string, value: string) {
-    setPreviewItemPermutaValues((current) => ({
       ...current,
       [itemId]: value
     }));
@@ -273,8 +260,7 @@ export function useMedicoes() {
 
       const { response, data } = await gerarMedicaoComValores(
         form,
-        previewItemValues,
-        previewItemPermutaValues
+        previewItemValues
       );
       if (!response.ok) {
         setMessage(data.message ?? "Nao foi possivel gerar a medicao.");
@@ -283,7 +269,6 @@ export function useMedicoes() {
       setMessage("Medicao gerada com sucesso.");
       setPreviewItems([]);
       setPreviewItemValues({});
-      setPreviewItemPermutaValues({});
       setPreviewResumo(null);
       setEditing(null);
       setSelectedMedicaoId(data.id ?? null);
@@ -383,7 +368,6 @@ export function useMedicoes() {
     medicoes,
     previewItems,
     previewItemValues,
-    previewItemPermutaValues,
     previewResumo,
     form,
     filters,
@@ -402,7 +386,6 @@ export function useMedicoes() {
     updateFilter,
     updateEditing,
     updatePreviewItemValue,
-    updatePreviewItemPermuta,
     openPdf,
     handlePreviewSubmit,
     handleGenerate,

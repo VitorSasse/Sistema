@@ -35,7 +35,6 @@ import type {
   MedicaoFormState,
   MedicaoListItem,
   MedicaoOptionsState,
-  MedicaoPreviewPermutaMap,
   MedicaoPreviewValueMap,
   MedicaoPreviewResumo,
   MedicaoStatus,
@@ -117,8 +116,6 @@ export function MedicoesManager() {
   const [medicoes, setMedicoes] = useState<MedicaoListItem[]>([]);
   const [previewItems, setPreviewItems] = useState<PreviewItem[]>([]);
   const [previewItemValues, setPreviewItemValues] = useState<MedicaoPreviewValueMap>({});
-  const [previewItemPermutaValues, setPreviewItemPermutaValues] =
-    useState<MedicaoPreviewPermutaMap>({});
   const [previewResumo, setPreviewResumo] = useState<MedicaoPreviewResumo | null>(null);
   const [form, setForm] = useState<MedicaoFormState>(initialMedicaoForm);
   const [filters, setFilters] = useState<MedicaoFilters>(initialMedicaoFilters);
@@ -142,6 +139,7 @@ export function MedicoesManager() {
   const [detailPeriodoFinal, setDetailPeriodoFinal] = useState("");
   const [detailJustificativaCancelamento, setDetailJustificativaCancelamento] = useState("");
   const [detailDescontoValor, setDetailDescontoValor] = useState("0");
+  const [detailPermutaPercentual, setDetailPermutaPercentual] = useState("0");
   const [detailNumeroPedido, setDetailNumeroPedido] = useState("");
   const [detailNumeroNotaFiscal, setDetailNumeroNotaFiscal] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<{
@@ -171,7 +169,6 @@ export function MedicoesManager() {
       setMessage(data.message ?? "Nao foi possivel gerar a pre-visualizacao.");
       setPreviewItems([]);
       setPreviewItemValues({});
-      setPreviewItemPermutaValues({});
       setPreviewResumo(null);
       setEditing(null);
       setEditingSource(null);
@@ -186,9 +183,6 @@ export function MedicoesManager() {
           current[item.id] ?? buildSuggestedPreviewValue(item, options.servicos)
         ])
       )
-    );
-    setPreviewItemPermutaValues((current) =>
-      Object.fromEntries(nextItems.map((item) => [item.id, current[item.id] ?? "0"]))
     );
     setPreviewResumo(data.resumo ?? null);
     setEditing(null);
@@ -244,6 +238,7 @@ export function MedicoesManager() {
     setDetailObservacaoInterna(detail.observacaoInterna ?? "");
     setDetailJustificativaCancelamento(detail.justificativaCancelamento ?? "");
     setDetailDescontoValor(detail.descontoValor ?? "0");
+    setDetailPermutaPercentual(detail.permutaPercentual ?? "0");
     setDetailNumeroPedido(detail.numeroPedido ?? "");
     setDetailNumeroNotaFiscal(detail.numeroNotaFiscal ?? "");
     setDetailCobrancaMaterial(inferredCobrancaMaterial);
@@ -333,10 +328,19 @@ export function MedicoesManager() {
       mensais: medicoes.filter((item) => item.tipoMedicao === "MENSAL").length,
       concluidas: medicoes.filter((item) => item.status === "CONCLUIDA").length,
       valorTotal: medicoes.reduce(
-        (acc, item) =>
-          item.status === "CANCELADA"
-            ? acc
-            : acc + (Number(item.valorTotal) - Number(item.descontoValor ?? 0)),
+        (acc, item) => {
+          if (item.status === "CANCELADA") {
+            return acc;
+          }
+
+          const valorBruto = Number(item.valorTotal);
+          const desconto = Number(item.descontoValor ?? 0);
+          const permutaPercentual = Number(item.permutaPercentual ?? 0);
+          const baseComDesconto = Math.max(0, valorBruto - desconto);
+          const valorPermuta = baseComDesconto * (permutaPercentual / 100);
+
+          return acc + Math.max(0, baseComDesconto - valorPermuta);
+        },
         0
       )
     }),
@@ -344,28 +348,29 @@ export function MedicoesManager() {
   );
 
   const previewValoresValidos = useMemo(
-    () =>
-      previewItems.length > 0 &&
-      previewItems.every((item) => {
-        const rawValue = previewItemValues[item.id]?.replace(",", ".").trim() ?? "";
-        const rawPermuta =
-          previewItemPermutaValues[item.id]?.replace(",", ".").trim() ?? "0";
+    () => {
+      const permutaPercentual = Number(form.permutaPercentual.replace(",", ".") || 0);
+      const permutaValida =
+        Number.isFinite(permutaPercentual) &&
+        permutaPercentual >= 0 &&
+        permutaPercentual <= 100;
 
-        if (!rawValue) {
-          return false;
-        }
+      return (
+        permutaValida &&
+        previewItems.length > 0 &&
+        previewItems.every((item) => {
+          const rawValue = previewItemValues[item.id]?.replace(",", ".").trim() ?? "";
 
-        const parsedValue = Number(rawValue);
-        const parsedPermuta = Number(rawPermuta || 0);
-        return (
-          Number.isFinite(parsedValue) &&
-          parsedValue >= 0 &&
-          Number.isFinite(parsedPermuta) &&
-          parsedPermuta >= 0 &&
-          parsedPermuta <= 100
-        );
-      }),
-    [previewItemPermutaValues, previewItemValues, previewItems]
+          if (!rawValue) {
+            return false;
+          }
+
+          const parsedValue = Number(rawValue);
+          return Number.isFinite(parsedValue) && parsedValue >= 0;
+        })
+      );
+    },
+    [form.permutaPercentual, previewItemValues, previewItems]
   );
 
   const selectedMedicaoCanEdit = useMemo(
@@ -404,13 +409,6 @@ export function MedicoesManager() {
 
   function updatePreviewItemValue(itemId: string, value: string) {
     setPreviewItemValues((current) => ({
-      ...current,
-      [itemId]: value
-    }));
-  }
-
-  function updatePreviewItemPermuta(itemId: string, value: string) {
-    setPreviewItemPermutaValues((current) => ({
       ...current,
       [itemId]: value
     }));
@@ -498,8 +496,7 @@ export function MedicoesManager() {
 
       const { response, data } = await gerarMedicaoComValores(
         form,
-        previewItemValues,
-        previewItemPermutaValues
+        previewItemValues
       );
       if (!response.ok) {
         setMessage(data.message ?? "Nao foi possivel gerar a medicao.");
@@ -508,7 +505,6 @@ export function MedicoesManager() {
       setMessage("Medicao gerada com sucesso.");
       setPreviewItems([]);
       setPreviewItemValues({});
-      setPreviewItemPermutaValues({});
       setPreviewResumo(null);
       setEditing(null);
       setEditingSource(null);
@@ -543,6 +539,7 @@ export function MedicoesManager() {
               obraId: selectedMedicao.obra?.id ?? "",
               tipoMedicao: selectedMedicao.tipoMedicao,
               cobrancaMaterial: form.cobrancaMaterial,
+              permutaPercentual: selectedMedicao.permutaPercentual ?? "0",
               observacao: selectedMedicao.observacao ?? ""
             }
             : form,
@@ -661,8 +658,7 @@ export function MedicoesManager() {
     itemId: string,
     valorUnitario: number,
     quantidadeFaturada: number,
-    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO",
-    permutaPercentual: number
+    unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO"
   ) {
     if (!selectedMedicaoId) return;
 
@@ -672,8 +668,7 @@ export function MedicoesManager() {
         itemId,
         valorUnitario,
         quantidadeFaturada,
-        unidadeFaturada,
-        permutaPercentual
+        unidadeFaturada
       });
 
       if (!response.ok) {
@@ -687,6 +682,7 @@ export function MedicoesManager() {
       setDetailObservacao((data as MedicaoDetail).observacao ?? "");
       setDetailObservacaoInterna((data as MedicaoDetail).observacaoInterna ?? "");
       setDetailDescontoValor((data as MedicaoDetail).descontoValor ?? "0");
+      setDetailPermutaPercentual((data as MedicaoDetail).permutaPercentual ?? "0");
       setDetailNumeroPedido((data as MedicaoDetail).numeroPedido ?? "");
       setDetailNumeroNotaFiscal((data as MedicaoDetail).numeroNotaFiscal ?? "");
       setMessage("Item da medicao atualizado.");
@@ -715,6 +711,7 @@ export function MedicoesManager() {
         detailObservacao,
         detailObservacaoInterna,
         detailDescontoValor,
+        detailPermutaPercentual,
         detailNumeroPedido,
         detailNumeroNotaFiscal
       );
@@ -732,6 +729,7 @@ export function MedicoesManager() {
       setDetailObservacao((data as MedicaoDetail).observacao ?? "");
       setDetailObservacaoInterna((data as MedicaoDetail).observacaoInterna ?? "");
       setDetailDescontoValor((data as MedicaoDetail).descontoValor ?? "0");
+      setDetailPermutaPercentual((data as MedicaoDetail).permutaPercentual ?? "0");
       setDetailNumeroPedido((data as MedicaoDetail).numeroPedido ?? "");
       setDetailNumeroNotaFiscal((data as MedicaoDetail).numeroNotaFiscal ?? "");
       setMessage("Dados da medicao atualizados.");
@@ -790,6 +788,7 @@ export function MedicoesManager() {
       setDetailObservacao((data as MedicaoDetail).observacao ?? "");
       setDetailObservacaoInterna((data as MedicaoDetail).observacaoInterna ?? "");
       setDetailDescontoValor((data as MedicaoDetail).descontoValor ?? "0");
+      setDetailPermutaPercentual((data as MedicaoDetail).permutaPercentual ?? "0");
       setDetailNumeroPedido((data as MedicaoDetail).numeroPedido ?? "");
       setDetailNumeroNotaFiscal((data as MedicaoDetail).numeroNotaFiscal ?? "");
       setDetailSelectedLancamentoIds([]);
@@ -852,10 +851,8 @@ export function MedicoesManager() {
         items={previewItems}
         resumo={previewResumo}
         itemValues={previewItemValues}
-        itemPermutaValues={previewItemPermutaValues}
         editingId={editing?.id ?? null}
         onChangeItemValue={updatePreviewItemValue}
-        onChangeItemPermuta={updatePreviewItemPermuta}
         onEdit={handleStartEdit}
       />
 
@@ -925,6 +922,8 @@ export function MedicoesManager() {
           onChangeJustificativaCancelamento={setDetailJustificativaCancelamento}
           descontoValor={detailDescontoValor}
           onChangeDescontoValor={setDetailDescontoValor}
+          permutaPercentual={detailPermutaPercentual}
+          onChangePermutaPercentual={setDetailPermutaPercentual}
           numeroPedido={detailNumeroPedido}
           onChangeNumeroPedido={setDetailNumeroPedido}
           numeroNotaFiscal={detailNumeroNotaFiscal}
