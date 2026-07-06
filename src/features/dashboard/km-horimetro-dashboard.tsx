@@ -490,8 +490,8 @@ export function KmHorimetroDashboard() {
         </div>
         {(data?.chart.monthlyTotals.length ?? 0) > 0 ? (
           <ExpandableChart title="Evolucao mensal da frota" height={300}>
-            {({ height }) => (
-              <ResponsiveContainer width="100%" height={height}>
+            {({ height, width }) => (
+              <ResponsiveContainer width={width} height={height}>
                 <BarChart data={data?.chart.monthlyTotals ?? []} margin={{ top: 18, right: 18, bottom: 8, left: 0 }}>
                   <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
                   <XAxis dataKey="label" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />

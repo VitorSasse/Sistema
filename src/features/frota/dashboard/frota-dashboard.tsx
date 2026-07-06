@@ -214,8 +214,8 @@ function SectionPanel({
 
               <div className="fleet-chart-shell" style={{ height: `${chartHeight}px` }}>
                 <ExpandableChart title={title} height={chartHeight}>
-                  {({ height }) => (
-                    <ResponsiveContainer width="100%" height={height}>
+                  {({ height, width }) => (
+                    <ResponsiveContainer width={width} height={height}>
                       <BarChart
                         data={chartData}
                         layout="vertical"

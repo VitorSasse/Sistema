@@ -367,8 +367,8 @@ export function FaturamentoMensalDashboard() {
 
               <div className="billing-chart-shell">
                 <ExpandableChart title="Faturamento mensal" height={420}>
-                  {({ height }) => (
-                    <ResponsiveContainer width="100%" height={height}>
+                  {({ height, width }) => (
+                    <ResponsiveContainer width={width} height={height}>
                       <ComposedChart data={monthlyRows} margin={{ top: 18, right: 24, left: 8, bottom: 12 }}>
                         <defs>
                           <linearGradient id="billingMonthlyBar" x1="0" y1="0" x2="0" y2="1">

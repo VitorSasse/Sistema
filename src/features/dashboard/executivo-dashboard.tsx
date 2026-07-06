@@ -587,8 +587,8 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
           </div>
           <div className="executive-chart-shell" style={{ height: `${utilizationChartHeight}px` }}>
             <ExpandableChart title="Utilizacao real da frota" height={utilizationChartHeight}>
-              {({ height }) => (
-                <ResponsiveContainer width="100%" height={height}>
+              {({ height, width }) => (
+                <ResponsiveContainer width={width} height={height}>
                   <BarChart
                     data={utilizationTop}
                     layout="vertical"
@@ -647,8 +647,8 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
           </div>
           <div className="executive-chart-shell" style={{ height: `${mechanicalChartHeight}px` }}>
             <ExpandableChart title="Disponibilidade mecanica" height={mechanicalChartHeight}>
-              {({ height }) => (
-                <ResponsiveContainer width="100%" height={height}>
+              {({ height, width }) => (
+                <ResponsiveContainer width={width} height={height}>
                   <BarChart
                     data={mechanicalTop}
                     layout="vertical"
@@ -720,8 +720,8 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
           </div>
           <div className="executive-chart-shell" style={{ height: `${lossChartHeight}px` }}>
             <ExpandableChart title="Pareto operacional" height={lossChartHeight}>
-              {({ height }) => (
-                <ResponsiveContainer width="100%" height={height}>
+              {({ height, width }) => (
+                <ResponsiveContainer width={width} height={height}>
                   <BarChart
                     data={lossTop}
                     layout="vertical"
@@ -770,8 +770,8 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
           </div>
           <div className="executive-chart-shell" style={{ height: `${financialChartHeight}px` }}>
             <ExpandableChart title="Impacto da indisponibilidade" height={financialChartHeight}>
-              {({ height }) => (
-                <ResponsiveContainer width="100%" height={height}>
+              {({ height, width }) => (
+                <ResponsiveContainer width={width} height={height}>
                   <BarChart
                     data={financialTop}
                     layout="vertical"

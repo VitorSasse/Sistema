@@ -6798,6 +6798,7 @@ button {
 }
 
 .expandable-chart-dialog-body {
+  display: grid;
   min-width: 0;
   min-height: 0;
   padding: clamp(16px, 2vw, 28px);
@@ -6811,12 +6812,14 @@ button {
 }
 
 .expandable-chart-dialog-viewport {
-  max-height: 100%;
-  overflow: auto;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .expandable-chart-dialog-render {
   height: 100%;
+  min-height: 0;
 }
 
 .expandable-chart-dialog-body .recharts-wrapper {

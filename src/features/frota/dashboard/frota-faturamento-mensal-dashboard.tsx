@@ -567,9 +567,9 @@ export function FrotaFaturamentoMensalDashboard() {
 
                   <div className="fleet-chart-shell fleet-monthly-chart-shell">
                     <ExpandableChart title="Faturamento mensal por equipamento" height={420}>
-                      {({ height }) =>
+                      {({ height, width }) =>
                         isComparingMultiple ? (
-                          <ResponsiveContainer width="100%" height={height}>
+                          <ResponsiveContainer width={width} height={height}>
                             <LineChart
                               data={comparisonRows}
                               margin={{ top: 18, right: 24, left: 8, bottom: 12 }}
@@ -622,7 +622,7 @@ export function FrotaFaturamentoMensalDashboard() {
                             </LineChart>
                           </ResponsiveContainer>
                         ) : (
-                          <ResponsiveContainer width="100%" height={height}>
+                          <ResponsiveContainer width={width} height={height}>
                             <ComposedChart
                               data={monthlyRows}
                               margin={{ top: 18, right: 24, left: 8, bottom: 12 }}

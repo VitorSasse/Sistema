@@ -333,8 +333,8 @@ export function FaturamentoDashboard() {
 
               <div className="billing-chart-shell">
                 <ExpandableChart title="Faturamento por cliente" height={420}>
-                  {({ height }) => (
-                    <ResponsiveContainer width="100%" height={height}>
+                  {({ height, width }) => (
+                    <ResponsiveContainer width={width} height={height}>
                       <ComposedChart
                         data={chartData}
                         margin={{ top: 18, right: 24, left: 8, bottom: 32 }}

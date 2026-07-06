@@ -12,6 +12,7 @@ import { createPortal } from "react-dom";
 
 type ExpandableChartRender = (context: {
   height: number;
+  width: number | "100%";
   expanded: boolean;
 }) => ReactNode;
 
@@ -33,8 +34,10 @@ export function ExpandableChart({
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [expandedReady, setExpandedReady] = useState(false);
+  const [expandedSize, setExpandedSize] = useState({ width: 0, height: 0 });
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -43,6 +46,7 @@ export function ExpandableChart({
   useEffect(() => {
     if (!open) {
       setExpandedReady(false);
+      setExpandedSize({ width: 0, height: 0 });
       return;
     }
 
@@ -69,6 +73,50 @@ export function ExpandableChart({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !expandedReady) {
+      return;
+    }
+
+    let animationFrame = 0;
+
+    const measureViewport = () => {
+      const rect = viewportRef.current?.getBoundingClientRect();
+
+      if (!rect) {
+        return;
+      }
+
+      setExpandedSize({
+        width: Math.floor(rect.width),
+        height: Math.floor(rect.height)
+      });
+    };
+
+    const scheduleMeasure = () => {
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(measureViewport);
+    };
+
+    const resizeObserver = new ResizeObserver(scheduleMeasure);
+
+    if (viewportRef.current) {
+      resizeObserver.observe(viewportRef.current);
+    }
+
+    scheduleMeasure();
+    window.addEventListener("resize", scheduleMeasure);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", scheduleMeasure);
+    };
+  }, [expandedReady, open]);
+
+  const expandedChartHeight = Math.max(260, expandedSize.height || expandedHeight);
+  const canRenderExpandedChart = expandedReady && expandedSize.width > 80 && expandedSize.height > 80;
+
   return (
     <>
       <div className={`expandable-chart ${className ?? ""}`}>
@@ -82,7 +130,7 @@ export function ExpandableChart({
           <Maximize2 size={16} aria-hidden="true" />
         </button>
         <div className="expandable-chart-content">
-          {children({ height, expanded: false })}
+          {children({ height, width: "100%", expanded: false })}
         </div>
       </div>
 
@@ -119,14 +167,15 @@ export function ExpandableChart({
                   </button>
                 </header>
                 <div className="expandable-chart-dialog-body">
-                  <div
-                    className="expandable-chart-dialog-viewport"
-                    style={{ height: expandedHeight }}
-                  >
-                    {expandedReady
+                  <div ref={viewportRef} className="expandable-chart-dialog-viewport">
+                    {canRenderExpandedChart
                       ? (
                           <div className="expandable-chart-dialog-render" key={`${titleId}-expanded`}>
-                            {children({ height: expandedHeight, expanded: true })}
+                            {children({
+                              height: expandedChartHeight,
+                              width: expandedSize.width,
+                              expanded: true
+                            })}
                           </div>
                         )
                       : null}

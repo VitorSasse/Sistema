@@ -609,8 +609,8 @@ export function CustosDashboard() {
                 </div>
               </div>
               <ExpandableChart title="Custo por categoria" height={320}>
-                {({ height }) => (
-                  <ResponsiveContainer width="100%" height={height}>
+                {({ height, width }) => (
+                  <ResponsiveContainer width={width} height={height}>
                     <PieChart>
                       <Pie data={data?.charts.categorias ?? []} dataKey="total" nameKey="label" innerRadius={72} outerRadius={120} paddingAngle={3}>
                         {(data?.charts.categorias ?? []).map((item) => (
@@ -640,8 +640,8 @@ export function CustosDashboard() {
                 </div>
               </div>
               <ExpandableChart title="Custos por mes" height={340}>
-                {({ height }) => (
-                  <ResponsiveContainer width="100%" height={height}>
+                {({ height, width }) => (
+                  <ResponsiveContainer width={width} height={height}>
                     <LineChart data={data?.charts.mensal ?? []} margin={{ top: 16, right: 20, left: 8, bottom: 10 }}>
                       <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
                       <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
@@ -668,8 +668,8 @@ export function CustosDashboard() {
                 </div>
               </div>
               <ExpandableChart title="Manutencao x combustivel" height={220}>
-                {({ height }) => (
-                  <ResponsiveContainer width="100%" height={height}>
+                {({ height, width }) => (
+                  <ResponsiveContainer width={width} height={height}>
                     <BarChart data={manutencaoCombustivel} margin={{ top: 16, right: 18, left: 8, bottom: 8 }}>
                       <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
                       <XAxis dataKey="label" tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }} />
@@ -728,10 +728,17 @@ function CenterCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
             <span><i style={{ background: categoryColors.MANUTENCAO }} /> Manutencao</span>
           </div>
           <ExpandableChart title="Ranking de custo por equipamento" height={360}>
-            {({ height }) => (
+            {({ height, width }) => (
               <div className="cost-chart-scroll">
-                <div className="cost-chart-scroll-inner" style={{ minWidth: chartMinWidth, height }}>
-                  <ResponsiveContainer width="100%" height={height}>
+                <div
+                  className="cost-chart-scroll-inner"
+                  style={{
+                    minWidth: chartMinWidth,
+                    width: typeof width === "number" ? Math.max(width, chartMinWidth) : width,
+                    height
+                  }}
+                >
+                  <ResponsiveContainer width={typeof width === "number" ? Math.max(width, chartMinWidth) : width} height={height}>
                     <BarChart data={chartRows} margin={{ top: 16, right: 20, left: 6, bottom: 76 }} barCategoryGap={14}>
                       <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
                       <XAxis
