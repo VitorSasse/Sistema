@@ -32,6 +32,7 @@ export function ExpandableChart({
 }: ExpandableChartProps) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [expandedReady, setExpandedReady] = useState(false);
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -41,9 +42,11 @@ export function ExpandableChart({
 
   useEffect(() => {
     if (!open) {
+      setExpandedReady(false);
       return;
     }
 
+    let animationFrame = 0;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setOpen(false);
@@ -54,10 +57,15 @@ export function ExpandableChart({
     document.body.style.overflow = "hidden";
     document.addEventListener("keydown", handleKeyDown);
     window.setTimeout(() => closeButtonRef.current?.focus(), 0);
+    animationFrame = window.requestAnimationFrame(() => {
+      setExpandedReady(true);
+    });
 
     return () => {
+      window.cancelAnimationFrame(animationFrame);
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
+      setExpandedReady(false);
     };
   }, [open]);
 
@@ -111,7 +119,18 @@ export function ExpandableChart({
                   </button>
                 </header>
                 <div className="expandable-chart-dialog-body">
-                  {children({ height: expandedHeight, expanded: true })}
+                  <div
+                    className="expandable-chart-dialog-viewport"
+                    style={{ height: expandedHeight }}
+                  >
+                    {expandedReady
+                      ? (
+                          <div className="expandable-chart-dialog-render" key={`${titleId}-expanded`}>
+                            {children({ height: expandedHeight, expanded: true })}
+                          </div>
+                        )
+                      : null}
+                  </div>
                 </div>
               </section>
             </div>,
