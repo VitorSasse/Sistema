@@ -145,7 +145,7 @@ function formatReading(value: number | null, unidade: "km" | "h") {
 
 function formatDate(value: string | null) {
   if (!value) return "-";
-  return new Date(value).toLocaleDateString("pt-BR", { timeZone: "UTC" });
+  return new Date(value).toLocaleDateString("pt-BR");
 }
 
 function statusLabel(status: MonthStatus) {

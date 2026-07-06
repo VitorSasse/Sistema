@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 type MonthStatus = "OK" | "SEM_DADOS" | "SEM_LEITURA_ANTERIOR" | "INCONSISTENTE" | "SEM_TIPO_CONTROLE";
 type ControlType = "KM" | "HORIMETRO";
 
+const MAX_BASELINE_GAP_DAYS = 7;
+
 type ReadingPoint = {
   id: string;
   date: Date;
@@ -59,6 +61,22 @@ function round(value: number, precision = 2) {
   if (!Number.isFinite(value)) return 0;
   const factor = 10 ** precision;
   return Math.round(value * factor) / factor;
+}
+
+function startOfLocalDay(value: Date) {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
+function differenceInLocalDays(start: Date, end: Date) {
+  const startTime = startOfLocalDay(start).getTime();
+  const endTime = startOfLocalDay(end).getTime();
+  return Math.round((endTime - startTime) / 86_400_000);
+}
+
+function isRecentBaseline(previousReading: ReadingPoint | null, firstMonthReading: ReadingPoint) {
+  if (!previousReading) return false;
+  const days = differenceInLocalDays(previousReading.date, firstMonthReading.date);
+  return days >= 0 && days <= MAX_BASELINE_GAP_DAYS;
 }
 
 function getReadingValue(
@@ -257,7 +275,11 @@ export async function GET(request: NextRequest) {
 
       const firstMonthReading = monthReadings[0]!;
       const lastMonthReading = monthReadings[monthReadings.length - 1]!;
-      const initialReading = previousReading ?? (monthReadings.length >= 2 ? firstMonthReading : null);
+      const initialReading = isRecentBaseline(previousReading, firstMonthReading)
+        ? previousReading
+        : monthReadings.length >= 2
+          ? firstMonthReading
+          : null;
       const finalReading = lastMonthReading;
 
       if (!initialReading) {
