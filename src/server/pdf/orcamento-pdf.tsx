@@ -321,16 +321,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: 10,
-    paddingVertical: 9
+    paddingVertical: 12
   },
   aceiteTexto: {
     color: colors.muted,
     fontSize: 8.5,
     lineHeight: 1.25,
-    marginBottom: 18
+    marginBottom: 34
   },
   assinaturaLinha: {
-    width: 210,
+    width: 300,
     borderTopWidth: 1,
     borderColor: colors.text,
     paddingTop: 4,
