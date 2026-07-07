@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SearchableSelect } from "@/components/form/searchable-select";
+import { formatDateDisplay, formatDateInputValue } from "@/lib/utils/date";
 
 type TipoOrcamento = "COMERCIAL" | "OPERACIONAL";
 type StatusOrcamento =
@@ -306,11 +307,7 @@ const emptyOptions: OptionsState = {
 };
 
 function todayInput() {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return formatDateInputValue(new Date());
 }
 
 function uid(prefix: string) {
@@ -411,28 +408,11 @@ function formatCurrency(value: unknown) {
 }
 
 function formatDate(value?: string | null) {
-  if (!value) {
-    return "-";
-  }
-
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("pt-BR");
+  return formatDateDisplay(value);
 }
 
 function toDateInput(value?: string | null) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return formatDateInputValue(value);
 }
 
 function toStringValue(value: unknown) {

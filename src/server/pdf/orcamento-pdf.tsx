@@ -1,5 +1,6 @@
 import React from "react";
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { formatDateDisplay } from "@/lib/utils/date";
 import { formatCurrency } from "@/lib/utils/formatters";
 
 type OrcamentoPdfProps = {
@@ -102,7 +103,7 @@ const colors = {
 const styles = StyleSheet.create({
   page: {
     paddingTop: 28,
-    paddingBottom: 24,
+    paddingBottom: 48,
     paddingHorizontal: 24,
     backgroundColor: "#ffffff",
     color: colors.text,
@@ -230,6 +231,18 @@ const styles = StyleSheet.create({
     padding: 8,
     lineHeight: 1.35
   },
+  objectBox: {
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 6
+  },
+  objectText: {
+    fontSize: 9,
+    lineHeight: 1.18
+  },
   table: {
     borderLeftWidth: 1,
     borderRightWidth: 1,
@@ -302,20 +315,64 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 3
   },
-  footerNote: {
-    marginTop: 24,
-    textAlign: "right",
+  aceiteBox: {
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 9
+  },
+  aceiteTexto: {
     color: colors.muted,
-    fontSize: 8
+    fontSize: 8.5,
+    lineHeight: 1.25,
+    marginBottom: 18
+  },
+  assinaturaLinha: {
+    width: 210,
+    borderTopWidth: 1,
+    borderColor: colors.text,
+    paddingTop: 4,
+    textAlign: "center",
+    fontWeight: "bold",
+    alignSelf: "center",
+    marginBottom: 10
+  },
+  aceiteCampo: {
+    marginTop: 3,
+    fontSize: 8.8
+  },
+  footer: {
+    position: "absolute",
+    left: 24,
+    right: 24,
+    bottom: 18,
+    borderTopWidth: 1,
+    borderColor: colors.border,
+    paddingTop: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  footerText: {
+    color: colors.muted,
+    fontSize: 7.8
+  },
+  footerCenter: {
+    color: colors.muted,
+    fontSize: 7.8,
+    textAlign: "center"
+  },
+  footerRight: {
+    color: colors.muted,
+    fontSize: 7.8,
+    textAlign: "right"
   }
 });
 
 function formatDate(value?: Date | null) {
-  if (!value) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR").format(value);
+  return formatDateDisplay(value);
 }
 
 function formatNumber(value?: number | null) {
@@ -381,6 +438,12 @@ function renderSection(title: string, content?: string | null) {
 }
 
 export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
+  const isOrcamentoComercial = props.tipo === "COMERCIAL";
+  const dataHoraEmissao = new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+    timeZone: "America/Sao_Paulo"
+  }).format(new Date());
   const premissasPorTipo = ["PREMISSA", "CONDICAO", "EXCLUSAO", "OBSERVACAO"].map((tipo) => ({
     tipo,
     items: props.premissas
@@ -422,7 +485,14 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
           {renderMetaRow("Responsavel:", props.responsavel?.nome ?? "-", "Titulo:", props.titulo ?? "-")}
         </View>
 
-        {renderSection("OBJETO DA PROPOSTA", props.objeto)}
+        {props.objeto?.trim() ? (
+          <>
+            <Text style={styles.sectionTitle}>OBJETO DA PROPOSTA</Text>
+            <View style={styles.objectBox}>
+              <Text style={styles.objectText}>{props.objeto}</Text>
+            </View>
+          </>
+        ) : null}
 
         {props.frentes.length > 0 ? (
           <>
@@ -462,22 +532,87 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
         <View style={styles.table}>
           <View style={styles.tableHeader}>
             <Text style={[styles.cell, styles.headCell, styles.itemCol]}>Item</Text>
-            <Text style={[styles.cell, styles.headCell, styles.frenteCol]}>Frente</Text>
-            <Text style={[styles.cell, styles.headCell, styles.descCol]}>Descricao</Text>
-            <Text style={[styles.cell, styles.headCell, styles.centerCell, styles.qtdCol]}>Qtd</Text>
+            {isOrcamentoComercial ? null : (
+              <Text style={[styles.cell, styles.headCell, styles.frenteCol]}>Frente</Text>
+            )}
+            <Text
+              style={[
+                styles.cell,
+                styles.headCell,
+                isOrcamentoComercial ? { width: "44%" } : styles.descCol
+              ]}
+            >
+              Descricao
+            </Text>
+            <Text
+              style={[
+                styles.cell,
+                styles.headCell,
+                styles.centerCell,
+                isOrcamentoComercial ? { width: "10%" } : styles.qtdCol
+              ]}
+            >
+              Qtd
+            </Text>
             <Text style={[styles.cell, styles.headCell, styles.centerCell, styles.unCol]}>Un</Text>
-            <Text style={[styles.cell, styles.headCell, styles.moneyCell, styles.unitCol]}>Vlr unit.</Text>
-            <Text style={[styles.cell, styles.headCell, styles.moneyCell, styles.totalCol]}>Total</Text>
+            <Text
+              style={[
+                styles.cell,
+                styles.headCell,
+                styles.moneyCell,
+                isOrcamentoComercial ? { width: "15%" } : styles.unitCol
+              ]}
+            >
+              Vlr unit.
+            </Text>
+            <Text
+              style={[
+                styles.cell,
+                styles.headCell,
+                styles.moneyCell,
+                isOrcamentoComercial ? { width: "15%", borderRightWidth: 0 } : styles.totalCol
+              ]}
+            >
+              Total
+            </Text>
           </View>
           {props.itens.map((item) => (
             <View key={`${item.ordem}-${item.descricao}`} style={styles.tableRow} wrap={false}>
               <Text style={[styles.cell, styles.itemCol]}>{item.ordem}</Text>
-              <Text style={[styles.cell, styles.frenteCol]}>{item.frenteNome || "-"}</Text>
-              <Text style={[styles.cell, styles.descCol]}>{item.descricao}</Text>
-              <Text style={[styles.cell, styles.centerCell, styles.qtdCol]}>{formatNumber(item.quantidade)}</Text>
+              {isOrcamentoComercial ? null : (
+                <Text style={[styles.cell, styles.frenteCol]}>{item.frenteNome || "-"}</Text>
+              )}
+              <Text style={[styles.cell, isOrcamentoComercial ? { width: "44%" } : styles.descCol]}>
+                {item.descricao}
+              </Text>
+              <Text
+                style={[
+                  styles.cell,
+                  styles.centerCell,
+                  isOrcamentoComercial ? { width: "10%" } : styles.qtdCol
+                ]}
+              >
+                {formatNumber(item.quantidade)}
+              </Text>
               <Text style={[styles.cell, styles.centerCell, styles.unCol]}>{item.unidade}</Text>
-              <Text style={[styles.cell, styles.moneyCell, styles.unitCol]}>{formatCurrency(item.valorUnitario)}</Text>
-              <Text style={[styles.cell, styles.moneyCell, styles.totalCol]}>{formatCurrency(item.valorTotal)}</Text>
+              <Text
+                style={[
+                  styles.cell,
+                  styles.moneyCell,
+                  isOrcamentoComercial ? { width: "15%" } : styles.unitCol
+                ]}
+              >
+                {formatCurrency(item.valorUnitario)}
+              </Text>
+              <Text
+                style={[
+                  styles.cell,
+                  styles.moneyCell,
+                  isOrcamentoComercial ? { width: "15%", borderRightWidth: 0 } : styles.totalCol
+                ]}
+              >
+                {formatCurrency(item.valorTotal)}
+              </Text>
             </View>
           ))}
         </View>
@@ -536,7 +671,30 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
 
         {renderSection("OBSERVACOES AO CLIENTE", props.observacaoCliente)}
 
-        <Text style={styles.footerNote}>Documento emitido pelo sistema BASEPRO.</Text>
+        <View wrap={false}>
+          <Text style={styles.sectionTitle}>ACEITE DA PROPOSTA</Text>
+          <View style={styles.aceiteBox}>
+            <Text style={styles.aceiteTexto}>
+              Ao assinar abaixo, a CONTRATANTE declara estar de acordo com o escopo, premissas,
+              condições comerciais e valores apresentados nesta proposta.
+            </Text>
+            <Text style={styles.assinaturaLinha}>CONTRATANTE</Text>
+            <Text style={styles.aceiteCampo}>Nome:</Text>
+            <Text style={styles.aceiteCampo}>CPF/CNPJ:</Text>
+            <Text style={styles.aceiteCampo}>Data:</Text>
+          </View>
+        </View>
+
+        <View style={styles.footer} fixed>
+          <Text style={styles.footerText}>Documento emitido pelo BasePro OS</Text>
+          <Text style={styles.footerCenter}>
+            Data e hora da emissão: {dataHoraEmissao} | Revisão: 0
+          </Text>
+          <Text
+            style={styles.footerRight}
+            render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`}
+          />
+        </View>
       </Page>
     </Document>
   );
