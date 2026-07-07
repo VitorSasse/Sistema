@@ -134,6 +134,15 @@ const styles = StyleSheet.create({
     marginBottom: 3,
     textAlign: "right",
   },
+  footerFinalLine: {
+    marginTop: 3,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: "#b9b0a2",
+    fontSize: 11,
+    fontWeight: "bold",
+    textAlign: "right",
+  },
   footerLineLeft: {
     marginBottom: 3,
     textAlign: "left",
@@ -362,11 +371,15 @@ export function MedicaoPdfDocument(props: MedicaoPdfProps) {
           </View>
           <View style={styles.footerSummary}>
             <Text style={styles.footerLine}>Total de itens: {items.length}</Text>
-            {hasDesconto ? (
+            {hasDesconto || hasPermuta ? (
               <>
                 <Text style={styles.footerLine}>Valor bruto: {formatCurrency(valorBruto)}</Text>
-                <Text style={styles.footerLine}>Desconto: {formatCurrency(descontoValor)}</Text>
-                <Text style={styles.footerLine}>Valor com desconto: {formatCurrency(valorComDesconto)}</Text>
+                {hasDesconto ? (
+                  <>
+                    <Text style={styles.footerLine}>Desconto: {formatCurrency(descontoValor)}</Text>
+                    <Text style={styles.footerLine}>Valor apos desconto: {formatCurrency(valorComDesconto)}</Text>
+                  </>
+                ) : null}
               </>
             ) : null}
             {hasPermuta ? (
@@ -374,7 +387,7 @@ export function MedicaoPdfDocument(props: MedicaoPdfProps) {
                 Permuta: {permutaPercentual.toFixed(2).replace(".", ",")}% / {formatCurrency(valorPermuta)}
               </Text>
             ) : null}
-            <Text style={styles.footerLine}>Valor final: {formatCurrency(valorFinal)}</Text>
+            <Text style={styles.footerFinalLine}>Valor final: {formatCurrency(valorFinal)}</Text>
           </View>
         </View>
 
