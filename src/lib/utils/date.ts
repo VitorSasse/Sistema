@@ -1,4 +1,4 @@
-const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})/;
 
 function padDatePart(value: number) {
   return String(value).padStart(2, "0");
@@ -47,7 +47,13 @@ export function formatDateInputValue(value: Date | string | null | undefined) {
 
   if (typeof value === "string") {
     const parts = parseDateOnlyParts(value);
-    if (parts) return value.trim();
+    if (parts) {
+      return [
+        parts.year,
+        padDatePart(parts.month),
+        padDatePart(parts.day)
+      ].join("-");
+    }
   }
 
   const date = value instanceof Date ? value : new Date(value);

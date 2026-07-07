@@ -27,6 +27,7 @@ import {
 - Para filtro de fim de periodo: `parseDateOnlyEnd(value)`.
 - Para preencher input `type="date"`: `formatDateInputValue(value)`.
 - Para exibir data ao usuario: `formatDateDisplay(value)`.
+- Se a API retornar uma string ISO de um campo de calendario, como `2026-06-01T00:00:00.000Z`, os formatadores consideram apenas o trecho `2026-06-01`.
 
 ## O que evitar
 
