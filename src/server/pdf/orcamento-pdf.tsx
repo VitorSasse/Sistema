@@ -87,7 +87,7 @@ const empresaRelatorio = {
   cidadeUfCep:
     process.env.EMPRESA_RELATORIO_CIDADE_UF_CEP?.trim() || "Penha/SC - CEP: 88385-000",
   telefones:
-    process.env.EMPRESA_RELATORIO_TELEFONES?.trim() || "(47)99151-4414 - (47)99251-4414",
+    process.env.EMPRESA_RELATORIO_TELEFONES?.trim() || "(47)988031610 - (47)99251-4414",
   email:
     process.env.EMPRESA_RELATORIO_EMAIL?.trim() || "financeiro@jtbterraplenagem.com.br"
 };
