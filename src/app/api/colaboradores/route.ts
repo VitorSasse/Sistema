@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateColaboradorCode } from "@/lib/utils/code-generation";
 import { sanitizeCpf } from "@/lib/utils/cpf";
+import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import { colaboradorSchema } from "@/lib/validators/colaborador";
 
 export async function GET() {
@@ -46,8 +47,8 @@ export async function POST(request: NextRequest) {
         funcao: parsed.data.funcao,
         documento: parsed.data.documento ? sanitizeCpf(parsed.data.documento) : null,
         telefone: parsed.data.telefone || null,
-        dataAdmissao: parsed.data.dataAdmissao ? new Date(parsed.data.dataAdmissao) : null,
-        dataSaida: parsed.data.dataSaida ? new Date(parsed.data.dataSaida) : null,
+        dataAdmissao: parseOptionalDateOnlyStart(parsed.data.dataAdmissao),
+        dataSaida: parseOptionalDateOnlyStart(parsed.data.dataSaida),
         observacao: parsed.data.observacao || null,
         status: parsed.data.status
       }

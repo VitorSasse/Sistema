@@ -2,6 +2,7 @@
 
 import { OrigemLeituraEquipamento } from "@prisma/client";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { formatDateDisplay, formatDateInputValue } from "@/lib/utils/date";
 
 type EquipamentoOption = {
   id: string;
@@ -34,7 +35,7 @@ type FormState = {
 
 const initialForm: FormState = {
   equipamentoId: "",
-  dataLeitura: new Date().toISOString().slice(0, 10),
+  dataLeitura: formatDateInputValue(new Date()),
   horimetroValor: "",
   kmValor: "",
   origem: "MANUAL",
@@ -115,7 +116,7 @@ export function LeiturasManager() {
     setEditingLeituraId(item.id);
     setForm({
       equipamentoId: item.equipamento.id,
-      dataLeitura: item.dataLeitura.slice(0, 10),
+      dataLeitura: formatDateInputValue(item.dataLeitura),
       horimetroValor: item.horimetroValor ?? "",
       kmValor: item.kmValor ?? "",
       origem: item.origem,
@@ -353,7 +354,7 @@ export function LeiturasManager() {
             <tbody>
               {filteredLeituras.map((item) => (
                 <tr key={item.id}>
-                  <td>{new Date(item.dataLeitura).toLocaleDateString("pt-BR")}</td>
+                  <td>{formatDateDisplay(item.dataLeitura)}</td>
                   <td>
                     <div>{item.equipamento.descricao}</div>
                     <div className="subtle">{item.equipamento.placaOuTag}</div>

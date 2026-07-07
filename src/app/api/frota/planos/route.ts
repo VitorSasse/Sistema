@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import { planoManutencaoSchema } from "@/lib/validators/frota/plano-manutencao";
 import { calcularProximaManutencao } from "@/server/services/frota/plano-service";
 
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
   const projection = calcularProximaManutencao({
     criterioControle: parsed.data.criterioControle,
     periodicidadeValor: parsed.data.periodicidadeValor,
-    ultimaExecucaoEm: parsed.data.ultimaExecucaoEm ? new Date(parsed.data.ultimaExecucaoEm) : null,
+    ultimaExecucaoEm: parseOptionalDateOnlyStart(parsed.data.ultimaExecucaoEm),
     ultimaLeituraHorimetro: parsed.data.ultimaLeituraHorimetro ?? null,
     ultimaLeituraKm: parsed.data.ultimaLeituraKm ?? null
   });
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
       criterioControle: parsed.data.criterioControle,
       periodicidadeValor: parsed.data.periodicidadeValor,
       toleranciaValor: parsed.data.toleranciaValor,
-      ultimaExecucaoEm: parsed.data.ultimaExecucaoEm ? new Date(parsed.data.ultimaExecucaoEm) : null,
+      ultimaExecucaoEm: parseOptionalDateOnlyStart(parsed.data.ultimaExecucaoEm),
       ultimaLeituraHorimetro: parsed.data.ultimaLeituraHorimetro ?? null,
       ultimaLeituraKm: parsed.data.ultimaLeituraKm ?? null,
       proximaExecucaoEm: projection.proximaExecucaoEm,

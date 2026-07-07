@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { formatDateInputValue } from "@/lib/utils/date";
 import { programacaoSchema } from "@/lib/validators/programacao";
 import {
   existeConflitoProgramacao,
@@ -18,7 +19,7 @@ function canReuseDisponivelSlot(
     return false;
   }
 
-  const sameStartDate = conflito.dataInicio.toISOString().slice(0, 10) === inputDate;
+  const sameStartDate = formatDateInputValue(conflito.dataInicio) === inputDate;
   const durationHours =
     (conflito.dataFim.getTime() - conflito.dataInicio.getTime()) / (1000 * 60 * 60);
   const isSingleBusinessDaySlot = durationHours <= 24.5;

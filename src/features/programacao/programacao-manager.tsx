@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { TipoRecurso, TurnoAgendaProgramacao } from "@prisma/client";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { SearchableSelect } from "@/components/form/searchable-select";
+import { formatDateInputValue, parseDateOnlyStart } from "@/lib/utils/date";
 
 type DashboardStatus =
   | "OPERANDO"
@@ -195,15 +196,11 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function toDateInput(value: Date) {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return formatDateInputValue(value);
 }
 
 function parseDateInput(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, (month ?? 1) - 1, day ?? 1);
+  return parseDateOnlyStart(value);
 }
 
 function sortDateRange(first: string, second: string) {
@@ -435,7 +432,7 @@ export function ProgramacaoManager() {
   }
 
   function shiftRange(direction: -1 | 1) {
-    const base = new Date(`${referenceDate}T00:00:00`);
+    const base = parseDateInput(referenceDate);
 
     if (view === "HOJE") {
       base.setDate(base.getDate() + direction);

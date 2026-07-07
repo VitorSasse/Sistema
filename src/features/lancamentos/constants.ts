@@ -4,9 +4,10 @@ import type {
   LancamentoFormState,
   LancamentoStatus
 } from "@/features/lancamentos/types";
+import { formatDateInputValue } from "@/lib/utils/date";
 
 export const initialLancamentoForm: LancamentoFormState = {
-  data: new Date().toISOString().slice(0, 10),
+  data: formatDateInputValue(new Date()),
   fichaNumero: "",
   fichaObservacao: "",
   possuiRomaneio: false,

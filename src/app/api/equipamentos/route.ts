@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import { equipamentoSchema } from "@/lib/validators/equipamento";
 
 function parseNullableNumber(value: unknown) {
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
         modelo: data.modelo || null,
         marcaModelo: data.marcaModelo || null,
         anoFabricacao: data.anoFabricacao ?? null,
-        dataEntrada: data.dataEntrada ? new Date(data.dataEntrada) : null,
+        dataEntrada: parseOptionalDateOnlyStart(data.dataEntrada),
         capacidadeM3: data.capacidadeM3 ?? null,
         unidadeCapacidade: data.unidadeCapacidade || null,
         apelido: data.apelido || null,

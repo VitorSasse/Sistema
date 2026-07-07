@@ -6,6 +6,7 @@ import {
   TurnoAgendaProgramacao
 } from "@prisma/client";
 import type { ProgramacaoInput } from "@/lib/validators/programacao";
+import { parseDateOnlyEnd, parseDateOnlyStart } from "@/lib/utils/date";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 const programacaoTiposPermitidos = ["CAMINHAO", "MAQUINA", "CARRETA"] as const;
@@ -15,15 +16,11 @@ function isTipoPermitidoProgramacao(tipoRecurso: TipoRecurso) {
 }
 
 export function startOfDay(value: string) {
-  const date = new Date(`${value}T00:00:00`);
-  date.setHours(0, 0, 0, 0);
-  return date;
+  return parseDateOnlyStart(value);
 }
 
 export function endOfDay(value: string) {
-  const date = new Date(`${value}T00:00:00`);
-  date.setHours(23, 59, 59, 999);
-  return date;
+  return parseDateOnlyEnd(value);
 }
 
 export function buildProgramacaoWhere(filters: {

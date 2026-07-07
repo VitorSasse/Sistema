@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient, StatusLancamento, StatusMedicao, TipoMedicao } from "@prisma/client";
 import type { MedicaoCreateInput, MedicaoPreviewInput } from "@/lib/validators/medicao";
+import { formatDateInputValue, parseDateOnlyEnd, parseDateOnlyStart } from "@/lib/utils/date";
 import { canEditMedicaoContent, canTransitionMedicao } from "@/lib/utils/medicao-status";
 import { medicaoDetailInclude, medicaoListInclude, medicaoTransitionInclude } from "@/server/services/medicoes/queries";
 
@@ -35,15 +36,11 @@ type MedicaoEditavelSnapshot = {
 };
 
 export function startOfDay(value: string) {
-  const date = new Date(`${value}T00:00:00`);
-  date.setHours(0, 0, 0, 0);
-  return date;
+  return parseDateOnlyStart(value);
 }
 
 export function endOfDay(value: string) {
-  const date = new Date(`${value}T00:00:00`);
-  date.setHours(23, 59, 59, 999);
-  return date;
+  return parseDateOnlyEnd(value);
 }
 
 export async function buildCodigoMedicao(db: DbClient) {
@@ -249,7 +246,7 @@ function normalizeLancamentosParaMedicao(
 }
 
 function toInputDate(value: Date) {
-  return value.toISOString().slice(0, 10);
+  return formatDateInputValue(value);
 }
 
 function formatDateLabel(value: Date) {

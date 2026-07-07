@@ -5,6 +5,7 @@ import {
   TipoPremissaOrcamento
 } from "@prisma/client";
 import { z } from "zod";
+import { parseDateOnlyStart, parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 
 function optionalUuid() {
@@ -102,8 +103,8 @@ export const orcamentoSchema = z
     premissas: z.array(orcamentoPremissaSchema).default([])
   })
   .superRefine((data, context) => {
-    const dataOrcamento = new Date(`${data.dataOrcamento}T00:00:00`);
-    const validadeAte = data.validadeAte ? new Date(`${data.validadeAte}T00:00:00`) : null;
+    const dataOrcamento = parseDateOnlyStart(data.dataOrcamento);
+    const validadeAte = parseOptionalDateOnlyStart(data.validadeAte);
 
     if (Number.isNaN(dataOrcamento.getTime())) {
       context.addIssue({

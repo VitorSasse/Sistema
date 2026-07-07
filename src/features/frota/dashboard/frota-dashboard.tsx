@@ -13,6 +13,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import { formatDateDisplay } from "@/lib/utils/date";
 import { formatCurrency } from "@/lib/utils/formatters";
 
 type PeriodPreset = "current_month" | "previous_month" | "last_30_days" | "custom";
@@ -76,7 +77,7 @@ const periodOptions: Array<{ value: PeriodPreset; label: string }> = [
 const chartPalette = ["#F97316", "#FB923C", "#FDBA74", "#0F2A44", "#1D4ED8", "#60A5FA"];
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("pt-BR");
+  return formatDateDisplay(value);
 }
 
 function CustomTooltip({

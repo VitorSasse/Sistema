@@ -9,6 +9,7 @@ import {
 } from "@/features/medicoes/constants";
 import type { MedicaoFilters, MedicaoListItem } from "@/features/medicoes/types";
 import { formatCurrency } from "@/lib/utils/formatters";
+import { formatDateInputValue } from "@/lib/utils/date";
 import { MedicaoField } from "@/features/medicoes/components/shared";
 
 function optionLabel(option: OperationalOption) {
@@ -233,7 +234,9 @@ export function MedicaoListSection(props: {
                       "-"
                     )}
                   </td>
-                  <td>{new Date(medicao.periodoInicial).toISOString().slice(0, 10)} ate {new Date(medicao.periodoFinal).toISOString().slice(0, 10)}</td>
+                  <td>
+                    {formatDateInputValue(medicao.periodoInicial)} ate {formatDateInputValue(medicao.periodoFinal)}
+                  </td>
                   <td>{medicao.numeroPedido?.trim() || "-"}</td>
                   <td>{medicao.numeroNotaFiscal?.trim() || "-"}</td>
                   <td>

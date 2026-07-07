@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateObraCode } from "@/lib/utils/code-generation";
+import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import { obraSchema } from "@/lib/validators/obra";
 
 export async function GET() {
@@ -68,8 +69,8 @@ export async function POST(request: NextRequest) {
         localidade: parsed.data.localidade || null,
         cidade: parsed.data.cidade || null,
         uf: parsed.data.uf || null,
-        dataInicio: parsed.data.dataInicio ? new Date(parsed.data.dataInicio) : null,
-        dataFim: parsed.data.dataFim ? new Date(parsed.data.dataFim) : null,
+        dataInicio: parseOptionalDateOnlyStart(parsed.data.dataInicio),
+        dataFim: parseOptionalDateOnlyStart(parsed.data.dataFim),
         observacao: parsed.data.observacao || null,
         status: parsed.data.status,
         liberadaParaLancamento: parsed.data.liberadaParaLancamento

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseDateOnlyStart } from "@/lib/utils/date";
 import { leituraEquipamentoSchema } from "@/lib/validators/frota/leitura-equipamento";
 import { recalcularAcumuladoEquipamento } from "@/server/services/frota/leitura-sync";
 
@@ -56,6 +57,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const updated = await tx.leituraEquipamento.update({
       where: { id },
       data: {
+        dataLeitura: parseDateOnlyStart(parsed.data.dataLeitura),
         horimetroValor: parsed.data.horimetroValor ?? null,
         kmValor: parsed.data.kmValor ?? null,
         observacao: parsed.data.observacao || null,

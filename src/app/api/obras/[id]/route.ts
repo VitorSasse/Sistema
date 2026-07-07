@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import { obraSchema } from "@/lib/validators/obra";
 
 type RouteContext = {
@@ -47,8 +48,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         localidade: parsed.data.localidade || null,
         cidade: parsed.data.cidade || null,
         uf: parsed.data.uf || null,
-        dataInicio: parsed.data.dataInicio ? new Date(parsed.data.dataInicio) : null,
-        dataFim: parsed.data.dataFim ? new Date(parsed.data.dataFim) : null,
+        dataInicio: parseOptionalDateOnlyStart(parsed.data.dataInicio),
+        dataFim: parseOptionalDateOnlyStart(parsed.data.dataFim),
         observacao: parsed.data.observacao || null,
         status: parsed.data.status,
         liberadaParaLancamento: parsed.data.liberadaParaLancamento

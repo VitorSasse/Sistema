@@ -6,6 +6,7 @@ import {
   TipoOrcamento
 } from "@prisma/client";
 import { generateOrcamentoCode } from "@/lib/utils/code-generation";
+import { parseDateOnlyEnd, parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import type { OrcamentoInput } from "@/lib/validators/orcamento";
 import {
   buildOrcamentoTotals,
@@ -131,29 +132,11 @@ export type OrcamentoDetalhe = Prisma.OrcamentoGetPayload<{
 }>;
 
 function parseDateInput(value?: string | null) {
-  if (!value?.trim()) {
-    return null;
-  }
-
-  const [year, month, day] = value.trim().split("-").map(Number);
-  const date = new Date(year, month - 1, day, 0, 0, 0, 0);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return date;
+  return parseOptionalDateOnlyStart(value);
 }
 
 function endOfDay(value?: string | null) {
-  const date = parseDateInput(value);
-
-  if (!date) {
-    return null;
-  }
-
-  date.setHours(23, 59, 59, 999);
-  return date;
+  return value?.trim() ? parseDateOnlyEnd(value) : null;
 }
 
 function clean(value?: string | null) {

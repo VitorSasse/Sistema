@@ -14,6 +14,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import { formatDateDisplay } from "@/lib/utils/date";
 import { formatCurrency } from "@/lib/utils/formatters";
 
 type PeriodPreset = "current_month" | "previous_month" | "last_30_days" | "custom";
@@ -236,7 +237,7 @@ function formatHours(value: number) {
 }
 
 function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("pt-BR");
+  return formatDateDisplay(value);
 }
 
 function DashboardSkeleton() {

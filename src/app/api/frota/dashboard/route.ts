@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { formatDateInputValue, parseOptionalDateOnlyStart } from "@/lib/utils/date";
 
 const allowedPresets = [
   "current_month",
@@ -29,10 +30,7 @@ function endOfMonth(date: Date) {
 }
 
 function parseDateInput(value: string | null) {
-  if (!value) return null;
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day, 0, 0, 0, 0);
+  return parseOptionalDateOnlyStart(value);
 }
 
 function resolvePeriod(searchParams: URLSearchParams) {
@@ -116,7 +114,7 @@ function resolvePeriod(searchParams: URLSearchParams) {
 }
 
 function toDayKey(value: Date) {
-  return value.toISOString().slice(0, 10);
+  return formatDateInputValue(value);
 }
 
 type RawItem = {

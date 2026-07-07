@@ -1,4 +1,5 @@
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { formatDateInputValue } from "@/lib/utils/date";
 import { formatCurrency } from "@/lib/utils/formatters";
 import { formatServicoDisplay } from "@/lib/utils/servico-display";
 import { formatUnidade, type UnidadeFaturada } from "@/lib/utils/unidades";
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
 });
 
 function formatDate(value: Date) {
-  return value.toISOString().slice(0, 10);
+  return formatDateInputValue(value);
 }
 
 function formatTipoMedicao(value: string) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseDateOnlyEnd, parseDateOnlyStart } from "@/lib/utils/date";
 import { leituraEquipamentoSchema } from "@/lib/validators/frota/leitura-equipamento";
 import { recalcularAcumuladoEquipamento } from "@/server/services/frota/leitura-sync";
 
@@ -33,8 +34,8 @@ export async function GET(request: NextRequest) {
       ...(dataInicial || dataFinal
         ? {
             dataLeitura: {
-              ...(dataInicial ? { gte: new Date(dataInicial) } : {}),
-              ...(dataFinal ? { lte: new Date(dataFinal) } : {})
+              ...(dataInicial ? { gte: parseDateOnlyStart(dataInicial) } : {}),
+              ...(dataFinal ? { lte: parseDateOnlyEnd(dataFinal) } : {})
             }
           }
         : {})
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest) {
     const created = await tx.leituraEquipamento.create({
       data: {
         equipamentoId: parsed.data.equipamentoId,
-        dataLeitura: new Date(parsed.data.dataLeitura),
+        dataLeitura: parseDateOnlyStart(parsed.data.dataLeitura),
         horimetroValor: parsed.data.horimetroValor ?? null,
         kmValor: parsed.data.kmValor ?? null,
         origem: parsed.data.origem,

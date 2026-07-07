@@ -2,24 +2,15 @@ import { TipoAlteracao } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { validateApiPermission } from "@/lib/auth-guards";
 import { prisma } from "@/lib/prisma";
+import { parseDateOnlyEnd, parseDateOnlyStart } from "@/lib/utils/date";
 
 function parseDateQuery(value: string | null, endOfDay = false) {
   if (!value?.trim()) {
     return null;
   }
 
-  const [year, month, day] = value.trim().split("-").map(Number);
-  const date = new Date(year, month - 1, day, 0, 0, 0, 0);
-
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  if (endOfDay) {
-    date.setHours(23, 59, 59, 999);
-  }
-
-  return date;
+  const date = endOfDay ? parseDateOnlyEnd(value) : parseDateOnlyStart(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function normalizeSearchText(value: unknown) {

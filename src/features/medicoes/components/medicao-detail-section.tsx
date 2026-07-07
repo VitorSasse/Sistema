@@ -9,6 +9,7 @@ import {
 import { MedicaoField, MedicaoInfoCard } from "@/features/medicoes/components/shared";
 import { formatQuantidadeComUnidade, formatUnidade } from "@/lib/utils/unidades";
 import { formatCurrency } from "@/lib/utils/formatters";
+import { formatDateInputValue } from "@/lib/utils/date";
 import type {
   MedicaoCobrancaMaterial,
   MedicaoDetail,
@@ -19,7 +20,7 @@ import type {
 } from "@/features/medicoes/types";
 
 function formatDate(value: string | null) {
-  return value ? new Date(value).toISOString().slice(0, 10) : "-";
+  return formatDateInputValue(value) || "-";
 }
 
 function parsePercentual(value: string) {

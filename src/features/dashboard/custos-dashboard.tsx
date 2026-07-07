@@ -17,6 +17,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import { formatDateDisplay, formatDateInputValue } from "@/lib/utils/date";
 import { formatCurrency } from "@/lib/utils/formatters";
 
 type PeriodPreset = "current_month" | "previous_month" | "last_3_months" | "current_year" | "custom";
@@ -175,7 +176,7 @@ function formatPercent(value: number) {
 }
 
 function toInputDate(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return formatDateInputValue(date);
 }
 
 function escapeCsv(value: string | number | null | undefined) {
@@ -398,7 +399,7 @@ export function CustosDashboard() {
       ],
       ...(data?.details ?? []).map((item) => [
         item.numeroOrdem,
-        new Date(item.dataEmissao).toLocaleDateString("pt-BR"),
+        formatDateDisplay(item.dataEmissao),
         item.fornecedorNome,
         item.centroCustoNome,
         item.equipamentoNome,

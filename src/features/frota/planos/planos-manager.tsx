@@ -2,6 +2,7 @@
 
 import { CriterioControleManutencao, StatusPlanoManutencao } from "@prisma/client";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { formatDateDisplay, formatDateInputValue, parseDateOnlyStart } from "@/lib/utils/date";
 
 type EquipamentoOption = {
   id: string;
@@ -109,7 +110,7 @@ export function PlanosManager() {
       return "Informe a ultima execucao para calcular revisao por data.";
     }
 
-    const data = new Date(`${form.ultimaExecucaoEm}T00:00:00`);
+    const data = parseDateOnlyStart(form.ultimaExecucaoEm);
     data.setDate(data.getDate() + periodicidade);
     return `Proxima revisao prevista para ${data.toLocaleDateString("pt-BR")}.`;
   }, [form]);
@@ -161,7 +162,7 @@ export function PlanosManager() {
       criterioControle: item.criterioControle,
       periodicidadeValor: String(item.periodicidadeValor),
       toleranciaValor: String(item.toleranciaValor),
-      ultimaExecucaoEm: item.ultimaExecucaoEm ? item.ultimaExecucaoEm.slice(0, 10) : "",
+      ultimaExecucaoEm: formatDateInputValue(item.ultimaExecucaoEm),
       ultimaLeituraHorimetro: item.ultimaLeituraHorimetro ?? "",
       ultimaLeituraKm: item.ultimaLeituraKm ?? "",
       observacao: item.observacao ?? "",
@@ -341,7 +342,7 @@ export function PlanosManager() {
                     <div className="subtle">KM: {item.equipamento.kmAtual ?? "-"}</div>
                   </td>
                   <td>
-                    <div>{item.ultimaExecucaoEm ? new Date(item.ultimaExecucaoEm).toLocaleDateString("pt-BR") : "-"}</div>
+                    <div>{formatDateDisplay(item.ultimaExecucaoEm)}</div>
                     <div className="subtle">
                       H: {item.ultimaLeituraHorimetro ?? "-"} · KM: {item.ultimaLeituraKm ?? "-"}
                     </div>
@@ -349,7 +350,7 @@ export function PlanosManager() {
                   <td>
                     <div>
                       {item.proximaExecucaoEm
-                        ? new Date(item.proximaExecucaoEm).toLocaleDateString("pt-BR")
+                        ? formatDateDisplay(item.proximaExecucaoEm)
                         : item.proximoHorimetro ?? item.proximoKm ?? "-"}
                     </div>
                   </td>

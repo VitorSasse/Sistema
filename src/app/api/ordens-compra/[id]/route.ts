@@ -11,6 +11,7 @@ import {
 } from "@/lib/ordens-compra";
 import { normalizarPagamentoOrdemCompra } from "@/lib/ordens-compra-pagamento";
 import { prisma } from "@/lib/prisma";
+import { parseDateOnlyStart } from "@/lib/utils/date";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { ordemCompraSchema } from "@/lib/validators/ordem-compra";
 
@@ -19,11 +20,6 @@ type RouteContext = {
 };
 
 export const runtime = "nodejs";
-
-function parseDateInput(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day, 0, 0, 0, 0);
-}
 
 function normalizePayload(payload: Record<string, unknown>) {
   const itens = Array.isArray(payload.itens) ? payload.itens : [];
@@ -262,13 +258,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     });
 
     const valorTotal = calcularTotalOrdem(itensCalculados);
-    const dataEmissao = parseDateInput(parsed.data.dataEmissao);
+    const dataEmissao = parseDateOnlyStart(parsed.data.dataEmissao);
     const pagamentoNormalizado = normalizarPagamentoOrdemCompra({
       formaPagamento: parsed.data.formaPagamento,
       numeroParcelas: parsed.data.numeroParcelas,
       dataEmissao,
       primeiroVencimento: parsed.data.primeiroVencimento
-        ? parseDateInput(parsed.data.primeiroVencimento)
+        ? parseDateOnlyStart(parsed.data.primeiroVencimento)
         : null
     });
     const dataBaseParcelas = pagamentoNormalizado.primeiroVencimento;

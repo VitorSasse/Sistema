@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { formatDateInputValue } from "@/lib/utils/date";
 
 type SectionType = "CAMINHAO" | "MAQUINA";
 
@@ -85,7 +86,7 @@ function parseSelectedEquipmentIds(value: string | null) {
 }
 
 function toDayKey(value: Date) {
-  return value.toISOString().slice(0, 10);
+  return formatDateInputValue(value);
 }
 
 function normalizeSelectedEquipmentIds(

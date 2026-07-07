@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { parseDateOnlyEnd, parseOptionalDateOnlyStart } from "@/lib/utils/date";
 
 type PeriodPreset = "current_month" | "previous_month" | "last_3_months" | "current_year" | "custom";
 type CategoriaCusto = "MANUTENCAO" | "COMBUSTIVEL" | "OPERACIONAL" | "ADMINISTRATIVO" | "NAO_INFORMADO";
@@ -30,10 +31,7 @@ function endOfMonth(date: Date) {
 }
 
 function parseDateInput(value: string | null, endOfDay = false) {
-  if (!value) return null;
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+  return endOfDay ? (value ? parseDateOnlyEnd(value) : null) : parseOptionalDateOnlyStart(value);
 }
 
 function parseIdList(value: string | null) {

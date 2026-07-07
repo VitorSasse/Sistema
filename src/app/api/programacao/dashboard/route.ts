@@ -2,6 +2,7 @@ import { StatusAgendaProgramacao, TipoControleEquipamento, TipoRecurso } from "@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { formatDateInputValue, parseDateOnlyStart } from "@/lib/utils/date";
 import {
   isPlanoManutencaoConsistente,
   selecionarPlanosManutencaoRelevantes
@@ -37,10 +38,7 @@ function toDateOnly(value: Date) {
 }
 
 function toDateInput(value: Date) {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return formatDateInputValue(value);
 }
 
 function startOfWeek(base: Date) {
@@ -238,7 +236,7 @@ function getPeriodStatus(
   const scopedCells =
     view === "HOJE"
       ? cells.filter((cell) => cell.date === selectedDate)
-      : cells.filter((cell) => !isWeekend(toDateOnly(new Date(`${cell.date}T00:00:00`))));
+      : cells.filter((cell) => !isWeekend(toDateOnly(parseDateOnlyStart(cell.date))));
 
   const candidates = scopedCells.length > 0 ? scopedCells : cells;
 
@@ -257,7 +255,7 @@ export async function GET(request: NextRequest) {
   const obraId = searchParams.get("obraId");
   const statusFilter = searchParams.get("status") as DashboardStatus | null;
   const view = (searchParams.get("view") ?? "SEMANA").toUpperCase();
-  const referenceDate = new Date(`${searchParams.get("date") ?? toDateInput(new Date())}T00:00:00`);
+  const referenceDate = parseDateOnlyStart(searchParams.get("date") ?? toDateInput(new Date()));
 
   const rangeStart =
     view === "HOJE" ? toDateOnly(referenceDate) : view === "MES" ? startOfMonth(referenceDate) : startOfWeek(referenceDate);

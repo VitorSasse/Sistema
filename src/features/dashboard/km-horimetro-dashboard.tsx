@@ -13,6 +13,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import { formatDateDisplay } from "@/lib/utils/date";
 
 type MonthStatus = "OK" | "SEM_DADOS" | "SEM_LEITURA_ANTERIOR" | "INCONSISTENTE" | "SEM_TIPO_CONTROLE";
 type ControlType = "KM" | "HORIMETRO";
@@ -144,8 +145,7 @@ function formatReading(value: number | null, unidade: "km" | "h") {
 }
 
 function formatDate(value: string | null) {
-  if (!value) return "-";
-  return new Date(value).toLocaleDateString("pt-BR");
+  return formatDateDisplay(value);
 }
 
 function statusLabel(status: MonthStatus) {

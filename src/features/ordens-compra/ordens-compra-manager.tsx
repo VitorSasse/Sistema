@@ -15,6 +15,11 @@ import {
   normalizarPagamentoOrdemCompra,
   obterFormaPagamentoOrdemCompra
 } from "@/lib/ordens-compra-pagamento";
+import {
+  formatDateDisplay as formatCalendarDateDisplay,
+  formatDateInputValue,
+  parseDateOnlyStart
+} from "@/lib/utils/date";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { formatCurrency } from "@/lib/utils/formatters";
 
@@ -234,37 +239,19 @@ const TIPO_ANEXO_OPTIONS: Array<{ value: TipoAnexo; label: string }> = [
 ];
 
 function formatDateInput(value: string | Date) {
-  if (typeof value === "string") {
-    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-
-    if (match) {
-      return `${match[1]}-${match[2]}-${match[3]}`;
-    }
-  }
-
-  const date = new Date(value);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return formatDateInputValue(value);
 }
 
 function parseDateValue(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day, 12, 0, 0, 0);
+  return parseDateOnlyStart(value);
 }
 
 function formatDateDisplay(value: string | Date) {
-  const normalized = formatDateInput(value);
-  const [year, month, day] = normalized.split("-");
-  return `${day}/${month}/${year}`;
+  return formatCalendarDateDisplay(value);
 }
 
 function formatDateOnly(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return formatDateInputValue(date);
 }
 
 function getPeriodoConsultaRange(periodo: PeriodoConsulta) {
