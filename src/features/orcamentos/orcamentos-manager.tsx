@@ -123,6 +123,26 @@ type PremissaForm = {
   descricao: string;
 };
 
+type ApiValidationError = {
+  campo?: string;
+  path?: string;
+  mensagem?: string;
+  message?: string;
+  codigo?: string;
+};
+
+type ApiErrorPayload = {
+  message?: string;
+  detail?: string;
+  validationErrors?: ApiValidationError[];
+  issues?:
+    | {
+        formErrors?: string[];
+        fieldErrors?: Record<string, string[]>;
+      }
+    | ApiValidationError[];
+};
+
 type OrcamentoForm = {
   id?: string;
   tipo: TipoOrcamento;
@@ -442,6 +462,40 @@ function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function formatValidationError(error: ApiValidationError) {
+  const field = error.campo ?? error.path;
+  const message = error.mensagem ?? error.message ?? "Validacao rejeitada.";
+
+  return field ? `${field}: ${message}` : message;
+}
+
+function parseApiErrorPayload(payload: ApiErrorPayload, fallback: string) {
+  const details: string[] = [];
+
+  if (Array.isArray(payload.validationErrors)) {
+    details.push(...payload.validationErrors.map(formatValidationError));
+  }
+
+  if (Array.isArray(payload.issues)) {
+    details.push(...payload.issues.map(formatValidationError));
+  } else if (payload.issues) {
+    details.push(...(payload.issues.formErrors ?? []));
+
+    for (const [field, messages] of Object.entries(payload.issues.fieldErrors ?? {})) {
+      details.push(...messages.map((message) => `${field}: ${message}`));
+    }
+  }
+
+  if (payload.detail && details.length === 0) {
+    details.push(payload.detail);
+  }
+
+  return {
+    message: payload.message ?? fallback,
+    details: Array.from(new Set(details.filter(Boolean)))
+  };
+}
+
 function buildEconomicPreview(form: OrcamentoForm) {
   const isOperational = form.tipo === "OPERACIONAL";
   const subtotalItens = roundMoney(form.itens.reduce((sum, item) => sum + calcItemTotal(item), 0));
@@ -518,6 +572,18 @@ export function OrcamentosManager() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [errorDetails, setErrorDetails] = useState<string[]>([]);
+
+  function clearError() {
+    setError("");
+    setErrorDetails([]);
+  }
+
+  function applyApiError(payload: ApiErrorPayload, fallback: string) {
+    const parsed = parseApiErrorPayload(payload, fallback);
+    setError(parsed.message);
+    setErrorDetails(parsed.details);
+  }
 
   const clienteOptions = useMemo(
     () =>
@@ -624,7 +690,7 @@ export function OrcamentosManager() {
 
   async function loadOrcamentos(nextFilters = filters) {
     setLoading(true);
-    setError("");
+    clearError();
 
     const params = new URLSearchParams();
     if (nextFilters.search.trim()) params.set("search", nextFilters.search.trim());
@@ -635,7 +701,7 @@ export function OrcamentosManager() {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      setError(data.message ?? "Nao foi possivel carregar os orcamentos.");
+      applyApiError(data, "Nao foi possivel carregar os orcamentos.");
       setLoading(false);
       return;
     }
@@ -818,19 +884,19 @@ export function OrcamentosManager() {
     setSelectedId("");
     setForm(createEmptyForm());
     setMessage("");
-    setError("");
+    clearError();
   }
 
   async function abrirOrcamento(orcamento: OrcamentoResumoApi) {
     setSelectedId(orcamento.id);
     setMessage("");
-    setError("");
+    clearError();
 
     const response = await fetch(`/api/orcamentos/${orcamento.id}`);
     const data = await response.json();
 
     if (!response.ok) {
-      setError(data.message ?? "Nao foi possivel abrir o orcamento.");
+      applyApiError(data, "Nao foi possivel abrir o orcamento.");
       return;
     }
 
@@ -840,7 +906,7 @@ export function OrcamentosManager() {
   async function salvarOrcamento() {
     setSaving(true);
     setMessage("");
-    setError("");
+    clearError();
 
     const payload = buildPayload(form);
     const response = await fetch(selectedId ? `/api/orcamentos/${selectedId}` : "/api/orcamentos", {
@@ -853,7 +919,7 @@ export function OrcamentosManager() {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      setError(data.message ?? "Nao foi possivel salvar o orcamento.");
+      applyApiError(data, "Nao foi possivel salvar o orcamento.");
       setSaving(false);
       return;
     }
@@ -867,7 +933,7 @@ export function OrcamentosManager() {
 
   async function duplicar(id: string) {
     setMessage("");
-    setError("");
+    clearError();
 
     const response = await fetch(`/api/orcamentos/${id}/duplicar`, {
       method: "POST"
@@ -875,7 +941,7 @@ export function OrcamentosManager() {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      setError(data.message ?? "Nao foi possivel duplicar o orcamento.");
+      applyApiError(data, "Nao foi possivel duplicar o orcamento.");
       return;
     }
 
@@ -896,7 +962,7 @@ export function OrcamentosManager() {
 
     setSaving(true);
     setMessage("");
-    setError("");
+    clearError();
 
     const response = await fetch(`/api/orcamentos/${selectedId}/evoluir`, {
       method: "POST"
@@ -904,7 +970,7 @@ export function OrcamentosManager() {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      setError(data.message ?? "Nao foi possivel evoluir o orcamento.");
+      applyApiError(data, "Nao foi possivel evoluir o orcamento.");
       setSaving(false);
       return;
     }
@@ -918,6 +984,7 @@ export function OrcamentosManager() {
   function gerarPdf() {
     if (!selectedId) {
       setError("Salve ou selecione um orcamento antes de gerar o PDF.");
+      setErrorDetails([]);
       return;
     }
 
@@ -930,7 +997,7 @@ export function OrcamentosManager() {
     }
 
     setMessage("");
-    setError("");
+    clearError();
 
     const response = await fetch(`/api/orcamentos/${id}`, {
       method: "DELETE"
@@ -938,7 +1005,7 @@ export function OrcamentosManager() {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      setError(data.message ?? "Nao foi possivel arquivar o orcamento.");
+      applyApiError(data, "Nao foi possivel arquivar o orcamento.");
       return;
     }
 
@@ -1076,7 +1143,18 @@ export function OrcamentosManager() {
           </div>
 
           {message ? <div className="message-inline">{message}</div> : null}
-          {error ? <div className="message-inline message-inline-danger">{error}</div> : null}
+          {error ? (
+            <div className="message-inline message-inline-danger">
+              <strong>{error}</strong>
+              {errorDetails.length > 0 ? (
+                <ul className="orcamentos-error-list">
+                  {errorDetails.map((detail) => (
+                    <li key={detail}>{detail}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="orcamentos-mode-switch">
             {tipoOptions.map((option) => (

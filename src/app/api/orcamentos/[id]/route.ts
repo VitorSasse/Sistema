@@ -9,6 +9,7 @@ import {
   excluirOrcamento
 } from "@/server/services/orcamentos/service";
 import {
+  buildOrcamentoValidationErrorResponse,
   handleOrcamentoApiError,
   orcamentoTransactionOptions
 } from "@/app/api/orcamentos/_utils";
@@ -46,10 +47,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const parsed = orcamentoSchema.safeParse(payload);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { message: "Dados invalidos.", issues: parsed.error.flatten() },
-      { status: 400 }
-    );
+    return buildOrcamentoValidationErrorResponse(parsed.error);
   }
 
   try {

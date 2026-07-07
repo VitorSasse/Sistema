@@ -7605,6 +7605,17 @@ button {
   gap: 12px;
 }
 
+.orcamentos-error-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.orcamentos-error-list li {
+  line-height: 1.45;
+}
+
 .orcamentos-operational-section {
   background:
     radial-gradient(circle at 88% 8%, rgba(249, 115, 22, 0.14), transparent 28%),

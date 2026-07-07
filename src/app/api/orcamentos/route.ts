@@ -8,6 +8,7 @@ import {
   listarOrcamentos
 } from "@/server/services/orcamentos/service";
 import {
+  buildOrcamentoValidationErrorResponse,
   handleOrcamentoApiError,
   orcamentoTransactionOptions
 } from "@/app/api/orcamentos/_utils";
@@ -50,10 +51,7 @@ export async function POST(request: NextRequest) {
   const parsed = orcamentoSchema.safeParse(payload);
 
   if (!parsed.success) {
-    return NextResponse.json(
-      { message: "Dados invalidos.", issues: parsed.error.flatten() },
-      { status: 400 }
-    );
+    return buildOrcamentoValidationErrorResponse(parsed.error);
   }
 
   try {

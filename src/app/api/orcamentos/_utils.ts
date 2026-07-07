@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
+import type { ZodError, ZodIssue } from "zod";
 
 const errorMap: Record<string, { message: string; status: number }> = {
   CLIENTE_NAO_ENCONTRADO: {
@@ -56,6 +57,36 @@ export const orcamentoTransactionOptions = {
   maxWait: 10000,
   timeout: 20000
 } as const;
+
+function formatIssuePath(issue: ZodIssue) {
+  if (issue.path.length === 0) {
+    return "formulario";
+  }
+
+  return issue.path
+    .map((segment) =>
+      typeof segment === "number" ? `[${segment + 1}]` : String(segment)
+    )
+    .join(".")
+    .replaceAll(".[", "[");
+}
+
+export function buildOrcamentoValidationErrorResponse(error: ZodError) {
+  const validationErrors = error.issues.map((issue) => ({
+    campo: formatIssuePath(issue),
+    mensagem: issue.message,
+    codigo: issue.code
+  }));
+
+  return NextResponse.json(
+    {
+      message: "Dados invalidos.",
+      validationErrors,
+      issues: error.flatten()
+    },
+    { status: 400 }
+  );
+}
 
 export function handleOrcamentoApiError(error: unknown) {
   if (error instanceof Error) {
