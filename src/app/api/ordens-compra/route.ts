@@ -160,7 +160,9 @@ export async function GET(request: NextRequest) {
   const dataInicial = parseDateQuery(searchParams.get("dataInicial"));
   const dataFinal = parseDateQuery(searchParams.get("dataFinal"), true);
 
-  const where: Prisma.OrdemCompraWhereInput = {};
+  const where: Prisma.OrdemCompraWhereInput = {
+    excluidaEm: null
+  };
 
   if (fornecedorId) {
     where.fornecedorId = fornecedorId;
