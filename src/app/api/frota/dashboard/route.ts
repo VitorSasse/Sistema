@@ -138,6 +138,7 @@ function buildSection(
       item.equipamento.tipoRecurso === type &&
       (!selectedEquipamentoIds || selectedEquipamentoIds.has(item.equipamento.id))
   );
+  const valuedItems = filteredItems.filter((item) => item.valorTotalItem > 0);
 
   const rankingMap = new Map<
     string,
@@ -154,7 +155,7 @@ function buildSection(
 
   const daysWithProduction = new Set<string>();
 
-  for (const item of filteredItems) {
+  for (const item of valuedItems) {
     const dayKey = toDayKey(item.data);
     daysWithProduction.add(dayKey);
 
@@ -208,7 +209,7 @@ function buildSection(
   const diasComProducao = daysWithProduction.size;
 
   return {
-    filteredItems,
+    filteredItems: valuedItems,
     summary: {
       totalValor,
       totalItens,
