@@ -333,7 +333,12 @@ const styles = StyleSheet.create({
     width: 300,
     borderTopWidth: 1,
     borderColor: colors.text,
-    paddingTop: 4,
+    height: 12,
+    alignSelf: "center",
+    marginBottom: 0
+  },
+  assinaturaNome: {
+    width: 300,
     textAlign: "center",
     fontWeight: "bold",
     alignSelf: "center",
@@ -531,7 +536,7 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
         <Text style={styles.sectionTitle}>ITENS DA PROPOSTA</Text>
         <View style={styles.table}>
           <View style={styles.tableHeader}>
-            <Text style={[styles.cell, styles.headCell, styles.itemCol]}>Item</Text>
+            <Text style={[styles.cell, styles.headCell, styles.centerCell, styles.itemCol]}>Item</Text>
             {isOrcamentoComercial ? null : (
               <Text style={[styles.cell, styles.headCell, styles.frenteCol]}>Frente</Text>
             )}
@@ -578,7 +583,7 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
           </View>
           {props.itens.map((item) => (
             <View key={`${item.ordem}-${item.descricao}`} style={styles.tableRow} wrap={false}>
-              <Text style={[styles.cell, styles.itemCol]}>{item.ordem}</Text>
+              <Text style={[styles.cell, styles.centerCell, styles.itemCol]}>{item.ordem}</Text>
               {isOrcamentoComercial ? null : (
                 <Text style={[styles.cell, styles.frenteCol]}>{item.frenteNome || "-"}</Text>
               )}
@@ -678,7 +683,8 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
               Ao assinar abaixo, a CONTRATANTE declara estar de acordo com o escopo, premissas,
               condições comerciais e valores apresentados nesta proposta.
             </Text>
-            <Text style={styles.assinaturaLinha}>CONTRATANTE</Text>
+            <View style={styles.assinaturaLinha} />
+            <Text style={styles.assinaturaNome}>CONTRATANTE</Text>
             <Text style={styles.aceiteCampo}>Nome:</Text>
             <Text style={styles.aceiteCampo}>CPF/CNPJ:</Text>
             <Text style={styles.aceiteCampo}>Data:</Text>
