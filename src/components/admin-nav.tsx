@@ -3,7 +3,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   ClipboardList,
@@ -39,27 +39,41 @@ const iconByGroup: Record<string, LucideIcon> = {
   seguranca: ShieldCheck
 };
 
+function isRouteMatch(pathname: string, href: Route) {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function AdminNav({ groups }: AdminNavProps) {
   const pathname = usePathname();
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const activeHref = useMemo(() => {
+    return groups
+      .flatMap((group) => group.items)
+      .filter((item) => isRouteMatch(pathname, item.href))
+      .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+  }, [groups, pathname]);
 
   useEffect(() => {
     setOpenGroups((current) => {
       const nextState = { ...current };
 
       for (const group of groups) {
+        const hasActiveItem = group.items.some((item) => item.href === activeHref);
+
         if (nextState[group.label] !== undefined) {
+          if (hasActiveItem) {
+            nextState[group.label] = true;
+          }
+
           continue;
         }
 
-        nextState[group.label] = group.items.some(
-          (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
-        );
+        nextState[group.label] = hasActiveItem;
       }
 
       return nextState;
     });
-  }, [groups, pathname]);
+  }, [activeHref, groups]);
 
   function toggleGroup(label: string) {
     setOpenGroups((current) => ({
@@ -94,7 +108,7 @@ export function AdminNav({ groups }: AdminNavProps) {
 
           <div className={`admin-nav-group-links${openGroups[group.label] ? " is-open" : ""}`}>
             {group.items.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              const isActive = item.href === activeHref;
 
               return (
                 <Link

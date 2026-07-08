@@ -6,9 +6,7 @@ import type { Route } from "next";
 
 const items = [
   { href: "/dashboard" as Route, label: "Faturamento por cliente" },
-  { href: "/dashboard/mensal" as Route, label: "Faturamento mensal" },
-  { href: "/dashboard/custos" as Route, label: "Custos" },
-  { href: "/dashboard/km-horimetro" as Route, label: "KM/Horimetro mensal" }
+  { href: "/dashboard/mensal" as Route, label: "Faturamento mensal" }
 ];
 
 export function FaturamentoSubnav() {
