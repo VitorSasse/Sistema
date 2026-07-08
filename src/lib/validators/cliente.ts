@@ -14,6 +14,7 @@ export const clienteSchema = z
   telefone: z.string().trim().max(20).optional().or(z.literal("")),
   email: z.string().trim().email().max(160).optional().or(z.literal("")),
   enderecoLinha1: z.string().trim().max(160).optional().or(z.literal("")),
+  enderecoNumero: z.string().trim().max(20).optional().or(z.literal("")),
   enderecoLinha2: z.string().trim().max(160).optional().or(z.literal("")),
   bairro: z.string().trim().max(80).optional().or(z.literal("")),
   cidade: z.string().trim().max(80).optional().or(z.literal("")),

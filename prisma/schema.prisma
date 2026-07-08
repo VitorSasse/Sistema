@@ -323,6 +323,7 @@ model Cliente {
   telefone          String?
   email             String?
   enderecoLinha1    String?
+  enderecoNumero    String?
   enderecoLinha2    String?
   bairro            String?
   cidade            String?
@@ -381,6 +382,7 @@ model Fornecedor {
   telefone          String?
   email             String?
   enderecoLinha1    String?
+  enderecoNumero    String?
   enderecoLinha2    String?
   bairro            String?
   cidade            String?

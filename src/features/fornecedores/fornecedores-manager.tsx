@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
+import { formatCep, formatCnpjDocument, formatTelefone } from "@/lib/utils/document";
 
 type OrdemResumo = {
   id: string;
@@ -22,6 +23,7 @@ type Fornecedor = {
   telefone: string | null;
   email: string | null;
   enderecoLinha1: string | null;
+  enderecoNumero: string | null;
   enderecoLinha2: string | null;
   bairro: string | null;
   cidade: string | null;
@@ -41,6 +43,7 @@ type FormState = {
   telefone: string;
   email: string;
   enderecoLinha1: string;
+  enderecoNumero: string;
   enderecoLinha2: string;
   bairro: string;
   cidade: string;
@@ -58,6 +61,7 @@ const initialForm: FormState = {
   telefone: "",
   email: "",
   enderecoLinha1: "",
+  enderecoNumero: "",
   enderecoLinha2: "",
   bairro: "",
   cidade: "",
@@ -163,6 +167,7 @@ export function FornecedoresManager() {
       telefone: fornecedor.telefone ?? "",
       email: fornecedor.email ?? "",
       enderecoLinha1: fornecedor.enderecoLinha1 ?? "",
+      enderecoNumero: fornecedor.enderecoNumero ?? "",
       enderecoLinha2: fornecedor.enderecoLinha2 ?? "",
       bairro: fornecedor.bairro ?? "",
       cidade: fornecedor.cidade ?? "",
@@ -261,7 +266,7 @@ export function FornecedoresManager() {
                 className="field-control"
                 placeholder="00.000.000/0001-00"
                 value={form.cnpj}
-                onChange={(event) => updateField("cnpj", event.target.value)}
+                onChange={(event) => updateField("cnpj", formatCnpjDocument(event.target.value))}
               />
             </Field>
             <Field label="Inscricao estadual">
@@ -277,7 +282,7 @@ export function FornecedoresManager() {
                 className="field-control"
                 placeholder="(00) 00000-0000"
                 value={form.telefone}
-                onChange={(event) => updateField("telefone", event.target.value)}
+                onChange={(event) => updateField("telefone", formatTelefone(event.target.value))}
               />
             </Field>
             <Field label="E-mail">
@@ -294,6 +299,14 @@ export function FornecedoresManager() {
                 placeholder="Rua, avenida ou referencia"
                 value={form.enderecoLinha1}
                 onChange={(event) => updateField("enderecoLinha1", event.target.value)}
+              />
+            </Field>
+            <Field label="Numero">
+              <input
+                className="field-control"
+                placeholder="Numero residencial ou comercial"
+                value={form.enderecoNumero}
+                onChange={(event) => updateField("enderecoNumero", event.target.value)}
               />
             </Field>
             <Field label="Complemento">
@@ -334,7 +347,7 @@ export function FornecedoresManager() {
                 className="field-control"
                 placeholder="00000-000"
                 value={form.cep}
-                onChange={(event) => updateField("cep", event.target.value)}
+                onChange={(event) => updateField("cep", formatCep(event.target.value))}
               />
             </Field>
             <Field label="Status">

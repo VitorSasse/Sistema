@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateColaboradorCode } from "@/lib/utils/code-generation";
-import { sanitizeCpf } from "@/lib/utils/cpf";
+import { formatCpf } from "@/lib/utils/cpf";
 import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
+import { formatTelefone } from "@/lib/utils/document";
 import { colaboradorSchema } from "@/lib/validators/colaborador";
 
 export async function GET() {
@@ -45,8 +46,8 @@ export async function POST(request: NextRequest) {
         nome: parsed.data.nome,
         apelido: parsed.data.apelido || null,
         funcao: parsed.data.funcao,
-        documento: parsed.data.documento ? sanitizeCpf(parsed.data.documento) : null,
-        telefone: parsed.data.telefone || null,
+        documento: parsed.data.documento ? formatCpf(parsed.data.documento) : null,
+        telefone: formatTelefone(parsed.data.telefone) || null,
         dataAdmissao: parseOptionalDateOnlyStart(parsed.data.dataAdmissao),
         dataSaida: parseOptionalDateOnlyStart(parsed.data.dataSaida),
         observacao: parsed.data.observacao || null,

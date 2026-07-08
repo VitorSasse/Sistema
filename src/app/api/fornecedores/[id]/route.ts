@@ -2,7 +2,12 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { normalizeDocument } from "@/lib/utils/document";
+import {
+  formatCep,
+  formatCnpjDocument,
+  formatTelefone,
+  normalizeDocument
+} from "@/lib/utils/document";
 import { fornecedorSchema } from "@/lib/validators/fornecedor";
 
 type RouteContext = {
@@ -27,12 +32,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const cnpj = normalizeDocument(parsed.data.cnpj || "") || null;
+  const cnpjDigits = normalizeDocument(parsed.data.cnpj || "");
+  const cnpj = cnpjDigits ? formatCnpjDocument(cnpjDigits) : null;
+  const telefone = formatTelefone(parsed.data.telefone) || null;
+  const cep = formatCep(parsed.data.cep) || null;
 
   if (cnpj) {
     const existing = await prisma.fornecedor.findFirst({
       where: {
-        cnpj,
+        OR: [{ cnpj }, { cnpj: cnpjDigits }],
         NOT: { id }
       },
       select: { id: true }
@@ -54,14 +62,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         nomeFantasia: parsed.data.nomeFantasia || null,
         cnpj,
         inscricaoEstadual: parsed.data.inscricaoEstadual || null,
-        telefone: parsed.data.telefone || null,
+        telefone,
         email: parsed.data.email || null,
         enderecoLinha1: parsed.data.enderecoLinha1 || null,
+        enderecoNumero: parsed.data.enderecoNumero || null,
         enderecoLinha2: parsed.data.enderecoLinha2 || null,
         bairro: parsed.data.bairro || null,
         cidade: parsed.data.cidade || null,
         uf: parsed.data.uf || null,
-        cep: parsed.data.cep || null,
+        cep,
         observacao: parsed.data.observacao || null,
         status: parsed.data.status
       },

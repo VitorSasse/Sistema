@@ -5,6 +5,7 @@ import { FuncaoColaborador } from "@prisma/client";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 import { formatCpf } from "@/lib/utils/cpf";
+import { formatTelefone } from "@/lib/utils/document";
 
 type Colaborador = {
   id: string;
@@ -133,7 +134,7 @@ export function ColaboradoresManager() {
       apelido: colaborador.apelido ?? "",
       funcao: colaborador.funcao,
       documento: formatCpf(colaborador.documento),
-      telefone: colaborador.telefone ?? "",
+      telefone: formatTelefone(colaborador.telefone),
       dataAdmissao: colaborador.dataAdmissao ? colaborador.dataAdmissao.slice(0, 10) : "",
       dataSaida: colaborador.dataSaida ? colaborador.dataSaida.slice(0, 10) : "",
       observacao: colaborador.observacao ?? "",
@@ -246,7 +247,7 @@ export function ColaboradoresManager() {
               <input
                 placeholder="(00) 00000-0000"
                 value={form.telefone}
-                onChange={(event) => updateField("telefone", event.target.value)}
+                onChange={(event) => updateField("telefone", formatTelefone(event.target.value))}
                 className="field-control manager-field-control"
               />
             </Field>

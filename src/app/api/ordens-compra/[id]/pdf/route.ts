@@ -64,6 +64,7 @@ export async function GET(_: Request, context: RouteContext) {
         nomeFantasia: ordemCompra.fornecedor.nomeFantasia,
         cnpj: ordemCompra.fornecedor.cnpj,
         enderecoLinha1: ordemCompra.fornecedor.enderecoLinha1,
+        enderecoNumero: ordemCompra.fornecedor.enderecoNumero,
         enderecoLinha2: ordemCompra.fornecedor.enderecoLinha2,
         bairro: ordemCompra.fornecedor.bairro,
         cidade: ordemCompra.fornecedor.cidade,

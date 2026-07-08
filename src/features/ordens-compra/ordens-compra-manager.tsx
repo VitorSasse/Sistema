@@ -44,6 +44,7 @@ type Fornecedor = {
   telefone: string | null;
   email: string | null;
   enderecoLinha1: string | null;
+  enderecoNumero: string | null;
   enderecoLinha2: string | null;
   bairro: string | null;
   cidade: string | null;

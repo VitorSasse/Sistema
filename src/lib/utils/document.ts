@@ -1,9 +1,74 @@
-function onlyDigits(value: string) {
+export function onlyDigits(value: string) {
   return value.replace(/\D/g, "");
 }
 
 export function normalizeDocument(value: string) {
   return onlyDigits(value);
+}
+
+export function formatCpfDocument(value: string | null | undefined) {
+  const digits = onlyDigits(value ?? "").slice(0, 11);
+
+  if (!digits) {
+    return "";
+  }
+
+  return digits
+    .replace(/^(\d{3})(\d)/, "$1.$2")
+    .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1-$2");
+}
+
+export function formatCnpjDocument(value: string | null | undefined) {
+  const digits = onlyDigits(value ?? "").slice(0, 14);
+
+  if (!digits) {
+    return "";
+  }
+
+  return digits
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
+export function formatCep(value: string | null | undefined) {
+  const digits = onlyDigits(value ?? "").slice(0, 8);
+
+  if (!digits) {
+    return "";
+  }
+
+  return digits.replace(/^(\d{5})(\d)/, "$1-$2");
+}
+
+export function formatTelefone(value: string | null | undefined) {
+  const digits = onlyDigits(value ?? "").slice(0, 11);
+
+  if (!digits) {
+    return "";
+  }
+
+  if (digits.length <= 2) {
+    return `(${digits}`;
+  }
+
+  if (digits.length <= 10) {
+    const ddd = digits.slice(0, 2);
+    const prefix = digits.slice(2, 6);
+    const suffix = digits.slice(6, 10);
+    return suffix ? `(${ddd}) ${prefix}-${suffix}` : `(${ddd}) ${prefix}`;
+  }
+
+  const ddd = digits.slice(0, 2);
+  const ninthDigit = digits.slice(2, 3);
+  const prefix = digits.slice(3, 7);
+  const suffix = digits.slice(7, 11);
+
+  return suffix
+    ? `(${ddd}) ${ninthDigit} ${prefix}-${suffix}`
+    : `(${ddd}) ${ninthDigit} ${prefix}`;
 }
 
 export function isValidCpf(value: string) {

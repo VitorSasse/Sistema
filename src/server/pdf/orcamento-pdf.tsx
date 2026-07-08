@@ -87,7 +87,7 @@ const empresaRelatorio = {
   cidadeUfCep:
     process.env.EMPRESA_RELATORIO_CIDADE_UF_CEP?.trim() || "Penha/SC - CEP: 88385-000",
   telefones:
-    process.env.EMPRESA_RELATORIO_TELEFONES?.trim() || "(47)988031610 - (47)99251-4414",
+    process.env.EMPRESA_RELATORIO_TELEFONES?.trim() || "(47)98803-1610 - (47)99251-4414",
   email:
     process.env.EMPRESA_RELATORIO_EMAIL?.trim() || "financeiro@jtbterraplenagem.com.br"
 };
@@ -327,13 +327,13 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 8.5,
     lineHeight: 1.25,
-    marginBottom: 34
+    marginBottom: 48
   },
   assinaturaLinha: {
     width: 300,
     borderTopWidth: 1,
     borderColor: colors.text,
-    height: 12,
+    height: 18,
     alignSelf: "center",
     marginBottom: 0
   },
