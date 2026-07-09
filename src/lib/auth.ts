@@ -1,4 +1,4 @@
-import { RoleCodigo } from "@prisma/client";
+import { RoleCodigo, RoleUsuarioEmpresa } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
@@ -14,6 +14,9 @@ declare module "next-auth" {
   interface Session {
     user: DefaultSession["user"] & {
       id: string;
+      empresaId: string;
+      roleEmpresa: RoleUsuarioEmpresa;
+      isMaster: boolean;
       roles: RoleCodigo[];
     };
   }
@@ -59,6 +62,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const user = await prisma.usuario.findUnique({
             where: { email: parsed.data.email },
             include: {
+              empresa: {
+                select: {
+                  id: true,
+                  status: true,
+                  deletedAt: true
+                }
+              },
               roles: {
                 include: {
                   role: true
@@ -70,7 +80,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           console.info("[auth] resultado busca usuario", {
             email: parsed.data.email,
             found: Boolean(user),
-            status: user?.status ?? null
+            status: user?.status ?? null,
+            empresaId: user?.empresaId ?? null,
+            roleEmpresa: user?.roleEmpresa ?? null
           });
 
           if (!user || user.status !== "ATIVO") {
@@ -78,6 +90,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               email: parsed.data.email,
               found: Boolean(user),
               status: user?.status ?? null
+            });
+            return null;
+          }
+
+          const isMaster = user.roleEmpresa === RoleUsuarioEmpresa.MASTER;
+
+          if (!isMaster && (user.empresa.status !== "ATIVO" || user.empresa.deletedAt)) {
+            console.warn("[auth] empresa inativa ou excluida", {
+              email: parsed.data.email,
+              userId: user.id,
+              empresaId: user.empresaId,
+              empresaStatus: user.empresa.status,
+              empresaDeletedAt: user.empresa.deletedAt
             });
             return null;
           }
@@ -111,6 +136,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             id: user.id,
             name: user.nome,
             email: user.email,
+            empresaId: user.empresaId,
+            roleEmpresa: user.roleEmpresa,
+            isMaster,
             roles: user.roles.map((item) => item.role.codigo)
           };
         } catch (error) {
@@ -123,7 +151,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        (token as { roles?: RoleCodigo[] }).roles = (user as { roles?: RoleCodigo[] }).roles ?? [];
+        const usuarioAutenticado = user as {
+          empresaId?: string;
+          roleEmpresa?: RoleUsuarioEmpresa;
+          isMaster?: boolean;
+          roles?: RoleCodigo[];
+        };
+
+        (token as { empresaId?: string }).empresaId = usuarioAutenticado.empresaId;
+        (token as { roleEmpresa?: RoleUsuarioEmpresa }).roleEmpresa = usuarioAutenticado.roleEmpresa;
+        (token as { isMaster?: boolean }).isMaster = usuarioAutenticado.isMaster ?? false;
+        (token as { roles?: RoleCodigo[] }).roles = usuarioAutenticado.roles ?? [];
       }
 
       return token;
@@ -131,6 +169,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.sub ?? "";
+        session.user.empresaId = (token as { empresaId?: string }).empresaId ?? "";
+        session.user.roleEmpresa =
+          (token as { roleEmpresa?: RoleUsuarioEmpresa }).roleEmpresa ?? RoleUsuarioEmpresa.ADMIN_EMPRESA;
+        session.user.isMaster = (token as { isMaster?: boolean }).isMaster ?? false;
         session.user.roles = (token as { roles?: RoleCodigo[] }).roles ?? [];
       }
 
