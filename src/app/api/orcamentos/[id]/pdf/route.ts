@@ -108,7 +108,7 @@ export async function GET(_: Request, context: RouteContext) {
         unidadeProducao: frente.unidadeProducao,
         quantidadePrevista: frente.quantidadePrevista ? Number(frente.quantidadePrevista) : null,
         produtividadeDia: frente.produtividadeDia ? Number(frente.produtividadeDia) : null,
-        prazoEstimadoDias: frente.prazoEstimadoDias,
+        prazoEstimadoDias: frente.prazoEstimadoDias ? Number(frente.prazoEstimadoDias) : null,
         observacao: frente.observacao
       })),
       itens: orcamento.itens.map((item) => ({

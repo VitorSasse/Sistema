@@ -7228,6 +7228,12 @@ button {
   color: var(--muted);
 }
 
+.manager-field-hint {
+  color: var(--screen-muted, var(--muted));
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
 .manager-field-control {
   width: 100%;
 }
@@ -7677,6 +7683,17 @@ button {
 .orcamentos-depth-heading small,
 .orcamentos-operational-empty {
   color: var(--screen-muted);
+}
+
+.orcamentos-front-validation {
+  margin: -4px 0 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 42%, transparent);
+  border-radius: 14px;
+  background: rgba(249, 115, 22, 0.12);
+  color: #fed7aa;
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .orcamentos-depth-heading button {

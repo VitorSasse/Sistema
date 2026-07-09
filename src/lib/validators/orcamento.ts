@@ -41,7 +41,7 @@ const orcamentoFrenteSchema = z.object({
   unidadeProducao: z.string().trim().max(40).optional().or(z.literal("")),
   quantidadePrevista: numeroDecimal(999999999).optional().nullable(),
   produtividadeDia: numeroDecimal(999999999).optional().nullable(),
-  prazoEstimadoDias: z.number().int().nonnegative().max(9999).optional().nullable(),
+  prazoEstimadoDias: numeroDecimal(9999).optional().nullable(),
   observacao: z.string().trim().max(500).optional().or(z.literal(""))
 });
 

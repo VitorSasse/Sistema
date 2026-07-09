@@ -525,7 +525,7 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
                     {frente.unidadeProducao || "-"}
                   </Text>
                   <Text style={[styles.cell, styles.centerCell, { width: "10%", borderRightWidth: 0 }]}>
-                    {frente.prazoEstimadoDias ? `${frente.prazoEstimadoDias} d` : "-"}
+                    {frente.prazoEstimadoDias ? `${Number(frente.prazoEstimadoDias).toFixed(2)} d` : "-"}
                   </Text>
                 </View>
               ))}

@@ -83,6 +83,7 @@ type FrenteForm = {
   quantidadePrevista: string;
   produtividadeDia: string;
   prazoEstimadoDias: string;
+  calculoReferencia: "produtividadeDia" | "prazoEstimadoDias" | "";
   observacao: string;
 };
 
@@ -204,7 +205,7 @@ type OrcamentoApi = {
     unidadeProducao: string | null;
     quantidadePrevista: string | number | null;
     produtividadeDia: string | number | null;
-    prazoEstimadoDias: number | null;
+    prazoEstimadoDias: string | number | null;
     observacao: string | null;
   }>;
   itens: Array<{
@@ -357,6 +358,7 @@ function createEmptyFrente(ordem: number): FrenteForm {
     quantidadePrevista: "",
     produtividadeDia: "",
     prazoEstimadoDias: "",
+    calculoReferencia: "",
     observacao: ""
   };
 }
@@ -440,6 +442,128 @@ function calcItemCost(item: Pick<ItemForm, "quantidade" | "custoUnitario">) {
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function parseFrenteNumber(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const normalized = typeof value === "string" ? value.replace(",", ".") : value;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatFrenteNumber(value: number) {
+  return (Math.round((value + Number.EPSILON) * 100) / 100).toFixed(2);
+}
+
+function isPositiveFrenteNumber(value: number | null) {
+  return value !== null && value > 0;
+}
+
+function normalizeUnidadeProducao(unidade: string) {
+  const value = unidade.trim();
+  const normalized = value.toLowerCase();
+
+  if (!value) return "unidade";
+  if (["m3", "m³"].includes(normalized)) return "m³";
+  if (["m2", "m²"].includes(normalized)) return "m²";
+  if (["ton", "tons", "tonelada", "toneladas"].includes(normalized)) return "t";
+  if (["carga", "cargas"].includes(normalized)) return "cargas";
+  if (["hora", "horas", "h"].includes(normalized)) return "horas";
+
+  return value;
+}
+
+function getProdutividadeLabel(unidade: string) {
+  return `Produção média diária (${normalizeUnidadeProducao(unidade)}/dia)`;
+}
+
+function getFrenteCalculoMessage(frente: FrenteForm) {
+  const quantidade = parseFrenteNumber(frente.quantidadePrevista);
+  const produtividade = parseFrenteNumber(frente.produtividadeDia);
+  const prazo = parseFrenteNumber(frente.prazoEstimadoDias);
+  const hasQuantidade = frente.quantidadePrevista.trim() !== "";
+  const hasProdutividade = frente.produtividadeDia.trim() !== "";
+  const hasPrazo = frente.prazoEstimadoDias.trim() !== "";
+
+  if ((hasQuantidade && !isPositiveFrenteNumber(quantidade)) || (hasProdutividade && !isPositiveFrenteNumber(produtividade))) {
+    return "Informe um valor maior que zero.";
+  }
+
+  if (hasPrazo && !isPositiveFrenteNumber(prazo)) {
+    return "Informe um valor maior que zero.";
+  }
+
+  return "";
+}
+
+function recalcularFrentePlanejamento(
+  frente: FrenteForm,
+  key: keyof FrenteForm,
+  value: string | number
+): FrenteForm {
+  const next: FrenteForm = {
+    ...frente,
+    [key]: String(value)
+  };
+
+  const quantidade = parseFrenteNumber(next.quantidadePrevista);
+  const produtividade = parseFrenteNumber(next.produtividadeDia);
+  const prazo = parseFrenteNumber(next.prazoEstimadoDias);
+
+  if (key === "produtividadeDia") {
+    next.calculoReferencia = "produtividadeDia";
+
+    if (quantidade !== null && quantidade > 0 && produtividade !== null && produtividade > 0) {
+      next.prazoEstimadoDias = formatFrenteNumber(quantidade / produtividade);
+    }
+
+    return next;
+  }
+
+  if (key === "prazoEstimadoDias") {
+    next.calculoReferencia = "prazoEstimadoDias";
+
+    if (quantidade !== null && quantidade > 0 && prazo !== null && prazo > 0) {
+      next.produtividadeDia = formatFrenteNumber(quantidade / prazo);
+    }
+
+    return next;
+  }
+
+  if (key === "quantidadePrevista") {
+    const referencia =
+      next.calculoReferencia ||
+      (isPositiveFrenteNumber(produtividade)
+        ? "produtividadeDia"
+        : isPositiveFrenteNumber(prazo)
+          ? "prazoEstimadoDias"
+          : "");
+
+    if (
+      referencia === "produtividadeDia" &&
+      quantidade !== null &&
+      quantidade > 0 &&
+      produtividade !== null &&
+      produtividade > 0
+    ) {
+      next.prazoEstimadoDias = formatFrenteNumber(quantidade / produtividade);
+    }
+
+    if (
+      referencia === "prazoEstimadoDias" &&
+      quantidade !== null &&
+      quantidade > 0 &&
+      prazo !== null &&
+      prazo > 0
+    ) {
+      next.produtividadeDia = formatFrenteNumber(quantidade / prazo);
+    }
+  }
+
+  return next;
 }
 
 function formatValidationError(error: ApiValidationError) {
@@ -720,7 +844,7 @@ export function OrcamentosManager() {
     setForm((current) => ({
       ...current,
       frentes: current.frentes.map((frente) =>
-        frente.localId === localId ? { ...frente, [key]: value } : frente
+        frente.localId === localId ? recalcularFrentePlanejamento(frente, key, value) : frente
       )
     }));
   }
@@ -1515,6 +1639,8 @@ function FrentesOperacionaisSection(props: {
           const recursosPlanejamento = itensDaFrente.filter(
             (item) => item.tipoItem !== "SERVICO_PRINCIPAL" && item.tipoItem !== "SERVICO_AUXILIAR"
           );
+          const unidadeProdutividadeLabel = getProdutividadeLabel(frente.unidadeProducao);
+          const frenteCalculoMessage = getFrenteCalculoMessage(frente);
 
           return (
             <article key={frente.localId} className="orcamentos-subcard orcamentos-front-card">
@@ -1542,7 +1668,7 @@ function FrentesOperacionaisSection(props: {
                   <input
                     className="field-control"
                     value={frente.unidadeProducao}
-                    placeholder="m3, dia, hora"
+                    placeholder="m3, m2, t, carga, hora"
                     onChange={(event) =>
                       props.onUpdate(frente.localId, "unidadeProducao", event.target.value)
                     }
@@ -1556,6 +1682,7 @@ function FrentesOperacionaisSection(props: {
                     min="0"
                     step="0.01"
                     value={frente.quantidadePrevista}
+                    placeholder="Ex.: 28000"
                     onChange={(event) =>
                       props.onUpdate(frente.localId, "quantidadePrevista", event.target.value)
                     }
@@ -1569,10 +1696,13 @@ function FrentesOperacionaisSection(props: {
                     min="0"
                     step="0.01"
                     value={frente.produtividadeDia}
+                    placeholder="Ex.: 500"
                     onChange={(event) =>
                       props.onUpdate(frente.localId, "produtividadeDia", event.target.value)
                     }
                   />
+                  <small className="manager-field-hint">{unidadeProdutividadeLabel}</small>
+                  <small className="manager-field-hint">Produção média diária prevista desta frente.</small>
                 </label>
                 <label className="manager-field">
                   <span className="manager-field-label">Prazo estimado</span>
@@ -1580,12 +1710,20 @@ function FrentesOperacionaisSection(props: {
                     className="field-control"
                     type="number"
                     min="0"
+                    step="0.01"
                     value={frente.prazoEstimadoDias}
+                    placeholder="Calculado automaticamente."
                     onChange={(event) =>
                       props.onUpdate(frente.localId, "prazoEstimadoDias", event.target.value)
                     }
                   />
+                  <small className="manager-field-hint">
+                    Calculado pela quantidade e produtividade. Pode ser ajustado manualmente pelo engenheiro.
+                  </small>
                 </label>
+                {frenteCalculoMessage ? (
+                  <p className="orcamentos-front-validation orcamentos-span-3">{frenteCalculoMessage}</p>
+                ) : null}
                 <label className="manager-field orcamentos-span-2">
                   <span className="manager-field-label">Descricao da frente</span>
                   <textarea
@@ -2242,6 +2380,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
     quantidadePrevista: toStringValue(frente.quantidadePrevista),
     produtividadeDia: toStringValue(frente.produtividadeDia),
     prazoEstimadoDias: toStringValue(frente.prazoEstimadoDias),
+    calculoReferencia: "",
     observacao: frente.observacao ?? ""
   }));
   const firstFrenteId = frentes[0]?.localId ?? "";
