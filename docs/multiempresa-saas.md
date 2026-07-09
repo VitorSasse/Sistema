@@ -159,6 +159,108 @@ Isso preserva a futura visao global do Painel Master e evita quebrar telas admin
 
 Enquanto ainda nao existir seletor de empresa para MASTER, as telas operacionais continuam funcionando com visao global para esse perfil.
 
+## Painel Master
+
+A terceira etapa criou uma area administrativa exclusiva para usuarios `MASTER`:
+
+```text
+/master
+```
+
+Essa tela permite:
+
+- listar empresas cadastradas;
+- visualizar contadores por empresa;
+- cadastrar novas empresas;
+- editar dados cadastrais da empresa;
+- listar usuarios vinculados a uma empresa;
+- criar usuarios vinculados a uma empresa;
+- alterar `roleEmpresa`;
+- ativar ou inativar usuarios.
+
+Usuarios comuns sao bloqueados no backend e redirecionados caso tentem acessar a rota.
+
+## Listagem de empresas
+
+O Painel Master exibe, para cada empresa:
+
+- nome fantasia;
+- razao social;
+- CNPJ;
+- status;
+- plano;
+- quantidade de usuarios;
+- quantidade de clientes;
+- quantidade de obras;
+- quantidade de lancamentos;
+- quantidade de medicoes;
+- data de criacao.
+
+Os contadores sao calculados diretamente pelas relacoes do Prisma, sem alterar as regras de negocio dos modulos operacionais.
+
+## Cadastro e edicao de empresa
+
+Campos disponiveis:
+
+- nome fantasia;
+- razao social;
+- CNPJ;
+- e-mail;
+- telefone;
+- endereco;
+- cidade;
+- estado;
+- CEP;
+- logoUrl;
+- corPrimaria;
+- status;
+- plano.
+
+O campo `nome` tecnico da empresa e mantido sincronizado com o nome fantasia para preservar compatibilidade com telas e relatorios existentes.
+
+## Usuarios por empresa
+
+No Painel Master, ao selecionar uma empresa, e possivel criar e editar usuarios vinculados a ela.
+
+Roles SaaS permitidas para usuarios de empresa:
+
+- `ADMIN_EMPRESA`;
+- `GERENTE`;
+- `OPERADOR`;
+- `FINANCEIRO`;
+- `VISUALIZADOR`.
+
+Ao criar ou editar um usuario, o sistema tambem sincroniza uma role legada para preservar as permissoes atuais do BasePro:
+
+```text
+ADMIN_EMPRESA -> ADMIN
+GERENTE       -> GESTOR
+OPERADOR      -> OPERACIONAL
+FINANCEIRO    -> FINANCEIRO
+VISUALIZADOR  -> CONSULTA
+```
+
+Usuarios `MASTER` devem ser mantidos fora do cadastro operacional de usuarios por empresa.
+
+## Seletor de empresa para MASTER
+
+O cabecalho do sistema passa a exibir um seletor de escopo apenas para usuarios `MASTER`.
+
+Opcoes:
+
+- `Visao global`: o MASTER visualiza os dados operacionais sem filtro automatico de empresa.
+- Empresa especifica: o MASTER passa a visualizar telas operacionais, dashboards e APIs escopadas para a empresa selecionada.
+
+O seletor grava a empresa escolhida em cookie HTTP-only:
+
+```text
+basepro_master_empresa_id
+```
+
+A camada central de tenant usa esse cookie para aplicar o `empresaId` automaticamente nas queries operacionais.
+
+As rotas do Painel Master usam bypass controlado de tenant para permitir administrar qualquer empresa, mesmo quando o MASTER estiver visualizando uma empresa especifica nas telas operacionais.
+
 ## PDFs e relatorios
 
 Os PDFs principais passaram a considerar a empresa logada:
@@ -193,15 +295,14 @@ Usuario `MASTER` representa acesso administrativo global do SaaS.
 
 ## O que ainda falta nas proximas etapas
 
-As etapas 1 e 2 criaram a fundacao e o isolamento central em backend.
+As etapas 1, 2 e 3 criaram a fundacao, isolamento central em backend e Painel Master.
 
 Proximas etapas recomendadas:
 
-1. Criar Painel Master.
-2. Criar Configuracoes da Empresa.
-3. Criar seletor de empresa para MASTER visualizar uma empresa especifica nas telas operacionais.
-4. Ajustar validacoes de relacionamento com mensagens mais especificas quando um vinculo nao pertencer a empresa logada.
-5. Revisar indices unicos globais para unicidade por empresa quando necessario.
+1. Criar Configuracoes da Empresa para usuarios `ADMIN_EMPRESA`.
+2. Ajustar validacoes de relacionamento com mensagens mais especificas quando um vinculo nao pertencer a empresa logada.
+3. Revisar indices unicos globais para unicidade por empresa quando necessario.
+4. Criar painel financeiro/comercial do SaaS, se necessario.
 
 ## Observacao importante sobre codigos unicos
 
@@ -214,3 +315,47 @@ Para SaaS completo, alguns desses campos devem virar unicidade composta por empr
 ```
 
 Essa mudanca foi deixada para uma etapa propria para evitar quebrar cadastros e imports existentes.
+
+## Checklist manual de testes de isolamento
+
+### Preparacao
+
+1. Criar ou selecionar duas empresas no Painel Master: Empresa A e Empresa B.
+2. Criar um usuario comum para cada empresa.
+3. Criar pelo menos um cliente, uma obra, um lancamento e uma medicao em cada empresa.
+
+### Testes com usuario da Empresa A
+
+1. Fazer login com usuario da Empresa A.
+2. Confirmar que clientes da Empresa B nao aparecem em `/clientes`.
+3. Confirmar que obras da Empresa B nao aparecem em `/obras`.
+4. Confirmar que lancamentos da Empresa B nao aparecem em `/lancamentos` e nos dashboards.
+5. Confirmar que medicoes da Empresa B nao aparecem em `/medicoes`.
+6. Tentar acessar/editar/excluir um registro conhecido da Empresa B por URL direta.
+7. Resultado esperado: acesso bloqueado, registro nao encontrado ou acao recusada pelo backend.
+
+### Testes com usuario da Empresa B
+
+1. Repetir os mesmos testes da Empresa A invertendo os dados.
+2. Resultado esperado: Empresa B nao ve nem altera dados da Empresa A.
+
+### Testes com MASTER
+
+1. Fazer login como `MASTER`.
+2. Acessar `/master` e confirmar listagem global de empresas.
+3. Usar `Visao global` no seletor do cabecalho.
+4. Confirmar que dashboards e consultas operacionais aparecem em visao global.
+5. Selecionar Empresa A no seletor.
+6. Confirmar que telas operacionais passam a exibir apenas dados da Empresa A.
+7. Selecionar Empresa B no seletor.
+8. Confirmar que telas operacionais passam a exibir apenas dados da Empresa B.
+9. Voltar para `Visao global`.
+10. Confirmar que o Painel Master continua listando e editando todas as empresas.
+
+### PDFs e relatorios
+
+1. Gerar PDF de medicao, ordem de compra ou proposta com usuario comum.
+2. Confirmar que os dados e identidade visual pertencem a empresa logada.
+3. Com MASTER, selecionar uma empresa no cabecalho.
+4. Gerar o mesmo tipo de PDF.
+5. Confirmar que o PDF usa dados e identidade da empresa selecionada.

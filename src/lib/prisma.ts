@@ -55,15 +55,18 @@ type PrismaQueryArgs = {
 function shouldScopeTenant(model: string | undefined) {
   const tenant = getTenantContext();
 
-  if (!model || !TENANT_MODELS.has(model) || !tenant) {
+  if (!model || !TENANT_MODELS.has(model) || !tenant || tenant.bypassTenantScope) {
     return null;
   }
 
-  if (tenant.isMaster) {
+  if (tenant.isMaster && !tenant.empresaSelecionadaId) {
     return null;
   }
 
-  return tenant;
+  return {
+    ...tenant,
+    empresaId: tenant.empresaSelecionadaId ?? tenant.empresaId
+  };
 }
 
 function mergeTenantWhere(args: PrismaQueryArgs, empresaId: string, mode: "and" | "direct" = "and") {

@@ -1,8 +1,10 @@
 import { RoleCodigo, RoleUsuarioEmpresa } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import NextAuth, { type DefaultSession } from "next-auth";
+import { cookies } from "next/headers";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
+import { MASTER_EMPRESA_COOKIE } from "@/lib/master-empresa-cookie";
 import { prisma } from "@/lib/prisma";
 import { setTenantContext } from "@/lib/tenant-store";
 
@@ -189,15 +191,31 @@ export const { handlers, signIn, signOut } = nextAuth;
 
 export const authMiddleware = nextAuth.auth;
 
+async function getEmpresaSelecionadaMaster(isMaster: boolean) {
+  if (!isMaster) {
+    return null;
+  }
+
+  try {
+    const cookieStore = await cookies();
+    return cookieStore.get(MASTER_EMPRESA_COOKIE)?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function auth() {
   const session = await nextAuth.auth();
 
   if (session?.user?.id && session.user.empresaId) {
+    const empresaSelecionadaId = await getEmpresaSelecionadaMaster(session.user.isMaster);
+
     setTenantContext({
       usuarioId: session.user.id,
-      empresaId: session.user.empresaId,
+      empresaId: empresaSelecionadaId ?? session.user.empresaId,
       roleEmpresa: session.user.roleEmpresa,
-      isMaster: session.user.isMaster
+      isMaster: session.user.isMaster,
+      empresaSelecionadaId
     });
   }
 

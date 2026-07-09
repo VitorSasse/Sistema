@@ -6,6 +6,8 @@ export type TenantContext = {
   empresaId: string;
   roleEmpresa: RoleUsuarioEmpresa;
   isMaster: boolean;
+  empresaSelecionadaId?: string | null;
+  bypassTenantScope?: boolean;
 };
 
 const tenantStorage = new AsyncLocalStorage<TenantContext>();
@@ -20,4 +22,14 @@ export function getTenantContext() {
 
 export function runWithTenantContext<T>(context: TenantContext, callback: () => T) {
   return tenantStorage.run(context, callback);
+}
+
+export function runWithoutTenantScope<T>(callback: () => T) {
+  const current = tenantStorage.getStore();
+
+  if (!current) {
+    return callback();
+  }
+
+  return tenantStorage.run({ ...current, bypassTenantScope: true }, callback);
 }

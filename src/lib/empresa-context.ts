@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getTenantContext, runWithoutTenantScope } from "@/lib/tenant-store";
 
 export const EMPRESA_PADRAO_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -13,6 +14,7 @@ export type CurrentUserContext = {
   empresaId: string;
   roleEmpresa: RoleUsuarioEmpresa;
   isMaster: boolean;
+  empresaSelecionadaId: string | null;
   empresa: {
     id: string;
     nome: string;
@@ -42,42 +44,72 @@ export async function getCurrentUser(): Promise<CurrentUserContext | null> {
     return null;
   }
 
-  const usuario = await prisma.usuario.findUnique({
-    where: { id: session.user.id },
-    select: {
-      id: true,
-      nome: true,
-      email: true,
-      empresaId: true,
-      roleEmpresa: true,
-      status: true,
-      empresa: {
-        select: {
-          id: true,
-          nome: true,
-          nomeFantasia: true,
-          razaoSocial: true,
-          cnpj: true,
-          email: true,
-          telefone: true,
-          endereco: true,
-          cidade: true,
-          estado: true,
-          cep: true,
-          logoUrl: true,
-          corPrimaria: true,
-          status: true,
-          deletedAt: true
+  const usuario = await runWithoutTenantScope(() =>
+    prisma.usuario.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        nome: true,
+        email: true,
+        empresaId: true,
+        roleEmpresa: true,
+        status: true,
+        empresa: {
+          select: {
+            id: true,
+            nome: true,
+            nomeFantasia: true,
+            razaoSocial: true,
+            cnpj: true,
+            email: true,
+            telefone: true,
+            endereco: true,
+            cidade: true,
+            estado: true,
+            cep: true,
+            logoUrl: true,
+            corPrimaria: true,
+            status: true,
+            deletedAt: true
+          }
         }
       }
-    }
-  });
+    })
+  );
 
   if (!usuario || usuario.status !== StatusCadastro.ATIVO) {
     return null;
   }
 
   const isMaster = isMasterRole(usuario.roleEmpresa);
+  const tenant = getTenantContext();
+  const empresaSelecionadaId = tenant?.empresaSelecionadaId ?? null;
+
+  const empresaContexto =
+    isMaster && empresaSelecionadaId
+      ? await runWithoutTenantScope(() =>
+          prisma.empresa.findFirst({
+            where: { id: empresaSelecionadaId, deletedAt: null },
+            select: {
+              id: true,
+              nome: true,
+              nomeFantasia: true,
+              razaoSocial: true,
+              cnpj: true,
+              email: true,
+              telefone: true,
+              endereco: true,
+              cidade: true,
+              estado: true,
+              cep: true,
+              logoUrl: true,
+              corPrimaria: true,
+              status: true,
+              deletedAt: true
+            }
+          })
+        )
+      : usuario.empresa;
 
   if (!isMaster && (usuario.empresa.status !== StatusCadastro.ATIVO || usuario.empresa.deletedAt)) {
     return null;
@@ -87,24 +119,25 @@ export async function getCurrentUser(): Promise<CurrentUserContext | null> {
     id: usuario.id,
     nome: usuario.nome,
     email: usuario.email,
-    empresaId: usuario.empresaId,
+    empresaId: empresaContexto?.id ?? usuario.empresaId,
     roleEmpresa: usuario.roleEmpresa,
     isMaster,
+    empresaSelecionadaId: empresaContexto?.id === empresaSelecionadaId ? empresaSelecionadaId : null,
     empresa: {
-      id: usuario.empresa.id,
-      nome: usuario.empresa.nome,
-      nomeFantasia: usuario.empresa.nomeFantasia,
-      razaoSocial: usuario.empresa.razaoSocial,
-      cnpj: usuario.empresa.cnpj,
-      email: usuario.empresa.email,
-      telefone: usuario.empresa.telefone,
-      endereco: usuario.empresa.endereco,
-      cidade: usuario.empresa.cidade,
-      estado: usuario.empresa.estado,
-      cep: usuario.empresa.cep,
-      logoUrl: usuario.empresa.logoUrl,
-      corPrimaria: usuario.empresa.corPrimaria,
-      status: usuario.empresa.status
+      id: empresaContexto?.id ?? usuario.empresa.id,
+      nome: empresaContexto?.nome ?? usuario.empresa.nome,
+      nomeFantasia: empresaContexto?.nomeFantasia ?? usuario.empresa.nomeFantasia,
+      razaoSocial: empresaContexto?.razaoSocial ?? usuario.empresa.razaoSocial,
+      cnpj: empresaContexto?.cnpj ?? usuario.empresa.cnpj,
+      email: empresaContexto?.email ?? usuario.empresa.email,
+      telefone: empresaContexto?.telefone ?? usuario.empresa.telefone,
+      endereco: empresaContexto?.endereco ?? usuario.empresa.endereco,
+      cidade: empresaContexto?.cidade ?? usuario.empresa.cidade,
+      estado: empresaContexto?.estado ?? usuario.empresa.estado,
+      cep: empresaContexto?.cep ?? usuario.empresa.cep,
+      logoUrl: empresaContexto?.logoUrl ?? usuario.empresa.logoUrl,
+      corPrimaria: empresaContexto?.corPrimaria ?? usuario.empresa.corPrimaria,
+      status: empresaContexto?.status ?? usuario.empresa.status
     }
   };
 }
@@ -116,11 +149,11 @@ export async function getCurrentEmpresaId(options?: { allowMasterGlobal?: boolea
     return null;
   }
 
-  if (user.isMaster && options?.allowMasterGlobal) {
+  if (user.isMaster && options?.allowMasterGlobal && !user.empresaSelecionadaId) {
     return null;
   }
 
-  return user.empresaId;
+  return user.empresaSelecionadaId ?? user.empresaId;
 }
 
 export async function requireEmpresaAccess(empresaId?: string | null) {
@@ -178,18 +211,18 @@ export function scopedEmpresaWhere<TWhere extends Record<string, unknown>>(
   user: CurrentUserContext,
   where?: TWhere
 ) {
-  if (user.isMaster) {
+  if (user.isMaster && !user.empresaSelecionadaId) {
     return where ?? {};
   }
 
   return {
     ...(where ?? {}),
-    empresaId: user.empresaId
+    empresaId: user.empresaSelecionadaId ?? user.empresaId
   };
 }
 
 export function empresaData(user: CurrentUserContext) {
   return {
-    empresaId: user.empresaId
+    empresaId: user.empresaSelecionadaId ?? user.empresaId
   };
 }

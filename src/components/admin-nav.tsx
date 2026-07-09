@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   ClipboardList,
+  Crown,
   Database,
   ShieldCheck,
   Truck,
@@ -32,6 +33,7 @@ type AdminNavProps = {
 
 const iconByGroup: Record<string, LucideIcon> = {
   dashboard: BarChart3,
+  master: Crown,
   cadastros: Database,
   operacao: ClipboardList,
   financeiro: WalletCards,

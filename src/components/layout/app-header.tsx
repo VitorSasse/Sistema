@@ -15,11 +15,13 @@ import {
   Sparkles,
   UserRound
 } from "lucide-react";
+import { MasterCompanySelector } from "@/components/layout/master-company-selector";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 
 type AppHeaderProps = {
   userEmail: string;
   userName?: string | null;
+  isMaster?: boolean;
 };
 
 type RouteMeta = {
@@ -37,6 +39,7 @@ type QuickAction = {
 
 const routeMeta: Array<{ prefix: string; meta: RouteMeta }> = [
   { prefix: "/inicio", meta: { title: "Home operacional", group: "Inicio" } },
+  { prefix: "/master", meta: { title: "Painel Master", group: "Administracao SaaS" } },
   { prefix: "/dashboard/custos", meta: { title: "Dashboard de custos", group: "Dashboards" } },
   { prefix: "/dashboard/km-horimetro", meta: { title: "KM e horimetro", group: "Dashboards" } },
   { prefix: "/dashboard/executivo", meta: { title: "Dashboard executivo", group: "Dashboards" } },
@@ -111,7 +114,7 @@ function resolveRouteMeta(pathname: string): RouteMeta {
   return match?.meta ?? { title: "BASEPRO", group: "Sistema" };
 }
 
-export function AppHeader({ userEmail, userName }: AppHeaderProps) {
+export function AppHeader({ userEmail, userName, isMaster = false }: AppHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -215,6 +218,8 @@ export function AppHeader({ userEmail, userName }: AppHeaderProps) {
             );
           })}
         </nav>
+
+        {isMaster ? <MasterCompanySelector /> : null}
 
         <ThemeToggle />
 

@@ -83,6 +83,7 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
   const session = await requireSession();
   const canManageUsers = hasRoleAccess(session.user.roles, "users.manage");
   const canReadAudit = hasRoleAccess(session.user.roles, "auditoria.read");
+  const isMaster = session.user.isMaster;
 
   const securityItems = [
     ...(canManageUsers ? [{ href: "/usuarios" as Route, label: "Usuarios e acessos" }] : []),
@@ -91,10 +92,20 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
       : [])
   ];
 
-  const navigation =
-    securityItems.length > 0
+  const navigation = [
+    ...(isMaster
       ? [
-          ...navigationGroups,
+          {
+            label: "Master",
+            icon: "master",
+            description: "Administracao SaaS, empresas e usuarios por tenant.",
+            items: [{ href: "/master" as Route, label: "Painel Master" }]
+          }
+        ]
+      : []),
+    ...navigationGroups,
+    ...(securityItems.length > 0
+      ? [
           {
             label: "Seguranca",
             icon: "seguranca",
@@ -102,7 +113,8 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
             items: securityItems
           }
         ]
-      : navigationGroups;
+      : [])
+  ];
 
   return (
     <div className="admin-shell">
@@ -130,7 +142,7 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
       </aside>
 
       <div className="admin-main">
-        <AppHeader userEmail={session.user.email ?? ""} userName={session.user.name} />
+        <AppHeader userEmail={session.user.email ?? ""} userName={session.user.name} isMaster={isMaster} />
         <div className="admin-content">{children}</div>
       </div>
     </div>
