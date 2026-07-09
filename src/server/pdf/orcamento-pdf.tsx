@@ -2,6 +2,7 @@ import React from "react";
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatDateDisplay } from "@/lib/utils/date";
 import { formatCurrency } from "@/lib/utils/formatters";
+import { buildEmpresaRelatorioPdf, type EmpresaRelatorioPdf } from "@/server/pdf/empresa-relatorio";
 
 type OrcamentoPdfProps = {
   codigo: string;
@@ -76,21 +77,10 @@ type OrcamentoPdfProps = {
     descricao: string;
   }>;
   logoPath?: string | null;
+  empresaRelatorio?: EmpresaRelatorioPdf;
 };
 
-const empresaRelatorio = {
-  nome: process.env.EMPRESA_RELATORIO_NOME?.trim() || "JMIX",
-  cnpj: process.env.EMPRESA_RELATORIO_CNPJ?.trim() || "20.613.463/0001-36",
-  endereco:
-    process.env.EMPRESA_RELATORIO_ENDERECO?.trim() ||
-    "AV. NEREU RAMOS, 899 (DEPOSITO JMIX) - CENTRO",
-  cidadeUfCep:
-    process.env.EMPRESA_RELATORIO_CIDADE_UF_CEP?.trim() || "Penha/SC - CEP: 88385-000",
-  telefones:
-    process.env.EMPRESA_RELATORIO_TELEFONES?.trim() || "(47)98803-1610 - (47)99251-4414",
-  email:
-    process.env.EMPRESA_RELATORIO_EMAIL?.trim() || "financeiro@jtbterraplenagem.com.br"
-};
+const empresaRelatorioPadrao = buildEmpresaRelatorioPdf();
 
 const colors = {
   border: "#c8c8c8",
@@ -444,6 +434,7 @@ function renderSection(title: string, content?: string | null) {
 
 export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
   const isOrcamentoComercial = props.tipo === "COMERCIAL";
+  const empresaRelatorio = props.empresaRelatorio ?? empresaRelatorioPadrao;
   const dataHoraEmissao = new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
     timeStyle: "short",

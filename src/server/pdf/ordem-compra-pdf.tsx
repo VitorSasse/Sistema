@@ -2,6 +2,7 @@ import React from "react";
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { obterFormaPagamentoOrdemCompra } from "@/lib/ordens-compra-pagamento";
 import { formatCurrency } from "@/lib/utils/formatters";
+import { buildEmpresaRelatorioPdf, type EmpresaRelatorioPdf } from "@/server/pdf/empresa-relatorio";
 
 type OrdemCompraPdfItem = {
   tipoItem: string;
@@ -55,21 +56,10 @@ type OrdemCompraPdfProps = {
   itens: OrdemCompraPdfItem[];
   parcelas: OrdemCompraPdfParcela[];
   logoPath?: string | null;
+  empresaRelatorio?: EmpresaRelatorioPdf;
 };
 
-const empresaRelatorio = {
-  nome: process.env.EMPRESA_RELATORIO_NOME?.trim() || "JMIX",
-  cnpj: process.env.EMPRESA_RELATORIO_CNPJ?.trim() || "20.613.463/0001-36",
-  endereco:
-    process.env.EMPRESA_RELATORIO_ENDERECO?.trim() ||
-    "AV. NEREU RAMOS, 899 (DEPOSITO JMIX) - CENTRO",
-  cidadeUfCep:
-    process.env.EMPRESA_RELATORIO_CIDADE_UF_CEP?.trim() || "Penha/SC - CEP: 88385-000",
-  telefones:
-    process.env.EMPRESA_RELATORIO_TELEFONES?.trim() || "(47)98803-1610 - (47)99251-4414",
-  email:
-    process.env.EMPRESA_RELATORIO_EMAIL?.trim() || "financeiro@jtbterraplenagem.com.br"
-};
+const empresaRelatorioPadrao = buildEmpresaRelatorioPdf();
 
 const colors = {
   border: "#c8c8c8",
@@ -460,6 +450,7 @@ export function OrdemCompraPdfDocument(props: OrdemCompraPdfProps) {
   const tituloDocumento = formatTituloDocumento(props.tipoCompra);
   const enderecoFornecedor = joinAddress(props.fornecedor);
   const gruposItens = getGruposItens(props);
+  const empresaRelatorio = props.empresaRelatorio ?? empresaRelatorioPadrao;
 
   return (
     <Document>

@@ -73,30 +73,33 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params;
 
-  const medicao = await prisma.medicao.findFirst({
-    where: {
-      id,
-      deletedAt: null
-    },
-    include: {
-      cliente: {
-        select: {
-          nome: true
-        }
+  const [medicao, empresa] = await Promise.all([
+    prisma.medicao.findFirst({
+      where: {
+        id,
+        deletedAt: null
       },
-      obra: {
-        select: {
-          nome: true
-        }
-      },
-      itens: {
-        where: {
-          deletedAt: null
+      include: {
+        cliente: {
+          select: {
+            nome: true
+          }
         },
-        orderBy: [{ data: "asc" }, { createdAt: "asc" }]
+        obra: {
+          select: {
+            nome: true
+          }
+        },
+        itens: {
+          where: {
+            deletedAt: null
+          },
+          orderBy: [{ data: "asc" }, { createdAt: "asc" }]
+        }
       }
-    }
-  });
+    }),
+    prisma.empresa.findUnique({ where: { id: session.user.empresaId } })
+  ]);
 
   if (!medicao) {
     return NextResponse.json({ message: "Medicao nao encontrada." }, { status: 404 });
@@ -138,7 +141,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       descontoValor: Number(medicao.descontoValor ?? 0),
       permutaPercentual: Number(medicao.permutaPercentual ?? 0),
       tipoRelatorio,
-      logoPath: resolveReportLogoSource(),
+      logoPath: resolveReportLogoSource(empresa?.logoUrl),
       itens: medicao.itens.map((item) => ({
         ...item,
         quantidadeFaturada: Number(item.quantidadeFaturada),

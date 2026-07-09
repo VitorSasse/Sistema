@@ -4,6 +4,7 @@ import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { setTenantContext } from "@/lib/tenant-store";
 
 const signInSchema = z.object({
   email: z.string().email(),
@@ -22,7 +23,7 @@ declare module "next-auth" {
   }
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+const nextAuth = NextAuth({
   session: {
     strategy: "jwt"
   },
@@ -183,3 +184,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/login"
   }
 });
+
+export const { handlers, signIn, signOut } = nextAuth;
+
+export const authMiddleware = nextAuth.auth;
+
+export async function auth() {
+  const session = await nextAuth.auth();
+
+  if (session?.user?.id && session.user.empresaId) {
+    setTenantContext({
+      usuarioId: session.user.id,
+      empresaId: session.user.empresaId,
+      roleEmpresa: session.user.roleEmpresa,
+      isMaster: session.user.isMaster
+    });
+  }
+
+  return session;
+}

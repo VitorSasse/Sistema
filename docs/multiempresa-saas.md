@@ -112,6 +112,72 @@ Funcoes principais:
 
 Esses helpers devem ser usados nas proximas etapas para atualizar cada rota/API sem duplicar logica de tenant.
 
+## Isolamento automatico aplicado nas APIs
+
+Na segunda etapa foi criada uma camada central de isolamento em:
+
+```text
+src/lib/tenant-store.ts
+src/lib/prisma.ts
+src/lib/auth.ts
+```
+
+Fluxo aplicado:
+
+1. A rota/API chama `auth()`.
+2. O `auth()` grava no contexto da requisicao:
+   - `usuarioId`
+   - `empresaId`
+   - `roleEmpresa`
+   - `isMaster`
+3. O Prisma Client intercepta consultas e gravacoes dos modelos operacionais.
+4. Para usuario comum, o Prisma injeta automaticamente:
+
+```ts
+where: {
+  empresaId: usuarioLogado.empresaId
+}
+```
+
+5. Em criacoes e atualizacoes, o Prisma preenche automaticamente:
+
+```ts
+data: {
+  empresaId: usuarioLogado.empresaId
+}
+```
+
+6. Em criacoes aninhadas, como ordem de compra com itens e parcelas, o `empresaId` tambem e propagado para os registros filhos.
+
+Essa estrategia evita depender apenas do frontend e reduz o risco de uma rota operacional ficar sem filtro de empresa.
+
+## Comportamento do usuario MASTER
+
+Usuario `MASTER` nao recebe filtro automatico por empresa.
+
+Isso preserva a futura visao global do Painel Master e evita quebrar telas administrativas.
+
+Enquanto ainda nao existir seletor de empresa para MASTER, as telas operacionais continuam funcionando com visao global para esse perfil.
+
+## PDFs e relatorios
+
+Os PDFs principais passaram a considerar a empresa logada:
+
+- ordem de compra;
+- proposta de orcamento;
+- relatorio de medicao, usando logo da empresa;
+- relatorio de lancamentos/romaneios, usando logo da empresa.
+
+Os PDFs de ordem de compra e proposta recebem tambem:
+
+- nome fantasia;
+- razao/nome;
+- CNPJ;
+- endereco;
+- cidade/UF/CEP;
+- telefone;
+- e-mail.
+
 ## Autenticacao
 
 A sessao do NextAuth agora carrega:
@@ -127,18 +193,15 @@ Usuario `MASTER` representa acesso administrativo global do SaaS.
 
 ## O que ainda falta nas proximas etapas
 
-Esta etapa nao conclui todo o isolamento multiempresa. Ela cria a fundacao.
+As etapas 1 e 2 criaram a fundacao e o isolamento central em backend.
 
 Proximas etapas recomendadas:
 
-1. Atualizar rotas API para usar `scopedEmpresaWhere()`.
-2. Preencher `empresaId` via `empresaData(user)` em todos os creates.
-3. Ajustar validacoes de relacionamento para garantir que cliente, obra, equipamento e demais vinculos pertencam a mesma empresa.
-4. Criar Painel Master.
-5. Criar Configuracoes da Empresa.
-6. Atualizar PDFs para usarem identidade da empresa logada.
-7. Atualizar dashboards para filtrar por empresa.
-8. Revisar indices unicos globais para unicidade por empresa quando necessario.
+1. Criar Painel Master.
+2. Criar Configuracoes da Empresa.
+3. Criar seletor de empresa para MASTER visualizar uma empresa especifica nas telas operacionais.
+4. Ajustar validacoes de relacionamento com mensagens mais especificas quando um vinculo nao pertencer a empresa logada.
+5. Revisar indices unicos globais para unicidade por empresa quando necessario.
 
 ## Observacao importante sobre codigos unicos
 

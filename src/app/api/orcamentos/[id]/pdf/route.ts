@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { buscarOrcamento } from "@/server/services/orcamentos/service";
+import { buildEmpresaRelatorioPdf } from "@/server/pdf/empresa-relatorio";
 import { OrcamentoPdfDocument } from "@/server/pdf/orcamento-pdf";
 import { resolveReportLogoSource } from "@/server/pdf/report-logo";
 
@@ -32,7 +33,10 @@ export async function GET(_: Request, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const orcamento = await buscarOrcamento(prisma, id);
+  const [orcamento, empresa] = await Promise.all([
+    buscarOrcamento(prisma, id),
+    prisma.empresa.findUnique({ where: { id: session.user.empresaId } })
+  ]);
 
   if (!orcamento) {
     return NextResponse.json({ message: "Orcamento nao encontrado." }, { status: 404 });
@@ -128,7 +132,8 @@ export async function GET(_: Request, context: RouteContext) {
         titulo: premissa.titulo,
         descricao: premissa.descricao
       })),
-      logoPath: resolveReportLogoSource()
+      logoPath: resolveReportLogoSource(empresa?.logoUrl),
+      empresaRelatorio: buildEmpresaRelatorioPdf(empresa)
     })
   );
 

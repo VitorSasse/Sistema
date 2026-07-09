@@ -13,8 +13,13 @@ function getMimeType(extension: string) {
   return "image/png";
 }
 
-export function resolveReportLogoPath() {
-  const configuredPath = process.env.MEDICAO_REPORT_LOGO_PATH?.trim();
+export function resolveReportLogoPath(logoUrl?: string | null) {
+  const configuredPath = logoUrl?.trim() || process.env.MEDICAO_REPORT_LOGO_PATH?.trim();
+
+  if (configuredPath?.startsWith("http://") || configuredPath?.startsWith("https://") || configuredPath?.startsWith("data:")) {
+    return configuredPath;
+  }
+
   const candidate = configuredPath
     ? path.isAbsolute(configuredPath)
       ? configuredPath
@@ -24,11 +29,15 @@ export function resolveReportLogoPath() {
   return existsSync(candidate) ? candidate : null;
 }
 
-export function resolveReportLogoSource() {
-  const filePath = resolveReportLogoPath();
+export function resolveReportLogoSource(logoUrl?: string | null) {
+  const filePath = resolveReportLogoPath(logoUrl);
 
   if (!filePath) {
     return null;
+  }
+
+  if (filePath.startsWith("http://") || filePath.startsWith("https://") || filePath.startsWith("data:")) {
+    return filePath;
   }
 
   const extension = path.extname(filePath).toLowerCase();

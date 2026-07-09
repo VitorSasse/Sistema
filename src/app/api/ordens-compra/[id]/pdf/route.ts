@@ -2,6 +2,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { buildEmpresaRelatorioPdf } from "@/server/pdf/empresa-relatorio";
 import { OrdemCompraPdfDocument } from "@/server/pdf/ordem-compra-pdf";
 import { resolveReportLogoSource } from "@/server/pdf/report-logo";
 
@@ -32,19 +33,24 @@ export async function GET(_: Request, context: RouteContext) {
 
   const { id } = await context.params;
 
-  const ordemCompra = await prisma.ordemCompra.findUnique({
-    where: { id },
-    include: {
-      fornecedor: true,
-      planoConta: true,
-      itens: {
-        orderBy: [{ createdAt: "asc" }]
-      },
-      parcelas: {
-        orderBy: [{ numeroParcela: "asc" }]
+  const [ordemCompra, empresa] = await Promise.all([
+    prisma.ordemCompra.findUnique({
+      where: { id },
+      include: {
+        fornecedor: true,
+        planoConta: true,
+        itens: {
+          orderBy: [{ createdAt: "asc" }]
+        },
+        parcelas: {
+          orderBy: [{ numeroParcela: "asc" }]
+        }
       }
-    }
-  });
+    }),
+    prisma.empresa.findUnique({
+      where: { id: session.user.empresaId }
+    })
+  ]);
 
   if (!ordemCompra) {
     return NextResponse.json({ message: "Ordem de compra nao encontrada." }, { status: 404 });
@@ -101,7 +107,8 @@ export async function GET(_: Request, context: RouteContext) {
         dataVencimento: parcela.dataVencimento,
         valorParcela: Number(parcela.valorParcela)
       })),
-      logoPath: resolveReportLogoSource()
+      logoPath: resolveReportLogoSource(empresa?.logoUrl),
+      empresaRelatorio: buildEmpresaRelatorioPdf(empresa)
     })
   );
 

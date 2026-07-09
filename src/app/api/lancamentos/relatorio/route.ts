@@ -79,6 +79,9 @@ export async function GET(request: NextRequest) {
   const medicaoId = searchParams.get("medicaoId");
   const includeDeleted = searchParams.get("includeDeleted") === "true";
   const modo = searchParams.get("modo");
+  const empresa = await prisma.empresa.findUnique({
+    where: { id: session.user.empresaId }
+  });
 
   const medicao = medicaoId
     ? await prisma.medicao.findUnique({
@@ -204,7 +207,7 @@ export async function GET(request: NextRequest) {
             titulo: "Relatorio de romaneios",
             filtros,
             emitidoEm: new Date(),
-            logoPath: resolveReportLogoSource(),
+            logoPath: resolveReportLogoSource(empresa?.logoUrl),
             lancamentos: normalizedItems.map((item) => ({
               lancamentoId: item.id,
               fichaKey: `${item.fichaId}:${item.clienteId}:${item.obraId ?? "sem-obra"}`,
@@ -223,7 +226,7 @@ export async function GET(request: NextRequest) {
             titulo: "Relatorio de historico de lancamentos",
             filtros,
             emitidoEm: new Date(),
-            logoPath: resolveReportLogoSource(),
+            logoPath: resolveReportLogoSource(empresa?.logoUrl),
             itens: normalizedItems.map((item) => ({
               id: item.id,
               data: item.data,
