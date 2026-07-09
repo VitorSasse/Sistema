@@ -107,7 +107,9 @@ export function useLancamentos() {
       setOptions({
         clientes: data.clientes.filter((item) => item.status === "ATIVO"),
         obras: data.obras.filter((item) => item.status === "ATIVO"),
-        servicos: data.servicos.filter((item) => item.status === "ATIVO"),
+        servicos: data.servicos.filter(
+          (item) => item.status === "ATIVO" && item.usarEmFichas !== false
+        ),
         materiais: data.materiais.filter((item) => item.status === "ATIVO"),
         equipamentos: data.equipamentos.filter((item) => item.status === "ATIVO"),
         colaboradores: data.colaboradores.filter((item) => item.status === "ATIVO")

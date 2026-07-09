@@ -4,11 +4,21 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
+type NaturezaServico =
+  | "OPERACIONAL"
+  | "ORCAMENTARIO_COMPOSTO"
+  | "TECNICO_ADMINISTRATIVO";
+
 type Servico = {
   id: string;
   codigo: string;
   tipoServico: string;
   categoria: string | null;
+  natureza: NaturezaServico;
+  usarEmOrcamentos: boolean;
+  usarEmFichas: boolean;
+  usarEmMedicoes: boolean;
+  usarEmFaturamento: boolean;
   servicoTecnico: boolean;
   faturamentoFechado: boolean;
   valorFechadoPadrao: string | null;
@@ -25,6 +35,11 @@ type FormState = {
   id?: string;
   tipoServico: string;
   categoria: string;
+  natureza: NaturezaServico;
+  usarEmOrcamentos: boolean;
+  usarEmFichas: boolean;
+  usarEmMedicoes: boolean;
+  usarEmFaturamento: boolean;
   servicoTecnico: boolean;
   faturamentoFechado: boolean;
   valorFechadoPadrao: string;
@@ -40,6 +55,11 @@ type FormState = {
 const initialForm: FormState = {
   tipoServico: "",
   categoria: "",
+  natureza: "OPERACIONAL",
+  usarEmOrcamentos: true,
+  usarEmFichas: true,
+  usarEmMedicoes: true,
+  usarEmFaturamento: true,
   servicoTecnico: false,
   faturamentoFechado: false,
   valorFechadoPadrao: "",
@@ -51,6 +71,54 @@ const initialForm: FormState = {
   observacao: "",
   status: "ATIVO"
 };
+
+const naturezaOptions: { value: NaturezaServico; label: string; helper: string }[] = [
+  {
+    value: "OPERACIONAL",
+    label: "Servico operacional",
+    helper: "Orcamentos, fichas, medicoes e faturamento."
+  },
+  {
+    value: "ORCAMENTARIO_COMPOSTO",
+    label: "Servico orcamentario / composto",
+    helper: "Orcamentos e medicoes quando aplicavel. Nao aparece em fichas."
+  },
+  {
+    value: "TECNICO_ADMINISTRATIVO",
+    label: "Servico tecnico / administrativo",
+    helper: "Orcamentos, medicoes e faturamento. Nao aparece em fichas."
+  }
+];
+
+function getDefaultsByNatureza(natureza: NaturezaServico) {
+  if (natureza === "ORCAMENTARIO_COMPOSTO") {
+    return {
+      usarEmOrcamentos: true,
+      usarEmFichas: false,
+      usarEmMedicoes: true,
+      usarEmFaturamento: false,
+      servicoTecnico: false
+    };
+  }
+
+  if (natureza === "TECNICO_ADMINISTRATIVO") {
+    return {
+      usarEmOrcamentos: true,
+      usarEmFichas: false,
+      usarEmMedicoes: true,
+      usarEmFaturamento: true,
+      servicoTecnico: true
+    };
+  }
+
+  return {
+    usarEmOrcamentos: true,
+    usarEmFichas: true,
+    usarEmMedicoes: true,
+    usarEmFaturamento: true,
+    servicoTecnico: false
+  };
+}
 
 export function ServicosManager() {
   const [servicos, setServicos] = useState<Servico[]>([]);
@@ -81,6 +149,7 @@ export function ServicosManager() {
           servico.codigo,
           servico.tipoServico,
           servico.categoria ?? "",
+          servico.natureza,
           servico.servicoTecnico ? "tecnico" : "",
           servico.faturamentoFechado ? "fechado" : "",
           servico.formaMedicao,
@@ -97,6 +166,15 @@ export function ServicosManager() {
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => {
+      if (key === "natureza") {
+        const natureza = value as NaturezaServico;
+        return {
+          ...current,
+          natureza,
+          ...getDefaultsByNatureza(natureza)
+        };
+      }
+
       if (key === "faturamentoFechado") {
         const enabled = value as boolean;
         return {
@@ -143,6 +221,11 @@ export function ServicosManager() {
       id: servico.id,
       tipoServico: servico.tipoServico,
       categoria: servico.categoria ?? "",
+      natureza: servico.natureza ?? "OPERACIONAL",
+      usarEmOrcamentos: servico.usarEmOrcamentos ?? true,
+      usarEmFichas: servico.usarEmFichas ?? true,
+      usarEmMedicoes: servico.usarEmMedicoes ?? true,
+      usarEmFaturamento: servico.usarEmFaturamento ?? true,
       servicoTecnico: servico.servicoTecnico,
       faturamentoFechado: servico.faturamentoFechado,
       valorFechadoPadrao: servico.valorFechadoPadrao ?? "",
@@ -236,6 +319,19 @@ export function ServicosManager() {
                 className="field-control manager-field-control"
               />
             </Field>
+            <Field label="Natureza do servico">
+              <select
+                value={form.natureza}
+                onChange={(event) => updateField("natureza", event.target.value as NaturezaServico)}
+                className="field-control manager-field-control"
+              >
+                {naturezaOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <Field label="Forma de medicao">
               <input
                 placeholder="Hora, viagem, m3, diaria"
@@ -321,7 +417,51 @@ export function ServicosManager() {
                 <option value="NAO">NAO</option>
               </select>
             </Field>
+            <Field label="Usar em orcamentos">
+              <select
+                value={form.usarEmOrcamentos ? "SIM" : "NAO"}
+                onChange={(event) => updateField("usarEmOrcamentos", event.target.value === "SIM")}
+                className="field-control manager-field-control"
+              >
+                <option value="SIM">SIM</option>
+                <option value="NAO">NAO</option>
+              </select>
+            </Field>
+            <Field label="Usar em fichas">
+              <select
+                value={form.usarEmFichas ? "SIM" : "NAO"}
+                onChange={(event) => updateField("usarEmFichas", event.target.value === "SIM")}
+                className="field-control manager-field-control"
+              >
+                <option value="SIM">SIM</option>
+                <option value="NAO">NAO</option>
+              </select>
+            </Field>
+            <Field label="Usar em medicoes">
+              <select
+                value={form.usarEmMedicoes ? "SIM" : "NAO"}
+                onChange={(event) => updateField("usarEmMedicoes", event.target.value === "SIM")}
+                className="field-control manager-field-control"
+              >
+                <option value="SIM">SIM</option>
+                <option value="NAO">NAO</option>
+              </select>
+            </Field>
+            <Field label="Usar em faturamento">
+              <select
+                value={form.usarEmFaturamento ? "SIM" : "NAO"}
+                onChange={(event) => updateField("usarEmFaturamento", event.target.value === "SIM")}
+                className="field-control manager-field-control"
+              >
+                <option value="SIM">SIM</option>
+                <option value="NAO">NAO</option>
+              </select>
+            </Field>
           </div>
+
+          <p className="manager-panel-note" style={{ marginTop: -8 }}>
+            {naturezaOptions.find((option) => option.value === form.natureza)?.helper}
+          </p>
 
           {form.faturamentoFechado ? (
             <p className="manager-panel-note" style={{ marginTop: -8 }}>
@@ -387,6 +527,8 @@ export function ServicosManager() {
               <tr>
                 <th>Codigo</th>
                 <th>Servico</th>
+                <th>Natureza</th>
+                <th>Uso</th>
                 <th>Forma medicao</th>
                 <th>Tecnico</th>
                 <th>Fechado</th>
@@ -405,6 +547,15 @@ export function ServicosManager() {
                   <td>
                     <div>{servico.tipoServico}</div>
                     <div className="manager-subtle">{servico.categoria ?? "-"}</div>
+                  </td>
+                  <td>{naturezaOptions.find((option) => option.value === servico.natureza)?.label ?? servico.natureza}</td>
+                  <td>
+                    <div className="manager-subtle">
+                      Orc: {servico.usarEmOrcamentos ? "SIM" : "NAO"} | Fichas: {servico.usarEmFichas ? "SIM" : "NAO"}
+                    </div>
+                    <div className="manager-subtle">
+                      Med: {servico.usarEmMedicoes ? "SIM" : "NAO"} | Fat: {servico.usarEmFaturamento ? "SIM" : "NAO"}
+                    </div>
                   </td>
                   <td>{servico.formaMedicao}</td>
                   <td>

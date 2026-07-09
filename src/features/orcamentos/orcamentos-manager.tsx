@@ -22,6 +22,7 @@ type TipoItemOrcamento =
   | "RECURSO"
   | "MATERIAL"
   | "OUTRO";
+type CategoriaRecursoOrcamento = "EQUIPAMENTO" | "EQUIPE" | "MATERIAL" | "TERCEIRO";
 type TipoPremissaOrcamento = "PREMISSA" | "CONDICAO" | "EXCLUSAO" | "OBSERVACAO";
 
 type ClienteOption = {
@@ -42,12 +43,14 @@ type ServicoOption = {
   codigo: string;
   tipoServico: string;
   unidadeFaturamento?: string | null;
+  usarEmOrcamentos?: boolean;
 };
 
 type MaterialOption = {
   id: string;
   codigoMaterial: string;
   descricao: string;
+  unidadePadrao?: string | null;
 };
 
 type EquipamentoOption = {
@@ -55,6 +58,20 @@ type EquipamentoOption = {
   placaOuTag: string;
   descricao: string;
   tipoRecurso: string;
+  classeOperacional?: string | null;
+};
+
+type ColaboradorOption = {
+  id: string;
+  codigo?: string | null;
+  nome: string;
+};
+
+type FornecedorOption = {
+  id: string;
+  codigo?: string | null;
+  razaoSocial: string;
+  nomeFantasia?: string | null;
 };
 
 type UsuarioOption = {
@@ -70,7 +87,24 @@ type OptionsState = {
   servicos: ServicoOption[];
   materiais: MaterialOption[];
   equipamentos: EquipamentoOption[];
+  colaboradores: ColaboradorOption[];
+  fornecedores: FornecedorOption[];
   usuarios: UsuarioOption[];
+};
+
+type ServicoSelectOption = { value: string; label: string; unidadeFaturamento: string };
+type MaterialSelectOption = {
+  value: string;
+  label: string;
+  descricao: string;
+  unidadePadrao: string;
+};
+type BasicSelectOption = { value: string; label: string };
+type NamedSelectOption = { value: string; label: string; nome: string };
+type RecursoSelectOption = BasicSelectOption & {
+  nome?: string;
+  descricao?: string;
+  unidadePadrao?: string;
 };
 
 type FrenteForm = {
@@ -94,6 +128,10 @@ type ItemForm = {
   servicoId: string;
   materialId: string;
   equipamentoId: string;
+  categoriaRecurso: CategoriaRecursoOrcamento;
+  classeOperacional: string;
+  recursoReferenciaId: string;
+  recursoNome: string;
   ordem: number;
   codigo: string;
   descricao: string;
@@ -215,6 +253,10 @@ type OrcamentoApi = {
     servicoId: string | null;
     materialId: string | null;
     equipamentoId: string | null;
+    categoriaRecurso: CategoriaRecursoOrcamento | null;
+    classeOperacional: string | null;
+    recursoReferenciaId: string | null;
+    recursoNome: string | null;
     ordem: number;
     codigo: string | null;
     descricao: string;
@@ -273,7 +315,16 @@ const tipoItemOptions: { value: TipoItemOrcamento; label: string }[] = [
   { value: "OUTRO", label: "Outro" }
 ];
 
-const tipoItemOperacionalOptions = tipoItemOptions.filter((option) => option.value !== "COMERCIAL");
+const tipoItemOperacionalOptions = tipoItemOptions.filter((option) =>
+  ["SERVICO_PRINCIPAL", "SERVICO_AUXILIAR", "RECURSO"].includes(option.value)
+);
+
+const categoriaRecursoOptions: { value: CategoriaRecursoOrcamento; label: string }[] = [
+  { value: "EQUIPAMENTO", label: "Equipamento" },
+  { value: "EQUIPE", label: "Equipe" },
+  { value: "MATERIAL", label: "Material" },
+  { value: "TERCEIRO", label: "Terceiro" }
+];
 
 const premissaTipoOptions: { value: TipoPremissaOrcamento; label: string; helper: string }[] = [
   {
@@ -304,6 +355,8 @@ const emptyOptions: OptionsState = {
   servicos: [],
   materiais: [],
   equipamentos: [],
+  colaboradores: [],
+  fornecedores: [],
   usuarios: []
 };
 
@@ -371,6 +424,10 @@ function createEmptyItem(tipoItem: TipoItemOrcamento, ordem: number, frenteTempI
     servicoId: "",
     materialId: "",
     equipamentoId: "",
+    categoriaRecurso: "EQUIPAMENTO",
+    classeOperacional: "",
+    recursoReferenciaId: "",
+    recursoNome: "",
     ordem,
     codigo: "",
     descricao: "",
@@ -438,6 +495,58 @@ function calcItemTotal(item: Pick<ItemForm, "quantidade" | "valorUnitario">) {
 
 function calcItemCost(item: Pick<ItemForm, "quantidade" | "custoUnitario">) {
   return (Number(item.quantidade) || 0) * (Number(item.custoUnitario) || 0);
+}
+
+function isRecursoItem(item: Pick<ItemForm, "tipoItem">) {
+  return item.tipoItem === "RECURSO";
+}
+
+function normalizeItemUpdate(item: ItemForm, key: keyof ItemForm, value: string | number): ItemForm {
+  const next: ItemForm = {
+    ...item,
+    [key]: value
+  };
+
+  if (key === "tipoItem") {
+    const tipoItem = value as TipoItemOrcamento;
+    next.tipoItem = tipoItem;
+
+    if (tipoItem === "RECURSO") {
+      return {
+        ...next,
+        servicoId: "",
+        equipamentoId: "",
+        valorUnitario: "0",
+        categoriaRecurso: next.categoriaRecurso || "EQUIPAMENTO"
+      };
+    }
+
+    return {
+      ...next,
+      categoriaRecurso: "EQUIPAMENTO",
+      classeOperacional: "",
+      recursoReferenciaId: "",
+      recursoNome: "",
+      custoUnitario: "0",
+      produtividade: ""
+    };
+  }
+
+  if (key === "categoriaRecurso") {
+    const categoriaRecurso = value as CategoriaRecursoOrcamento;
+
+    return {
+      ...next,
+      categoriaRecurso,
+      classeOperacional: "",
+      recursoReferenciaId: "",
+      recursoNome: "",
+      materialId: categoriaRecurso === "MATERIAL" ? next.materialId : "",
+      equipamentoId: ""
+    };
+  }
+
+  return next;
 }
 
 function roundMoney(value: number) {
@@ -722,10 +831,13 @@ export function OrcamentosManager() {
 
   const servicoOptions = useMemo(
     () =>
-      options.servicos.map((servico) => ({
-        value: servico.id,
-        label: `${servico.codigo} - ${servico.tipoServico}`
-      })),
+      options.servicos
+        .filter((servico) => servico.usarEmOrcamentos !== false)
+        .map((servico) => ({
+          value: servico.id,
+          label: `${servico.codigo} - ${servico.tipoServico}`,
+          unidadeFaturamento: servico.unidadeFaturamento ?? ""
+        })),
     [options.servicos]
   );
 
@@ -733,7 +845,9 @@ export function OrcamentosManager() {
     () =>
       options.materiais.map((material) => ({
         value: material.id,
-        label: `${material.codigoMaterial} - ${material.descricao}`
+        label: `${material.codigoMaterial} - ${material.descricao}`,
+        descricao: material.descricao,
+        unidadePadrao: material.unidadePadrao ?? "UN"
       })),
     [options.materiais]
   );
@@ -742,9 +856,49 @@ export function OrcamentosManager() {
     () =>
       options.equipamentos.map((equipamento) => ({
         value: equipamento.id,
-        label: `${equipamento.placaOuTag} - ${equipamento.descricao}`
+        label: `${equipamento.placaOuTag} - ${equipamento.descricao}`,
+        classeOperacional: equipamento.classeOperacional ?? ""
       })),
     [options.equipamentos]
+  );
+
+  const classeOperacionalOptions = useMemo(() => {
+    const classes = new Map<string, string>();
+
+    for (const equipamento of options.equipamentos) {
+      const classe = equipamento.classeOperacional?.trim();
+
+      if (classe && !classes.has(classe.toLocaleLowerCase("pt-BR"))) {
+        classes.set(classe.toLocaleLowerCase("pt-BR"), classe);
+      }
+    }
+
+    return Array.from(classes.values())
+      .sort((first, second) => first.localeCompare(second, "pt-BR"))
+      .map((classe) => ({
+        value: classe,
+        label: classe
+      }));
+  }, [options.equipamentos]);
+
+  const colaboradorOptions = useMemo(
+    () =>
+      options.colaboradores.map((colaborador) => ({
+        value: colaborador.id,
+        label: `${colaborador.codigo ?? "COL"} - ${colaborador.nome}`,
+        nome: colaborador.nome
+      })),
+    [options.colaboradores]
+  );
+
+  const fornecedorOptions = useMemo(
+    () =>
+      options.fornecedores.map((fornecedor) => ({
+        value: fornecedor.id,
+        label: `${fornecedor.codigo ?? "FOR"} - ${fornecedor.nomeFantasia || fornecedor.razaoSocial}`,
+        nome: fornecedor.nomeFantasia || fornecedor.razaoSocial
+      })),
+    [options.fornecedores]
   );
 
   const economicPreview = useMemo(() => buildEconomicPreview(form), [form]);
@@ -788,6 +942,8 @@ export function OrcamentosManager() {
       servicos: operacionais.servicos ?? [],
       materiais: operacionais.materiais ?? [],
       equipamentos: operacionais.equipamentos ?? [],
+      colaboradores: operacionais.colaboradores ?? [],
+      fornecedores: operacionais.fornecedores ?? [],
       usuarios: usuarios.items ?? []
     });
   }
@@ -853,7 +1009,7 @@ export function OrcamentosManager() {
     setForm((current) => ({
       ...current,
       itens: current.itens.map((item) =>
-        item.localId === localId ? { ...item, [key]: value } : item
+        item.localId === localId ? normalizeItemUpdate(item, key, value) : item
       )
     }));
   }
@@ -1371,6 +1527,9 @@ export function OrcamentosManager() {
               servicoOptions={servicoOptions}
               materialOptions={materialOptions}
               equipamentoOptions={equipamentoOptions}
+              classeOperacionalOptions={classeOperacionalOptions}
+              colaboradorOptions={colaboradorOptions}
+              fornecedorOptions={fornecedorOptions}
               onAdd={addFrente}
               onRemove={removeFrente}
               onUpdate={updateFrente}
@@ -1386,6 +1545,9 @@ export function OrcamentosManager() {
               servicoOptions={servicoOptions}
               materialOptions={materialOptions}
               equipamentoOptions={equipamentoOptions}
+              classeOperacionalOptions={classeOperacionalOptions}
+              colaboradorOptions={colaboradorOptions}
+              fornecedorOptions={fornecedorOptions}
               onAdd={addItem}
               onRemove={removeItem}
               onUpdate={updateItem}
@@ -1602,9 +1764,12 @@ export function OrcamentosManager() {
 function FrentesOperacionaisSection(props: {
   frentes: FrenteForm[];
   itens: ItemForm[];
-  servicoOptions: { value: string; label: string }[];
-  materialOptions: { value: string; label: string }[];
-  equipamentoOptions: { value: string; label: string }[];
+  servicoOptions: ServicoSelectOption[];
+  materialOptions: MaterialSelectOption[];
+  equipamentoOptions: BasicSelectOption[];
+  classeOperacionalOptions: BasicSelectOption[];
+  colaboradorOptions: NamedSelectOption[];
+  fornecedorOptions: NamedSelectOption[];
   onAdd: () => void;
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, key: keyof FrenteForm, value: string | number) => void;
@@ -1755,6 +1920,9 @@ function FrentesOperacionaisSection(props: {
                   servicoOptions={props.servicoOptions}
                   materialOptions={props.materialOptions}
                   equipamentoOptions={props.equipamentoOptions}
+                  classeOperacionalOptions={props.classeOperacionalOptions}
+                  colaboradorOptions={props.colaboradorOptions}
+                  fornecedorOptions={props.fornecedorOptions}
                   onRemove={props.onRemoveItem}
                   onUpdate={props.onUpdateItem}
                 />
@@ -1799,6 +1967,9 @@ function FrentesOperacionaisSection(props: {
                   servicoOptions={props.servicoOptions}
                   materialOptions={props.materialOptions}
                   equipamentoOptions={props.equipamentoOptions}
+                  classeOperacionalOptions={props.classeOperacionalOptions}
+                  colaboradorOptions={props.colaboradorOptions}
+                  fornecedorOptions={props.fornecedorOptions}
                   onRemove={props.onRemoveItem}
                   onUpdate={props.onUpdateItem}
                 />
@@ -1821,6 +1992,9 @@ function FrentesOperacionaisSection(props: {
                   servicoOptions={props.servicoOptions}
                   materialOptions={props.materialOptions}
                   equipamentoOptions={props.equipamentoOptions}
+                  classeOperacionalOptions={props.classeOperacionalOptions}
+                  colaboradorOptions={props.colaboradorOptions}
+                  fornecedorOptions={props.fornecedorOptions}
                   onRemove={props.onRemoveItem}
                   onUpdate={props.onUpdateItem}
                 />
@@ -1843,9 +2017,12 @@ function FrentesOperacionaisSection(props: {
 function OperationalItemList(props: {
   emptyLabel: string;
   itens: ItemForm[];
-  servicoOptions: { value: string; label: string }[];
-  materialOptions: { value: string; label: string }[];
-  equipamentoOptions: { value: string; label: string }[];
+  servicoOptions: ServicoSelectOption[];
+  materialOptions: MaterialSelectOption[];
+  equipamentoOptions: BasicSelectOption[];
+  classeOperacionalOptions: BasicSelectOption[];
+  colaboradorOptions: NamedSelectOption[];
+  fornecedorOptions: NamedSelectOption[];
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
 }) {
@@ -1859,7 +2036,7 @@ function OperationalItemList(props: {
         <article key={item.localId} className="orcamentos-item-card orcamentos-operational-item">
           <div className="orcamentos-item-head">
             <strong>Item {item.ordem}</strong>
-            <span>{formatCurrency(calcItemTotal(item))}</span>
+            <span>{formatCurrency(isRecursoItem(item) ? calcItemCost(item) : calcItemTotal(item))}</span>
             <button type="button" onClick={() => props.onRemove(item.localId)}>
               Remover
             </button>
@@ -1881,93 +2058,22 @@ function OperationalItemList(props: {
                 ))}
               </select>
             </label>
-            <label className="manager-field">
-              <span className="manager-field-label">Servico</span>
-              <SearchableSelect
-                value={item.servicoId}
-                options={props.servicoOptions}
-                placeholder="Buscar servico"
-                onChange={(value) => props.onUpdate(item.localId, "servicoId", value)}
+            {isRecursoItem(item) ? (
+              <ResourceItemFields
+                item={item}
+                materialOptions={props.materialOptions}
+                classeOperacionalOptions={props.classeOperacionalOptions}
+                colaboradorOptions={props.colaboradorOptions}
+                fornecedorOptions={props.fornecedorOptions}
+                onUpdate={props.onUpdate}
               />
-            </label>
-            <label className="manager-field">
-              <span className="manager-field-label">Equipamento</span>
-              <SearchableSelect
-                value={item.equipamentoId}
-                options={props.equipamentoOptions}
-                placeholder="Opcional"
-                onChange={(value) => props.onUpdate(item.localId, "equipamentoId", value)}
+            ) : (
+              <ServiceItemFields
+                item={item}
+                servicoOptions={props.servicoOptions}
+                onUpdate={props.onUpdate}
               />
-            </label>
-            <label className="manager-field">
-              <span className="manager-field-label">Material</span>
-              <SearchableSelect
-                value={item.materialId}
-                options={props.materialOptions}
-                placeholder="Opcional"
-                onChange={(value) => props.onUpdate(item.localId, "materialId", value)}
-              />
-            </label>
-            <label className="manager-field orcamentos-span-2">
-              <span className="manager-field-label">Descricao</span>
-              <input
-                className="field-control"
-                value={item.descricao}
-                onChange={(event) => props.onUpdate(item.localId, "descricao", event.target.value)}
-              />
-            </label>
-            <label className="manager-field">
-              <span className="manager-field-label">Unidade</span>
-              <input
-                className="field-control"
-                value={item.unidade}
-                onChange={(event) => props.onUpdate(item.localId, "unidade", event.target.value)}
-              />
-            </label>
-            <label className="manager-field">
-              <span className="manager-field-label">Quantidade</span>
-              <input
-                className="field-control"
-                type="number"
-                min="0"
-                step="0.01"
-                value={item.quantidade}
-                onChange={(event) => props.onUpdate(item.localId, "quantidade", event.target.value)}
-              />
-            </label>
-            <label className="manager-field">
-              <span className="manager-field-label">Custo unitario</span>
-              <input
-                className="field-control"
-                type="number"
-                min="0"
-                step="0.01"
-                value={item.custoUnitario}
-                onChange={(event) => props.onUpdate(item.localId, "custoUnitario", event.target.value)}
-              />
-            </label>
-            <label className="manager-field">
-              <span className="manager-field-label">Valor unitario</span>
-              <input
-                className="field-control"
-                type="number"
-                min="0"
-                step="0.01"
-                value={item.valorUnitario}
-                onChange={(event) => props.onUpdate(item.localId, "valorUnitario", event.target.value)}
-              />
-            </label>
-            <label className="manager-field">
-              <span className="manager-field-label">Produtividade</span>
-              <input
-                className="field-control"
-                type="number"
-                min="0"
-                step="0.01"
-                value={item.produtividade}
-                onChange={(event) => props.onUpdate(item.localId, "produtividade", event.target.value)}
-              />
-            </label>
+            )}
           </div>
         </article>
       ))}
@@ -1975,13 +2081,254 @@ function OperationalItemList(props: {
   );
 }
 
+function ServiceItemFields(props: {
+  item: ItemForm;
+  servicoOptions: ServicoSelectOption[];
+  onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
+}) {
+  function handleServicoChange(value: string) {
+    props.onUpdate(props.item.localId, "servicoId", value);
+    const selected = props.servicoOptions.find((option) => option.value === value);
+
+    if (!selected) {
+      return;
+    }
+
+    props.onUpdate(props.item.localId, "descricao", selected.label.replace(/^[^-]+ - /, ""));
+
+    if (selected.unidadeFaturamento) {
+      props.onUpdate(props.item.localId, "unidade", selected.unidadeFaturamento);
+    }
+  }
+
+  return (
+    <>
+      <label className="manager-field">
+        <span className="manager-field-label">Servico</span>
+        <SearchableSelect
+          value={props.item.servicoId}
+          options={props.servicoOptions}
+          placeholder="Buscar servico"
+          onChange={handleServicoChange}
+        />
+      </label>
+      <label className="manager-field orcamentos-span-2">
+        <span className="manager-field-label">Descricao</span>
+        <input
+          className="field-control"
+          value={props.item.descricao}
+          onChange={(event) =>
+            props.onUpdate(props.item.localId, "descricao", event.target.value)
+          }
+        />
+      </label>
+      <label className="manager-field">
+        <span className="manager-field-label">Unidade</span>
+        <input
+          className="field-control"
+          value={props.item.unidade}
+          onChange={(event) => props.onUpdate(props.item.localId, "unidade", event.target.value)}
+        />
+      </label>
+      <label className="manager-field">
+        <span className="manager-field-label">Quantidade</span>
+        <input
+          className="field-control"
+          type="number"
+          min="0"
+          step="0.01"
+          value={props.item.quantidade}
+          onChange={(event) =>
+            props.onUpdate(props.item.localId, "quantidade", event.target.value)
+          }
+        />
+      </label>
+      <label className="manager-field">
+        <span className="manager-field-label">Valor unitario</span>
+        <input
+          className="field-control"
+          type="number"
+          min="0"
+          step="0.01"
+          value={props.item.valorUnitario}
+          onChange={(event) =>
+            props.onUpdate(props.item.localId, "valorUnitario", event.target.value)
+          }
+        />
+        <small className="manager-field-hint">Preco de venda deste servico.</small>
+      </label>
+    </>
+  );
+}
+
+function ResourceItemFields(props: {
+  item: ItemForm;
+  materialOptions: MaterialSelectOption[];
+  classeOperacionalOptions: BasicSelectOption[];
+  colaboradorOptions: NamedSelectOption[];
+  fornecedorOptions: NamedSelectOption[];
+  onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
+}) {
+  const recursoOptions = getRecursoOptions(props.item.categoriaRecurso, props);
+  const recursoValue = getRecursoValue(props.item);
+
+  function handleResourceChange(value: string) {
+    const selected = recursoOptions.find((option) => option.value === value);
+    const label = selected?.nome ?? selected?.label ?? "";
+
+    if (props.item.categoriaRecurso === "EQUIPAMENTO") {
+      props.onUpdate(props.item.localId, "classeOperacional", value);
+      props.onUpdate(props.item.localId, "recursoReferenciaId", "");
+      props.onUpdate(props.item.localId, "recursoNome", value);
+      props.onUpdate(props.item.localId, "descricao", value);
+      return;
+    }
+
+    if (props.item.categoriaRecurso === "MATERIAL") {
+      const material = props.materialOptions.find((option) => option.value === value);
+      props.onUpdate(props.item.localId, "materialId", value);
+      props.onUpdate(props.item.localId, "recursoReferenciaId", value);
+      props.onUpdate(props.item.localId, "recursoNome", material?.descricao ?? label);
+      props.onUpdate(props.item.localId, "descricao", material?.descricao ?? label);
+      props.onUpdate(props.item.localId, "unidade", material?.unidadePadrao ?? props.item.unidade);
+      return;
+    }
+
+    props.onUpdate(props.item.localId, "recursoReferenciaId", value);
+    props.onUpdate(props.item.localId, "recursoNome", label);
+    props.onUpdate(props.item.localId, "descricao", label);
+  }
+
+  return (
+    <>
+      <label className="manager-field">
+        <span className="manager-field-label">Categoria do recurso</span>
+        <select
+          className="field-control"
+          value={props.item.categoriaRecurso}
+          onChange={(event) =>
+            props.onUpdate(
+              props.item.localId,
+              "categoriaRecurso",
+              event.target.value as CategoriaRecursoOrcamento
+            )
+          }
+        >
+          {categoriaRecursoOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="manager-field orcamentos-span-2">
+        <span className="manager-field-label">Recurso</span>
+        <SearchableSelect
+          value={recursoValue}
+          options={recursoOptions}
+          placeholder={getRecursoPlaceholder(props.item.categoriaRecurso)}
+          onChange={handleResourceChange}
+        />
+      </label>
+      <label className="manager-field">
+        <span className="manager-field-label">Quantidade</span>
+        <input
+          className="field-control"
+          type="number"
+          min="0"
+          step="0.01"
+          value={props.item.quantidade}
+          onChange={(event) =>
+            props.onUpdate(props.item.localId, "quantidade", event.target.value)
+          }
+        />
+      </label>
+      <label className="manager-field">
+        <span className="manager-field-label">Unidade</span>
+        <input
+          className="field-control"
+          value={props.item.unidade}
+          onChange={(event) => props.onUpdate(props.item.localId, "unidade", event.target.value)}
+        />
+      </label>
+      <label className="manager-field">
+        <span className="manager-field-label">Custo unitario</span>
+        <input
+          className="field-control"
+          type="number"
+          min="0"
+          step="0.01"
+          value={props.item.custoUnitario}
+          onChange={(event) =>
+            props.onUpdate(props.item.localId, "custoUnitario", event.target.value)
+          }
+        />
+      </label>
+      <label className="manager-field">
+        <span className="manager-field-label">Produtividade</span>
+        <input
+          className="field-control"
+          type="number"
+          min="0"
+          step="0.01"
+          value={props.item.produtividade}
+          onChange={(event) =>
+            props.onUpdate(props.item.localId, "produtividade", event.target.value)
+          }
+        />
+      </label>
+      <label className="manager-field orcamentos-span-3">
+        <span className="manager-field-label">Observacoes do recurso</span>
+        <input
+          className="field-control"
+          value={props.item.observacao}
+          onChange={(event) =>
+            props.onUpdate(props.item.localId, "observacao", event.target.value)
+          }
+        />
+      </label>
+    </>
+  );
+}
+
+function getRecursoOptions(
+  categoria: CategoriaRecursoOrcamento,
+  options: {
+    materialOptions: MaterialSelectOption[];
+    classeOperacionalOptions: BasicSelectOption[];
+    colaboradorOptions: NamedSelectOption[];
+    fornecedorOptions: NamedSelectOption[];
+  }
+) : RecursoSelectOption[] {
+  if (categoria === "EQUIPAMENTO") return options.classeOperacionalOptions;
+  if (categoria === "MATERIAL") return options.materialOptions;
+  if (categoria === "EQUIPE") return options.colaboradorOptions;
+  return options.fornecedorOptions;
+}
+
+function getRecursoValue(item: ItemForm) {
+  if (item.categoriaRecurso === "EQUIPAMENTO") return item.classeOperacional;
+  if (item.categoriaRecurso === "MATERIAL") return item.materialId;
+  return item.recursoReferenciaId;
+}
+
+function getRecursoPlaceholder(categoria: CategoriaRecursoOrcamento) {
+  if (categoria === "EQUIPAMENTO") return "Buscar classe operacional";
+  if (categoria === "MATERIAL") return "Buscar material";
+  if (categoria === "EQUIPE") return "Buscar colaborador/equipe";
+  return "Buscar fornecedor/terceiro";
+}
+
 function ItensSection(props: {
   tipo: TipoOrcamento;
   itens: ItemForm[];
   frentes: FrenteForm[];
-  servicoOptions: { value: string; label: string }[];
-  materialOptions: { value: string; label: string }[];
-  equipamentoOptions: { value: string; label: string }[];
+  servicoOptions: ServicoSelectOption[];
+  materialOptions: MaterialSelectOption[];
+  equipamentoOptions: BasicSelectOption[];
+  classeOperacionalOptions: BasicSelectOption[];
+  colaboradorOptions: NamedSelectOption[];
+  fornecedorOptions: NamedSelectOption[];
   onAdd: () => void;
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
@@ -2036,7 +2383,7 @@ function ItensSection(props: {
                     props.onUpdate(item.localId, "tipoItem", event.target.value as TipoItemOrcamento)
                   }
                 >
-                  {tipoItemOptions.map((option) => (
+                  {(props.tipo === "OPERACIONAL" ? tipoItemOperacionalOptions : [tipoItemOptions[0]]).map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -2250,28 +2597,46 @@ function buildPayload(form: OrcamentoForm) {
     valorAcrescimo: Number(form.valorAcrescimo) || 0,
     formacaoPreco,
     frentes: form.tipo === "OPERACIONAL" ? form.frentes.map(mapFrentePayload) : [],
-    itens: itensValidos.map((item) => ({
-      frenteTempId: form.tipo === "OPERACIONAL" ? item.frenteTempId : "",
-      tipoItem: item.tipoItem,
-      servicoId: item.servicoId || null,
-      materialId: item.materialId || null,
-      equipamentoId: item.equipamentoId || null,
-      ordem: item.ordem,
-      codigo: item.codigo,
-      descricao: item.descricao,
-      unidade: item.unidade,
-      quantidade: Number(item.quantidade) || 0,
-      produtividade: item.produtividade ? Number(item.produtividade) : null,
-      custoUnitario: Number(item.custoUnitario) || 0,
-      valorUnitario: Number(item.valorUnitario) || 0,
-      observacao: item.observacao
-    })),
+    itens: itensValidos.map((item) => mapItemPayload(item, form.tipo)),
     premissas: form.premissas.filter(isPremissaPreenchida).map((premissa) => ({
       tipo: premissa.tipo,
       ordem: premissa.ordem,
       titulo: premissa.titulo,
       descricao: premissa.descricao
     }))
+  };
+}
+
+function mapItemPayload(item: ItemForm, tipoOrcamento: TipoOrcamento) {
+  const recurso = isRecursoItem(item);
+  const servicoOperacional =
+    item.tipoItem === "SERVICO_PRINCIPAL" || item.tipoItem === "SERVICO_AUXILIAR";
+
+  return {
+    frenteTempId: tipoOrcamento === "OPERACIONAL" ? item.frenteTempId : "",
+    tipoItem: item.tipoItem,
+    servicoId: recurso ? null : item.servicoId || null,
+    materialId:
+      recurso && item.categoriaRecurso === "MATERIAL"
+        ? item.materialId || null
+        : servicoOperacional
+          ? null
+          : item.materialId || null,
+    equipamentoId: recurso || servicoOperacional ? null : item.equipamentoId || null,
+    categoriaRecurso: recurso ? item.categoriaRecurso : null,
+    classeOperacional:
+      recurso && item.categoriaRecurso === "EQUIPAMENTO" ? item.classeOperacional : "",
+    recursoReferenciaId: recurso ? item.recursoReferenciaId : "",
+    recursoNome: recurso ? item.recursoNome : "",
+    ordem: item.ordem,
+    codigo: item.codigo,
+    descricao: item.descricao,
+    unidade: item.unidade,
+    quantidade: Number(item.quantidade) || 0,
+    produtividade: item.produtividade ? Number(item.produtividade) : null,
+    custoUnitario: recurso ? Number(item.custoUnitario) || 0 : Number(item.custoUnitario) || 0,
+    valorUnitario: recurso ? 0 : Number(item.valorUnitario) || 0,
+    observacao: item.observacao
   };
 }
 
@@ -2314,6 +2679,9 @@ function isItemPreenchido(item: ItemForm) {
       item.servicoId ||
       item.materialId ||
       item.equipamentoId ||
+      item.classeOperacional ||
+      item.recursoReferenciaId ||
+      item.recursoNome ||
       Number(item.quantidade) !== 1 ||
       Number(item.valorUnitario) > 0 ||
       Number(item.custoUnitario) > 0
@@ -2421,6 +2789,10 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
             servicoId: orcamentoItem.servicoId ?? "",
             materialId: orcamentoItem.materialId ?? "",
             equipamentoId: orcamentoItem.equipamentoId ?? "",
+            categoriaRecurso: orcamentoItem.categoriaRecurso ?? "EQUIPAMENTO",
+            classeOperacional: orcamentoItem.classeOperacional ?? "",
+            recursoReferenciaId: orcamentoItem.recursoReferenciaId ?? "",
+            recursoNome: orcamentoItem.recursoNome ?? "",
             ordem: orcamentoItem.ordem,
             codigo: orcamentoItem.codigo ?? "",
             descricao: orcamentoItem.descricao,

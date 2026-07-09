@@ -83,7 +83,9 @@ export function useMedicoes() {
       setOptions({
         clientes: base.clientes.filter((item) => item.status === "ATIVO"),
         obras: base.obras.filter((item) => item.status === "ATIVO"),
-        servicos: base.servicos.filter((item) => item.status === "ATIVO"),
+        servicos: base.servicos.filter(
+          (item) => item.status === "ATIVO" && item.usarEmMedicoes !== false
+        ),
         materiais: base.materiais.filter((item) => item.status === "ATIVO"),
         equipamentos: base.equipamentos.filter((item) => item.status === "ATIVO"),
         colaboradores: base.colaboradores.filter((item) => item.status === "ATIVO")

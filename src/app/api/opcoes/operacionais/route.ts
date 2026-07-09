@@ -9,7 +9,7 @@ export async function GET() {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
-  const [clientes, obras, servicos, materiais, equipamentos, colaboradores] = await Promise.all([
+  const [clientes, obras, servicos, materiais, equipamentos, colaboradores, fornecedores] = await Promise.all([
     prisma.cliente.findMany({
       where: {
         status: "ATIVO"
@@ -45,6 +45,11 @@ export async function GET() {
         codigo: true,
         tipoServico: true,
         status: true,
+        natureza: true,
+        usarEmOrcamentos: true,
+        usarEmFichas: true,
+        usarEmMedicoes: true,
+        usarEmFaturamento: true,
         exigeMaterial: true,
         servicoTecnico: true,
         faturamentoFechado: true,
@@ -62,6 +67,7 @@ export async function GET() {
         id: true,
         codigoMaterial: true,
         descricao: true,
+        unidadePadrao: true,
         status: true
       },
       orderBy: [{ descricao: "asc" }]
@@ -75,6 +81,7 @@ export async function GET() {
         descricao: true,
         placaOuTag: true,
         tipoRecurso: true,
+        classeOperacional: true,
         status: true
       },
       orderBy: [{ descricao: "asc" }]
@@ -90,6 +97,19 @@ export async function GET() {
         status: true
       },
       orderBy: [{ nome: "asc" }]
+    }),
+    prisma.fornecedor.findMany({
+      where: {
+        status: "ATIVO"
+      },
+      select: {
+        id: true,
+        codigo: true,
+        razaoSocial: true,
+        nomeFantasia: true,
+        status: true
+      },
+      orderBy: [{ razaoSocial: "asc" }]
     })
   ]);
 
@@ -99,6 +119,7 @@ export async function GET() {
     servicos,
     materiais,
     equipamentos,
-    colaboradores
+    colaboradores,
+    fornecedores
   });
 }

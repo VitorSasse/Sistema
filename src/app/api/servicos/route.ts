@@ -50,6 +50,11 @@ export async function POST(request: NextRequest) {
         codigo,
         tipoServico: parsed.data.tipoServico,
         categoria: parsed.data.categoria || null,
+        natureza: parsed.data.natureza,
+        usarEmOrcamentos: parsed.data.usarEmOrcamentos,
+        usarEmFichas: parsed.data.usarEmFichas,
+        usarEmMedicoes: parsed.data.usarEmMedicoes,
+        usarEmFaturamento: parsed.data.usarEmFaturamento,
         servicoTecnico: parsed.data.servicoTecnico,
         faturamentoFechado: parsed.data.faturamentoFechado,
         valorFechadoPadrao: parsed.data.faturamentoFechado

@@ -15,6 +15,7 @@ type Equipamento = {
   tipoControle: TipoControleEquipamento;
   descricao: string;
   placaOuTag: string;
+  classeOperacional: string | null;
   complementar: boolean;
   fabricante: string | null;
   modelo: string | null;
@@ -39,6 +40,7 @@ type FormState = {
   tipoControle: TipoControleEquipamento;
   descricao: string;
   placaOuTag: string;
+  classeOperacional: string;
   complementar: boolean;
   fabricante: string;
   modelo: string;
@@ -62,6 +64,7 @@ const initialForm: FormState = {
   tipoControle: "HORIMETRO",
   descricao: "",
   placaOuTag: "",
+  classeOperacional: "",
   complementar: false,
   fabricante: "",
   modelo: "",
@@ -162,6 +165,7 @@ export function EquipamentosManager() {
         [
           equipamento.descricao,
           equipamento.placaOuTag,
+          equipamento.classeOperacional ?? "",
           equipamento.fabricante ?? "",
           equipamento.modelo ?? "",
           equipamento.apelido ?? ""
@@ -237,6 +241,7 @@ export function EquipamentosManager() {
       tipoControle: equipamento.tipoControle,
       descricao: equipamento.descricao,
       placaOuTag: equipamento.placaOuTag,
+      classeOperacional: equipamento.classeOperacional ?? "",
       complementar: equipamento.complementar,
       fabricante: equipamento.fabricante ?? "",
       modelo: equipamento.modelo ?? "",
@@ -387,6 +392,14 @@ export function EquipamentosManager() {
                 value={form.placaOuTag}
                 onChange={(event) => updateField("placaOuTag", event.target.value.toUpperCase())}
                 placeholder={recursoApoioSelecionado ? "Ex.: ENG / TOPO / APOIO01" : ""}
+              />
+            </Field>
+            <Field label="Classe operacional">
+              <input
+                className="field-control"
+                value={form.classeOperacional}
+                onChange={(event) => updateField("classeOperacional", event.target.value)}
+                placeholder="Ex.: Caminhao basculante 14 m3"
               />
             </Field>
             <Field label="Equipamento complementar">
@@ -553,7 +566,7 @@ export function EquipamentosManager() {
           <div className="toolbar-actions">
             <input
               className="field-control"
-              placeholder="Buscar por descricao, placa, fabricante ou apelido"
+              placeholder="Buscar por descricao, placa, classe, fabricante ou apelido"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -621,6 +634,9 @@ export function EquipamentosManager() {
                       {[equipamento.placaOuTag, equipamento.fabricante, equipamento.modelo]
                         .filter(Boolean)
                         .join(" | ") || "-"}
+                    </div>
+                    <div className="subtle">
+                      Classe: {equipamento.classeOperacional || "Nao definida"}
                     </div>
                   </td>
                   <td>

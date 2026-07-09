@@ -1,4 +1,5 @@
 import {
+  CategoriaRecursoOrcamento,
   StatusOrcamento,
   TipoItemOrcamento,
   TipoOrcamento,
@@ -52,6 +53,10 @@ const orcamentoItemSchema = z.object({
   servicoId: optionalUuid(),
   materialId: optionalUuid(),
   equipamentoId: optionalUuid(),
+  categoriaRecurso: z.nativeEnum(CategoriaRecursoOrcamento).optional().nullable(),
+  classeOperacional: z.string().trim().max(160).optional().or(z.literal("")),
+  recursoReferenciaId: z.string().trim().max(120).optional().or(z.literal("")),
+  recursoNome: z.string().trim().max(180).optional().or(z.literal("")),
   ordem: z.number().int().positive().max(999).default(1),
   codigo: z.string().trim().max(80).optional().or(z.literal("")),
   descricao: z.string().trim().min(2).max(240),
@@ -61,6 +66,56 @@ const orcamentoItemSchema = z.object({
   custoUnitario: numeroDecimal(999999999).default(0),
   valorUnitario: numeroDecimal(999999999).default(0),
   observacao: z.string().trim().max(500).optional().or(z.literal(""))
+}).superRefine((item, context) => {
+  if (item.tipoItem !== TipoItemOrcamento.RECURSO) {
+    return;
+  }
+
+  if (item.servicoId) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["servicoId"],
+      message: "Item de recurso nao deve usar o cadastro de servico."
+    });
+  }
+
+  if (!item.categoriaRecurso) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["categoriaRecurso"],
+      message: "Informe a categoria do recurso."
+    });
+    return;
+  }
+
+  if (item.categoriaRecurso === CategoriaRecursoOrcamento.EQUIPAMENTO && !item.classeOperacional?.trim()) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["classeOperacional"],
+      message: "Informe a classe operacional do equipamento."
+    });
+  }
+
+  if (item.categoriaRecurso === CategoriaRecursoOrcamento.MATERIAL && !item.materialId) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["materialId"],
+      message: "Informe o material usado como recurso."
+    });
+  }
+
+  if (
+    (item.categoriaRecurso === CategoriaRecursoOrcamento.EQUIPE ||
+      item.categoriaRecurso === CategoriaRecursoOrcamento.TERCEIRO) &&
+    !item.recursoReferenciaId?.trim() &&
+    !item.recursoNome?.trim()
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["recursoReferenciaId"],
+      message: "Informe o recurso correspondente a categoria selecionada."
+    });
+  }
 });
 
 const orcamentoPremissaSchema = z.object({

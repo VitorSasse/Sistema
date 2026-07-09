@@ -4,12 +4,20 @@ export type OperationalOption = {
   codigoMaterial?: string;
   nome?: string;
   descricao?: string;
+  razaoSocial?: string;
+  nomeFantasia?: string | null;
   tipoServico?: string;
   placaOuTag?: string;
   tipoRecurso?: string;
+  classeOperacional?: string | null;
   status: "ATIVO" | "INATIVO";
   clienteId?: string;
   liberadaParaLancamento?: boolean;
+  natureza?: string;
+  usarEmOrcamentos?: boolean;
+  usarEmFichas?: boolean;
+  usarEmMedicoes?: boolean;
+  usarEmFaturamento?: boolean;
   exigeMaterial?: boolean;
   servicoTecnico?: boolean;
   faturamentoFechado?: boolean;
@@ -25,6 +33,7 @@ export type OperationalOptionsPayload = {
   materiais: OperationalOption[];
   equipamentos: OperationalOption[];
   colaboradores: OperationalOption[];
+  fornecedores?: OperationalOption[];
 };
 
 export async function loadOperationalOptions() {

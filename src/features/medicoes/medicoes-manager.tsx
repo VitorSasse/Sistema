@@ -155,7 +155,9 @@ export function MedicoesManager() {
     setOptions({
       clientes: base.options.clientes.filter((item) => item.status === "ATIVO"),
       obras: base.options.obras,
-      servicos: base.options.servicos.filter((item) => item.status === "ATIVO"),
+      servicos: base.options.servicos.filter(
+        (item) => item.status === "ATIVO" && item.usarEmMedicoes !== false
+      ),
       materiais: base.options.materiais.filter((item) => item.status === "ATIVO"),
       equipamentos: base.options.equipamentos.filter((item) => item.status === "ATIVO"),
       colaboradores: base.options.colaboradores.filter((item) => item.status === "ATIVO")

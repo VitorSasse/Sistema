@@ -5,3 +5,4 @@ tmp/
 .env.local-postgres.backup
 *.dump
 *.log
+tsconfig.tsbuildinfo

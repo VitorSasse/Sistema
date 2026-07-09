@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
         tipoControle: data.tipoControle as any,
         descricao: data.descricao,
         placaOuTag: data.placaOuTag,
+        classeOperacional: data.classeOperacional || null,
         complementar: Boolean(data.complementar),
         fabricante: data.fabricante || null,
         modelo: data.modelo || null,

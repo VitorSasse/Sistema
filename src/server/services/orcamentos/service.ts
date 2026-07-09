@@ -1,4 +1,5 @@
 import {
+  CategoriaRecursoOrcamento,
   Prisma,
   PrismaClient,
   StatusOrcamento,
@@ -92,6 +93,7 @@ export const orcamentoInclude = {
           placaOuTag: true,
           descricao: true,
           tipoRecurso: true,
+          classeOperacional: true,
           status: true
         }
       }
@@ -230,11 +232,25 @@ async function validarReferenciasOrcamento(db: DbClient, input: OrcamentoInput) 
   await validarIdsRelacionados(db, "servico", input.itens.map((item) => item.servicoId));
   await validarIdsRelacionados(db, "material", input.itens.map((item) => item.materialId));
   await validarIdsRelacionados(db, "equipamento", input.itens.map((item) => item.equipamentoId));
+  await validarIdsRelacionados(
+    db,
+    "colaborador",
+    input.itens
+      .filter((item) => item.categoriaRecurso === CategoriaRecursoOrcamento.EQUIPE)
+      .map((item) => item.recursoReferenciaId)
+  );
+  await validarIdsRelacionados(
+    db,
+    "fornecedor",
+    input.itens
+      .filter((item) => item.categoriaRecurso === CategoriaRecursoOrcamento.TERCEIRO)
+      .map((item) => item.recursoReferenciaId)
+  );
 }
 
 async function validarIdsRelacionados(
   db: DbClient,
-  entidade: "servico" | "material" | "equipamento",
+  entidade: "servico" | "material" | "equipamento" | "colaborador" | "fornecedor",
   ids: Array<string | null | undefined>
 ) {
   const uniqueIds = Array.from(new Set(ids.filter((id): id is string => Boolean(id))));
@@ -263,11 +279,25 @@ async function validarIdsRelacionados(
     });
   }
 
+  if (entidade === "colaborador") {
+    count = await db.colaborador.count({
+      where: { id: { in: uniqueIds } }
+    });
+  }
+
+  if (entidade === "fornecedor") {
+    count = await db.fornecedor.count({
+      where: { id: { in: uniqueIds } }
+    });
+  }
+
   if (count !== uniqueIds.length) {
     const codeByEntity = {
       servico: "SERVICO_NAO_ENCONTRADO",
       material: "MATERIAL_NAO_ENCONTRADO",
-      equipamento: "EQUIPAMENTO_NAO_ENCONTRADO"
+      equipamento: "EQUIPAMENTO_NAO_ENCONTRADO",
+      colaborador: "COLABORADOR_NAO_ENCONTRADO",
+      fornecedor: "FORNECEDOR_NAO_ENCONTRADO"
     };
 
     throw new Error(codeByEntity[entidade]);
@@ -343,6 +373,10 @@ async function criarEstruturaOrcamento(
         servicoId: item.servicoId || null,
         materialId: item.materialId || null,
         equipamentoId: item.equipamentoId || null,
+        categoriaRecurso: item.categoriaRecurso ?? null,
+        classeOperacional: clean(item.classeOperacional),
+        recursoReferenciaId: clean(item.recursoReferenciaId),
+        recursoNome: clean(item.recursoNome),
         ordem: item.ordem,
         codigo: clean(item.codigo),
         descricao: item.descricao,
@@ -722,6 +756,10 @@ export async function duplicarOrcamento(
         servicoId: item.servicoId,
         materialId: item.materialId,
         equipamentoId: item.equipamentoId,
+        categoriaRecurso: item.categoriaRecurso,
+        classeOperacional: item.classeOperacional,
+        recursoReferenciaId: item.recursoReferenciaId,
+        recursoNome: item.recursoNome,
         ordem: item.ordem,
         codigo: item.codigo,
         descricao: item.descricao,
