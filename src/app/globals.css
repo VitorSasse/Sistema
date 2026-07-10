@@ -4546,6 +4546,28 @@ button {
   min-width: 0;
 }
 
+.billing-client-comparison-card .field-label {
+  color: color-mix(in srgb, var(--screen-text) 88%, var(--screen-muted));
+}
+
+.billing-client-comparison-card .field-control {
+  background: color-mix(in srgb, var(--screen-surface-strong) 92%, transparent) !important;
+  color: var(--screen-text) !important;
+}
+
+.billing-client-comparison-card .field-control::placeholder {
+  color: color-mix(in srgb, var(--screen-text) 64%, transparent) !important;
+  opacity: 1;
+}
+
+[data-theme="light"] .billing-client-comparison-card .field-label {
+  color: #475569;
+}
+
+[data-theme="light"] .billing-client-comparison-card .field-control::placeholder {
+  color: #64748b !important;
+}
+
 .billing-multi-search {
   position: relative;
 }
@@ -6313,6 +6335,75 @@ button {
 
 .dialog-copy p {
   margin: 0;
+}
+
+.medicao-edit-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--primary) 16%, transparent), transparent 38%),
+    rgba(3, 7, 18, 0.58);
+  backdrop-filter: blur(10px);
+}
+
+.medicao-edit-modal {
+  width: min(1120px, 100%);
+  max-height: min(86vh, 820px);
+  overflow: auto;
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--screen-border);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, var(--screen-surface-start), var(--screen-surface-end));
+  color: var(--screen-text);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.34);
+  outline: none;
+  animation: fadeUp 180ms ease both;
+}
+
+.medicao-edit-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--screen-border);
+}
+
+.medicao-edit-modal-header .section-kicker {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.medicao-edit-modal-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.medicao-edit-modal-context span {
+  padding: 7px 10px;
+  border: 1px solid var(--screen-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--screen-surface-strong) 78%, transparent);
+  color: var(--screen-muted);
+  font-size: 0.78rem;
+}
+
+.medicao-edit-form-modal .toolbar-actions {
+  justify-content: flex-end;
 }
 
 .fade-up {

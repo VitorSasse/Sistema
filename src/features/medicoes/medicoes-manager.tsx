@@ -23,7 +23,7 @@ import {
   initialMedicaoUpload
 } from "@/features/medicoes/constants";
 import { MedicaoDetailSection } from "@/features/medicoes/components/medicao-detail-section";
-import { MedicaoEditForm } from "@/features/medicoes/components/medicao-edit-form";
+import { MedicaoEditDialog } from "@/features/medicoes/components/medicao-edit-dialog";
 import { MedicaoFormSection } from "@/features/medicoes/components/medicao-form-section";
 import { MedicaoListSection } from "@/features/medicoes/components/medicao-list-section";
 import { MedicaoPreviewTable } from "@/features/medicoes/components/medicao-preview-table";
@@ -111,6 +111,17 @@ function buildSuggestedPreviewValue(
   return String(servico.valorFechadoPadrao);
 }
 
+function buildEditServicoLabel(servico: MedicaoOptionsState["servicos"][number] | null) {
+  return [
+    servico?.codigo,
+    servico?.tipoServico,
+    servico?.nome,
+    servico?.descricao
+  ]
+    .filter(Boolean)
+    .join(" - ") || "Nao informado";
+}
+
 export function MedicoesManager() {
   const [options, setOptions] = useState<MedicaoOptionsState>(emptyOptions);
   const [medicoes, setMedicoes] = useState<MedicaoListItem[]>([]);
@@ -133,6 +144,7 @@ export function MedicoesManager() {
   const [upload, setUpload] = useState<MedicaoUploadState>(initialMedicaoUpload);
   const [editing, setEditing] = useState<MedicaoEditState | null>(null);
   const [editingSource, setEditingSource] = useState<"preview" | "detail" | null>(null);
+  const [editingFeedback, setEditingFeedback] = useState("");
   const [detailObservacao, setDetailObservacao] = useState("");
   const [detailObservacaoInterna, setDetailObservacaoInterna] = useState("");
   const [detailPeriodoInicial, setDetailPeriodoInicial] = useState("");
@@ -416,6 +428,16 @@ export function MedicoesManager() {
     }));
   }
 
+  function closeEditingModal() {
+    if (isPending) {
+      return;
+    }
+
+    setEditing(null);
+    setEditingSource(null);
+    setEditingFeedback("");
+  }
+
   function openPdf(id: string, tipo: "DETALHADO" | "RESUMIDO" = "DETALHADO") {
     window.open(`/api/medicoes/${id}/pdf?tipo=${tipo}`, "_blank", "noopener,noreferrer");
   }
@@ -472,11 +494,13 @@ export function MedicoesManager() {
   function handleStartEdit(item: PreviewItem) {
     setEditing(buildEditState(item));
     setEditingSource("preview");
+    setEditingFeedback("");
   }
 
   function handleStartDetailEdit(item: MedicaoDetail["itens"][number]) {
     setEditing(buildEditState(item));
     setEditingSource("detail");
+    setEditingFeedback("");
   }
 
   function handleEditSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -484,6 +508,7 @@ export function MedicoesManager() {
     if (!editing) return;
 
     startTransition(async () => {
+      setEditingFeedback("");
       const { response, data } = await editarLancamentoNaMedicao({
         edit: editing,
         form:
@@ -502,10 +527,9 @@ export function MedicoesManager() {
         exigeMaterial: Boolean(servicoEditado?.exigeMaterial)
       });
       if (!response.ok) {
-        setMessage(data.message ?? "Nao foi possivel atualizar o lancamento.");
+        setEditingFeedback(data.message ?? "Nao foi possivel atualizar o lancamento.");
         return;
       }
-      setMessage("Lancamento atualizado dentro da medicao. Totais recalculados.");
       if (editingSource === "preview") {
         await loadPreview(form);
       }
@@ -513,7 +537,10 @@ export function MedicoesManager() {
         await loadDetail(selectedMedicaoId);
       }
       await loadBase(filters);
+      setEditing(null);
       setEditingSource(null);
+      setEditingFeedback("");
+      setMessage("Lancamento atualizado dentro da medicao. Totais recalculados.");
     });
   }
 
@@ -812,23 +839,20 @@ export function MedicoesManager() {
         onEdit={handleStartEdit}
       />
 
-      {editing ? (
-        <MedicaoEditForm
-          editing={editing}
-          servicos={options.servicos}
-          materiais={options.materiais}
-          equipamentos={options.equipamentos}
-          colaboradores={options.colaboradores}
-          exigeMaterial={Boolean(servicoEditado?.exigeMaterial)}
-          isPending={isPending}
-          onChange={updateEditing}
-          onSubmit={handleEditSubmit}
-          onCancel={() => {
-            setEditing(null);
-            setEditingSource(null);
-          }}
-        />
-      ) : null}
+      <MedicaoEditDialog
+        editing={editing}
+        servicoLabel={buildEditServicoLabel(servicoEditado)}
+        servicos={options.servicos}
+        materiais={options.materiais}
+        equipamentos={options.equipamentos}
+        colaboradores={options.colaboradores}
+        exigeMaterial={Boolean(servicoEditado?.exigeMaterial)}
+        isPending={isPending}
+        feedback={editingFeedback}
+        onChange={updateEditing}
+        onSubmit={handleEditSubmit}
+        onCancel={closeEditingModal}
+      />
 
       <MedicaoListSection
         filters={filters}
