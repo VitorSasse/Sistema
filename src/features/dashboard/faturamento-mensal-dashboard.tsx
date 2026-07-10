@@ -908,50 +908,51 @@ export function FaturamentoMensalDashboard() {
                   const chartWidth = expanded
                     ? Math.max(clientComparisonMinWidth, resolvedWidth)
                     : clientComparisonMinWidth;
+                  const chartHeight = Math.max(280, height);
 
                   return (
                     <div className="billing-client-chart-scroll">
                       <div
                         className="billing-client-chart-inner"
-                        style={{ width: chartWidth, height }}
+                        style={{ width: chartWidth, height: chartHeight }}
                       >
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart
-                            data={clientComparisonRows}
-                            margin={{ top: 18, right: 28, left: 8, bottom: 36 }}
-                            barCategoryGap={18}
-                          >
-                            <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
-                            <XAxis
-                              dataKey="label"
-                              tickLine={false}
-                              axisLine={false}
-                              interval={0}
-                              tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                        <BarChart
+                          width={chartWidth}
+                          height={chartHeight}
+                          data={clientComparisonRows}
+                          margin={{ top: 18, right: 28, left: 8, bottom: 36 }}
+                          barCategoryGap={18}
+                        >
+                          <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+                          <XAxis
+                            dataKey="label"
+                            tickLine={false}
+                            axisLine={false}
+                            interval={0}
+                            tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                          />
+                          <YAxis
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
+                            tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                            width={110}
+                          />
+                          <Tooltip
+                            content={<ClientComparisonTooltip />}
+                            cursor={{ fill: "var(--dashboard-chart-cursor)" }}
+                          />
+                          {selectedClients.map((client, index) => (
+                            <Bar
+                              key={client.id}
+                              dataKey={`client_${index}`}
+                              name={client.nomeFantasia || client.nome}
+                              fill={clientColorMap.get(client.id) ?? clientChartPalette[index % clientChartPalette.length]}
+                              radius={[9, 9, 0, 0]}
+                              maxBarSize={38}
                             />
-                            <YAxis
-                              tickLine={false}
-                              axisLine={false}
-                              tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                              tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
-                              width={110}
-                            />
-                            <Tooltip
-                              content={<ClientComparisonTooltip />}
-                              cursor={{ fill: "var(--dashboard-chart-cursor)" }}
-                            />
-                            {selectedClients.map((client, index) => (
-                              <Bar
-                                key={client.id}
-                                dataKey={`client_${index}`}
-                                name={client.nomeFantasia || client.nome}
-                                fill={clientColorMap.get(client.id) ?? clientChartPalette[index % clientChartPalette.length]}
-                                radius={[9, 9, 0, 0]}
-                                maxBarSize={38}
-                              />
-                            ))}
-                          </BarChart>
-                        </ResponsiveContainer>
+                          ))}
+                        </BarChart>
                       </div>
                     </div>
                   );
