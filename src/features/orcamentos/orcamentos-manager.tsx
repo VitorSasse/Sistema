@@ -24,6 +24,7 @@ type TipoItemOrcamento =
   | "OUTRO";
 type CategoriaRecursoOrcamento = "EQUIPAMENTO" | "EQUIPE" | "MATERIAL" | "TERCEIRO";
 type TipoPremissaOrcamento = "PREMISSA" | "CONDICAO" | "EXCLUSAO" | "OBSERVACAO";
+type ModoCustoOrcamento = "SIMPLIFICADO" | "COMPLETO";
 
 type ClienteOption = {
   id: string;
@@ -144,6 +145,7 @@ type ItemForm = {
 };
 
 type FormacaoPrecoForm = {
+  modoCusto: ModoCustoOrcamento;
   custoDireto: string;
   custoIndireto: string;
   impostosPercentual: string;
@@ -384,6 +386,7 @@ function createEmptyForm(): OrcamentoForm {
     valorDesconto: "0",
     valorAcrescimo: "0",
     formacaoPreco: {
+      modoCusto: "SIMPLIFICADO",
       custoDireto: "0",
       custoIndireto: "0",
       impostosPercentual: "0",
@@ -711,13 +714,24 @@ function parseApiErrorPayload(payload: ApiErrorPayload, fallback: string) {
 
 function buildEconomicPreview(form: OrcamentoForm) {
   const isOperational = form.tipo === "OPERACIONAL";
+  const modoCusto = isOperational ? form.formacaoPreco.modoCusto : "SIMPLIFICADO";
   const subtotalItens = roundMoney(form.itens.reduce((sum, item) => sum + calcItemTotal(item), 0));
   const itensParaCusto = isOperational
     ? form.itens.filter((item) => item.frenteTempId)
     : form.itens;
-  const custoItens = roundMoney(itensParaCusto.reduce((sum, item) => sum + calcItemCost(item), 0));
-  const custoDiretoManual = Number(form.formacaoPreco.custoDireto) || 0;
-  const custoDireto = roundMoney(custoItens > 0 ? custoItens : custoDiretoManual);
+  const custoDiretoCalculado = roundMoney(
+    itensParaCusto.reduce((sum, item) => sum + calcItemCost(item), 0)
+  );
+  const custoDiretoManual = roundMoney(Number(form.formacaoPreco.custoDireto) || 0);
+  const custoDireto = roundMoney(
+    isOperational
+      ? modoCusto === "COMPLETO"
+        ? custoDiretoCalculado
+        : custoDiretoManual
+      : custoDiretoCalculado > 0
+        ? custoDiretoCalculado
+        : custoDiretoManual
+  );
   const custoIndireto = roundMoney(Number(form.formacaoPreco.custoIndireto) || 0);
   const baseCustos = roundMoney(custoDireto + custoIndireto);
   const margemPercentual = Number(form.formacaoPreco.margemPercentual) || 0;
@@ -755,8 +769,10 @@ function buildEconomicPreview(form: OrcamentoForm) {
 
   return {
     isOperational,
+    modoCusto,
     subtotalItens,
-    custoItens,
+    custoDiretoCalculado,
+    custoDiretoManual,
     custoDireto,
     custoIndireto,
     baseCustos,
@@ -902,14 +918,13 @@ export function OrcamentosManager() {
   );
 
   const economicPreview = useMemo(() => buildEconomicPreview(form), [form]);
+  const modoCustoForm = economicPreview.modoCusto;
   const subtotalForm = economicPreview.subtotalItens;
+  const custoDiretoCalculadoForm = economicPreview.custoDiretoCalculado;
   const custoDiretoForm = economicPreview.custoDireto;
   const custoIndiretoForm = economicPreview.custoIndireto;
   const baseCustosForm = economicPreview.baseCustos;
-  const margemValorForm = economicPreview.margemValor;
-  const impostosValorForm = economicPreview.impostosValor;
   const precoSugeridoForm = economicPreview.precoSugerido;
-  const baseVendaForm = economicPreview.baseVenda;
   const totalForm = economicPreview.total;
   const prazoEstimadoForm = useMemo(
     () =>
@@ -919,6 +934,22 @@ export function OrcamentosManager() {
       ),
     [form.frentes]
   );
+  const quantidadeFrentesForm = useMemo(
+    () =>
+      form.frentes.reduce(
+        (total, frente) => total + (parseFrenteNumber(frente.quantidadePrevista) ?? 0),
+        0
+      ),
+    [form.frentes]
+  );
+  const recursosPlanejadosForm = useMemo(
+    () => form.itens.filter((item) => isRecursoItem(item) && item.frenteTempId).length,
+    [form.itens]
+  );
+  const custoDiretoUnitarioForm =
+    quantidadeFrentesForm > 0 ? roundMoney(custoDiretoForm / quantidadeFrentesForm) : 0;
+  const custoTotalUnitarioForm =
+    quantidadeFrentesForm > 0 ? roundMoney(baseCustosForm / quantidadeFrentesForm) : 0;
 
   useEffect(() => {
     async function init() {
@@ -986,7 +1017,7 @@ export function OrcamentosManager() {
     }));
   }
 
-  function updateFormacao(key: keyof FormacaoPrecoForm, value: string) {
+  function updateFormacao<K extends keyof FormacaoPrecoForm>(key: K, value: FormacaoPrecoForm[K]) {
     setForm((current) => ({
       ...current,
       formacaoPreco: {
@@ -1554,105 +1585,268 @@ export function OrcamentosManager() {
             />
           )}
 
-          <div className="orcamentos-form-section">
+          <div className="orcamentos-form-section orcamentos-economia-section">
             <div className="orcamentos-form-heading">
               <span>{form.tipo === "OPERACIONAL" ? "03" : "04"}</span>
-              <h3>{form.tipo === "OPERACIONAL" ? "Engenharia economica" : "Formacao preliminar"}</h3>
-            </div>
-            <div className="orcamentos-form-grid">
-              <label className="manager-field">
-                <span className="manager-field-label">
-                  {form.tipo === "OPERACIONAL" ? "Custo direto manual" : "Custo direto"}
-                </span>
-                <input
-                  className="field-control"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.formacaoPreco.custoDireto}
-                  onChange={(event) => updateFormacao("custoDireto", event.target.value)}
-                />
-              </label>
-              <label className="manager-field">
-                <span className="manager-field-label">Custo indireto</span>
-                <input
-                  className="field-control"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.formacaoPreco.custoIndireto}
-                  onChange={(event) => updateFormacao("custoIndireto", event.target.value)}
-                />
-              </label>
-              <label className="manager-field">
-                <span className="manager-field-label">Margem %</span>
-                <input
-                  className="field-control"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.formacaoPreco.margemPercentual}
-                  onChange={(event) => updateFormacao("margemPercentual", event.target.value)}
-                />
-              </label>
-              <label className="manager-field">
-                <span className="manager-field-label">Impostos %</span>
-                <input
-                  className="field-control"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.formacaoPreco.impostosPercentual}
-                  onChange={(event) => updateFormacao("impostosPercentual", event.target.value)}
-                />
-              </label>
-              <label className="manager-field">
-                <span className="manager-field-label">
+              <div>
+                <h3>
                   {form.tipo === "OPERACIONAL"
-                    ? "Ajuste final do engenheiro"
-                    : "Preco final manual"}
-                </span>
-                <input
-                  className="field-control"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.formacaoPreco.precoFinal}
-                  onChange={(event) => updateFormacao("precoFinal", event.target.value)}
-                />
-              </label>
-              <label className="manager-field">
-                <span className="manager-field-label">Desconto</span>
-                <input
-                  className="field-control"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.valorDesconto}
-                  onChange={(event) => updateForm("valorDesconto", event.target.value)}
-                />
-              </label>
-              <label className="manager-field">
-                <span className="manager-field-label">Acrescimo</span>
-                <input
-                  className="field-control"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.valorAcrescimo}
-                  onChange={(event) => updateForm("valorAcrescimo", event.target.value)}
-                />
-              </label>
-              <label className="manager-field orcamentos-span-3">
-                <span className="manager-field-label">Observacoes internas</span>
-                <textarea
-                  className="field-control"
-                  rows={3}
-                  value={form.observacaoInterna}
-                  onChange={(event) => updateForm("observacaoInterna", event.target.value)}
-                />
-              </label>
+                    ? "Motor operacional, custos e preco"
+                    : "Formacao preliminar"}
+                </h3>
+                {form.tipo === "OPERACIONAL" ? (
+                  <small>O preco nasce do planejamento da execucao, nao de um chute comercial.</small>
+                ) : null}
+              </div>
             </div>
+
+            {form.tipo === "OPERACIONAL" ? (
+              <>
+                <div className="orcamentos-engine-flow" aria-label="Fluxo de formacao do preco">
+                  {[
+                    "Frente de servico",
+                    "Metodo executivo",
+                    "Planejamento operacional",
+                    "Recursos",
+                    "Custos",
+                    "Preco final"
+                  ].map((step) => (
+                    <span key={step}>{step}</span>
+                  ))}
+                </div>
+
+                <div className="orcamentos-economia-layers">
+                  <article className="orcamentos-layer-card">
+                    <span className="orcamentos-layer-kicker">Planejamento operacional</span>
+                    <h4>Como a obra sera executada?</h4>
+                    <p>
+                      Motor preparado para transformar metodo executivo, quantidade, distancias e
+                      premissas em produtividade, prazo, recursos e gargalos nas proximas sprints.
+                    </p>
+                    <div className="orcamentos-layer-metrics">
+                      <strong>{form.frentes.length}</strong>
+                      <small>frente(s)</small>
+                      <strong>{prazoEstimadoForm ? `${prazoEstimadoForm} dia(s)` : "-"}</strong>
+                      <small>maior prazo</small>
+                      <strong>{recursosPlanejadosForm}</strong>
+                      <small>recurso(s)</small>
+                    </div>
+                  </article>
+
+                  <article className="orcamentos-layer-card">
+                    <span className="orcamentos-layer-kicker">Engenharia economica</span>
+                    <h4>Quanto custa executar?</h4>
+                    <div className="orcamentos-mode-selector">
+                      {(["SIMPLIFICADO", "COMPLETO"] as ModoCustoOrcamento[]).map((modo) => (
+                        <button
+                          key={modo}
+                          type="button"
+                          className={modoCustoForm === modo ? "is-active" : ""}
+                          onClick={() => updateFormacao("modoCusto", modo)}
+                        >
+                          {modo === "SIMPLIFICADO" ? "Modo simplificado" : "Modo completo"}
+                        </button>
+                      ))}
+                    </div>
+
+                    {modoCustoForm === "COMPLETO" ? (
+                      <div className="orcamentos-calculated-field">
+                        <span>Custo direto calculado</span>
+                        <strong>{formatCurrency(custoDiretoCalculadoForm)}</strong>
+                        <small>Quantidade x custo unitario dos recursos planejados.</small>
+                      </div>
+                    ) : (
+                      <label className="manager-field">
+                        <span className="manager-field-label">Custo direto manual</span>
+                        <input
+                          className="field-control"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={form.formacaoPreco.custoDireto}
+                          onChange={(event) => updateFormacao("custoDireto", event.target.value)}
+                        />
+                        <small className="manager-field-hint">
+                          Use quando ainda nao houver recursos detalhados.
+                        </small>
+                      </label>
+                    )}
+
+                    <label className="manager-field">
+                      <span className="manager-field-label">Custo indireto</span>
+                      <input
+                        className="field-control"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={form.formacaoPreco.custoIndireto}
+                        onChange={(event) => updateFormacao("custoIndireto", event.target.value)}
+                      />
+                    </label>
+                    <div className="orcamentos-unit-costs">
+                      <span>Direto/unidade: {formatCurrency(custoDiretoUnitarioForm)}</span>
+                      <span>Total/unidade: {formatCurrency(custoTotalUnitarioForm)}</span>
+                    </div>
+                  </article>
+
+                  <article className="orcamentos-layer-card">
+                    <span className="orcamentos-layer-kicker">Formacao do preco</span>
+                    <h4>Quanto devemos cobrar?</h4>
+                    <div className="orcamentos-form-grid orcamentos-layer-grid">
+                      <label className="manager-field">
+                        <span className="manager-field-label">Margem %</span>
+                        <input
+                          className="field-control"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={form.formacaoPreco.margemPercentual}
+                          onChange={(event) => updateFormacao("margemPercentual", event.target.value)}
+                        />
+                      </label>
+                      <label className="manager-field">
+                        <span className="manager-field-label">Impostos %</span>
+                        <input
+                          className="field-control"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={form.formacaoPreco.impostosPercentual}
+                          onChange={(event) => updateFormacao("impostosPercentual", event.target.value)}
+                        />
+                      </label>
+                      <label className="manager-field">
+                        <span className="manager-field-label">Ajuste comercial</span>
+                        <input
+                          className="field-control"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={form.formacaoPreco.precoFinal}
+                          onChange={(event) => updateFormacao("precoFinal", event.target.value)}
+                        />
+                        <small className="manager-field-hint">
+                          Opcional. Quando informado, substitui o preco sugerido antes de
+                          desconto e acrescimo.
+                        </small>
+                      </label>
+                      <label className="manager-field">
+                        <span className="manager-field-label">Desconto</span>
+                        <input
+                          className="field-control"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={form.valorDesconto}
+                          onChange={(event) => updateForm("valorDesconto", event.target.value)}
+                        />
+                      </label>
+                      <label className="manager-field">
+                        <span className="manager-field-label">Acrescimo</span>
+                        <input
+                          className="field-control"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={form.valorAcrescimo}
+                          onChange={(event) => updateForm("valorAcrescimo", event.target.value)}
+                        />
+                      </label>
+                    </div>
+                  </article>
+                </div>
+              </>
+            ) : (
+              <div className="orcamentos-form-grid">
+                <label className="manager-field">
+                  <span className="manager-field-label">Custo direto</span>
+                  <input
+                    className="field-control"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.formacaoPreco.custoDireto}
+                    onChange={(event) => updateFormacao("custoDireto", event.target.value)}
+                  />
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Custo indireto</span>
+                  <input
+                    className="field-control"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.formacaoPreco.custoIndireto}
+                    onChange={(event) => updateFormacao("custoIndireto", event.target.value)}
+                  />
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Margem %</span>
+                  <input
+                    className="field-control"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.formacaoPreco.margemPercentual}
+                    onChange={(event) => updateFormacao("margemPercentual", event.target.value)}
+                  />
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Impostos %</span>
+                  <input
+                    className="field-control"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.formacaoPreco.impostosPercentual}
+                    onChange={(event) => updateFormacao("impostosPercentual", event.target.value)}
+                  />
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Preco final manual</span>
+                  <input
+                    className="field-control"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.formacaoPreco.precoFinal}
+                    onChange={(event) => updateFormacao("precoFinal", event.target.value)}
+                  />
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Desconto</span>
+                  <input
+                    className="field-control"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.valorDesconto}
+                    onChange={(event) => updateForm("valorDesconto", event.target.value)}
+                  />
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Acrescimo</span>
+                  <input
+                    className="field-control"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.valorAcrescimo}
+                    onChange={(event) => updateForm("valorAcrescimo", event.target.value)}
+                  />
+                </label>
+              </div>
+            )}
+
+            <label className="manager-field orcamentos-observacao-economica">
+              <span className="manager-field-label">Observacoes internas</span>
+              <textarea
+                className="field-control"
+                rows={3}
+                value={form.observacaoInterna}
+                onChange={(event) => updateForm("observacaoInterna", event.target.value)}
+              />
+            </label>
 
             <div className="orcamentos-summary-strip">
               {form.tipo === "OPERACIONAL" ? (
@@ -1674,51 +1868,41 @@ export function OrcamentosManager() {
 
             <div className="orcamentos-resumo-grid">
               <article>
+                <span>Custo direto</span>
+                <strong>{formatCurrency(custoDiretoForm)}</strong>
+                <small>
+                  {form.tipo === "OPERACIONAL"
+                    ? modoCustoForm === "COMPLETO"
+                      ? "Calculado a partir dos recursos planejados."
+                      : "Informado no modo simplificado."
+                    : "Direto dos itens ou valor manual."}
+                </small>
+              </article>
+              <article>
+                <span>Custo total</span>
+                <strong>{formatCurrency(baseCustosForm)}</strong>
+                <small>
+                  {form.tipo === "OPERACIONAL"
+                    ? "Custo direto + indireto."
+                    : "Custo direto + indireto."}
+                </small>
+              </article>
+              <article>
                 <span>Preco sugerido</span>
                 <strong>{formatCurrency(precoSugeridoForm)}</strong>
                 <small>
                   {form.tipo === "OPERACIONAL"
-                    ? "Calculado pelo planejamento da frente."
+                    ? "Custo total + margem + impostos."
                     : "Custo + margem + impostos."}
                 </small>
               </article>
               <article>
-                <span>{form.tipo === "OPERACIONAL" ? "Custo direto calculado" : "Custo estimado"}</span>
-                <strong>{formatCurrency(baseCustosForm)}</strong>
+                <span>Preco final</span>
+                <strong>{formatCurrency(totalForm)}</strong>
                 <small>
                   {form.tipo === "OPERACIONAL"
-                    ? "Recursos planejados + custo indireto."
-                    : "Direto dos itens ou valor manual + indireto."}
-                </small>
-              </article>
-              <article>
-                <span>{form.tipo === "OPERACIONAL" ? "Margem + impostos" : "Margem estimada"}</span>
-                <strong>
-                  {form.tipo === "OPERACIONAL"
-                    ? formatCurrency(margemValorForm + impostosValorForm)
-                    : formatCurrency(margemValorForm)}
-                </strong>
-                <small>
-                  {form.tipo === "OPERACIONAL"
-                    ? `${form.formacaoPreco.margemPercentual || 0}% margem / ${
-                        form.formacaoPreco.impostosPercentual || 0
-                      }% impostos.`
-                    : `${form.formacaoPreco.margemPercentual || 0}% sobre a base de custos.`}
-                </small>
-              </article>
-              <article>
-                <span>{form.tipo === "OPERACIONAL" ? "Base de venda" : "Prazo operacional"}</span>
-                <strong>
-                  {form.tipo === "OPERACIONAL"
-                    ? formatCurrency(baseVendaForm)
-                    : prazoEstimadoForm
-                      ? `${prazoEstimadoForm} dia(s)`
-                      : "-"}
-                </strong>
-                <small>
-                  {form.tipo === "OPERACIONAL"
-                    ? "Preco sugerido ou ajuste final antes de desconto/acrescimo."
-                    : "Maior prazo informado nas frentes."}
+                    ? "Ajuste comercial, desconto e acrescimo aplicados."
+                    : "Total comercial apos ajustes."}
                 </small>
               </article>
             </div>
@@ -1783,7 +1967,9 @@ function FrentesOperacionaisSection(props: {
         <span>02</span>
         <div>
           <h3>Frentes de servico</h3>
-          <small>Profundidade progressiva: preencha somente o nivel necessario para a decisao atual.</small>
+          <small>
+            Profundidade progressiva: primeiro defina execucao, depois recursos, custos e preco.
+          </small>
         </div>
         <button type="button" className="button-secondary" onClick={props.onAdd}>
           Adicionar frente
@@ -1979,15 +2165,17 @@ function FrentesOperacionaisSection(props: {
                 <div className="orcamentos-depth-heading">
                   <div>
                     <span>Niveis 4 a 6</span>
-                    <strong>Planejamento e engenharia economica</strong>
-                    <small>Opcional. Recursos, custos, produtividade, margem e preco.</small>
+                    <strong>Recursos operacionais</strong>
+                    <small>
+                      Recursos sao meios de execucao. Produtividade pertence a frente e ao metodo.
+                    </small>
                   </div>
                   <button type="button" onClick={() => props.onAddItem(frente.localId, "RECURSO")}>
-                    Adicionar recurso/custo
+                    Adicionar recurso
                   </button>
                 </div>
                 <OperationalItemList
-                  emptyLabel="Nenhum recurso, material ou custo detalhado."
+                  emptyLabel="Nenhum equipamento, equipe, material ou terceiro planejado."
                   itens={recursosPlanejamento}
                   servicoOptions={props.servicoOptions}
                   materialOptions={props.materialOptions}
@@ -2260,20 +2448,7 @@ function ResourceItemFields(props: {
           step="0.01"
           value={props.item.custoUnitario}
           onChange={(event) =>
-            props.onUpdate(props.item.localId, "custoUnitario", event.target.value)
-          }
-        />
-      </label>
-      <label className="manager-field">
-        <span className="manager-field-label">Produtividade</span>
-        <input
-          className="field-control"
-          type="number"
-          min="0"
-          step="0.01"
-          value={props.item.produtividade}
-          onChange={(event) =>
-            props.onUpdate(props.item.localId, "produtividade", event.target.value)
+          props.onUpdate(props.item.localId, "custoUnitario", event.target.value)
           }
         />
       </label>
@@ -2579,7 +2754,8 @@ function buildPayload(form: OrcamentoForm) {
     form.tipo === "OPERACIONAL"
       ? itensPreenchidos.filter((item) => Boolean(item.frenteTempId))
       : itensPreenchidos;
-  const formacaoPreco = buildFormacaoPayload(form.formacaoPreco);
+  const economicPreview = buildEconomicPreview(form);
+  const formacaoPreco = buildFormacaoPayload(form.formacaoPreco, economicPreview);
 
   return {
     tipo: form.tipo,
@@ -2633,7 +2809,7 @@ function mapItemPayload(item: ItemForm, tipoOrcamento: TipoOrcamento) {
     descricao: item.descricao,
     unidade: item.unidade,
     quantidade: Number(item.quantidade) || 0,
-    produtividade: item.produtividade ? Number(item.produtividade) : null,
+    produtividade: recurso ? null : item.produtividade ? Number(item.produtividade) : null,
     custoUnitario: recurso ? Number(item.custoUnitario) || 0 : Number(item.custoUnitario) || 0,
     valorUnitario: recurso ? 0 : Number(item.valorUnitario) || 0,
     observacao: item.observacao
@@ -2649,21 +2825,29 @@ function toNumberOrZero(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function buildFormacaoPayload(formacaoPreco: FormacaoPrecoForm) {
+function buildFormacaoPayload(
+  formacaoPreco: FormacaoPrecoForm,
+  economicPreview: ReturnType<typeof buildEconomicPreview>
+) {
   const payload = {
-    custoDireto: toNumberOrZero(formacaoPreco.custoDireto),
-    custoIndireto: toNumberOrZero(formacaoPreco.custoIndireto),
+    modoCusto: formacaoPreco.modoCusto,
+    custoDireto: economicPreview.custoDireto,
+    custoIndireto: economicPreview.custoIndireto,
     impostosPercentual: toNumberOrZero(formacaoPreco.impostosPercentual),
-    impostosValor: toNumberOrZero(formacaoPreco.impostosValor),
+    impostosValor: economicPreview.impostosValor,
     margemPercentual: toNumberOrZero(formacaoPreco.margemPercentual),
-    margemValor: toNumberOrZero(formacaoPreco.margemValor),
-    precoSugerido: toNumberOrZero(formacaoPreco.precoSugerido),
+    margemValor: economicPreview.margemValor,
+    precoSugerido: economicPreview.precoSugerido,
     precoFinal: toNumberOrZero(formacaoPreco.precoFinal),
     observacao: formacaoPreco.observacao.trim()
   };
 
   const hasNumericValue = Object.entries(payload).some(
-    ([key, value]) => key !== "observacao" && typeof value === "number" && value > 0
+    ([key, value]) =>
+      key !== "observacao" &&
+      key !== "modoCusto" &&
+      typeof value === "number" &&
+      value > 0
   );
 
   if (!hasNumericValue && !payload.observacao) {
@@ -2769,6 +2953,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
     valorDesconto: toStringValue(item.valorDesconto || 0),
     valorAcrescimo: toStringValue(item.valorAcrescimo || 0),
     formacaoPreco: {
+      modoCusto: item.formacaoPreco?.modoCusto === "COMPLETO" ? "COMPLETO" : "SIMPLIFICADO",
       custoDireto: toStringValue(item.formacaoPreco?.custoDireto ?? 0),
       custoIndireto: toStringValue(item.formacaoPreco?.custoIndireto ?? 0),
       impostosPercentual: toStringValue(item.formacaoPreco?.impostosPercentual ?? 0),

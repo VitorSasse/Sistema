@@ -734,6 +734,7 @@ export async function duplicarOrcamento(
     await db.orcamentoFormacaoPreco.create({
       data: {
         orcamentoId: novo.id,
+        modoCusto: origem.formacaoPreco.modoCusto,
         custoDireto: origem.formacaoPreco.custoDireto,
         custoIndireto: origem.formacaoPreco.custoIndireto,
         impostosPercentual: origem.formacaoPreco.impostosPercentual,

@@ -1,5 +1,6 @@
 import {
   CategoriaRecursoOrcamento,
+  ModoCustoOrcamento,
   StatusOrcamento,
   TipoItemOrcamento,
   TipoOrcamento,
@@ -126,6 +127,7 @@ const orcamentoPremissaSchema = z.object({
 });
 
 const orcamentoFormacaoPrecoSchema = z.object({
+  modoCusto: z.nativeEnum(ModoCustoOrcamento).default(ModoCustoOrcamento.SIMPLIFICADO),
   custoDireto: numeroDecimal(999999999).default(0),
   custoIndireto: numeroDecimal(999999999).default(0),
   impostosPercentual: numeroDecimal(9999).default(0),

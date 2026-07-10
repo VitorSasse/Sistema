@@ -1,4 +1,4 @@
-import { TipoOrcamento } from "@prisma/client";
+import { ModoCustoOrcamento, TipoOrcamento } from "@prisma/client";
 import type { OrcamentoInput } from "@/lib/validators/orcamento";
 
 type OrcamentoItemInput = OrcamentoInput["itens"][number];
@@ -53,7 +53,18 @@ function buildSnapshot(input: OrcamentoInput, config: { operacional: boolean }) 
     itensParaCusto.reduce((sum, item) => sum + calcularCustoItem(item), 0)
   );
   const custoDiretoManual = toMoney(Number(formacao?.custoDireto ?? 0));
-  const custoDireto = custoDiretoItens > 0 ? custoDiretoItens : custoDiretoManual;
+  const modoCusto =
+    formacao?.modoCusto ??
+    (config.operacional && custoDiretoItens > 0
+      ? ModoCustoOrcamento.COMPLETO
+      : ModoCustoOrcamento.SIMPLIFICADO);
+  const custoDireto = config.operacional
+    ? modoCusto === ModoCustoOrcamento.COMPLETO
+      ? custoDiretoItens
+      : custoDiretoManual
+    : custoDiretoItens > 0
+      ? custoDiretoItens
+      : custoDiretoManual;
   const custoIndireto = toMoney(Number(formacao?.custoIndireto ?? 0));
   const baseCustos = toMoney(custoDireto + custoIndireto);
   const margem = calcularMargemEImpostos(input, baseCustos);
@@ -81,6 +92,7 @@ function buildSnapshot(input: OrcamentoInput, config: { operacional: boolean }) 
 
   return {
     formacaoPreco: {
+      modoCusto,
       custoDireto,
       custoIndireto,
       impostosPercentual: margem.impostosPercentual,

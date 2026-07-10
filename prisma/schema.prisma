@@ -66,6 +66,11 @@ enum CategoriaRecursoOrcamento {
   TERCEIRO
 }
 
+enum ModoCustoOrcamento {
+  SIMPLIFICADO
+  COMPLETO
+}
+
 enum NaturezaServico {
   OPERACIONAL
   ORCAMENTARIO_COMPOSTO
@@ -731,6 +736,7 @@ model OrcamentoFormacaoPreco {
   id                 String    @id @default(uuid())
   empresaId          String    @default("00000000-0000-0000-0000-000000000001")
   orcamentoId        String    @unique
+  modoCusto          ModoCustoOrcamento @default(SIMPLIFICADO)
   custoDireto        Decimal   @default(0) @db.Decimal(14, 2)
   custoIndireto      Decimal   @default(0) @db.Decimal(14, 2)
   impostosPercentual Decimal   @default(0) @db.Decimal(7, 4)
