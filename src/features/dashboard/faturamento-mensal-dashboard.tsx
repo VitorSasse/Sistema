@@ -66,10 +66,20 @@ type DashboardPayload = {
       codigo: string;
       totalPeriodo: number;
     }>;
+    works: Array<{
+      id: string;
+      nome: string;
+      codigo: string;
+      clienteId: string;
+      clienteNome: string;
+      clienteNomeFantasia: string | null;
+      totalPeriodo: number;
+    }>;
     monthly: Array<{
       monthNumber: number;
       label: string;
       values: Record<string, number>;
+      workValues: Record<string, number>;
     }>;
   };
 };
@@ -189,7 +199,11 @@ export function FaturamentoMensalDashboard() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [selectedMonths, setSelectedMonths] = useState<number[]>(allMonthNumbers);
   const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [selectedWorkIds, setSelectedWorkIds] = useState<string[]>([]);
   const [clientSearch, setClientSearch] = useState("");
+  const [workSearch, setWorkSearch] = useState("");
+  const [clientDropdownOpen, setClientDropdownOpen] = useState(false);
+  const [workDropdownOpen, setWorkDropdownOpen] = useState(false);
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -232,6 +246,7 @@ export function FaturamentoMensalDashboard() {
   const monthlyRows = useMemo(() => data?.monthly ?? [], [data]);
   const hasMonthlyBilling = (data?.summary.totalGeralAno ?? 0) > 0;
   const comparisonClients = useMemo(() => data?.clientComparison.clients ?? [], [data]);
+  const comparisonWorks = useMemo(() => data?.clientComparison.works ?? [], [data]);
   const clientColorMap = useMemo(
     () =>
       new Map(
@@ -242,26 +257,58 @@ export function FaturamentoMensalDashboard() {
       ),
     [comparisonClients]
   );
+  const selectedClientSet = useMemo(() => new Set(selectedClientIds), [selectedClientIds]);
+  const selectedWorkSet = useMemo(() => new Set(selectedWorkIds), [selectedWorkIds]);
   const filteredClientOptions = useMemo(() => {
     const search = clientSearch.trim().toLocaleLowerCase("pt-BR");
+    const source = comparisonClients.filter((client) => !selectedClientSet.has(client.id));
 
     if (!search) {
-      return comparisonClients;
+      return source.slice(0, 18);
     }
 
-    return comparisonClients.filter((client) =>
+    return source.filter((client) =>
       [client.nome, client.nomeFantasia ?? "", client.codigo]
         .join(" ")
         .toLocaleLowerCase("pt-BR")
         .includes(search)
-    );
-  }, [clientSearch, comparisonClients]);
+    ).slice(0, 18);
+  }, [clientSearch, comparisonClients, selectedClientSet]);
   const selectedClients = useMemo(
     () => comparisonClients.filter((client) => selectedClientIds.includes(client.id)),
     [comparisonClients, selectedClientIds]
   );
+  const availableWorkOptions = useMemo(
+    () => comparisonWorks.filter((work) => selectedClientSet.has(work.clienteId)),
+    [comparisonWorks, selectedClientSet]
+  );
+  const filteredWorkOptions = useMemo(() => {
+    const search = workSearch.trim().toLocaleLowerCase("pt-BR");
+    const source = availableWorkOptions.filter((work) => !selectedWorkSet.has(work.id));
+
+    if (!search) {
+      return source.slice(0, 18);
+    }
+
+    return source.filter((work) =>
+      [
+        work.nome,
+        work.codigo,
+        work.clienteNome,
+        work.clienteNomeFantasia ?? ""
+      ]
+        .join(" ")
+        .toLocaleLowerCase("pt-BR")
+        .includes(search)
+    ).slice(0, 18);
+  }, [availableWorkOptions, selectedWorkSet, workSearch]);
+  const selectedWorks = useMemo(
+    () => availableWorkOptions.filter((work) => selectedWorkIds.includes(work.id)),
+    [availableWorkOptions, selectedWorkIds]
+  );
   const clientComparisonRows = useMemo(() => {
     const monthly = data?.clientComparison.monthly ?? [];
+    const hasWorkFilter = selectedWorks.length > 0;
 
     return monthly.map((month) => {
       const row: Record<string, string | number> = {
@@ -270,16 +317,32 @@ export function FaturamentoMensalDashboard() {
       };
 
       selectedClients.forEach((client, index) => {
-        row[`client_${index}`] = month.values[client.id] ?? 0;
+        row[`client_${index}`] = hasWorkFilter
+          ? selectedWorks
+              .filter((work) => work.clienteId === client.id)
+              .reduce((total, work) => total + (month.workValues[work.id] ?? 0), 0)
+          : month.values[client.id] ?? 0;
       });
 
-    return row;
+      return row;
     });
-  }, [data, selectedClients]);
+  }, [data, selectedClients, selectedWorks]);
   const clientComparisonMinWidth = Math.max(
     860,
     selectedClients.length * Math.max(clientComparisonRows.length, 1) * 58 + 180
   );
+
+  useEffect(() => {
+    const validClientIds = new Set(comparisonClients.map((client) => client.id));
+
+    setSelectedClientIds((current) => current.filter((clientId) => validClientIds.has(clientId)));
+  }, [comparisonClients]);
+
+  useEffect(() => {
+    const validWorkIds = new Set(availableWorkOptions.map((work) => work.id));
+
+    setSelectedWorkIds((current) => current.filter((workId) => validWorkIds.has(workId)));
+  }, [availableWorkOptions]);
 
   function toggleMonth(monthNumber: number) {
     const nextMonths = selectedMonths.includes(monthNumber)
@@ -300,19 +363,53 @@ export function FaturamentoMensalDashboard() {
   }
 
   function toggleClient(clientId: string) {
-    setSelectedClientIds((current) =>
-      current.includes(clientId)
-        ? current.filter((item) => item !== clientId)
-        : [...current, clientId]
+    const nextClientIds = selectedClientIds.includes(clientId)
+      ? selectedClientIds.filter((item) => item !== clientId)
+      : [...selectedClientIds, clientId];
+    const nextClientSet = new Set(nextClientIds);
+
+    setSelectedClientIds(nextClientIds);
+    setSelectedWorkIds((currentWorks) =>
+      currentWorks.filter((workId) => {
+        const work = comparisonWorks.find((item) => item.id === workId);
+
+        return work ? nextClientSet.has(work.clienteId) : false;
+      })
     );
+    setClientSearch("");
+    setClientDropdownOpen(false);
   }
 
   function removeSelectedClient(clientId: string) {
     setSelectedClientIds((current) => current.filter((item) => item !== clientId));
+    setSelectedWorkIds((current) =>
+      current.filter((workId) => comparisonWorks.find((work) => work.id === workId)?.clienteId !== clientId)
+    );
   }
 
   function clearSelectedClients() {
     setSelectedClientIds([]);
+    setSelectedWorkIds([]);
+    setWorkSearch("");
+  }
+
+  function toggleWork(workId: string) {
+    setSelectedWorkIds((current) =>
+      current.includes(workId)
+        ? current.filter((item) => item !== workId)
+        : [...current, workId]
+    );
+    setWorkSearch("");
+    setWorkDropdownOpen(false);
+  }
+
+  function removeSelectedWork(workId: string) {
+    setSelectedWorkIds((current) => current.filter((item) => item !== workId));
+  }
+
+  function clearSelectedWorks() {
+    setSelectedWorkIds([]);
+    setWorkSearch("");
   }
 
   if (loading && !data) {
@@ -619,68 +716,169 @@ export function FaturamentoMensalDashboard() {
           </span>
         </div>
 
-        <div className="billing-client-selector">
-          <label className="field billing-client-search">
-            <span className="field-label">Pesquisar clientes</span>
-            <input
-              className="field-control"
-              value={clientSearch}
-              placeholder="Digite nome, fantasia ou codigo"
-              onChange={(event) => setClientSearch(event.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            className="button-ghost"
-            disabled={selectedClients.length === 0}
-            onClick={clearSelectedClients}
-          >
-            Limpar selecao
-          </button>
-        </div>
-
-        {selectedClients.length > 0 ? (
-          <div className="billing-selected-clients">
-            {selectedClients.map((client) => (
-              <button
-                key={client.id}
-                type="button"
-                className="billing-selected-client-chip"
-                onClick={() => removeSelectedClient(client.id)}
-                title="Remover cliente"
+        <div className="billing-comparison-filters">
+          <div className="billing-comparison-filter-group">
+            <div className="billing-client-selector">
+              <div
+                className="field billing-client-search billing-multi-search"
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                    setClientDropdownOpen(false);
+                  }
+                }}
               >
-                <i style={{ background: clientColorMap.get(client.id) }} />
-                <span>{client.nomeFantasia || client.nome}</span>
-                <strong>×</strong>
+                <label className="field-label" htmlFor="client-comparison-search">
+                  Clientes para comparar
+                </label>
+                <input
+                  id="client-comparison-search"
+                  className="field-control"
+                  value={clientSearch}
+                  placeholder="Digite nome, fantasia ou codigo"
+                  autoComplete="off"
+                  onFocus={() => setClientDropdownOpen(true)}
+                  onChange={(event) => {
+                    setClientSearch(event.target.value);
+                    setClientDropdownOpen(true);
+                  }}
+                />
+                {clientDropdownOpen ? (
+                  <div className="billing-client-dropdown">
+                    {filteredClientOptions.length === 0 ? (
+                      <p className="billing-dropdown-empty">Nenhum cliente encontrado.</p>
+                    ) : (
+                      filteredClientOptions.map((client) => (
+                        <button
+                          key={client.id}
+                          type="button"
+                          className="billing-client-option"
+                          onClick={() => toggleClient(client.id)}
+                        >
+                          <i style={{ background: clientColorMap.get(client.id) }} />
+                          <span>{client.nomeFantasia || client.nome}</span>
+                          <small>
+                            {client.codigo} - {formatCurrency(client.totalPeriodo)}
+                          </small>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="button-ghost"
+                disabled={selectedClients.length === 0}
+                onClick={clearSelectedClients}
+              >
+                Limpar selecao
               </button>
-            ))}
+            </div>
+
+            {selectedClients.length > 0 ? (
+              <div className="billing-selected-clients">
+                {selectedClients.map((client) => (
+                  <button
+                    key={client.id}
+                    type="button"
+                    className="billing-selected-client-chip"
+                    onClick={() => removeSelectedClient(client.id)}
+                    title="Remover cliente"
+                  >
+                    <i style={{ background: clientColorMap.get(client.id) }} />
+                    <span>{client.nomeFantasia || client.nome}</span>
+                    <strong>×</strong>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
-        ) : null}
 
-        <div className="billing-client-options">
-          {filteredClientOptions.length === 0 ? (
-            <p className="billing-empty-state billing-empty-state-compact">
-              Nenhum cliente encontrado para a busca.
-            </p>
-          ) : (
-            filteredClientOptions.slice(0, 24).map((client) => {
-              const active = selectedClientIds.includes(client.id);
+          <div className="billing-comparison-filter-group">
+            <div className="billing-client-selector">
+              <div
+                className="field billing-client-search billing-multi-search"
+                onBlur={(event) => {
+                  if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                    setWorkDropdownOpen(false);
+                  }
+                }}
+              >
+                <label className="field-label" htmlFor="work-comparison-search">
+                  Obras (opcional)
+                </label>
+                <input
+                  id="work-comparison-search"
+                  className="field-control"
+                  value={workSearch}
+                  placeholder={
+                    selectedClients.length === 0
+                      ? "Selecione clientes primeiro"
+                      : "Digite obra, codigo ou cliente"
+                  }
+                  autoComplete="off"
+                  disabled={selectedClients.length === 0}
+                  onFocus={() => {
+                    if (selectedClients.length > 0) {
+                      setWorkDropdownOpen(true);
+                    }
+                  }}
+                  onChange={(event) => {
+                    setWorkSearch(event.target.value);
+                    setWorkDropdownOpen(selectedClients.length > 0);
+                  }}
+                />
+                {workDropdownOpen ? (
+                  <div className="billing-client-dropdown">
+                    {filteredWorkOptions.length === 0 ? (
+                      <p className="billing-dropdown-empty">Nenhuma obra encontrada para os clientes selecionados.</p>
+                    ) : (
+                      filteredWorkOptions.map((work) => (
+                        <button
+                          key={work.id}
+                          type="button"
+                          className="billing-client-option"
+                          onClick={() => toggleWork(work.id)}
+                        >
+                          <i style={{ background: clientColorMap.get(work.clienteId) }} />
+                          <span>{work.nome}</span>
+                          <small>
+                            {work.codigo} - {work.clienteNomeFantasia || work.clienteNome}
+                          </small>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="button-ghost"
+                disabled={selectedWorks.length === 0}
+                onClick={clearSelectedWorks}
+              >
+                Limpar obras
+              </button>
+            </div>
 
-              return (
-                <button
-                  key={client.id}
-                  type="button"
-                  className={active ? "billing-client-option is-active" : "billing-client-option"}
-                  aria-pressed={active}
-                  onClick={() => toggleClient(client.id)}
-                >
-                  <i style={{ background: clientColorMap.get(client.id) }} />
-                  <span>{client.nomeFantasia || client.nome}</span>
-                  <small>{formatCurrency(client.totalPeriodo)}</small>
-                </button>
-              );
-            })
-          )}
+            {selectedWorks.length > 0 ? (
+              <div className="billing-selected-clients">
+                {selectedWorks.map((work) => (
+                  <button
+                    key={work.id}
+                    type="button"
+                    className="billing-selected-client-chip"
+                    onClick={() => removeSelectedWork(work.id)}
+                    title="Remover obra"
+                  >
+                    <i style={{ background: clientColorMap.get(work.clienteId) }} />
+                    <span>{work.nome}</span>
+                    <strong>×</strong>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
 
         {selectedClients.length === 0 ? (

@@ -4496,7 +4496,17 @@ button {
   gap: 18px;
   padding: 22px;
   border-radius: 22px;
-  border: 1px solid rgba(109, 92, 66, 0.12);
+  border: 1px solid var(--screen-border);
+  background:
+    radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--info) 12%, transparent), transparent 28%),
+    radial-gradient(circle at 92% 16%, color-mix(in srgb, var(--primary) 14%, transparent), transparent 26%),
+    linear-gradient(180deg, var(--screen-surface-start), var(--screen-surface-end));
+  box-shadow: var(--screen-shadow);
+  color: var(--screen-text);
+}
+
+[data-theme="light"] .billing-client-comparison-card {
+  border-color: rgba(109, 92, 66, 0.12);
   background:
     radial-gradient(circle at 8% 0%, rgba(56, 189, 248, 0.1), transparent 28%),
     radial-gradient(circle at 92% 16%, rgba(249, 115, 22, 0.12), transparent 26%),
@@ -4510,6 +4520,12 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 16px;
   align-items: end;
+}
+
+.billing-comparison-filters,
+.billing-comparison-filter-group {
+  display: grid;
+  gap: 12px;
 }
 
 .billing-client-count {
@@ -4528,6 +4544,10 @@ button {
 
 .billing-client-search {
   min-width: 0;
+}
+
+.billing-multi-search {
+  position: relative;
 }
 
 .billing-selected-clients,
@@ -4596,6 +4616,25 @@ button {
   scrollbar-width: thin;
 }
 
+.billing-client-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: 0;
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  max-height: 230px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--screen-border);
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--screen-surface-strong), var(--screen-surface-start));
+  box-shadow: 0 22px 44px color-mix(in srgb, #000 28%, transparent);
+  scrollbar-color: color-mix(in srgb, var(--primary) 48%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
 .billing-client-option {
   display: inline-grid;
   grid-template-columns: auto minmax(110px, 1fr);
@@ -4608,6 +4647,11 @@ button {
   padding: 10px 12px;
   border-radius: 14px;
   text-align: left;
+}
+
+.billing-client-dropdown .billing-client-option {
+  width: 100%;
+  max-width: none;
 }
 
 .billing-client-option i {
@@ -4628,6 +4672,14 @@ button {
   grid-area: value;
   color: var(--screen-muted);
   font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.billing-dropdown-empty {
+  margin: 0;
+  padding: 12px;
+  color: var(--screen-muted);
+  font-size: 0.82rem;
   font-weight: 800;
 }
 
@@ -4668,21 +4720,24 @@ button {
 
 .billing-client-chart-scroll::-webkit-scrollbar,
 .billing-client-options::-webkit-scrollbar,
-.billing-client-legend::-webkit-scrollbar {
+.billing-client-legend::-webkit-scrollbar,
+.billing-client-dropdown::-webkit-scrollbar {
   height: 9px;
   width: 9px;
 }
 
 .billing-client-chart-scroll::-webkit-scrollbar-track,
 .billing-client-options::-webkit-scrollbar-track,
-.billing-client-legend::-webkit-scrollbar-track {
+.billing-client-legend::-webkit-scrollbar-track,
+.billing-client-dropdown::-webkit-scrollbar-track {
   background: rgba(148, 163, 184, 0.12);
   border-radius: 999px;
 }
 
 .billing-client-chart-scroll::-webkit-scrollbar-thumb,
 .billing-client-options::-webkit-scrollbar-thumb,
-.billing-client-legend::-webkit-scrollbar-thumb {
+.billing-client-legend::-webkit-scrollbar-thumb,
+.billing-client-dropdown::-webkit-scrollbar-thumb {
   background: linear-gradient(90deg, rgba(249, 115, 22, 0.75), rgba(56, 189, 248, 0.75));
   border-radius: 999px;
 }
@@ -4717,6 +4772,18 @@ button {
 .billing-client-tooltip-row b {
   color: var(--screen-text);
   font-weight: 950;
+}
+
+@media (max-width: 760px) {
+  .billing-client-comparison-header,
+  .billing-client-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .billing-client-selector .button-ghost,
+  .billing-client-count {
+    width: 100%;
+  }
 }
 
 .billing-ranking-list {

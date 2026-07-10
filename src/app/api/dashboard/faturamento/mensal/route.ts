@@ -20,6 +20,9 @@ type AvailableYearRow = {
 type ClienteMensalRow = {
   clienteId: string;
   clienteNome: string;
+  obraId: string | null;
+  obraNome: string | null;
+  obraCodigo: string | null;
   monthNumber: number;
   valorTotal: Prisma.Decimal | null;
 };
@@ -67,7 +70,7 @@ export async function GET(request: NextRequest) {
   const selectedMonths = parseSelectedMonths(request.nextUrl.searchParams.get("months"));
   const period = buildYearRange(selectedYear);
 
-  const [rows, yearRows, clientes, clienteMensalRows] = await Promise.all([
+  const [rows, yearRows, clientes, obras, clienteMensalRows] = await Promise.all([
     prisma.$queryRaw<MonthlyRow[]>(Prisma.sql`
       WITH medicoes_periodo AS (
         SELECT
@@ -127,12 +130,35 @@ export async function GET(request: NextRequest) {
         nome: "asc"
       }
     }),
+    prisma.obra.findMany({
+      where: {
+        status: "ATIVO"
+      },
+      select: {
+        id: true,
+        codigo: true,
+        nome: true,
+        clienteId: true,
+        cliente: {
+          select: {
+            nome: true,
+            nomeFantasia: true
+          }
+        }
+      },
+      orderBy: {
+        nome: "asc"
+      }
+    }),
     prisma.$queryRaw<ClienteMensalRow[]>(Prisma.sql`
       WITH medicoes_periodo AS (
         SELECT
           medicao.id,
           medicao."clienteId",
           cliente.nome AS "clienteNome",
+          medicao."obraId",
+          obra.nome AS "obraNome",
+          obra.codigo AS "obraCodigo",
           DATE_TRUNC('month', MAX(item."data")) AS competencia,
           ${valorLiquidoSql} AS "valorLiquido"
         FROM "Medicao" medicao
@@ -141,21 +167,26 @@ export async function GET(request: NextRequest) {
          AND item."deletedAt" IS NULL
         INNER JOIN "Cliente" cliente
           ON cliente.id = medicao."clienteId"
+        LEFT JOIN "Obra" obra
+          ON obra.id = medicao."obraId"
         WHERE medicao."deletedAt" IS NULL
           AND medicao.status <> 'CANCELADA'::"StatusMedicao"
-        GROUP BY medicao.id, medicao."clienteId", cliente.nome
+        GROUP BY medicao.id, medicao."clienteId", cliente.nome, medicao."obraId", obra.nome, obra.codigo
         HAVING MAX(item."data") >= ${period.start}
            AND MAX(item."data") <= ${period.end}
       )
       SELECT
         "clienteId",
         "clienteNome",
+        "obraId",
+        "obraNome",
+        "obraCodigo",
         EXTRACT(MONTH FROM competencia)::int AS "monthNumber",
         COALESCE(SUM("valorLiquido"), 0) AS "valorTotal"
       FROM medicoes_periodo
       WHERE EXTRACT(MONTH FROM competencia)::int IN (${Prisma.join(selectedMonths)})
-      GROUP BY "clienteId", "clienteNome", EXTRACT(MONTH FROM competencia)
-      ORDER BY "clienteNome" ASC, "monthNumber" ASC
+      GROUP BY "clienteId", "clienteNome", "obraId", "obraNome", "obraCodigo", EXTRACT(MONTH FROM competencia)
+      ORDER BY "clienteNome" ASC, "obraNome" ASC, "monthNumber" ASC
     `)
   ]);
 
@@ -215,13 +246,24 @@ export async function GET(request: NextRequest) {
 
   const clientTotals = new Map<string, number>();
   const clientMonthValues = new Map<string, number>();
+  const workTotals = new Map<string, number>();
+  const workMonthValues = new Map<string, number>();
 
   for (const row of clienteMensalRows) {
     const value = Number(row.valorTotal ?? 0);
     const key = `${row.clienteId}:${row.monthNumber}`;
+    const currentClientMonthValue = clientMonthValues.get(key) ?? 0;
 
-    clientMonthValues.set(key, value);
+    clientMonthValues.set(key, Number((currentClientMonthValue + value).toFixed(2)));
     clientTotals.set(row.clienteId, Number(((clientTotals.get(row.clienteId) ?? 0) + value).toFixed(2)));
+
+    if (row.obraId) {
+      const workKey = `${row.obraId}:${row.monthNumber}`;
+      const currentWorkMonthValue = workMonthValues.get(workKey) ?? 0;
+
+      workMonthValues.set(workKey, Number((currentWorkMonthValue + value).toFixed(2)));
+      workTotals.set(row.obraId, Number(((workTotals.get(row.obraId) ?? 0) + value).toFixed(2)));
+    }
   }
 
   const clientComparisonClients = clientes
@@ -233,6 +275,24 @@ export async function GET(request: NextRequest) {
       totalPeriodo: clientTotals.get(cliente.id) ?? 0
     }))
     .sort((first, second) => second.totalPeriodo - first.totalPeriodo || first.nome.localeCompare(second.nome));
+  const clientComparisonWorks = obras
+    .map((obra) => ({
+      id: obra.id,
+      nome: obra.nome,
+      codigo: obra.codigo,
+      clienteId: obra.clienteId,
+      clienteNome: obra.cliente.nome,
+      clienteNomeFantasia: obra.cliente.nomeFantasia,
+      totalPeriodo: workTotals.get(obra.id) ?? 0
+    }))
+    .sort(
+      (first, second) =>
+        second.totalPeriodo - first.totalPeriodo ||
+        (first.clienteNomeFantasia || first.clienteNome).localeCompare(
+          second.clienteNomeFantasia || second.clienteNome
+        ) ||
+        first.nome.localeCompare(second.nome)
+    );
 
   return NextResponse.json({
     period: {
@@ -272,6 +332,7 @@ export async function GET(request: NextRequest) {
     })),
     clientComparison: {
       clients: clientComparisonClients,
+      works: clientComparisonWorks,
       monthly: filteredMonths.map((month) => ({
         monthNumber: month.monthNumber,
         label: month.label,
@@ -279,6 +340,12 @@ export async function GET(request: NextRequest) {
           clientComparisonClients.map((cliente) => [
             cliente.id,
             Number((clientMonthValues.get(`${cliente.id}:${month.monthNumber}`) ?? 0).toFixed(2))
+          ])
+        ),
+        workValues: Object.fromEntries(
+          clientComparisonWorks.map((obra) => [
+            obra.id,
+            Number((workMonthValues.get(`${obra.id}:${month.monthNumber}`) ?? 0).toFixed(2))
           ])
         )
       }))
