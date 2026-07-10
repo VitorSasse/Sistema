@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ExpandableChart } from "@/components/dashboard/expandable-chart";
 import {
   Bar,
+  BarChart,
   CartesianGrid,
   ComposedChart,
   Line,
@@ -57,9 +58,37 @@ type DashboardPayload = {
     totalMedicoesAFaturar: number;
     mediaMensal: number;
   }>;
+  clientComparison: {
+    clients: Array<{
+      id: string;
+      nome: string;
+      nomeFantasia: string | null;
+      codigo: string;
+      totalPeriodo: number;
+    }>;
+    monthly: Array<{
+      monthNumber: number;
+      label: string;
+      values: Record<string, number>;
+    }>;
+  };
 };
 
 const allMonthNumbers = Array.from({ length: 12 }, (_, index) => index + 1);
+const clientChartPalette = [
+  "#f97316",
+  "#38bdf8",
+  "#22c55e",
+  "#eab308",
+  "#ef4444",
+  "#a855f7",
+  "#14b8a6",
+  "#f59e0b",
+  "#60a5fa",
+  "#fb7185",
+  "#84cc16",
+  "#c084fc"
+];
 
 function CustomTooltip({
   active,
@@ -83,6 +112,38 @@ function CustomTooltip({
       <span>Concluidas: {item.totalMedicoesConcluidas}</span>
       <span>A faturar: {item.totalMedicoesAFaturar}</span>
       <span>Media de referencia: {formatCurrency(item.mediaMensal)}</span>
+    </div>
+  );
+}
+
+function ClientComparisonTooltip({
+  active,
+  payload,
+  label
+}: {
+  active?: boolean;
+  payload?: Array<{
+    color?: string;
+    name?: string;
+    value?: number;
+    payload?: Record<string, string | number>;
+  }>;
+  label?: string;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  return (
+    <div className="billing-tooltip billing-client-tooltip">
+      <strong>{label}</strong>
+      {payload.map((entry) => (
+        <span key={entry.name} className="billing-client-tooltip-row">
+          <i style={{ background: entry.color }} />
+          <span>{entry.name}</span>
+          <b>{formatCurrency(Number(entry.value ?? 0))}</b>
+        </span>
+      ))}
     </div>
   );
 }
@@ -127,6 +188,8 @@ function DashboardSkeleton() {
 export function FaturamentoMensalDashboard() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [selectedMonths, setSelectedMonths] = useState<number[]>(allMonthNumbers);
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [clientSearch, setClientSearch] = useState("");
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -168,6 +231,55 @@ export function FaturamentoMensalDashboard() {
 
   const monthlyRows = useMemo(() => data?.monthly ?? [], [data]);
   const hasMonthlyBilling = (data?.summary.totalGeralAno ?? 0) > 0;
+  const comparisonClients = useMemo(() => data?.clientComparison.clients ?? [], [data]);
+  const clientColorMap = useMemo(
+    () =>
+      new Map(
+        comparisonClients.map((client, index) => [
+          client.id,
+          clientChartPalette[index % clientChartPalette.length]
+        ])
+      ),
+    [comparisonClients]
+  );
+  const filteredClientOptions = useMemo(() => {
+    const search = clientSearch.trim().toLocaleLowerCase("pt-BR");
+
+    if (!search) {
+      return comparisonClients;
+    }
+
+    return comparisonClients.filter((client) =>
+      [client.nome, client.nomeFantasia ?? "", client.codigo]
+        .join(" ")
+        .toLocaleLowerCase("pt-BR")
+        .includes(search)
+    );
+  }, [clientSearch, comparisonClients]);
+  const selectedClients = useMemo(
+    () => comparisonClients.filter((client) => selectedClientIds.includes(client.id)),
+    [comparisonClients, selectedClientIds]
+  );
+  const clientComparisonRows = useMemo(() => {
+    const monthly = data?.clientComparison.monthly ?? [];
+
+    return monthly.map((month) => {
+      const row: Record<string, string | number> = {
+        monthNumber: month.monthNumber,
+        label: month.label
+      };
+
+      selectedClients.forEach((client, index) => {
+        row[`client_${index}`] = month.values[client.id] ?? 0;
+      });
+
+    return row;
+    });
+  }, [data, selectedClients]);
+  const clientComparisonMinWidth = Math.max(
+    860,
+    selectedClients.length * Math.max(clientComparisonRows.length, 1) * 58 + 180
+  );
 
   function toggleMonth(monthNumber: number) {
     const nextMonths = selectedMonths.includes(monthNumber)
@@ -185,6 +297,22 @@ export function FaturamentoMensalDashboard() {
   function selectAllMonths() {
     setSelectedMonths(allMonthNumbers);
     void loadDashboard(year, allMonthNumbers);
+  }
+
+  function toggleClient(clientId: string) {
+    setSelectedClientIds((current) =>
+      current.includes(clientId)
+        ? current.filter((item) => item !== clientId)
+        : [...current, clientId]
+    );
+  }
+
+  function removeSelectedClient(clientId: string) {
+    setSelectedClientIds((current) => current.filter((item) => item !== clientId));
+  }
+
+  function clearSelectedClients() {
+    setSelectedClientIds([]);
   }
 
   if (loading && !data) {
@@ -475,6 +603,165 @@ export function FaturamentoMensalDashboard() {
             </div>
           )}
         </aside>
+      </section>
+
+      <section className="billing-client-comparison-card surface section-card fade-up fade-up-delay-3">
+        <div className="billing-client-comparison-header">
+          <div>
+            <span className="billing-kicker">Clientes</span>
+            <h2 className="section-title">Comparativo de faturamento por cliente</h2>
+            <p className="section-copy">
+              Compare o faturamento dos clientes nos meses selecionados.
+            </p>
+          </div>
+          <span className="billing-client-count">
+            {selectedClients.length} cliente(s) selecionado(s)
+          </span>
+        </div>
+
+        <div className="billing-client-selector">
+          <label className="field billing-client-search">
+            <span className="field-label">Pesquisar clientes</span>
+            <input
+              className="field-control"
+              value={clientSearch}
+              placeholder="Digite nome, fantasia ou codigo"
+              onChange={(event) => setClientSearch(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="button-ghost"
+            disabled={selectedClients.length === 0}
+            onClick={clearSelectedClients}
+          >
+            Limpar selecao
+          </button>
+        </div>
+
+        {selectedClients.length > 0 ? (
+          <div className="billing-selected-clients">
+            {selectedClients.map((client) => (
+              <button
+                key={client.id}
+                type="button"
+                className="billing-selected-client-chip"
+                onClick={() => removeSelectedClient(client.id)}
+                title="Remover cliente"
+              >
+                <i style={{ background: clientColorMap.get(client.id) }} />
+                <span>{client.nomeFantasia || client.nome}</span>
+                <strong>×</strong>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="billing-client-options">
+          {filteredClientOptions.length === 0 ? (
+            <p className="billing-empty-state billing-empty-state-compact">
+              Nenhum cliente encontrado para a busca.
+            </p>
+          ) : (
+            filteredClientOptions.slice(0, 24).map((client) => {
+              const active = selectedClientIds.includes(client.id);
+
+              return (
+                <button
+                  key={client.id}
+                  type="button"
+                  className={active ? "billing-client-option is-active" : "billing-client-option"}
+                  aria-pressed={active}
+                  onClick={() => toggleClient(client.id)}
+                >
+                  <i style={{ background: clientColorMap.get(client.id) }} />
+                  <span>{client.nomeFantasia || client.nome}</span>
+                  <small>{formatCurrency(client.totalPeriodo)}</small>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {selectedClients.length === 0 ? (
+          <div className="billing-empty-state billing-client-empty">
+            <strong>Selecione pelo menos um cliente para iniciar a comparação.</strong>
+            <p>Use a busca acima para escolher os clientes que deseja comparar mês a mês.</p>
+          </div>
+        ) : (
+          <div className="billing-chart-panel billing-client-chart-panel">
+            <div className="billing-chart-legend billing-client-legend">
+              {selectedClients.map((client) => (
+                <span key={client.id} className="billing-chart-legend-item">
+                  <i
+                    className="billing-chart-dot"
+                    style={{ background: clientColorMap.get(client.id) }}
+                  />
+                  {client.nomeFantasia || client.nome}
+                </span>
+              ))}
+            </div>
+
+            <div className="billing-client-chart-shell">
+              <ExpandableChart title="Comparativo de faturamento por cliente" height={430}>
+                {({ height, width, expanded }) => {
+                  const resolvedWidth =
+                    typeof width === "number" ? width : clientComparisonMinWidth;
+                  const chartWidth = expanded
+                    ? Math.max(clientComparisonMinWidth, resolvedWidth)
+                    : clientComparisonMinWidth;
+
+                  return (
+                    <div className="billing-client-chart-scroll">
+                      <div
+                        className="billing-client-chart-inner"
+                        style={{ width: chartWidth, height }}
+                      >
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={clientComparisonRows}
+                            margin={{ top: 18, right: 28, left: 8, bottom: 36 }}
+                            barCategoryGap={18}
+                          >
+                            <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+                            <XAxis
+                              dataKey="label"
+                              tickLine={false}
+                              axisLine={false}
+                              interval={0}
+                              tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                            />
+                            <YAxis
+                              tickLine={false}
+                              axisLine={false}
+                              tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
+                              tick={{ fill: "var(--screen-chart-tick)", fontSize: 12 }}
+                              width={110}
+                            />
+                            <Tooltip
+                              content={<ClientComparisonTooltip />}
+                              cursor={{ fill: "var(--dashboard-chart-cursor)" }}
+                            />
+                            {selectedClients.map((client, index) => (
+                              <Bar
+                                key={client.id}
+                                dataKey={`client_${index}`}
+                                name={client.nomeFantasia || client.nome}
+                                fill={clientColorMap.get(client.id) ?? clientChartPalette[index % clientChartPalette.length]}
+                                radius={[9, 9, 0, 0]}
+                                maxBarSize={38}
+                              />
+                            ))}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  );
+                }}
+              </ExpandableChart>
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );

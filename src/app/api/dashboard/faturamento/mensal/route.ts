@@ -17,6 +17,13 @@ type AvailableYearRow = {
   year: number;
 };
 
+type ClienteMensalRow = {
+  clienteId: string;
+  clienteNome: string;
+  monthNumber: number;
+  valorTotal: Prisma.Decimal | null;
+};
+
 const allMonthNumbers = Array.from({ length: 12 }, (_, index) => index + 1);
 
 function buildYearRange(year: number) {
@@ -60,7 +67,7 @@ export async function GET(request: NextRequest) {
   const selectedMonths = parseSelectedMonths(request.nextUrl.searchParams.get("months"));
   const period = buildYearRange(selectedYear);
 
-  const [rows, yearRows] = await Promise.all([
+  const [rows, yearRows, clientes, clienteMensalRows] = await Promise.all([
     prisma.$queryRaw<MonthlyRow[]>(Prisma.sql`
       WITH medicoes_periodo AS (
         SELECT
@@ -105,6 +112,50 @@ export async function GET(request: NextRequest) {
       SELECT DISTINCT EXTRACT(YEAR FROM competencia)::int AS year
       FROM competencias
       ORDER BY year DESC
+    `),
+    prisma.cliente.findMany({
+      where: {
+        status: "ATIVO"
+      },
+      select: {
+        id: true,
+        nome: true,
+        nomeFantasia: true,
+        codigo: true
+      },
+      orderBy: {
+        nome: "asc"
+      }
+    }),
+    prisma.$queryRaw<ClienteMensalRow[]>(Prisma.sql`
+      WITH medicoes_periodo AS (
+        SELECT
+          medicao.id,
+          medicao."clienteId",
+          cliente.nome AS "clienteNome",
+          DATE_TRUNC('month', MAX(item."data")) AS competencia,
+          ${valorLiquidoSql} AS "valorLiquido"
+        FROM "Medicao" medicao
+        INNER JOIN "MedicaoItem" item
+          ON item."medicaoId" = medicao.id
+         AND item."deletedAt" IS NULL
+        INNER JOIN "Cliente" cliente
+          ON cliente.id = medicao."clienteId"
+        WHERE medicao."deletedAt" IS NULL
+          AND medicao.status <> 'CANCELADA'::"StatusMedicao"
+        GROUP BY medicao.id, medicao."clienteId", cliente.nome
+        HAVING MAX(item."data") >= ${period.start}
+           AND MAX(item."data") <= ${period.end}
+      )
+      SELECT
+        "clienteId",
+        "clienteNome",
+        EXTRACT(MONTH FROM competencia)::int AS "monthNumber",
+        COALESCE(SUM("valorLiquido"), 0) AS "valorTotal"
+      FROM medicoes_periodo
+      WHERE EXTRACT(MONTH FROM competencia)::int IN (${Prisma.join(selectedMonths)})
+      GROUP BY "clienteId", "clienteNome", EXTRACT(MONTH FROM competencia)
+      ORDER BY "clienteNome" ASC, "monthNumber" ASC
     `)
   ]);
 
@@ -162,6 +213,27 @@ export async function GET(request: NextRequest) {
     availableYears.unshift(selectedYear);
   }
 
+  const clientTotals = new Map<string, number>();
+  const clientMonthValues = new Map<string, number>();
+
+  for (const row of clienteMensalRows) {
+    const value = Number(row.valorTotal ?? 0);
+    const key = `${row.clienteId}:${row.monthNumber}`;
+
+    clientMonthValues.set(key, value);
+    clientTotals.set(row.clienteId, Number(((clientTotals.get(row.clienteId) ?? 0) + value).toFixed(2)));
+  }
+
+  const clientComparisonClients = clientes
+    .map((cliente) => ({
+      id: cliente.id,
+      nome: cliente.nome,
+      nomeFantasia: cliente.nomeFantasia,
+      codigo: cliente.codigo,
+      totalPeriodo: clientTotals.get(cliente.id) ?? 0
+    }))
+    .sort((first, second) => second.totalPeriodo - first.totalPeriodo || first.nome.localeCompare(second.nome));
+
   return NextResponse.json({
     period: {
       year: selectedYear,
@@ -197,6 +269,19 @@ export async function GET(request: NextRequest) {
     monthly: filteredMonths.map((item) => ({
       ...item,
       mediaMensal
-    }))
+    })),
+    clientComparison: {
+      clients: clientComparisonClients,
+      monthly: filteredMonths.map((month) => ({
+        monthNumber: month.monthNumber,
+        label: month.label,
+        values: Object.fromEntries(
+          clientComparisonClients.map((cliente) => [
+            cliente.id,
+            Number((clientMonthValues.get(`${cliente.id}:${month.monthNumber}`) ?? 0).toFixed(2))
+          ])
+        )
+      }))
+    }
   });
 }
