@@ -416,54 +416,8 @@ export function MedicoesManager() {
     }));
   }
 
-  function extractFilename(contentDisposition: string | null, fallback: string) {
-    if (!contentDisposition) {
-      return fallback;
-    }
-
-    const utfMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-    if (utfMatch?.[1]) {
-      return decodeURIComponent(utfMatch[1]);
-    }
-
-    const quotedMatch = contentDisposition.match(/filename="([^"]+)"/i);
-    if (quotedMatch?.[1]) {
-      return quotedMatch[1];
-    }
-
-    return fallback;
-  }
-
-  async function openPdf(id: string, tipo: "DETALHADO" | "RESUMIDO" = "DETALHADO") {
-    try {
-      const response = await fetch(`/api/medicoes/${id}/pdf?tipo=${tipo}`, {
-        method: "GET"
-      });
-
-      if (!response.ok) {
-        const data = (await response.json()) as { message?: string };
-        setMessage(data.message ?? "Nao foi possivel gerar o PDF.");
-        return;
-      }
-
-      const blob = await response.blob();
-      const fallbackName = `medicao-${id}.pdf`;
-      const filename = extractFilename(
-        response.headers.get("Content-Disposition"),
-        fallbackName
-      );
-
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch {
-      setMessage("Nao foi possivel gerar o PDF.");
-    }
+  function openPdf(id: string, tipo: "DETALHADO" | "RESUMIDO" = "DETALHADO") {
+    window.open(`/api/medicoes/${id}/pdf?tipo=${tipo}`, "_blank", "noopener,noreferrer");
   }
 
   function openRomaneiosReport(medicaoId: string) {

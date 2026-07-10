@@ -155,7 +155,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`
+      "Content-Disposition": `inline; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      "Cache-Control": "no-store"
     }
   });
 }

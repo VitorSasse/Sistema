@@ -255,7 +255,8 @@ export async function GET(request: NextRequest) {
       "Content-Disposition":
         modo === "romaneios"
           ? 'inline; filename="relatorio-romaneios.pdf"'
-          : 'inline; filename="relatorio-historico-lancamentos.pdf"'
+          : 'inline; filename="relatorio-historico-lancamentos.pdf"',
+      "Cache-Control": "no-store"
     }
   });
 }
