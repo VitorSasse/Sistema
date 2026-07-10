@@ -71,6 +71,20 @@ enum ModoCustoOrcamento {
   COMPLETO
 }
 
+enum StatusCenarioOrcamento {
+  EM_ESTUDO
+  ACEITO
+  REJEITADO
+}
+
+enum StatusPropostaComercial {
+  RASCUNHO
+  EMITIDA
+  ACEITA
+  REJEITADA
+  CANCELADA
+}
+
 enum NaturezaServico {
   OPERACIONAL
   ORCAMENTARIO_COMPOSTO
@@ -395,9 +409,12 @@ model Empresa {
   logsAuditoria           LogAuditoria[]
   orcamentos              Orcamento[]
   orcamentosFormacaoPreco OrcamentoFormacaoPreco[]
+  orcamentosCenarios      OrcamentoCenario[]
   orcamentosFrentes       OrcamentoFrente[]
   orcamentosItens         OrcamentoItem[]
   orcamentosPremissas     OrcamentoPremissa[]
+  orcamentosPropostas     OrcamentoPropostaComercial[]
+  orcamentosPropostasOpcionais OrcamentoPropostaOpcional[]
 
   @@index([status, nome])
   @@index([deletedAt])
@@ -720,9 +737,11 @@ model Orcamento {
   responsavel       Usuario?                @relation("OrcamentoResponsavel", fields: [responsavelId], references: [id])
   criadoPor         Usuario                 @relation("OrcamentoCriadoPor", fields: [criadoPorId], references: [id])
   formacaoPreco     OrcamentoFormacaoPreco?
+  cenarios          OrcamentoCenario[]
   frentes           OrcamentoFrente[]
   itens             OrcamentoItem[]
   premissas         OrcamentoPremissa[]
+  propostas         OrcamentoPropostaComercial[]
 
   @@index([empresaId])
   @@index([clienteId, obraId, dataOrcamento])
@@ -754,10 +773,35 @@ model OrcamentoFormacaoPreco {
   @@index([empresaId])
 }
 
+model OrcamentoCenario {
+  id              String                 @id @default(uuid())
+  empresaId       String                 @default("00000000-0000-0000-0000-000000000001")
+  orcamentoId     String
+  ordem           Int                    @default(1)
+  nome            String
+  descricao       String?
+  metodoExecutivo String?
+  observacao      String?
+  isPadrao        Boolean                @default(false)
+  status          StatusCenarioOrcamento @default(EM_ESTUDO)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  empresa         Empresa                @relation(fields: [empresaId], references: [id])
+  orcamento       Orcamento              @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+  frentes         OrcamentoFrente[]
+  premissas       OrcamentoPremissa[]
+  propostas       OrcamentoPropostaComercial[]
+
+  @@index([empresaId])
+  @@index([orcamentoId, ordem])
+  @@index([orcamentoId, status])
+}
+
 model OrcamentoFrente {
   id                 String          @id @default(uuid())
   empresaId          String          @default("00000000-0000-0000-0000-000000000001")
   orcamentoId        String
+  cenarioId          String?
   ordem              Int             @default(1)
   nome               String
   descricao          String?
@@ -771,10 +815,12 @@ model OrcamentoFrente {
   updatedAt          DateTime        @updatedAt
   empresa            Empresa         @relation(fields: [empresaId], references: [id])
   orcamento          Orcamento       @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+  cenario            OrcamentoCenario? @relation(fields: [cenarioId], references: [id], onDelete: SetNull)
   itens              OrcamentoItem[]
 
   @@index([empresaId])
   @@index([orcamentoId, ordem])
+  @@index([cenarioId, ordem])
 }
 
 model OrcamentoItem {
@@ -823,6 +869,7 @@ model OrcamentoPremissa {
   id          String                @id @default(uuid())
   empresaId   String                @default("00000000-0000-0000-0000-000000000001")
   orcamentoId String
+  cenarioId   String?
   tipo        TipoPremissaOrcamento @default(PREMISSA)
   ordem       Int                   @default(1)
   titulo      String?
@@ -831,9 +878,63 @@ model OrcamentoPremissa {
   updatedAt   DateTime              @updatedAt
   empresa     Empresa               @relation(fields: [empresaId], references: [id])
   orcamento   Orcamento             @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+  cenario     OrcamentoCenario?     @relation(fields: [cenarioId], references: [id], onDelete: SetNull)
 
   @@index([empresaId])
   @@index([orcamentoId, tipo, ordem])
+  @@index([cenarioId, tipo, ordem])
+}
+
+model OrcamentoPropostaComercial {
+  id                  String                  @id @default(uuid())
+  empresaId           String                  @default("00000000-0000-0000-0000-000000000001")
+  orcamentoId         String
+  cenarioId           String?
+  codigo              String
+  revisao             Int                     @default(0)
+  titulo              String?
+  status              StatusPropostaComercial @default(RASCUNHO)
+  condicoesComerciais String?
+  observacao          String?
+  valorSubtotal       Decimal                 @default(0) @db.Decimal(14, 2)
+  valorDesconto       Decimal                 @default(0) @db.Decimal(14, 2)
+  valorAcrescimo      Decimal                 @default(0) @db.Decimal(14, 2)
+  valorTotal          Decimal                 @default(0) @db.Decimal(14, 2)
+  snapshotJson        Json?
+  emitidaEm           DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  empresa             Empresa                 @relation(fields: [empresaId], references: [id])
+  orcamento           Orcamento               @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+  cenario             OrcamentoCenario?       @relation(fields: [cenarioId], references: [id], onDelete: SetNull)
+  opcionais           OrcamentoPropostaOpcional[]
+
+  @@index([empresaId])
+  @@index([orcamentoId, revisao])
+  @@index([cenarioId, status])
+  @@index([status])
+}
+
+model OrcamentoPropostaOpcional {
+  id            String                    @id @default(uuid())
+  empresaId     String                    @default("00000000-0000-0000-0000-000000000001")
+  propostaId    String
+  ordem         Int                       @default(1)
+  codigo        String?
+  descricao     String
+  unidade       String
+  quantidade    Decimal                   @default(0) @db.Decimal(12, 2)
+  valorUnitario Decimal                   @default(0) @db.Decimal(12, 2)
+  valorTotal    Decimal                   @default(0) @db.Decimal(14, 2)
+  condicoes     String?
+  observacao    String?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  empresa       Empresa                   @relation(fields: [empresaId], references: [id])
+  proposta      OrcamentoPropostaComercial @relation(fields: [propostaId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId])
+  @@index([propostaId, ordem])
 }
 
 model Material {

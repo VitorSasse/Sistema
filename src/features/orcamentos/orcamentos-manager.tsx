@@ -25,6 +25,8 @@ type TipoItemOrcamento =
 type CategoriaRecursoOrcamento = "EQUIPAMENTO" | "EQUIPE" | "MATERIAL" | "TERCEIRO";
 type TipoPremissaOrcamento = "PREMISSA" | "CONDICAO" | "EXCLUSAO" | "OBSERVACAO";
 type ModoCustoOrcamento = "SIMPLIFICADO" | "COMPLETO";
+type StatusCenarioOrcamento = "EM_ESTUDO" | "ACEITO" | "REJEITADO";
+type StatusPropostaComercial = "RASCUNHO" | "EMITIDA" | "ACEITA" | "REJEITADA" | "CANCELADA";
 
 type ClienteOption = {
   id: string;
@@ -110,6 +112,7 @@ type RecursoSelectOption = BasicSelectOption & {
 
 type FrenteForm = {
   localId: string;
+  cenarioTempId: string;
   ordem: number;
   nome: string;
   descricao: string;
@@ -120,6 +123,41 @@ type FrenteForm = {
   prazoEstimadoDias: string;
   calculoReferencia: "produtividadeDia" | "prazoEstimadoDias" | "";
   observacao: string;
+};
+
+type CenarioForm = {
+  localId: string;
+  ordem: number;
+  nome: string;
+  descricao: string;
+  metodoExecutivo: string;
+  observacao: string;
+  isPadrao: boolean;
+  status: StatusCenarioOrcamento;
+};
+
+type PropostaOpcionalForm = {
+  localId: string;
+  ordem: number;
+  codigo: string;
+  descricao: string;
+  unidade: string;
+  quantidade: string;
+  valorUnitario: string;
+  condicoes: string;
+  observacao: string;
+};
+
+type PropostaComercialForm = {
+  localId: string;
+  cenarioTempId: string;
+  codigo: string;
+  revisao: string;
+  titulo: string;
+  status: StatusPropostaComercial;
+  condicoesComerciais: string;
+  observacao: string;
+  opcionais: PropostaOpcionalForm[];
 };
 
 type ItemForm = {
@@ -201,6 +239,8 @@ type OrcamentoForm = {
   valorDesconto: string;
   valorAcrescimo: string;
   formacaoPreco: FormacaoPrecoForm;
+  cenarios: CenarioForm[];
+  propostasComerciais: PropostaComercialForm[];
   frentes: FrenteForm[];
   itens: ItemForm[];
   premissas: PremissaForm[];
@@ -236,8 +276,40 @@ type OrcamentoApi = {
     nome: string;
   } | null;
   formacaoPreco?: Partial<FormacaoPrecoForm> | null;
+  cenarios: Array<{
+    id: string;
+    ordem: number;
+    nome: string;
+    descricao: string | null;
+    metodoExecutivo: string | null;
+    observacao: string | null;
+    isPadrao: boolean;
+    status: StatusCenarioOrcamento;
+  }>;
+  propostas: Array<{
+    id: string;
+    cenarioId: string | null;
+    codigo: string;
+    revisao: number;
+    titulo: string | null;
+    status: StatusPropostaComercial;
+    condicoesComerciais: string | null;
+    observacao: string | null;
+    opcionais?: Array<{
+      id: string;
+      ordem: number;
+      codigo: string | null;
+      descricao: string;
+      unidade: string;
+      quantidade: string | number;
+      valorUnitario: string | number;
+      condicoes: string | null;
+      observacao: string | null;
+    }>;
+  }>;
   frentes: Array<{
     id: string;
+    cenarioId: string | null;
     ordem: number;
     nome: string;
     descricao: string | null;
@@ -397,15 +469,31 @@ function createEmptyForm(): OrcamentoForm {
       precoFinal: "0",
       observacao: ""
     },
+    cenarios: [],
+    propostasComerciais: [],
     frentes: [],
     itens: [createEmptyItem("COMERCIAL", 1)],
     premissas: createInitialPremissas()
   };
 }
 
+function createEmptyCenario(ordem: number, isPadrao = false): CenarioForm {
+  return {
+    localId: uid("cenario"),
+    ordem,
+    nome: isPadrao ? "Cenario padrao" : `Cenario ${ordem}`,
+    descricao: isPadrao ? "Alternativa principal para emissao rapida da proposta." : "",
+    metodoExecutivo: "",
+    observacao: "",
+    isPadrao,
+    status: "EM_ESTUDO"
+  };
+}
+
 function createEmptyFrente(ordem: number): FrenteForm {
   return {
     localId: uid("frente"),
+    cenarioTempId: "",
     ordem,
     nome: `Frente ${ordem}`,
     descricao: "",
@@ -416,6 +504,38 @@ function createEmptyFrente(ordem: number): FrenteForm {
     prazoEstimadoDias: "",
     calculoReferencia: "",
     observacao: ""
+  };
+}
+
+function createEmptyProposta(
+  ordem: number,
+  cenarioTempId = "",
+  titulo = "Proposta comercial"
+): PropostaComercialForm {
+  return {
+    localId: uid("proposta"),
+    cenarioTempId,
+    codigo: `PROP-${String(ordem).padStart(3, "0")}`,
+    revisao: "0",
+    titulo,
+    status: "RASCUNHO",
+    condicoesComerciais: "",
+    observacao: "",
+    opcionais: []
+  };
+}
+
+function createEmptyPropostaOpcional(ordem: number): PropostaOpcionalForm {
+  return {
+    localId: uid("opcional"),
+    ordem,
+    codigo: "",
+    descricao: "",
+    unidade: "Hora",
+    quantidade: "1",
+    valorUnitario: "0",
+    condicoes: "",
+    observacao: "",
   };
 }
 
@@ -787,6 +907,30 @@ function buildEconomicPreview(form: OrcamentoForm) {
   };
 }
 
+function buildCenarioTotals(form: OrcamentoForm) {
+  const totals: Record<string, number> = {};
+
+  for (const cenario of form.cenarios) {
+    const frenteIds = new Set(
+      form.frentes
+        .filter((frente) =>
+          frente.cenarioTempId
+            ? frente.cenarioTempId === cenario.localId
+            : cenario.isPadrao
+        )
+        .map((frente) => frente.localId)
+    );
+
+    totals[cenario.localId] = roundMoney(
+      form.itens
+        .filter((item) => item.frenteTempId && frenteIds.has(item.frenteTempId))
+        .reduce((sum, item) => sum + calcItemTotal(item), 0)
+    );
+  }
+
+  return totals;
+}
+
 export function OrcamentosManager() {
   const [items, setItems] = useState<OrcamentoResumoApi[]>([]);
   const [options, setOptions] = useState<OptionsState>(emptyOptions);
@@ -918,6 +1062,7 @@ export function OrcamentosManager() {
   );
 
   const economicPreview = useMemo(() => buildEconomicPreview(form), [form]);
+  const cenarioTotals = useMemo(() => buildCenarioTotals(form), [form]);
   const modoCustoForm = economicPreview.modoCusto;
   const subtotalForm = economicPreview.subtotalItens;
   const custoDiretoCalculadoForm = economicPreview.custoDiretoCalculado;
@@ -1048,7 +1193,12 @@ export function OrcamentosManager() {
   function handleTipoChange(tipo: TipoOrcamento) {
     setForm((current) => {
       if (tipo === "OPERACIONAL") {
+        const cenario = current.cenarios[0] ?? createEmptyCenario(1, true);
         const frente = current.frentes[0] ?? createEmptyFrente(1);
+        const frenteComCenario = {
+          ...frente,
+          cenarioTempId: frente.cenarioTempId || cenario.localId
+        };
         const itensPreenchidos = current.itens.filter(isItemPreenchido);
         const itensOperacionais = itensPreenchidos.length
           ? itensPreenchidos.map((item, index) => ({
@@ -1060,15 +1210,16 @@ export function OrcamentosManager() {
                   : item.tipoItem === "COMERCIAL"
                     ? "SERVICO_AUXILIAR"
                     : item.tipoItem,
-              frenteTempId: item.frenteTempId || frente.localId
+              frenteTempId: item.frenteTempId || frenteComCenario.localId
             }))
-          : [createEmptyItem("SERVICO_PRINCIPAL", 1, frente.localId)];
-
+          : [createEmptyItem("SERVICO_PRINCIPAL", 1, frenteComCenario.localId)];
         return {
           ...current,
           tipo,
           status: current.status === "RASCUNHO" ? "EM_ELABORACAO" : current.status,
-          frentes: current.frentes.length ? current.frentes : [frente],
+          cenarios: current.cenarios.length ? current.cenarios : [cenario],
+          frentes: current.frentes.length ? current.frentes : [frenteComCenario],
+          propostasComerciais: current.propostasComerciais,
           itens: itensOperacionais
         };
       }
@@ -1077,6 +1228,8 @@ export function OrcamentosManager() {
         return {
           ...current,
           tipo,
+          cenarios: [],
+          propostasComerciais: [],
           frentes: [],
           itens: current.itens.map((item) => ({
             ...item,
@@ -1095,7 +1248,11 @@ export function OrcamentosManager() {
 
   function addFrente() {
     setForm((current) => {
-      const frente = createEmptyFrente(current.frentes.length + 1);
+      const cenarioPadrao = current.cenarios.find((cenario) => cenario.isPadrao) ?? current.cenarios[0];
+      const frente = {
+        ...createEmptyFrente(current.frentes.length + 1),
+        cenarioTempId: cenarioPadrao?.localId ?? ""
+      };
 
       return {
         ...current,
@@ -1140,6 +1297,158 @@ export function OrcamentosManager() {
     setForm((current) => ({
       ...current,
       itens: reordenarItens(current.itens.filter((item) => item.localId !== localId))
+    }));
+  }
+
+  function addCenario() {
+    setForm((current) => {
+      const cenario = createEmptyCenario(current.cenarios.length + 1, current.cenarios.length === 0);
+
+      return {
+        ...current,
+        cenarios: [...current.cenarios, cenario]
+      };
+    });
+  }
+
+  function updateCenario(localId: string, key: keyof CenarioForm, value: string | number | boolean) {
+    setForm((current) => ({
+      ...current,
+      cenarios: current.cenarios.map((cenario) =>
+        cenario.localId === localId
+          ? {
+              ...cenario,
+              [key]: value,
+              ...(key === "isPadrao" && value
+                ? { status: cenario.status }
+                : {})
+            }
+          : key === "isPadrao" && value
+            ? { ...cenario, isPadrao: false }
+            : cenario
+      )
+    }));
+  }
+
+  function removeCenario(localId: string) {
+    setForm((current) => {
+      if (current.cenarios.length <= 1) {
+        return current;
+      }
+
+      const remaining = current.cenarios.filter((cenario) => cenario.localId !== localId);
+      const fallback = remaining.find((cenario) => cenario.isPadrao) ?? remaining[0];
+
+      return {
+        ...current,
+        cenarios: remaining.map((cenario, index) => ({
+          ...cenario,
+          ordem: index + 1,
+          isPadrao: cenario.localId === fallback.localId
+        })),
+        frentes: current.frentes.map((frente) => ({
+          ...frente,
+          cenarioTempId: frente.cenarioTempId === localId ? fallback.localId : frente.cenarioTempId
+        })),
+        propostasComerciais: current.propostasComerciais.map((proposta) => ({
+          ...proposta,
+          cenarioTempId: proposta.cenarioTempId === localId ? fallback.localId : proposta.cenarioTempId
+        }))
+      };
+    });
+  }
+
+  function addPropostaComercial() {
+    setForm((current) => {
+      const cenarioPadrao = current.cenarios.find((cenario) => cenario.isPadrao) ?? current.cenarios[0];
+      const proposta = createEmptyProposta(
+        current.propostasComerciais.length + 1,
+        cenarioPadrao?.localId ?? "",
+        current.titulo || "Proposta comercial"
+      );
+
+      return {
+        ...current,
+        propostasComerciais: [...current.propostasComerciais, proposta]
+      };
+    });
+  }
+
+  function updatePropostaComercial(
+    localId: string,
+    key: keyof PropostaComercialForm,
+    value: string
+  ) {
+    setForm((current) => ({
+      ...current,
+      propostasComerciais: current.propostasComerciais.map((proposta) =>
+        proposta.localId === localId && proposta.status !== "EMITIDA"
+          ? { ...proposta, [key]: value }
+          : proposta
+      )
+    }));
+  }
+
+  function removePropostaComercial(localId: string) {
+    setForm((current) => ({
+      ...current,
+      propostasComerciais: current.propostasComerciais.filter(
+        (proposta) => proposta.localId !== localId || proposta.status === "EMITIDA"
+      )
+    }));
+  }
+
+  function addPropostaOpcional(propostaLocalId: string) {
+    setForm((current) => ({
+      ...current,
+      propostasComerciais: current.propostasComerciais.map((proposta) =>
+        proposta.localId === propostaLocalId && proposta.status !== "EMITIDA"
+          ? {
+              ...proposta,
+              opcionais: [
+                ...proposta.opcionais,
+                createEmptyPropostaOpcional(proposta.opcionais.length + 1)
+              ]
+            }
+          : proposta
+      )
+    }));
+  }
+
+  function updatePropostaOpcional(
+    propostaLocalId: string,
+    opcionalLocalId: string,
+    key: keyof PropostaOpcionalForm,
+    value: string | number
+  ) {
+    setForm((current) => ({
+      ...current,
+      propostasComerciais: current.propostasComerciais.map((proposta) =>
+        proposta.localId === propostaLocalId && proposta.status !== "EMITIDA"
+          ? {
+              ...proposta,
+              opcionais: proposta.opcionais.map((opcional) =>
+                opcional.localId === opcionalLocalId ? { ...opcional, [key]: String(value) } : opcional
+              )
+            }
+          : proposta
+      )
+    }));
+  }
+
+  function removePropostaOpcional(propostaLocalId: string, opcionalLocalId: string) {
+    setForm((current) => ({
+      ...current,
+      propostasComerciais: current.propostasComerciais.map((proposta) =>
+        proposta.localId === propostaLocalId && proposta.status !== "EMITIDA"
+          ? {
+              ...proposta,
+              opcionais: proposta.opcionais
+                .filter((opcional) => opcional.localId !== opcionalLocalId)
+                .map((opcional, index) => ({ ...opcional, ordem: index + 1 }))
+            }
+          : proposta
+      )
     }));
   }
 
@@ -1552,22 +1861,40 @@ export function OrcamentosManager() {
           </div>
 
           {form.tipo === "OPERACIONAL" ? (
-            <FrentesOperacionaisSection
-              frentes={form.frentes}
-              itens={form.itens}
-              servicoOptions={servicoOptions}
-              materialOptions={materialOptions}
-              equipamentoOptions={equipamentoOptions}
-              classeOperacionalOptions={classeOperacionalOptions}
-              colaboradorOptions={colaboradorOptions}
-              fornecedorOptions={fornecedorOptions}
-              onAdd={addFrente}
-              onRemove={removeFrente}
-              onUpdate={updateFrente}
-              onAddItem={addItemToFrente}
-              onRemoveItem={removeItem}
-              onUpdateItem={updateItem}
-            />
+            <>
+              <FrentesOperacionaisSection
+                cenarios={form.cenarios}
+                frentes={form.frentes}
+                itens={form.itens}
+                servicoOptions={servicoOptions}
+                materialOptions={materialOptions}
+                equipamentoOptions={equipamentoOptions}
+                classeOperacionalOptions={classeOperacionalOptions}
+                colaboradorOptions={colaboradorOptions}
+                fornecedorOptions={fornecedorOptions}
+                onAdd={addFrente}
+                onRemove={removeFrente}
+                onUpdate={updateFrente}
+                onAddItem={addItemToFrente}
+                onRemoveItem={removeItem}
+                onUpdateItem={updateItem}
+              />
+              <CenariosPropostasSection
+                cenarios={form.cenarios}
+                propostas={form.propostasComerciais}
+                total={totalForm}
+                cenarioTotals={cenarioTotals}
+                onAddCenario={addCenario}
+                onRemoveCenario={removeCenario}
+                onUpdateCenario={updateCenario}
+                onAddProposta={addPropostaComercial}
+                onRemoveProposta={removePropostaComercial}
+                onUpdateProposta={updatePropostaComercial}
+                onAddOpcional={addPropostaOpcional}
+                onUpdateOpcional={updatePropostaOpcional}
+                onRemoveOpcional={removePropostaOpcional}
+              />
+            </>
           ) : (
             <ItensSection
               tipo={form.tipo}
@@ -1587,7 +1914,7 @@ export function OrcamentosManager() {
 
           <div className="orcamentos-form-section orcamentos-economia-section">
             <div className="orcamentos-form-heading">
-              <span>{form.tipo === "OPERACIONAL" ? "03" : "04"}</span>
+              <span>{form.tipo === "OPERACIONAL" ? "04" : "04"}</span>
               <div>
                 <h3>
                   {form.tipo === "OPERACIONAL"
@@ -1909,7 +2236,7 @@ export function OrcamentosManager() {
           </div>
 
           <PremissasSection
-            stepLabel={form.tipo === "OPERACIONAL" ? "04" : "05"}
+            stepLabel={form.tipo === "OPERACIONAL" ? "05" : "05"}
             premissas={form.premissas}
             onAdd={addPremissa}
             onRemove={removePremissa}
@@ -1946,6 +2273,7 @@ export function OrcamentosManager() {
 }
 
 function FrentesOperacionaisSection(props: {
+  cenarios: CenarioForm[];
   frentes: FrenteForm[];
   itens: ItemForm[];
   servicoOptions: ServicoSelectOption[];
@@ -2006,6 +2334,23 @@ function FrentesOperacionaisSection(props: {
               </div>
 
               <div className="orcamentos-form-grid">
+                <label className="manager-field">
+                  <span className="manager-field-label">Cenario</span>
+                  <select
+                    className="field-control"
+                    value={frente.cenarioTempId}
+                    onChange={(event) =>
+                      props.onUpdate(frente.localId, "cenarioTempId", event.target.value)
+                    }
+                  >
+                    <option value="">Cenario padrao</option>
+                    {props.cenarios.map((cenario) => (
+                      <option key={cenario.localId} value={cenario.localId}>
+                        {cenario.ordem} - {cenario.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className="manager-field">
                   <span className="manager-field-label">Nome da frente</span>
                   <input
@@ -2197,6 +2542,336 @@ function FrentesOperacionaisSection(props: {
             </article>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function CenariosPropostasSection(props: {
+  cenarios: CenarioForm[];
+  propostas: PropostaComercialForm[];
+  total: number;
+  cenarioTotals: Record<string, number>;
+  onAddCenario: () => void;
+  onRemoveCenario: (localId: string) => void;
+  onUpdateCenario: (localId: string, key: keyof CenarioForm, value: string | number | boolean) => void;
+  onAddProposta: () => void;
+  onRemoveProposta: (localId: string) => void;
+  onUpdateProposta: (localId: string, key: keyof PropostaComercialForm, value: string) => void;
+  onAddOpcional: (propostaLocalId: string) => void;
+  onUpdateOpcional: (
+    propostaLocalId: string,
+    opcionalLocalId: string,
+    key: keyof PropostaOpcionalForm,
+    value: string | number
+  ) => void;
+  onRemoveOpcional: (propostaLocalId: string, opcionalLocalId: string) => void;
+}) {
+  return (
+    <div className="orcamentos-form-section orcamentos-cenarios-section">
+      <div className="orcamentos-form-heading">
+        <span>03</span>
+        <div>
+          <h3>Cenarios e propostas comerciais</h3>
+          <small>
+            O orcamento e estudo interno. A proposta comercial so nasce quando voce preparar uma oferta ao cliente.
+          </small>
+        </div>
+      </div>
+
+      <div className="orcamentos-cenarios-grid">
+        <article className="orcamentos-layer-card">
+          <div className="orcamentos-depth-heading">
+            <div>
+              <span>Cenarios</span>
+              <strong>Alternativas de execucao</strong>
+              <small>Dados especificos de uma alternativa nao devem ser misturados com outra.</small>
+            </div>
+            <button type="button" onClick={props.onAddCenario}>
+              Adicionar cenario
+            </button>
+          </div>
+          <div className="orcamentos-items-list">
+            {props.cenarios.length === 0 ? (
+              <p className="orcamentos-operational-empty">
+                O sistema cria um cenario principal automaticamente para preservar o fluxo rapido.
+              </p>
+            ) : null}
+            {props.cenarios.map((cenario) => (
+              <div key={cenario.localId} className="orcamentos-cenario-row">
+                <label className="manager-field">
+                  <span className="manager-field-label">Nome</span>
+                  <input
+                    className="field-control"
+                    value={cenario.nome}
+                    onChange={(event) => props.onUpdateCenario(cenario.localId, "nome", event.target.value)}
+                  />
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Status</span>
+                  <select
+                    className="field-control"
+                    value={cenario.status}
+                    onChange={(event) =>
+                      props.onUpdateCenario(
+                        cenario.localId,
+                        "status",
+                        event.target.value as StatusCenarioOrcamento
+                      )
+                    }
+                  >
+                    <option value="EM_ESTUDO">Em estudo</option>
+                    <option value="ACEITO">Aceito</option>
+                    <option value="REJEITADO">Rejeitado</option>
+                  </select>
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Padrao</span>
+                  <select
+                    className="field-control"
+                    value={cenario.isPadrao ? "SIM" : "NAO"}
+                    onChange={(event) =>
+                      props.onUpdateCenario(cenario.localId, "isPadrao", event.target.value === "SIM")
+                    }
+                  >
+                    <option value="SIM">Sim</option>
+                    <option value="NAO">Nao</option>
+                  </select>
+                </label>
+                <label className="manager-field orcamentos-span-3">
+                  <span className="manager-field-label">Descricao do cenario</span>
+                  <textarea
+                    className="field-control"
+                    rows={2}
+                    value={cenario.descricao}
+                    onChange={(event) =>
+                      props.onUpdateCenario(cenario.localId, "descricao", event.target.value)
+                    }
+                  />
+                </label>
+                <label className="manager-field orcamentos-span-3">
+                  <span className="manager-field-label">Metodo executivo do cenario</span>
+                  <textarea
+                    className="field-control"
+                    rows={2}
+                    value={cenario.metodoExecutivo}
+                    onChange={(event) =>
+                      props.onUpdateCenario(cenario.localId, "metodoExecutivo", event.target.value)
+                    }
+                  />
+                </label>
+                {props.cenarios.length > 1 ? (
+                  <button type="button" className="button-secondary" onClick={() => props.onRemoveCenario(cenario.localId)}>
+                    Remover cenario
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="orcamentos-layer-card">
+          <div className="orcamentos-depth-heading">
+            <div>
+              <span>Propostas</span>
+              <strong>Ofertas comerciais</strong>
+              <small>Cada proposta aponta para um cenario e possui revisao propria.</small>
+            </div>
+            <button type="button" onClick={props.onAddProposta}>
+              Adicionar proposta
+            </button>
+          </div>
+          <div className="orcamentos-items-list">
+            {props.propostas.length === 0 ? (
+              <p className="orcamentos-operational-empty">
+                Nenhuma proposta criada. Use "Adicionar proposta" quando quiser preparar uma oferta comercial.
+              </p>
+            ) : null}
+            {props.propostas.map((proposta) => {
+              const isEmitida = proposta.status === "EMITIDA";
+              const cenarioPadrao = props.cenarios.find((cenario) => cenario.isPadrao) ?? props.cenarios[0];
+              const cenarioTotal =
+                props.cenarioTotals[proposta.cenarioTempId] ??
+                (cenarioPadrao ? props.cenarioTotals[cenarioPadrao.localId] : props.total);
+              const opcionaisTotal = proposta.opcionais.reduce(
+                (sum, opcional) =>
+                  sum + (Number(opcional.quantidade) || 0) * (Number(opcional.valorUnitario) || 0),
+                0
+              );
+
+              return (
+              <div key={proposta.localId} className="orcamentos-cenario-row">
+                <label className="manager-field">
+                  <span className="manager-field-label">Cenario</span>
+                  <select
+                    className="field-control"
+                    value={proposta.cenarioTempId}
+                    disabled={isEmitida}
+                    onChange={(event) =>
+                      props.onUpdateProposta(proposta.localId, "cenarioTempId", event.target.value)
+                    }
+                  >
+                    <option value="">Cenario padrao</option>
+                    {props.cenarios.map((cenario) => (
+                      <option key={cenario.localId} value={cenario.localId}>
+                        {cenario.ordem} - {cenario.nome}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Codigo</span>
+                  <input
+                    className="field-control"
+                    value={proposta.codigo}
+                    disabled={isEmitida}
+                    onChange={(event) => props.onUpdateProposta(proposta.localId, "codigo", event.target.value)}
+                  />
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Revisao</span>
+                  <input
+                    className="field-control"
+                    type="number"
+                    min="0"
+                    value={proposta.revisao}
+                    disabled={isEmitida}
+                    onChange={(event) => props.onUpdateProposta(proposta.localId, "revisao", event.target.value)}
+                  />
+                </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Status</span>
+                  <select
+                    className="field-control"
+                    value={proposta.status}
+                    disabled={isEmitida}
+                    onChange={(event) =>
+                      props.onUpdateProposta(
+                        proposta.localId,
+                        "status",
+                        event.target.value as StatusPropostaComercial
+                      )
+                    }
+                  >
+                    <option value="RASCUNHO">Rascunho</option>
+                    <option value="EMITIDA">Emitida</option>
+                    <option value="REJEITADA">Rejeitada</option>
+                    <option value="CANCELADA">Cancelada</option>
+                  </select>
+                </label>
+                <label className="manager-field orcamentos-span-2">
+                  <span className="manager-field-label">Titulo</span>
+                  <input
+                    className="field-control"
+                    value={proposta.titulo}
+                    disabled={isEmitida}
+                    onChange={(event) => props.onUpdateProposta(proposta.localId, "titulo", event.target.value)}
+                  />
+                </label>
+                <label className="manager-field orcamentos-span-3">
+                  <span className="manager-field-label">Condicoes comerciais</span>
+                  <textarea
+                    className="field-control"
+                    rows={2}
+                    value={proposta.condicoesComerciais}
+                    disabled={isEmitida}
+                    onChange={(event) =>
+                      props.onUpdateProposta(proposta.localId, "condicoesComerciais", event.target.value)
+                    }
+                  />
+                </label>
+                <div className="orcamentos-depth-block orcamentos-span-3">
+                  <div className="orcamentos-depth-heading">
+                    <div>
+                      <span>Itens opcionais</span>
+                      <strong>Servicos adicionais da proposta</strong>
+                      <small>Opcionais nao criam novos cenarios e poderao ser contratados individualmente em sprint futura.</small>
+                    </div>
+                    <button type="button" disabled={isEmitida} onClick={() => props.onAddOpcional(proposta.localId)}>
+                      Adicionar opcional
+                    </button>
+                  </div>
+                  {proposta.opcionais.length === 0 ? (
+                    <p className="orcamentos-operational-empty">Nenhum item opcional nesta proposta.</p>
+                  ) : null}
+                  {proposta.opcionais.map((opcional) => (
+                    <div key={opcional.localId} className="orcamentos-optional-row">
+                      <input
+                        className="field-control"
+                        value={opcional.descricao}
+                        disabled={isEmitida}
+                        placeholder="Descricao do opcional"
+                        onChange={(event) =>
+                          props.onUpdateOpcional(proposta.localId, opcional.localId, "descricao", event.target.value)
+                        }
+                      />
+                      <input
+                        className="field-control"
+                        value={opcional.unidade}
+                        disabled={isEmitida}
+                        placeholder="Un"
+                        onChange={(event) =>
+                          props.onUpdateOpcional(proposta.localId, opcional.localId, "unidade", event.target.value)
+                        }
+                      />
+                      <input
+                        className="field-control"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={opcional.quantidade}
+                        disabled={isEmitida}
+                        onChange={(event) =>
+                          props.onUpdateOpcional(proposta.localId, opcional.localId, "quantidade", event.target.value)
+                        }
+                      />
+                      <input
+                        className="field-control"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={opcional.valorUnitario}
+                        disabled={isEmitida}
+                        onChange={(event) =>
+                          props.onUpdateOpcional(proposta.localId, opcional.localId, "valorUnitario", event.target.value)
+                        }
+                      />
+                      <input
+                        className="field-control"
+                        value={opcional.condicoes}
+                        disabled={isEmitida}
+                        placeholder="Condicoes especificas"
+                        onChange={(event) =>
+                          props.onUpdateOpcional(proposta.localId, opcional.localId, "condicoes", event.target.value)
+                        }
+                      />
+                      <strong>{formatCurrency((Number(opcional.quantidade) || 0) * (Number(opcional.valorUnitario) || 0))}</strong>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        disabled={isEmitida}
+                        onClick={() => props.onRemoveOpcional(proposta.localId, opcional.localId)}
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="orcamentos-proposta-total">
+                  <span>Valor atual da proposta</span>
+                  <strong>{formatCurrency(cenarioTotal + opcionaisTotal)}</strong>
+                </div>
+                {isEmitida ? (
+                  <p className="orcamentos-front-validation">Proposta emitida: snapshot preservado. Gere nova revisao para alterar.</p>
+                ) : null}
+                <button type="button" className="button-secondary" disabled={isEmitida} onClick={() => props.onRemoveProposta(proposta.localId)}>
+                  Remover proposta
+                </button>
+              </div>
+              );
+            })}
+          </div>
+        </article>
       </div>
     </div>
   );
@@ -2772,6 +3447,11 @@ function buildPayload(form: OrcamentoForm) {
     valorDesconto: Number(form.valorDesconto) || 0,
     valorAcrescimo: Number(form.valorAcrescimo) || 0,
     formacaoPreco,
+    cenarios: form.tipo === "OPERACIONAL" ? form.cenarios.map(mapCenarioPayload) : [],
+    propostasComerciais:
+      form.tipo === "OPERACIONAL"
+        ? form.propostasComerciais.map(mapPropostaComercialPayload)
+        : [],
     frentes: form.tipo === "OPERACIONAL" ? form.frentes.map(mapFrentePayload) : [],
     itens: itensValidos.map((item) => mapItemPayload(item, form.tipo)),
     premissas: form.premissas.filter(isPremissaPreenchida).map((premissa) => ({
@@ -2780,6 +3460,45 @@ function buildPayload(form: OrcamentoForm) {
       titulo: premissa.titulo,
       descricao: premissa.descricao
     }))
+  };
+}
+
+function mapCenarioPayload(cenario: CenarioForm) {
+  return {
+    tempId: cenario.localId,
+    ordem: cenario.ordem,
+    nome: cenario.nome,
+    descricao: cenario.descricao,
+    metodoExecutivo: cenario.metodoExecutivo,
+    observacao: cenario.observacao,
+    isPadrao: cenario.isPadrao,
+    status: cenario.status
+  };
+}
+
+function mapPropostaComercialPayload(proposta: PropostaComercialForm) {
+  return {
+    tempId: proposta.localId,
+    cenarioTempId: proposta.cenarioTempId,
+    codigo: proposta.codigo,
+    revisao: Number(proposta.revisao) || 0,
+    titulo: proposta.titulo,
+    status: proposta.status,
+    condicoesComerciais: proposta.condicoesComerciais,
+    observacao: proposta.observacao,
+    opcionais: proposta.opcionais
+      .filter((opcional) => opcional.descricao.trim())
+      .map((opcional) => ({
+        tempId: opcional.localId,
+        ordem: opcional.ordem,
+        codigo: opcional.codigo,
+        descricao: opcional.descricao,
+        unidade: opcional.unidade,
+        quantidade: Number(opcional.quantidade) || 0,
+        valorUnitario: Number(opcional.valorUnitario) || 0,
+        condicoes: opcional.condicoes,
+        observacao: opcional.observacao
+      }))
   };
 }
 
@@ -2878,6 +3597,7 @@ function isPremissaPreenchida(premissa: PremissaForm) {
 
 function mapFrentePayload(frente: FrenteForm) {
   return {
+    cenarioTempId: frente.cenarioTempId,
     tempId: frente.localId,
     ordem: frente.ordem,
     nome: frente.nome,
@@ -2922,8 +3642,19 @@ function buildPremissasForm(item: OrcamentoApi): PremissaForm[] {
 }
 
 function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
+  const cenarios: CenarioForm[] = (item.cenarios ?? []).map((cenario) => ({
+    localId: cenario.id,
+    ordem: cenario.ordem,
+    nome: cenario.nome,
+    descricao: cenario.descricao ?? "",
+    metodoExecutivo: cenario.metodoExecutivo ?? "",
+    observacao: cenario.observacao ?? "",
+    isPadrao: cenario.isPadrao,
+    status: cenario.status
+  }));
   const frentes: FrenteForm[] = item.frentes.map((frente) => ({
     localId: frente.id,
+    cenarioTempId: frente.cenarioId ?? cenarios.find((cenario) => cenario.isPadrao)?.localId ?? "",
     ordem: frente.ordem,
     nome: frente.nome,
     descricao: frente.descricao ?? "",
@@ -2936,6 +3667,28 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
     observacao: frente.observacao ?? ""
   }));
   const firstFrenteId = frentes[0]?.localId ?? "";
+  const propostas: PropostaComercialForm[] = (item.propostas ?? []).map((proposta) => ({
+    localId: proposta.id,
+    cenarioTempId: proposta.cenarioId ?? "",
+    codigo: proposta.codigo,
+    revisao: toStringValue(proposta.revisao),
+    titulo: proposta.titulo ?? "",
+    status: proposta.status,
+    condicoesComerciais: proposta.condicoesComerciais ?? "",
+    observacao: proposta.observacao ?? "",
+    opcionais:
+      proposta.opcionais?.map((opcional) => ({
+        localId: opcional.id,
+        ordem: opcional.ordem,
+        codigo: opcional.codigo ?? "",
+        descricao: opcional.descricao,
+        unidade: opcional.unidade,
+        quantidade: toStringValue(opcional.quantidade),
+        valorUnitario: toStringValue(opcional.valorUnitario),
+        condicoes: opcional.condicoes ?? "",
+        observacao: opcional.observacao ?? ""
+      })) ?? []
+  }));
 
   return {
     id: item.id,
@@ -2964,6 +3717,8 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
       precoFinal: toStringValue(item.formacaoPreco?.precoFinal ?? 0),
       observacao: toStringValue(item.formacaoPreco?.observacao ?? "")
     },
+    cenarios,
+    propostasComerciais: propostas,
     frentes,
     itens:
       item.itens.length > 0

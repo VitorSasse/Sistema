@@ -1,7 +1,9 @@
 import {
   CategoriaRecursoOrcamento,
   ModoCustoOrcamento,
+  StatusCenarioOrcamento,
   StatusOrcamento,
+  StatusPropostaComercial,
   TipoItemOrcamento,
   TipoOrcamento,
   TipoPremissaOrcamento
@@ -35,6 +37,8 @@ function numeroDecimal(max = 999999999) {
 }
 
 const orcamentoFrenteSchema = z.object({
+  cenarioTempId: z.string().trim().max(80).optional().or(z.literal("")),
+  cenarioOrdem: z.number().int().positive().max(999).optional().nullable(),
   tempId: z.string().trim().max(80).optional().or(z.literal("")),
   ordem: z.number().int().positive().max(999).default(1),
   nome: z.string().trim().min(2).max(160),
@@ -45,6 +49,42 @@ const orcamentoFrenteSchema = z.object({
   produtividadeDia: numeroDecimal(999999999).optional().nullable(),
   prazoEstimadoDias: numeroDecimal(9999).optional().nullable(),
   observacao: z.string().trim().max(500).optional().or(z.literal(""))
+});
+
+const orcamentoCenarioSchema = z.object({
+  tempId: z.string().trim().max(80).optional().or(z.literal("")),
+  ordem: z.number().int().positive().max(999).default(1),
+  nome: z.string().trim().min(2).max(160),
+  descricao: z.string().trim().max(700).optional().or(z.literal("")),
+  metodoExecutivo: z.string().trim().max(1200).optional().or(z.literal("")),
+  observacao: z.string().trim().max(700).optional().or(z.literal("")),
+  isPadrao: z.boolean().default(false),
+  status: z.nativeEnum(StatusCenarioOrcamento).default(StatusCenarioOrcamento.EM_ESTUDO)
+});
+
+const orcamentoPropostaOpcionalSchema = z.object({
+  tempId: z.string().trim().max(80).optional().or(z.literal("")),
+  ordem: z.number().int().positive().max(999).default(1),
+  codigo: z.string().trim().max(80).optional().or(z.literal("")),
+  descricao: z.string().trim().min(2).max(240),
+  unidade: z.string().trim().min(1).max(40),
+  quantidade: numeroDecimal(999999999),
+  valorUnitario: numeroDecimal(999999999),
+  condicoes: z.string().trim().max(1000).optional().or(z.literal("")),
+  observacao: z.string().trim().max(500).optional().or(z.literal(""))
+});
+
+const orcamentoPropostaComercialSchema = z.object({
+  tempId: z.string().trim().max(80).optional().or(z.literal("")),
+  cenarioTempId: z.string().trim().max(80).optional().or(z.literal("")),
+  cenarioOrdem: z.number().int().positive().max(999).optional().nullable(),
+  codigo: z.string().trim().max(80).optional().or(z.literal("")),
+  revisao: z.number().int().min(0).max(999).default(0),
+  titulo: z.string().trim().max(180).optional().or(z.literal("")),
+  status: z.nativeEnum(StatusPropostaComercial).default(StatusPropostaComercial.RASCUNHO),
+  condicoesComerciais: z.string().trim().max(1200).optional().or(z.literal("")),
+  observacao: z.string().trim().max(700).optional().or(z.literal("")),
+  opcionais: z.array(orcamentoPropostaOpcionalSchema).default([])
 });
 
 const orcamentoItemSchema = z.object({
@@ -155,6 +195,8 @@ export const orcamentoSchema = z
     valorDesconto: numeroDecimal(999999999).default(0),
     valorAcrescimo: numeroDecimal(999999999).default(0),
     formacaoPreco: orcamentoFormacaoPrecoSchema.optional().nullable(),
+    cenarios: z.array(orcamentoCenarioSchema).default([]),
+    propostasComerciais: z.array(orcamentoPropostaComercialSchema).default([]),
     frentes: z.array(orcamentoFrenteSchema).default([]),
     itens: z.array(orcamentoItemSchema).default([]),
     premissas: z.array(orcamentoPremissaSchema).default([])
@@ -220,6 +262,30 @@ export const orcamentoSchema = z
           message: "Defina pelo menos um servico principal vinculado a uma frente."
         });
       }
+
+      const cenarioRefs = new Set<string>();
+
+      data.cenarios.forEach((cenario) => {
+        if (cenario.tempId?.trim()) {
+          cenarioRefs.add(`temp:${cenario.tempId.trim()}`);
+        }
+
+        cenarioRefs.add(`ordem:${cenario.ordem}`);
+      });
+
+      data.propostasComerciais.forEach((proposta, index) => {
+        const possuiCenario =
+          (proposta.cenarioTempId?.trim() && cenarioRefs.has(`temp:${proposta.cenarioTempId.trim()}`)) ||
+          (proposta.cenarioOrdem && cenarioRefs.has(`ordem:${proposta.cenarioOrdem}`));
+
+        if (!possuiCenario && data.cenarios.length > 0) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["propostasComerciais", index, "cenarioTempId"],
+            message: "Vincule a proposta comercial a um cenario valido."
+          });
+        }
+      });
     }
   });
 

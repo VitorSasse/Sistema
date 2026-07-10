@@ -94,7 +94,7 @@ export async function GET(_: NextRequest, context: RouteContext) {
       "Content-Type": mimeType,
       "Content-Length": String(bytes.length),
       "Content-Disposition": encodeContentDispositionFilename(anexo.nomeArquivo),
-      "Cache-Control": "private, max-age=60"
+      "Cache-Control": "no-store"
     }
   });
 }

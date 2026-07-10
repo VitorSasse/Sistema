@@ -2,7 +2,9 @@ import {
   CategoriaRecursoOrcamento,
   Prisma,
   PrismaClient,
+  StatusCenarioOrcamento,
   StatusOrcamento,
+  StatusPropostaComercial,
   TipoItemOrcamento,
   TipoOrcamento
 } from "@prisma/client";
@@ -56,7 +58,19 @@ export const orcamentoInclude = {
     }
   },
   formacaoPreco: true,
+  cenarios: {
+    orderBy: [{ ordem: "asc" as const }, { createdAt: "asc" as const }]
+  },
   frentes: {
+    include: {
+      cenario: {
+        select: {
+          id: true,
+          ordem: true,
+          nome: true
+        }
+      }
+    },
     orderBy: [{ ordem: "asc" as const }, { createdAt: "asc" as const }]
   },
   itens: {
@@ -102,6 +116,21 @@ export const orcamentoInclude = {
   },
   premissas: {
     orderBy: [{ tipo: "asc" as const }, { ordem: "asc" as const }, { createdAt: "asc" as const }]
+  },
+  propostas: {
+    include: {
+      cenario: {
+        select: {
+          id: true,
+          ordem: true,
+          nome: true
+        }
+      },
+      opcionais: {
+        orderBy: [{ ordem: "asc" as const }, { createdAt: "asc" as const }]
+      }
+    },
+    orderBy: [{ revisao: "asc" as const }, { createdAt: "asc" as const }]
   }
 } satisfies Prisma.OrcamentoInclude;
 
@@ -316,17 +345,240 @@ function buildFormacaoPrecoData(input: OrcamentoInput) {
   return pricing.formacaoPreco;
 }
 
+function buildCenariosInput(input: OrcamentoInput) {
+  if (input.cenarios.length > 0) {
+    return input.cenarios;
+  }
+
+  if (input.tipo !== TipoOrcamento.OPERACIONAL) {
+    return [];
+  }
+
+  return [
+    {
+      tempId: "cenario-padrao",
+      ordem: 1,
+      nome: input.titulo?.trim() || "Cenario padrao",
+      descricao: "Cenario criado automaticamente para manter o fluxo rapido valido.",
+      metodoExecutivo: "",
+      observacao: "",
+      isPadrao: true,
+      status: StatusCenarioOrcamento.EM_ESTUDO
+    }
+  ];
+}
+
+function resolveCenarioId(
+  cenarioIdByRef: Map<string, string>,
+  value?: { cenarioTempId?: string | null; cenarioOrdem?: number | null }
+) {
+  if (value?.cenarioTempId?.trim()) {
+    return cenarioIdByRef.get(`temp:${value.cenarioTempId.trim()}`) ?? null;
+  }
+
+  if (value?.cenarioOrdem) {
+    return cenarioIdByRef.get(`ordem:${value.cenarioOrdem}`) ?? null;
+  }
+
+  return cenarioIdByRef.get("padrao") ?? null;
+}
+
+function buildPropostasInput(input: OrcamentoInput) {
+  return input.propostasComerciais;
+}
+
+function calcularValorOpcional(opcional: OrcamentoInput["propostasComerciais"][number]["opcionais"][number]) {
+  return calcularValorItem({
+    frenteTempId: "",
+    frenteOrdem: null,
+    tipoItem: TipoItemOrcamento.OUTRO,
+    servicoId: null,
+    materialId: null,
+    equipamentoId: null,
+    categoriaRecurso: null,
+    classeOperacional: "",
+    recursoReferenciaId: "",
+    recursoNome: "",
+    ordem: opcional.ordem,
+    codigo: opcional.codigo,
+    descricao: opcional.descricao,
+    unidade: opcional.unidade,
+    quantidade: opcional.quantidade,
+    produtividade: null,
+    custoUnitario: 0,
+    valorUnitario: opcional.valorUnitario,
+    observacao: opcional.observacao
+  });
+}
+
+function getFrenteRefsDoCenario(
+  input: OrcamentoInput,
+  cenario: OrcamentoInput["cenarios"][number] | undefined
+) {
+  return new Set(
+    getFrentesDoCenario(input, cenario)
+      .map((frente) => frente.tempId?.trim())
+      .filter(Boolean)
+  );
+}
+
+function getFrentesDoCenario(
+  input: OrcamentoInput,
+  cenario: OrcamentoInput["cenarios"][number] | undefined
+) {
+  if (!cenario) {
+    return input.frentes;
+  }
+
+  return input.frentes.filter((frente) => {
+    if (cenario.tempId?.trim() && frente.cenarioTempId?.trim()) {
+      return frente.cenarioTempId.trim() === cenario.tempId.trim();
+    }
+
+    return frente.cenarioOrdem === cenario.ordem || (!frente.cenarioTempId?.trim() && cenario.isPadrao);
+  });
+}
+
+function getItensDoCenario(
+  input: OrcamentoInput,
+  cenario: OrcamentoInput["cenarios"][number] | undefined
+) {
+  const frenteRefs = getFrenteRefsDoCenario(input, cenario);
+
+  return input.itens.filter((item) => {
+    if (!item.frenteTempId?.trim()) {
+      return input.tipo !== TipoOrcamento.OPERACIONAL;
+    }
+
+    return frenteRefs.has(item.frenteTempId.trim());
+  });
+}
+
+function buildPropostaTotals(
+  input: OrcamentoInput,
+  proposta: OrcamentoInput["propostasComerciais"][number],
+  cenario: OrcamentoInput["cenarios"][number] | undefined
+) {
+  const itensDoCenario = getItensDoCenario(input, cenario);
+  const subtotalCenario = itensDoCenario.reduce((sum, item) => sum + calcularValorItem(item), 0);
+  const subtotalOpcionais = proposta.opcionais.reduce(
+    (sum, opcional) => sum + calcularValorOpcional(opcional),
+    0
+  );
+  const valorSubtotal = Number((subtotalCenario + subtotalOpcionais).toFixed(2));
+  const valorDesconto = Number(input.valorDesconto ?? 0);
+  const valorAcrescimo = Number(input.valorAcrescimo ?? 0);
+
+  return {
+    valorSubtotal,
+    valorDesconto,
+    valorAcrescimo,
+    valorTotal: Math.max(0, Number((valorSubtotal - valorDesconto + valorAcrescimo).toFixed(2)))
+  };
+}
+
+function buildPropostaSnapshot(
+  input: OrcamentoInput,
+  proposta: OrcamentoInput["propostasComerciais"][number],
+  cenario: OrcamentoInput["cenarios"][number] | undefined
+) {
+  const frentesDoCenario = getFrentesDoCenario(input, cenario);
+  const itensDoCenario = getItensDoCenario(input, cenario);
+  const opcionais = proposta.opcionais.filter((opcional) => opcional.descricao?.trim());
+  const totals = buildPropostaTotals(input, proposta, cenario);
+
+  const snapshot = {
+    tipoOrcamento: input.tipo,
+    statusOrcamento: input.status,
+    cenario: cenario
+      ? {
+          ordem: cenario.ordem,
+          nome: cenario.nome,
+          descricao: cenario.descricao,
+          metodoExecutivo: cenario.metodoExecutivo
+        }
+      : null,
+    titulo: input.titulo ?? null,
+    objeto: input.objeto ?? null,
+    revisao: proposta.revisao,
+    valorDesconto: input.valorDesconto,
+    valorAcrescimo: input.valorAcrescimo,
+    totals,
+    formacaoPreco: input.formacaoPreco ?? null,
+    frentes: frentesDoCenario,
+    itens: itensDoCenario,
+    opcionais,
+    premissasGerais: input.premissas.filter((premissa) => premissa.descricao?.trim()),
+    criadoEm: new Date().toISOString()
+  };
+
+  return JSON.parse(JSON.stringify(snapshot)) as Prisma.JsonObject;
+}
+
 async function criarEstruturaOrcamento(
   db: DbClient,
   orcamentoId: string,
   input: OrcamentoInput
 ) {
+  const propostasEmitidas = new Set(
+    (
+      await db.orcamentoPropostaComercial.findMany({
+        where: {
+          orcamentoId,
+          status: StatusPropostaComercial.EMITIDA
+        },
+        select: {
+          id: true
+        }
+      })
+    ).map((proposta) => proposta.id)
+  );
+  const cenarioIdByRef = new Map<string, string>();
+  const cenarioInputByRef = new Map<string, OrcamentoInput["cenarios"][number]>();
+  const cenariosInput = buildCenariosInput(input);
+
+  for (const cenario of cenariosInput) {
+    const created = await db.orcamentoCenario.create({
+      data: {
+        orcamentoId,
+        ordem: cenario.ordem,
+        nome: cenario.nome,
+        descricao: clean(cenario.descricao),
+        metodoExecutivo: clean(cenario.metodoExecutivo),
+        observacao: clean(cenario.observacao),
+        isPadrao: cenario.isPadrao,
+        status: cenario.status
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (cenario.tempId?.trim()) {
+      cenarioIdByRef.set(`temp:${cenario.tempId.trim()}`, created.id);
+      cenarioInputByRef.set(`temp:${cenario.tempId.trim()}`, cenario);
+    }
+
+    if (!cenarioIdByRef.has(`ordem:${cenario.ordem}`)) {
+      cenarioIdByRef.set(`ordem:${cenario.ordem}`, created.id);
+      cenarioInputByRef.set(`ordem:${cenario.ordem}`, cenario);
+    }
+
+    if (cenario.isPadrao || !cenarioIdByRef.has("padrao")) {
+      cenarioIdByRef.set("padrao", created.id);
+      cenarioInputByRef.set("padrao", cenario);
+    }
+  }
+
   const frenteIdByRef = new Map<string, string>();
 
   for (const frente of input.frentes) {
+    const cenarioId = resolveCenarioId(cenarioIdByRef, frente);
+
     const created = await db.orcamentoFrente.create({
       data: {
         orcamentoId,
+        cenarioId,
         ordem: frente.ordem,
         nome: frente.nome,
         descricao: clean(frente.descricao),
@@ -395,12 +647,71 @@ async function criarEstruturaOrcamento(
     await db.orcamentoPremissa.create({
       data: {
         orcamentoId,
+        cenarioId: null,
         tipo: premissa.tipo,
         ordem: premissa.ordem,
         titulo: clean(premissa.titulo),
         descricao: premissa.descricao
       }
     });
+  }
+
+  const propostasInput = buildPropostasInput(input);
+
+  for (const proposta of propostasInput) {
+    if (proposta.tempId?.trim() && propostasEmitidas.has(proposta.tempId.trim())) {
+      continue;
+    }
+
+    const cenarioId = resolveCenarioId(cenarioIdByRef, proposta);
+    const cenarioInput =
+      proposta.cenarioTempId?.trim()
+        ? cenarioInputByRef.get(`temp:${proposta.cenarioTempId.trim()}`)
+        : proposta.cenarioOrdem
+          ? cenarioInputByRef.get(`ordem:${proposta.cenarioOrdem}`)
+          : cenarioInputByRef.get("padrao");
+    const codigo = clean(proposta.codigo) ?? `PROP-${String(proposta.revisao + 1).padStart(3, "0")}`;
+    const totals = buildPropostaTotals(input, proposta, cenarioInput);
+    const shouldSnapshot = proposta.status === StatusPropostaComercial.EMITIDA;
+
+    const created = await db.orcamentoPropostaComercial.create({
+      data: {
+        orcamentoId,
+        cenarioId,
+        codigo,
+        revisao: proposta.revisao,
+        titulo: clean(proposta.titulo),
+        status: proposta.status,
+        condicoesComerciais: clean(proposta.condicoesComerciais),
+        observacao: clean(proposta.observacao),
+        valorSubtotal: totals.valorSubtotal,
+        valorDesconto: totals.valorDesconto,
+        valorAcrescimo: totals.valorAcrescimo,
+        valorTotal: totals.valorTotal,
+        snapshotJson: shouldSnapshot ? buildPropostaSnapshot(input, proposta, cenarioInput) : undefined,
+        emitidaEm: shouldSnapshot ? new Date() : null
+      },
+      select: {
+        id: true
+      }
+    });
+
+    for (const opcional of proposta.opcionais) {
+      await db.orcamentoPropostaOpcional.create({
+        data: {
+          propostaId: created.id,
+          ordem: opcional.ordem,
+          codigo: clean(opcional.codigo),
+          descricao: opcional.descricao,
+          unidade: opcional.unidade,
+          quantidade: opcional.quantidade,
+          valorUnitario: opcional.valorUnitario,
+          valorTotal: calcularValorOpcional(opcional),
+          condicoes: clean(opcional.condicoes),
+          observacao: clean(opcional.observacao)
+        }
+      });
+    }
   }
 }
 
@@ -617,6 +928,14 @@ export async function atualizarOrcamento(
   await validarReferenciasOrcamento(db, params.input);
   validarTransicaoStatus(atual.status, params.input.status);
 
+  await db.orcamentoPropostaComercial.deleteMany({
+    where: {
+      orcamentoId: params.id,
+      status: {
+        not: StatusPropostaComercial.EMITIDA
+      }
+    }
+  });
   await db.orcamentoItem.deleteMany({
     where: { orcamentoId: params.id }
   });
@@ -628,6 +947,16 @@ export async function atualizarOrcamento(
   });
   await db.orcamentoFrente.deleteMany({
     where: { orcamentoId: params.id }
+  });
+  await db.orcamentoCenario.deleteMany({
+    where: {
+      orcamentoId: params.id,
+      propostas: {
+        none: {
+          status: StatusPropostaComercial.EMITIDA
+        }
+      }
+    }
   });
 
   await db.orcamento.update({
@@ -706,12 +1035,35 @@ export async function duplicarOrcamento(
     }
   });
 
+  const cenarioIdMap = new Map<string, string>();
+
+  for (const cenario of origem.cenarios) {
+    const created = await db.orcamentoCenario.create({
+      data: {
+        orcamentoId: novo.id,
+        ordem: cenario.ordem,
+        nome: cenario.nome,
+        descricao: cenario.descricao,
+        metodoExecutivo: cenario.metodoExecutivo,
+        observacao: cenario.observacao,
+        isPadrao: cenario.isPadrao,
+        status: StatusCenarioOrcamento.EM_ESTUDO
+      },
+      select: {
+        id: true
+      }
+    });
+
+    cenarioIdMap.set(cenario.id, created.id);
+  }
+
   const frenteIdMap = new Map<string, string>();
 
   for (const frente of origem.frentes) {
     const created = await db.orcamentoFrente.create({
       data: {
         orcamentoId: novo.id,
+        cenarioId: frente.cenarioId ? cenarioIdMap.get(frente.cenarioId) ?? null : null,
         ordem: frente.ordem,
         nome: frente.nome,
         descricao: frente.descricao,
@@ -779,12 +1131,52 @@ export async function duplicarOrcamento(
     await db.orcamentoPremissa.create({
       data: {
         orcamentoId: novo.id,
+        cenarioId: premissa.cenarioId ? cenarioIdMap.get(premissa.cenarioId) ?? null : null,
         tipo: premissa.tipo,
         ordem: premissa.ordem,
         titulo: premissa.titulo,
         descricao: premissa.descricao
       }
     });
+  }
+
+  for (const proposta of origem.propostas) {
+    const propostaCriada = await db.orcamentoPropostaComercial.create({
+      data: {
+        orcamentoId: novo.id,
+        cenarioId: proposta.cenarioId ? cenarioIdMap.get(proposta.cenarioId) ?? null : null,
+        codigo: proposta.codigo,
+        revisao: proposta.revisao,
+        titulo: proposta.titulo,
+        status: StatusPropostaComercial.RASCUNHO,
+        condicoesComerciais: proposta.condicoesComerciais,
+        observacao: proposta.observacao,
+        valorSubtotal: proposta.valorSubtotal,
+        valorDesconto: proposta.valorDesconto,
+        valorAcrescimo: proposta.valorAcrescimo,
+        valorTotal: proposta.valorTotal
+      },
+      select: {
+        id: true
+      }
+    });
+
+    for (const opcional of proposta.opcionais) {
+      await db.orcamentoPropostaOpcional.create({
+        data: {
+          propostaId: propostaCriada.id,
+          ordem: opcional.ordem,
+          codigo: opcional.codigo,
+          descricao: opcional.descricao,
+          unidade: opcional.unidade,
+          quantidade: opcional.quantidade,
+          valorUnitario: opcional.valorUnitario,
+          valorTotal: opcional.valorTotal,
+          condicoes: opcional.condicoes,
+          observacao: opcional.observacao
+        }
+      });
+    }
   }
 
   return buscarOrcamento(db, novo.id);
