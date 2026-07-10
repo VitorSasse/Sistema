@@ -86,6 +86,7 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
   const isMaster = session.user.isMaster;
 
   const securityItems = [
+    ...(isMaster ? [{ href: "/master" as Route, label: "Painel Master" }] : []),
     ...(canManageUsers ? [{ href: "/usuarios" as Route, label: "Usuarios e acessos" }] : []),
     ...(canReadAudit
       ? [{ href: "/seguranca/logs-lancamentos" as Route, label: "Logs de edicao de lancamentos" }]
@@ -93,16 +94,6 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
   ];
 
   const navigation = [
-    ...(isMaster
-      ? [
-          {
-            label: "Master",
-            icon: "master",
-            description: "Administracao SaaS, empresas e usuarios por tenant.",
-            items: [{ href: "/master" as Route, label: "Painel Master" }]
-          }
-        ]
-      : []),
     ...navigationGroups,
     ...(securityItems.length > 0
       ? [
