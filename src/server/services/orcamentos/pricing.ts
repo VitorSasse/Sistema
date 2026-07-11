@@ -1,5 +1,6 @@
-import { ModoCustoOrcamento, TipoOrcamento } from "@prisma/client";
+import { ModoCustoOrcamento, TipoItemOrcamento, TipoOrcamento } from "@prisma/client";
 import type { OrcamentoInput } from "@/lib/validators/orcamento";
+import { calcularMotorCustos } from "@/lib/orcamentos/cost-engine";
 
 type OrcamentoItemInput = OrcamentoInput["itens"][number];
 
@@ -18,6 +19,37 @@ export function calcularValorItem(input: OrcamentoItemInput) {
 
 export function calcularCustoItem(input: OrcamentoItemInput) {
   return toMoney(Number(input.quantidade) * Number(input.custoUnitario));
+}
+
+function getFrenteRef(frente: OrcamentoInput["frentes"][number]) {
+  return frente.tempId?.trim() || `ordem:${frente.ordem}`;
+}
+
+function getItemFrenteRef(item: OrcamentoItemInput) {
+  return item.frenteTempId?.trim() || (item.frenteOrdem ? `ordem:${item.frenteOrdem}` : "");
+}
+
+function buildCostEngineInput(input: OrcamentoInput) {
+  return {
+    frentes: input.frentes.map((frente) => ({
+      ref: getFrenteRef(frente),
+      nome: frente.nome,
+      unidadeProducao: frente.unidadeProducao,
+      quantidadePrevista: frente.quantidadePrevista,
+      produtividadeDia: frente.produtividadeDia,
+      prazoEstimadoDias: frente.prazoEstimadoDias
+    })),
+    recursos: input.itens
+      .filter((item) => item.tipoItem === TipoItemOrcamento.RECURSO)
+      .map((item) => ({
+        frenteRef: getItemFrenteRef(item),
+        categoria: item.categoriaRecurso,
+        descricao: item.descricao,
+        quantidade: item.quantidade,
+        custoOperacional: item.custoUnitario,
+        unidadeCusto: item.unidade
+      }))
+  };
 }
 
 function calcularMargemEImpostos(input: OrcamentoInput, baseCustos: number) {
@@ -52,15 +84,17 @@ function buildSnapshot(input: OrcamentoInput, config: { operacional: boolean }) 
   const custoDiretoItens = toMoney(
     itensParaCusto.reduce((sum, item) => sum + calcularCustoItem(item), 0)
   );
+  const motorCustos = config.operacional ? calcularMotorCustos(buildCostEngineInput(input)) : null;
+  const custoDiretoCompleto = motorCustos?.custoDiretoTotal ?? custoDiretoItens;
   const custoDiretoManual = toMoney(Number(formacao?.custoDireto ?? 0));
   const modoCusto =
     formacao?.modoCusto ??
-    (config.operacional && custoDiretoItens > 0
+    (config.operacional && custoDiretoCompleto > 0
       ? ModoCustoOrcamento.COMPLETO
       : ModoCustoOrcamento.SIMPLIFICADO);
   const custoDireto = config.operacional
     ? modoCusto === ModoCustoOrcamento.COMPLETO
-      ? custoDiretoItens
+      ? custoDiretoCompleto
       : custoDiretoManual
     : custoDiretoItens > 0
       ? custoDiretoItens

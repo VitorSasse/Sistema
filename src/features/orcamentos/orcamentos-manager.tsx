@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SearchableSelect } from "@/components/form/searchable-select";
+import { calcularMotorCustos } from "@/lib/orcamentos/cost-engine";
 import { formatDateDisplay, formatDateInputValue } from "@/lib/utils/date";
 
 type TipoOrcamento = "COMERCIAL" | "OPERACIONAL";
@@ -839,8 +840,32 @@ function buildEconomicPreview(form: OrcamentoForm) {
   const itensParaCusto = isOperational
     ? form.itens.filter((item) => item.frenteTempId)
     : form.itens;
+  const motorCustos = isOperational
+    ? calcularMotorCustos({
+        frentes: form.frentes.map((frente) => ({
+          ref: frente.localId,
+          nome: frente.nome,
+          unidadeProducao: frente.unidadeProducao,
+          quantidadePrevista: frente.quantidadePrevista,
+          produtividadeDia: frente.produtividadeDia,
+          prazoEstimadoDias: frente.prazoEstimadoDias
+        })),
+        recursos: form.itens
+          .filter((item) => isRecursoItem(item))
+          .map((item) => ({
+            frenteRef: item.frenteTempId,
+            categoria: item.categoriaRecurso,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            custoOperacional: item.custoUnitario,
+            unidadeCusto: item.unidade
+          }))
+      })
+    : null;
   const custoDiretoCalculado = roundMoney(
-    itensParaCusto.reduce((sum, item) => sum + calcItemCost(item), 0)
+    isOperational
+      ? motorCustos?.custoDiretoTotal ?? 0
+      : itensParaCusto.reduce((sum, item) => sum + calcItemCost(item), 0)
   );
   const custoDiretoManual = roundMoney(Number(form.formacaoPreco.custoDireto) || 0);
   const custoDireto = roundMoney(
@@ -903,7 +928,8 @@ function buildEconomicPreview(form: OrcamentoForm) {
     baseVenda,
     desconto,
     acrescimo,
-    total
+    total,
+    motorCustos
   };
 }
 
@@ -1071,6 +1097,7 @@ export function OrcamentosManager() {
   const baseCustosForm = economicPreview.baseCustos;
   const precoSugeridoForm = economicPreview.precoSugerido;
   const totalForm = economicPreview.total;
+  const motorCustosForm = economicPreview.motorCustos;
   const prazoEstimadoForm = useMemo(
     () =>
       form.frentes.reduce(
@@ -1095,6 +1122,29 @@ export function OrcamentosManager() {
     quantidadeFrentesForm > 0 ? roundMoney(custoDiretoForm / quantidadeFrentesForm) : 0;
   const custoTotalUnitarioForm =
     quantidadeFrentesForm > 0 ? roundMoney(baseCustosForm / quantidadeFrentesForm) : 0;
+  const precoFinalUnitarioForm =
+    quantidadeFrentesForm > 0 ? roundMoney(totalForm / quantidadeFrentesForm) : 0;
+  const producaoPrevistaForm = useMemo(
+    () =>
+      form.frentes.reduce(
+        (total, frente) => total + (parseFrenteNumber(frente.produtividadeDia) ?? 0),
+        0
+      ),
+    [form.frentes]
+  );
+  const unidadeExecutivaForm = useMemo(() => {
+    const unidades = Array.from(
+      new Set(
+        form.frentes
+          .map((frente) => normalizeUnidadeProducao(frente.unidadeProducao))
+          .filter((unidade) => unidade && unidade !== "unidade")
+      )
+    );
+
+    if (unidades.length === 0) return "-";
+    if (unidades.length === 1) return unidades[0];
+    return "unidades mistas";
+  }, [form.frentes]);
 
   useEffect(() => {
     async function init() {
@@ -1977,11 +2027,44 @@ export function OrcamentosManager() {
                     </div>
 
                     {modoCustoForm === "COMPLETO" ? (
-                      <div className="orcamentos-calculated-field">
-                        <span>Custo direto calculado</span>
-                        <strong>{formatCurrency(custoDiretoCalculadoForm)}</strong>
-                        <small>Quantidade x custo unitario dos recursos planejados.</small>
-                      </div>
+                      <>
+                        <div className="orcamentos-calculated-field">
+                          <span>Custo direto calculado</span>
+                          <strong>{formatCurrency(custoDiretoCalculadoForm)}</strong>
+                          <small>
+                            Recursos convertidos para a unidade economica de cada frente.
+                          </small>
+                        </div>
+
+                        <div className="orcamentos-cost-memory">
+                          <strong>Memoria de calculo</strong>
+                          {motorCustosForm?.memoria.length ? (
+                            <div className="orcamentos-cost-memory-list">
+                              {motorCustosForm.memoria.map((memoria, index) => (
+                                <div key={`${memoria.frenteRef}-${memoria.descricao}-${index}`}>
+                                  <span>
+                                    {memoria.descricao} ({memoria.unidadeCustoFormatada})
+                                  </span>
+                                  <small>{memoria.formula}</small>
+                                  <strong>{formatCurrency(memoria.custoTotal)}</strong>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <small>
+                              Nenhum recurso suficiente para calcular o custo direto. Use o modo
+                              simplificado enquanto detalha os recursos.
+                            </small>
+                          )}
+                          {motorCustosForm?.avisos.length ? (
+                            <ul>
+                              {motorCustosForm.avisos.slice(0, 4).map((aviso) => (
+                                <li key={aviso}>{aviso}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      </>
                     ) : (
                       <label className="manager-field">
                         <span className="manager-field-label">Custo direto manual</span>
@@ -2081,6 +2164,43 @@ export function OrcamentosManager() {
                       </label>
                     </div>
                   </article>
+                </div>
+
+                <div className="orcamentos-executive-cost-panel">
+                  <div>
+                    <span>Quantidade</span>
+                    <strong>
+                      {quantidadeFrentesForm ? quantidadeFrentesForm.toLocaleString("pt-BR") : "-"}
+                    </strong>
+                    <small>{unidadeExecutivaForm}</small>
+                  </div>
+                  <div>
+                    <span>Producao prevista</span>
+                    <strong>
+                      {producaoPrevistaForm ? producaoPrevistaForm.toLocaleString("pt-BR") : "-"}
+                    </strong>
+                    <small>{unidadeExecutivaForm}/dia</small>
+                  </div>
+                  <div>
+                    <span>Prazo estimado</span>
+                    <strong>{prazoEstimadoForm ? `${prazoEstimadoForm} dia(s)` : "-"}</strong>
+                    <small>maior prazo entre frentes</small>
+                  </div>
+                  <div>
+                    <span>Custo direto unitario</span>
+                    <strong>{formatCurrency(custoDiretoUnitarioForm)}</strong>
+                    <small>por {unidadeExecutivaForm}</small>
+                  </div>
+                  <div>
+                    <span>Preco final unitario</span>
+                    <strong>{formatCurrency(precoFinalUnitarioForm)}</strong>
+                    <small>apos ajustes comerciais</small>
+                  </div>
+                  <div>
+                    <span>Valor total do orcamento</span>
+                    <strong>{formatCurrency(totalForm)}</strong>
+                    <small>preco final</small>
+                  </div>
                 </div>
               </>
             ) : (

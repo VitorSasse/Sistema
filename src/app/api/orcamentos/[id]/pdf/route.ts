@@ -149,6 +149,26 @@ function getSnapshotTotals(snapshot: Record<string, unknown>) {
   };
 }
 
+function getSnapshotFormacaoPreco(snapshot: Record<string, unknown>) {
+  const formacaoPreco = isRecord(snapshot.formacaoPreco) ? snapshot.formacaoPreco : null;
+
+  if (!formacaoPreco) {
+    return null;
+  }
+
+  return {
+    custoDireto: asNumber(formacaoPreco.custoDireto),
+    custoIndireto: asNumber(formacaoPreco.custoIndireto),
+    margemPercentual: asNumber(formacaoPreco.margemPercentual),
+    margemValor: asNumber(formacaoPreco.margemValor),
+    impostosPercentual: asNumber(formacaoPreco.impostosPercentual),
+    impostosValor: asNumber(formacaoPreco.impostosValor),
+    precoSugerido: asNumber(formacaoPreco.precoSugerido),
+    precoFinal: asNumber(formacaoPreco.precoFinal),
+    observacao: asNullableString(formacaoPreco.observacao)
+  };
+}
+
 export async function GET(request: Request, context: RouteContext) {
   const session = await auth();
 
@@ -254,6 +274,21 @@ export async function GET(request: Request, context: RouteContext) {
           }))
       ];
   const snapshotTotals = snapshotOperacional ? getSnapshotTotals(snapshotOperacional) : null;
+  const formacaoPrecoPdf = snapshotOperacional
+    ? getSnapshotFormacaoPreco(snapshotOperacional)
+    : orcamento.formacaoPreco
+      ? {
+          custoDireto: Number(orcamento.formacaoPreco.custoDireto),
+          custoIndireto: Number(orcamento.formacaoPreco.custoIndireto),
+          margemPercentual: Number(orcamento.formacaoPreco.margemPercentual),
+          margemValor: Number(orcamento.formacaoPreco.margemValor),
+          impostosPercentual: Number(orcamento.formacaoPreco.impostosPercentual),
+          impostosValor: Number(orcamento.formacaoPreco.impostosValor),
+          precoSugerido: Number(orcamento.formacaoPreco.precoSugerido),
+          precoFinal: Number(orcamento.formacaoPreco.precoFinal),
+          observacao: orcamento.formacaoPreco.observacao
+        }
+      : null;
 
   if (itensPdf.length === 0) {
     return NextResponse.json(
@@ -304,19 +339,7 @@ export async function GET(request: Request, context: RouteContext) {
             email: orcamento.responsavel.email
           }
         : null,
-      formacaoPreco: orcamento.formacaoPreco
-        ? {
-            custoDireto: Number(orcamento.formacaoPreco.custoDireto),
-            custoIndireto: Number(orcamento.formacaoPreco.custoIndireto),
-            margemPercentual: Number(orcamento.formacaoPreco.margemPercentual),
-            margemValor: Number(orcamento.formacaoPreco.margemValor),
-            impostosPercentual: Number(orcamento.formacaoPreco.impostosPercentual),
-            impostosValor: Number(orcamento.formacaoPreco.impostosValor),
-            precoSugerido: Number(orcamento.formacaoPreco.precoSugerido),
-            precoFinal: Number(orcamento.formacaoPreco.precoFinal),
-            observacao: orcamento.formacaoPreco.observacao
-          }
-        : null,
+      formacaoPreco: formacaoPrecoPdf,
       frentes: frentesPdf,
       itens: itensPdf,
       premissas: premissasPdf,

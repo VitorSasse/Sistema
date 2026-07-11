@@ -347,7 +347,21 @@ function buildFormacaoPrecoData(input: OrcamentoInput) {
 
 function buildCenariosInput(input: OrcamentoInput) {
   if (input.cenarios.length > 0) {
-    return input.cenarios;
+    let hasDefault = false;
+
+    return input.cenarios.map((cenario, index) => {
+      const isPadrao = cenario.isPadrao || (!hasDefault && index === 0);
+      const normalized = {
+        ...cenario,
+        isPadrao: isPadrao && !hasDefault
+      };
+
+      if (normalized.isPadrao) {
+        hasDefault = true;
+      }
+
+      return normalized;
+    });
   }
 
   if (input.tipo !== TipoOrcamento.OPERACIONAL) {
