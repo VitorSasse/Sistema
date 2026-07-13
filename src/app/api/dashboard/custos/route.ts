@@ -390,7 +390,7 @@ export async function GET(request: NextRequest) {
   const monthKeys = buildMonthKeys(period.start, period.end);
 
   const byCategoria = new Map<CategoriaCusto, { categoria: CategoriaCusto; label: string; total: number; count: number }>();
-  const byEquipamento = new Map<string, { id: string | null; nome: string; tipoControle: string | null; total: number; count: number; manutencao: number; combustivel: number; fornecedores: Set<string> }>();
+  const byEquipamento = new Map<string, { id: string | null; nome: string; tipoControle: string | null; total: number; count: number; manutencao: number; combustivel: number; litrosCombustivel: number; fornecedores: Set<string> }>();
   const byCentro = new Map<string, { id: string | null; nome: string; total: number; count: number; manutencao: number; combustivel: number }>();
   const byFornecedor = new Map<string, { id: string; nome: string; status: string; total: number; count: number }>();
   const byPlano = new Map<string, { id: string | null; nome: string; total: number; count: number }>();
@@ -411,13 +411,17 @@ export async function GET(request: NextRequest) {
         count: 0,
         manutencao: 0,
         combustivel: 0,
+        litrosCombustivel: 0,
         fornecedores: new Set<string>()
       },
       item.subtotal
     );
     equipamento.fornecedores.add(item.fornecedorNome);
     if (item.categoria === "MANUTENCAO") equipamento.manutencao += item.subtotal;
-    if (item.categoria === "COMBUSTIVEL") equipamento.combustivel += item.subtotal;
+    if (item.categoria === "COMBUSTIVEL") {
+      equipamento.combustivel += item.subtotal;
+      equipamento.litrosCombustivel += item.quantidade;
+    }
 
     const centro = addToMap(
       byCentro,
@@ -480,6 +484,7 @@ export async function GET(request: NextRequest) {
         total: Number(item.total.toFixed(2)),
         manutencao: Number(item.manutencao.toFixed(2)),
         combustivel: Number(item.combustivel.toFixed(2)),
+        litrosCombustivel: Number(item.litrosCombustivel.toFixed(2)),
         ordens: item.count,
         fornecedores: Array.from(item.fornecedores).slice(0, 5),
         horasReferencia: Number(horasReferencia.toFixed(2)),

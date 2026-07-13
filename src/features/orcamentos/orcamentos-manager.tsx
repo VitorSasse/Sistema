@@ -2532,6 +2532,29 @@ function FrentesOperacionaisSection(props: {
   onRemoveItem: (localId: string) => void;
   onUpdateItem: (localId: string, key: keyof ItemForm, value: string | number) => void;
 }) {
+  type OperationalLevel = "principal" | "metodo" | "auxiliares" | "recursos";
+  const [openLevels, setOpenLevels] = useState<Record<string, OperationalLevel | null>>({});
+
+  function getOpenLevel(frenteLocalId: string) {
+    return Object.prototype.hasOwnProperty.call(openLevels, frenteLocalId)
+      ? openLevels[frenteLocalId]
+      : "principal";
+  }
+
+  function toggleLevel(frenteLocalId: string, level: OperationalLevel) {
+    setOpenLevels((current) => {
+      const active = Object.prototype.hasOwnProperty.call(current, frenteLocalId)
+        ? current[frenteLocalId]
+        : "principal";
+
+      return { ...current, [frenteLocalId]: active === level ? null : level };
+    });
+  }
+
+  function openLevel(frenteLocalId: string, level: OperationalLevel) {
+    setOpenLevels((current) => ({ ...current, [frenteLocalId]: level }));
+  }
+
   return (
     <div className="orcamentos-form-section orcamentos-operational-section">
       <div className="orcamentos-form-heading">
@@ -2563,6 +2586,7 @@ function FrentesOperacionaisSection(props: {
           const custoCalculadoPorRecursos = custoFrente?.origemCusto === "RECURSOS";
           const unidadeProdutividadeLabel = getProdutividadeLabel(frente.unidadeProducao);
           const frenteCalculoMessage = getFrenteCalculoMessage(frente);
+          const openLevelId = getOpenLevel(frente.localId);
 
           return (
             <article key={frente.localId} className="orcamentos-subcard orcamentos-front-card">
@@ -2676,105 +2700,178 @@ function FrentesOperacionaisSection(props: {
 
               <div className="orcamentos-depth-block">
                 <div className="orcamentos-depth-heading">
-                  <div>
-                    <span>Nivel 1</span>
-                    <strong>Servico principal</strong>
-                    <small>Define o que sera executado nesta frente.</small>
-                  </div>
                   <button
                     type="button"
-                    onClick={() => props.onAddItem(frente.localId, "SERVICO_PRINCIPAL")}
+                    className="orcamentos-depth-toggle"
+                    aria-expanded={openLevelId === "principal"}
+                    onClick={() => toggleLevel(frente.localId, "principal")}
+                  >
+                    <div>
+                    <span>Nivel 1</span>
+                    <strong>Servico principal</strong>
+                    <small>
+                      {servicosPrincipais.length > 0
+                        ? `${servicosPrincipais.length} servico(s) principal(is) informado(s).`
+                        : "Define o que sera executado nesta frente."}
+                    </small>
+                    </div>
+                    <span className="orcamentos-depth-chevron" aria-hidden="true">
+                      {openLevelId === "principal" ? "-" : "+"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openLevel(frente.localId, "principal");
+                      props.onAddItem(frente.localId, "SERVICO_PRINCIPAL");
+                    }}
                   >
                     Adicionar principal
                   </button>
                 </div>
-                <OperationalItemList
-                  emptyLabel="Nenhum servico principal informado nesta frente."
-                  itens={servicosPrincipais}
-                  servicoOptions={props.servicoOptions}
-                  materialOptions={props.materialOptions}
-                  equipamentoOptions={props.equipamentoOptions}
-                  classeOperacionalOptions={props.classeOperacionalOptions}
-                  colaboradorOptions={props.colaboradorOptions}
-                  fornecedorOptions={props.fornecedorOptions}
-                  onRemove={props.onRemoveItem}
-                  onUpdate={props.onUpdateItem}
-                />
+                {openLevelId === "principal" ? (
+                  <div className="orcamentos-depth-content">
+                    <OperationalItemList
+                      emptyLabel="Nenhum servico principal informado nesta frente."
+                      itens={servicosPrincipais}
+                      servicoOptions={props.servicoOptions}
+                      materialOptions={props.materialOptions}
+                      equipamentoOptions={props.equipamentoOptions}
+                      classeOperacionalOptions={props.classeOperacionalOptions}
+                      colaboradorOptions={props.colaboradorOptions}
+                      fornecedorOptions={props.fornecedorOptions}
+                      onRemove={props.onRemoveItem}
+                      onUpdate={props.onUpdateItem}
+                    />
+                  </div>
+                ) : null}
               </div>
 
               <div className="orcamentos-depth-block">
                 <div className="orcamentos-depth-heading">
-                  <div>
-                    <span>Nivel 2</span>
-                    <strong>Metodo executivo</strong>
-                    <small>Opcional. Registra como a frente sera executada.</small>
-                  </div>
-                </div>
-                <textarea
-                  className="field-control"
-                  rows={3}
-                  value={frente.metodoExecutivo}
-                  placeholder="Ex: escavacao, carga, transporte, espalhamento e compactacao..."
-                  onChange={(event) =>
-                    props.onUpdate(frente.localId, "metodoExecutivo", event.target.value)
-                  }
-                />
-              </div>
-
-              <div className="orcamentos-depth-block">
-                <div className="orcamentos-depth-heading">
-                  <div>
-                    <span>Nivel 3</span>
-                    <strong>Servicos auxiliares</strong>
-                    <small>Opcional. Complementos da execucao principal.</small>
-                  </div>
                   <button
                     type="button"
-                    onClick={() => props.onAddItem(frente.localId, "SERVICO_AUXILIAR")}
+                    className="orcamentos-depth-toggle"
+                    aria-expanded={openLevelId === "metodo"}
+                    onClick={() => toggleLevel(frente.localId, "metodo")}
+                  >
+                    <div>
+                    <span>Nivel 2</span>
+                    <strong>Metodo executivo</strong>
+                    <small>{frente.metodoExecutivo.trim() ? "Metodo executivo preenchido." : "Opcional. Registra como a frente sera executada."}</small>
+                    </div>
+                    <span className="orcamentos-depth-chevron" aria-hidden="true">
+                      {openLevelId === "metodo" ? "-" : "+"}
+                    </span>
+                  </button>
+                </div>
+                {openLevelId === "metodo" ? (
+                  <div className="orcamentos-depth-content">
+                    <textarea
+                      className="field-control"
+                      rows={3}
+                      value={frente.metodoExecutivo}
+                      placeholder="Ex: escavacao, carga, transporte, espalhamento e compactacao..."
+                      onChange={(event) =>
+                        props.onUpdate(frente.localId, "metodoExecutivo", event.target.value)
+                      }
+                    />
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="orcamentos-depth-block">
+                <div className="orcamentos-depth-heading">
+                  <button
+                    type="button"
+                    className="orcamentos-depth-toggle"
+                    aria-expanded={openLevelId === "auxiliares"}
+                    onClick={() => toggleLevel(frente.localId, "auxiliares")}
+                  >
+                    <div>
+                    <span>Nivel 3</span>
+                    <strong>Servicos auxiliares</strong>
+                    <small>
+                      {servicosAuxiliares.length > 0
+                        ? `${servicosAuxiliares.length} servico(s) auxiliar(es) informado(s).`
+                        : "Opcional. Complementos da execucao principal."}
+                    </small>
+                    </div>
+                    <span className="orcamentos-depth-chevron" aria-hidden="true">
+                      {openLevelId === "auxiliares" ? "-" : "+"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openLevel(frente.localId, "auxiliares");
+                      props.onAddItem(frente.localId, "SERVICO_AUXILIAR");
+                    }}
                   >
                     Adicionar auxiliar
                   </button>
                 </div>
-                <OperationalItemList
-                  emptyLabel="Nenhum servico auxiliar informado."
-                  itens={servicosAuxiliares}
-                  servicoOptions={props.servicoOptions}
-                  materialOptions={props.materialOptions}
-                  equipamentoOptions={props.equipamentoOptions}
-                  classeOperacionalOptions={props.classeOperacionalOptions}
-                  colaboradorOptions={props.colaboradorOptions}
-                  fornecedorOptions={props.fornecedorOptions}
-                  onRemove={props.onRemoveItem}
-                  onUpdate={props.onUpdateItem}
-                />
+                {openLevelId === "auxiliares" ? (
+                  <div className="orcamentos-depth-content">
+                    <OperationalItemList
+                      emptyLabel="Nenhum servico auxiliar informado."
+                      itens={servicosAuxiliares}
+                      servicoOptions={props.servicoOptions}
+                      materialOptions={props.materialOptions}
+                      equipamentoOptions={props.equipamentoOptions}
+                      classeOperacionalOptions={props.classeOperacionalOptions}
+                      colaboradorOptions={props.colaboradorOptions}
+                      fornecedorOptions={props.fornecedorOptions}
+                      onRemove={props.onRemoveItem}
+                      onUpdate={props.onUpdateItem}
+                    />
+                  </div>
+                ) : null}
               </div>
 
               <div className="orcamentos-depth-block">
                 <div className="orcamentos-depth-heading">
-                  <div>
+                  <button
+                    type="button"
+                    className="orcamentos-depth-toggle"
+                    aria-expanded={openLevelId === "recursos"}
+                    onClick={() => toggleLevel(frente.localId, "recursos")}
+                  >
+                    <div>
                     <span>Niveis 4 a 6</span>
                     <strong>Recursos operacionais</strong>
                     <small>
-                      Recursos sao meios de execucao. Produtividade pertence a frente e ao metodo.
+                      {recursosPlanejamento.length > 0
+                        ? `${recursosPlanejamento.length} recurso(s) | ${formatCurrency(custoFrente?.custoDireto ?? 0)}`
+                        : "Recursos sao meios de execucao. Produtividade pertence a frente e ao metodo."}
                     </small>
-                  </div>
-                  <button type="button" onClick={() => props.onAddItem(frente.localId, "RECURSO")}>
+                    </div>
+                    <span className="orcamentos-depth-chevron" aria-hidden="true">
+                      {openLevelId === "recursos" ? "-" : "+"}
+                    </span>
+                  </button>
+                  <button type="button" onClick={() => {
+                    openLevel(frente.localId, "recursos");
+                    props.onAddItem(frente.localId, "RECURSO");
+                  }}>
                     Adicionar recurso
                   </button>
                 </div>
-                <OperationalItemList
-                  emptyLabel="Nenhum equipamento, equipe, material ou terceiro planejado."
-                  itens={recursosPlanejamento}
-                  servicoOptions={props.servicoOptions}
-                  materialOptions={props.materialOptions}
-                  equipamentoOptions={props.equipamentoOptions}
-                  classeOperacionalOptions={props.classeOperacionalOptions}
-                  colaboradorOptions={props.colaboradorOptions}
-                  fornecedorOptions={props.fornecedorOptions}
-                  onRemove={props.onRemoveItem}
-                  onUpdate={props.onUpdateItem}
-                />
-                <div className="orcamentos-front-cost-panel">
+                {openLevelId === "recursos" ? (
+                  <div className="orcamentos-depth-content">
+                    <OperationalItemList
+                      emptyLabel="Nenhum equipamento, equipe, material ou terceiro planejado."
+                      itens={recursosPlanejamento}
+                      servicoOptions={props.servicoOptions}
+                      materialOptions={props.materialOptions}
+                      equipamentoOptions={props.equipamentoOptions}
+                      classeOperacionalOptions={props.classeOperacionalOptions}
+                      colaboradorOptions={props.colaboradorOptions}
+                      fornecedorOptions={props.fornecedorOptions}
+                      onRemove={props.onRemoveItem}
+                      onUpdate={props.onUpdateItem}
+                    />
+                    <div className="orcamentos-front-cost-panel">
                   <label className="manager-field">
                     <span className="manager-field-label">Custo da frente</span>
                     <input
@@ -2807,14 +2904,16 @@ function FrentesOperacionaisSection(props: {
                         : "Sem recursos validos, este valor compoe o Custo Direto do orcamento."}
                     </small>
                   </div>
-                </div>
-                <textarea
-                  className="field-control"
-                  rows={2}
-                  value={frente.observacao}
-                  placeholder="Observacoes internas desta frente."
-                  onChange={(event) => props.onUpdate(frente.localId, "observacao", event.target.value)}
-                />
+                    </div>
+                    <textarea
+                      className="field-control"
+                      rows={2}
+                      value={frente.observacao}
+                      placeholder="Observacoes internas desta frente."
+                      onChange={(event) => props.onUpdate(frente.localId, "observacao", event.target.value)}
+                    />
+                  </div>
+                ) : null}
               </div>
             </article>
           );

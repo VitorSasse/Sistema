@@ -5883,6 +5883,28 @@ button {
 .programacao-grid-shell.is-month-view .programacao-equipment-card {
   grid-template-columns: 42px minmax(0, 1fr) 78px;
   padding: 12px 10px;
+  z-index: 3;
+  box-shadow: 12px 0 24px rgba(15, 23, 42, 0.12);
+}
+
+.programacao-grid-shell.is-month-view .programacao-equipment-head {
+  z-index: 7;
+  box-shadow: 12px 0 24px rgba(15, 23, 42, 0.14);
+}
+
+.programacao-grid-shell.is-expanded-view {
+  height: 100%;
+  max-height: none;
+  border-radius: 18px;
+}
+
+.programacao-agenda-expandable .expandable-chart-content {
+  min-height: 0;
+}
+
+.programacao-agenda-expandable .expandable-chart-trigger {
+  top: 12px;
+  right: 18px;
 }
 
 .programacao-grid-shell.is-month-view .programacao-equipment-avatar {
@@ -7279,6 +7301,87 @@ button {
   letter-spacing: 0.04em;
 }
 
+.cost-equipment-visible-total {
+  flex: 0 0 auto;
+  color: var(--screen-text);
+  font-size: 1rem;
+}
+
+.cost-equipment-visibility {
+  margin-bottom: 12px;
+  border: 1px solid var(--screen-border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--screen-surface-soft) 88%, transparent);
+  color: var(--screen-text);
+}
+
+.cost-equipment-visibility summary {
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  list-style-position: inside;
+}
+
+.cost-equipment-visibility-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  max-height: 210px;
+  padding: 0 12px 12px;
+  overflow-y: auto;
+}
+
+.cost-equipment-visibility-list label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--screen-border) 82%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--screen-surface-strong) 72%, transparent);
+  cursor: pointer;
+}
+
+.cost-equipment-visibility-list label span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--screen-text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cost-equipment-visibility-list label small {
+  color: var(--screen-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.cost-equipment-visibility-list button {
+  width: fit-content;
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--primary);
+  font-weight: 900;
+}
+
+.cost-equipment-tooltip b {
+  margin-top: 3px;
+  color: #38bdf8;
+  font-size: 0.78rem;
+}
+
+.cost-center-chart-legend span {
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
 .cost-center-chart-legend i {
   width: 9px;
   height: 9px;
@@ -8134,6 +8237,64 @@ button {
   background: rgba(255, 255, 255, 0.06);
   color: var(--screen-text);
   font-weight: 800;
+}
+
+.orcamentos-depth-heading > .orcamentos-depth-toggle {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  width: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.orcamentos-depth-heading > .orcamentos-depth-toggle:hover,
+.orcamentos-depth-heading > .orcamentos-depth-toggle:focus-visible {
+  color: var(--primary);
+}
+
+.orcamentos-depth-toggle > div {
+  min-width: 0;
+}
+
+.orcamentos-depth-heading .orcamentos-depth-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  margin-left: 12px;
+  padding: 0;
+  border: 1px solid var(--screen-border);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+  font-size: 1rem;
+}
+
+.orcamentos-depth-content {
+  display: grid;
+  gap: 12px;
+  animation: chartDialogIn 150ms ease both;
+}
+
+.field.has-error .field-control {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #ef4444 18%, transparent);
+}
+
+.field-error {
+  display: block;
+  margin-top: 6px;
+  color: #f87171;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.35;
 }
 
 .orcamentos-operational-item {

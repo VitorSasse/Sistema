@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { TipoRecurso, TurnoAgendaProgramacao } from "@prisma/client";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { ExpandableChart } from "@/components/dashboard/expandable-chart";
 import { SearchableSelect } from "@/components/form/searchable-select";
 import { formatDateInputValue, parseDateOnlyStart } from "@/lib/utils/date";
 
@@ -332,6 +333,8 @@ function formatPercent(value: number) {
 
 export function ProgramacaoManager() {
   const gridShellRef = useRef<HTMLDivElement | null>(null);
+  const expandedGridShellRef = useRef<HTMLDivElement | null>(null);
+  const agendaScrollLeftRef = useRef(0);
   const [dashboard, setDashboard] = useState<DashboardPayload | null>(null);
   const [clienteId, setClienteId] = useState("");
   const [obraId, setObraId] = useState("");
@@ -453,7 +456,11 @@ export function ProgramacaoManager() {
   }
 
   function scrollAgenda(direction: -1 | 1) {
-    gridShellRef.current?.scrollBy({
+    const activeGrid = expandedGridShellRef.current?.isConnected
+      ? expandedGridShellRef.current
+      : gridShellRef.current;
+
+    activeGrid?.scrollBy({
       left: direction * (view === "MES" ? 720 : 420),
       behavior: "smooth"
     });
@@ -650,10 +657,146 @@ export function ProgramacaoManager() {
   const dominantAnalyticsStatus = [...dashboard.analytics.statuses].sort((a, b) => b.percent - a.percent)[0];
 
   const days = dashboard.days;
+  const dashboardRows = dashboard.rows;
   const businessDayCount =
     modal.date && (modal.dateFim || modal.date)
       ? countBusinessDays(modal.date, modal.dateFim || modal.date)
       : 0;
+
+  function renderAgendaGrid(expanded = false) {
+    return (
+      <div
+        ref={(node) => {
+          if (expanded) {
+            expandedGridShellRef.current = node;
+          } else {
+            gridShellRef.current = node;
+          }
+
+          if (node) node.scrollLeft = agendaScrollLeftRef.current;
+        }}
+        className={`programacao-grid-shell ${view === "MES" ? "is-month-view" : ""} ${expanded ? "is-expanded-view" : ""}`}
+        tabIndex={0}
+        aria-label="Grade da agenda operacional com rolagem horizontal"
+        onScroll={(event) => {
+          const nextScrollLeft = event.currentTarget.scrollLeft;
+          agendaScrollLeftRef.current = nextScrollLeft;
+          const peerGrid = expanded ? gridShellRef.current : expandedGridShellRef.current;
+
+          if (peerGrid && Math.abs(peerGrid.scrollLeft - nextScrollLeft) > 1) {
+            peerGrid.scrollLeft = nextScrollLeft;
+          }
+        }}
+        style={{ ["--programacao-cols" as string]: String(days.length) }}
+      >
+        <div className="programacao-grid programacao-grid-head">
+          <div className="programacao-equipment-head">Equipamentos</div>
+          {days.map((day) => {
+            const label = formatDayLabel(day);
+            const isToday = day === toDateInput(new Date());
+            const isWeekend = isWeekendDate(day);
+
+            return (
+              <div
+                key={day}
+                className={`programacao-day-head ${isToday ? "is-today" : ""} ${isWeekend ? "is-weekend" : ""}`}
+              >
+                <strong>{label.weekday}</strong>
+                <span>{label.day}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="programacao-grid-body">
+          {dashboardRows.map((row) => (
+            <div key={row.equipamento.id} className="programacao-grid-row">
+              <div className={`programacao-equipment-card ${row.focusStatus === "OPERANDO" ? "is-row-operando" : ""}`}>
+                <div className="programacao-equipment-avatar">
+                  {row.equipamento.tipoRecurso === "CAMINHAO" ? "CA" : row.equipamento.tipoRecurso === "MAQUINA" ? "MQ" : "EQ"}
+                </div>
+                <div className="programacao-equipment-copy">
+                  <strong>{row.equipamento.descricao}</strong>
+                  <span>{row.equipamento.placaOuTag}</span>
+                  <span className="programacao-equipment-type">{row.equipamento.tipoRecurso}</span>
+                </div>
+                <div className={getRevisionClass(row.revision.status)}>
+                  <strong>
+                    {row.revision.status === "EM_DIA"
+                      ? "OK"
+                      : row.revision.status === "PROXIMA"
+                        ? "AL"
+                        : row.revision.status === "VENCIDA"
+                          ? "VE"
+                          : "--"}
+                  </strong>
+                  <span>{row.revision.label}</span>
+                </div>
+              </div>
+
+              {row.cells.map((cell) => {
+                const today = cell.date === toDateInput(new Date());
+                const weekend = isWeekendDate(cell.date);
+
+                return (
+                  <button
+                    key={`${row.equipamento.id}-${cell.date}`}
+                    type="button"
+                    className={`programacao-cell status-${cell.status.toLowerCase().replace("_", "-")} ${today ? "is-today" : ""} ${weekend ? "is-weekend" : ""} ${isCellInsideDrag(row.equipamento.id, cell.date) ? "is-drag-range" : ""}`}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      handleCellMouseDown(row, cell);
+                    }}
+                    onMouseEnter={() => handleCellMouseEnter(row, cell)}
+                    onClick={() => {
+                      if (skipNextCellClick) {
+                        setSkipNextCellClick(false);
+                        return;
+                      }
+
+                      openCellModal(row, cell);
+                    }}
+                    title={[
+                      row.equipamento.descricao,
+                      cell.status,
+                      weekend && cell.entries.length === 0
+                        ? "Folga"
+                        : cell.entries.length > 1
+                          ? cell.entries
+                              .map((entry) => `${getTurnoLabel(entry.turno)}: ${entry.obraNome ?? entry.local ?? "Sem obra"}`)
+                              .join(" | ")
+                          : cell.obraNome ?? cell.local ?? "Sem obra",
+                      cell.observacoes ?? ""
+                    ]
+                      .filter(Boolean)
+                      .join(" | ")}
+                  >
+                    <strong>{cell.status.replace("_", " ")}</strong>
+                    {weekend && cell.entries.length === 0 ? (
+                      <span>Folga</span>
+                    ) : cell.entries.length > 1 ? (
+                      <span>
+                        {cell.entries
+                          .slice(0, 2)
+                          .map((entry) => `${getTurnoLabel(entry.turno)}: ${entry.obraCodigo ?? entry.obraNome ?? entry.local ?? "Sem obra"}`)
+                          .join(" | ")}
+                      </span>
+                    ) : (
+                      <span>
+                        {view === "MES"
+                          ? cell.obraCodigo ?? cell.local ?? "Sem aloc."
+                          : cell.obraNome ?? cell.local ?? "Sem alocacao"}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <main className="page-stack">
@@ -784,119 +927,11 @@ export function ProgramacaoManager() {
             </button>
           </div>
         </div>
-        <div
-          ref={gridShellRef}
-          className={`programacao-grid-shell ${view === "MES" ? "is-month-view" : ""}`}
-          tabIndex={0}
-          aria-label="Grade da agenda operacional com rolagem horizontal"
-          style={{ ["--programacao-cols" as string]: String(days.length) }}
-        >
-          <div className="programacao-grid programacao-grid-head">
-            <div className="programacao-equipment-head">Equipamentos</div>
-            {days.map((day) => {
-              const label = formatDayLabel(day);
-              const isToday = day === toDateInput(new Date());
-              const isWeekend = isWeekendDate(day);
-
-              return (
-                <div
-                  key={day}
-                  className={`programacao-day-head ${isToday ? "is-today" : ""} ${isWeekend ? "is-weekend" : ""}`}
-                >
-                  <strong>{label.weekday}</strong>
-                  <span>{label.day}</span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="programacao-grid-body">
-            {dashboard.rows.map((row) => (
-              <div key={row.equipamento.id} className="programacao-grid-row">
-                <div className={`programacao-equipment-card ${row.focusStatus === "OPERANDO" ? "is-row-operando" : ""}`}>
-                  <div className="programacao-equipment-avatar">
-                    {row.equipamento.tipoRecurso === "CAMINHAO" ? "CA" : row.equipamento.tipoRecurso === "MAQUINA" ? "MQ" : "EQ"}
-                  </div>
-                  <div className="programacao-equipment-copy">
-                    <strong>{row.equipamento.descricao}</strong>
-                    <span>{row.equipamento.placaOuTag}</span>
-                    <span className="programacao-equipment-type">{row.equipamento.tipoRecurso}</span>
-                  </div>
-                  <div className={getRevisionClass(row.revision.status)}>
-                    <strong>
-                      {row.revision.status === "EM_DIA"
-                        ? "OK"
-                        : row.revision.status === "PROXIMA"
-                          ? "AL"
-                          : row.revision.status === "VENCIDA"
-                            ? "VE"
-                            : "--"}
-                    </strong>
-                    <span>{row.revision.label}</span>
-                  </div>
-                </div>
-
-                {row.cells.map((cell) => {
-                  const today = cell.date === toDateInput(new Date());
-                  const weekend = isWeekendDate(cell.date);
-
-                  return (
-                    <button
-                      key={`${row.equipamento.id}-${cell.date}`}
-                      type="button"
-                      className={`programacao-cell status-${cell.status.toLowerCase().replace("_", "-")} ${today ? "is-today" : ""} ${weekend ? "is-weekend" : ""} ${isCellInsideDrag(row.equipamento.id, cell.date) ? "is-drag-range" : ""}`}
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        handleCellMouseDown(row, cell);
-                      }}
-                      onMouseEnter={() => handleCellMouseEnter(row, cell)}
-                      onClick={() => {
-                        if (skipNextCellClick) {
-                          setSkipNextCellClick(false);
-                          return;
-                        }
-
-                        openCellModal(row, cell);
-                      }}
-                      title={[
-                        row.equipamento.descricao,
-                        cell.status,
-                        weekend && cell.entries.length === 0
-                          ? "Folga"
-                          : cell.entries.length > 1
-                          ? cell.entries
-                              .map((entry) => `${getTurnoLabel(entry.turno)}: ${entry.obraNome ?? entry.local ?? "Sem obra"}`)
-                              .join(" | ")
-                          : cell.obraNome ?? cell.local ?? "Sem obra",
-                        cell.observacoes ?? ""
-                      ]
-                        .filter(Boolean)
-                        .join(" | ")}
-                    >
-                      <strong>{cell.status.replace("_", " ")}</strong>
-                      {weekend && cell.entries.length === 0 ? (
-                        <span>Folga</span>
-                      ) : cell.entries.length > 1 ? (
-                        <span>
-                          {cell.entries
-                            .slice(0, 2)
-                            .map((entry) => `${getTurnoLabel(entry.turno)}: ${entry.obraCodigo ?? entry.obraNome ?? entry.local ?? "Sem obra"}`)
-                            .join(" | ")}
-                        </span>
-                      ) : (
-                        <span>
-                          {view === "MES"
-                            ? cell.obraCodigo ?? cell.local ?? "Sem aloc."
-                            : cell.obraNome ?? cell.local ?? "Sem alocacao"}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
+        {view === "MES" ? (
+          <ExpandableChart title="Agenda operacional mensal" height={520} className="programacao-agenda-expandable">
+            {({ expanded }) => renderAgendaGrid(expanded)}
+          </ExpandableChart>
+        ) : renderAgendaGrid(false)}
       </section>
 
       <section className="surface section-card programacao-analytics-panel">

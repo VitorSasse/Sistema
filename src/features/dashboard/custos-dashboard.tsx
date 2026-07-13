@@ -51,6 +51,7 @@ type EquipamentoRow = {
   total: number;
   manutencao: number;
   combustivel: number;
+  litrosCombustivel: number;
   ordens: number;
   fornecedores: string[];
   horasReferencia: number;
@@ -214,6 +215,32 @@ function MoneyTooltip({
           {item.name}: {formatCurrency(Number(item.value ?? 0))}
         </span>
       ))}
+    </div>
+  );
+}
+
+function EquipmentCostTooltip({
+  active,
+  payload
+}: {
+  active?: boolean;
+  payload?: Array<{
+    name?: string;
+    value?: number;
+    color?: string;
+    payload?: EquipamentoRow & { nomeCurto: string; totalRanking: number };
+  }>;
+}) {
+  const row = payload?.[0]?.payload;
+  if (!active || !payload?.length || !row) return null;
+
+  return (
+    <div className="cost-tooltip cost-equipment-tooltip">
+      <strong>{row.nome}</strong>
+      <span>Total no ranking: {formatCurrency(row.totalRanking)}</span>
+      <span>Combustivel: {formatCurrency(row.combustivel)}</span>
+      <span>Manutencao: {formatCurrency(row.manutencao)}</span>
+      <b>{row.litrosCombustivel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} litros abastecidos</b>
     </div>
   );
 }
@@ -659,7 +686,7 @@ export function CustosDashboard() {
           </section>
 
           <section className="cost-wide-grid fade-up fade-up-delay-3">
-            <CenterCostChartPanel rows={centrosCusto} />
+            <EquipmentCostChartPanel rows={data?.charts.equipamentos ?? []} />
 
             <article className="surface section-card cost-chart-card">
               <div className="cost-card-header">
@@ -699,14 +726,32 @@ export function CustosDashboard() {
   );
 }
 
-function CenterCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
+function EquipmentCostChartPanel({ rows }: { rows: EquipamentoRow[] }) {
+  const [hiddenEquipmentIds, setHiddenEquipmentIds] = useState<string[]>([]);
+  const availableIds = useMemo(() => new Set(rows.map((item) => item.equipamentoId).filter(Boolean)), [rows]);
+  const effectiveHiddenIds = useMemo(
+    () => hiddenEquipmentIds.filter((id) => availableIds.has(id)),
+    [availableIds, hiddenEquipmentIds]
+  );
   const chartRows = rows
+    .filter((item) => !effectiveHiddenIds.includes(item.equipamentoId ?? ""))
     .filter((item) => item.combustivel > 0 || item.manutencao > 0)
     .map((item) => ({
       ...item,
+      totalRanking: item.combustivel + item.manutencao,
       nomeCurto: item.nome.length > 16 ? `${item.nome.slice(0, 16)}...` : item.nome
-    }));
+    }))
+    .sort((a, b) => b.totalRanking - a.totalRanking);
   const chartMinWidth = Math.max(760, chartRows.length * 96);
+  const visibleTotal = chartRows.reduce((total, item) => total + item.totalRanking, 0);
+
+  function toggleEquipment(equipamentoId: string) {
+    setHiddenEquipmentIds((current) =>
+      current.includes(equipamentoId)
+        ? current.filter((id) => id !== equipamentoId)
+        : [...current, equipamentoId]
+    );
+  }
 
   return (
     <article className="surface section-card cost-chart-card">
@@ -715,12 +760,40 @@ function CenterCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
           <span className="cost-kicker">Equipamentos</span>
           <h2 className="section-title">Ranking de custo por equipamento</h2>
         </div>
+        <strong className="cost-equipment-visible-total">{formatCurrency(visibleTotal)}</strong>
       </div>
+
+      {rows.length > 0 ? (
+        <details className="cost-equipment-visibility">
+          <summary>
+            Equipamentos exibidos: {chartRows.length} de {rows.length}
+          </summary>
+          <div className="cost-equipment-visibility-list">
+            {rows.map((item) => (
+              <label key={item.equipamentoId ?? item.nome}>
+                <input
+                  type="checkbox"
+                  checked={!effectiveHiddenIds.includes(item.equipamentoId ?? "")}
+                  disabled={!item.equipamentoId}
+                  onChange={() => item.equipamentoId && toggleEquipment(item.equipamentoId)}
+                />
+                <span>{item.nome}</span>
+                <small>{item.litrosCombustivel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L</small>
+              </label>
+            ))}
+            {effectiveHiddenIds.length > 0 ? (
+              <button type="button" onClick={() => setHiddenEquipmentIds([])}>
+                Exibir todos
+              </button>
+            ) : null}
+          </div>
+        </details>
+      ) : null}
 
       {chartRows.length === 0 ? (
         <div className="cost-empty-state cost-empty-state-compact">
           <strong>Sem custos por equipamento no periodo</strong>
-          <p>Nao existem centros de custo com combustivel ou manutencao para montar o grafico.</p>
+          <p>Os filtros aplicados ou a selecao de exibicao nao possuem equipamentos com combustivel ou manutencao.</p>
         </div>
       ) : (
         <div className="cost-center-chart cost-center-chart-vertical">
@@ -746,19 +819,19 @@ function CenterCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
                         dataKey="nomeCurto"
                         interval={0}
                         height={72}
-                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }}
+                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 12, fontWeight: 700 }}
                         tickLine={false}
                         angle={-38}
                         textAnchor="end"
                       />
                       <YAxis
                         tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 10 }}
+                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 12, fontWeight: 700 }}
                         tickLine={false}
                         axisLine={false}
                         width={92}
                       />
-                      <Tooltip content={<MoneyTooltip />} />
+                      <Tooltip content={<EquipmentCostTooltip />} />
                       <Bar dataKey="combustivel" name="Combustivel" stackId="centro" fill={categoryColors.COMBUSTIVEL} radius={[0, 0, 0, 0]} maxBarSize={34} />
                       <Bar dataKey="manutencao" name="Manutencao" stackId="centro" fill={categoryColors.MANUTENCAO} radius={[10, 10, 0, 0]} maxBarSize={34} />
                     </BarChart>

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 import { formatCep, formatCnpjDocument, formatTelefone } from "@/lib/utils/document";
+import { fornecedorSchema } from "@/lib/validators/fornecedor";
 
 type OrdemResumo = {
   id: string;
@@ -53,6 +54,16 @@ type FormState = {
   status: "ATIVO" | "INATIVO";
 };
 
+type FormField = Exclude<keyof FormState, "id">;
+type FormErrors = Partial<Record<FormField, string>>;
+
+type ApiValidationResponse = {
+  message?: string;
+  issues?: {
+    fieldErrors?: Partial<Record<FormField, string[]>>;
+  };
+};
+
 const initialForm: FormState = {
   razaoSocial: "",
   nomeFantasia: "",
@@ -71,18 +82,30 @@ const initialForm: FormState = {
   status: "ATIVO"
 };
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
   return (
-    <label className="field">
+    <label className={`field ${error ? "has-error" : ""}`}>
       <span className="field-label">{label}</span>
       {children}
+      {error ? <span className="field-error" role="alert">{error}</span> : null}
     </label>
   );
+}
+
+function normalizeFieldErrors(fieldErrors?: Partial<Record<FormField, string[]>>) {
+  if (!fieldErrors) return {};
+
+  return Object.fromEntries(
+    Object.entries(fieldErrors)
+      .filter(([, messages]) => messages?.length)
+      .map(([field, messages]) => [field, messages?.[0] ?? "Campo invalido."])
+  ) as FormErrors;
 }
 
 export function FornecedoresManager() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [form, setForm] = useState<FormState>(initialForm);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"TODOS" | "ATIVO" | "INATIVO">("TODOS");
@@ -124,11 +147,30 @@ export function FornecedoresManager() {
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+    if (key !== "id") {
+      const fieldKey = key as FormField;
+      setFormErrors((current) => {
+        if (!current[fieldKey]) return current;
+        const next = { ...current };
+        delete next[fieldKey];
+        return next;
+      });
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+
+    const parsed = fornecedorSchema.safeParse(form);
+
+    if (!parsed.success) {
+      setFormErrors(normalizeFieldErrors(parsed.error.flatten().fieldErrors));
+      setMessage("Corrija os campos destacados antes de salvar o fornecedor.");
+      return;
+    }
+
+    setFormErrors({});
 
     const method = form.id ? "PATCH" : "POST";
     const url = form.id ? `/api/fornecedores/${form.id}` : "/api/fornecedores";
@@ -140,14 +182,16 @@ export function FornecedoresManager() {
         body: JSON.stringify(form)
       });
 
-      const data = (await response.json()) as { message?: string };
+      const data = (await response.json()) as ApiValidationResponse;
 
       if (!response.ok) {
+        setFormErrors(normalizeFieldErrors(data.issues?.fieldErrors));
         setMessage(data.message ?? "Nao foi possivel salvar o fornecedor.");
         return;
       }
 
       setForm(initialForm);
+      setFormErrors({});
       setMessage(
         form.id
           ? "Fornecedor atualizado com sucesso."
@@ -158,6 +202,7 @@ export function FornecedoresManager() {
   }
 
   function handleEdit(fornecedor: Fornecedor) {
+    setFormErrors({});
     setForm({
       id: fornecedor.id,
       razaoSocial: fornecedor.razaoSocial,
@@ -181,6 +226,7 @@ export function FornecedoresManager() {
 
   function handleReset() {
     setForm(initialForm);
+    setFormErrors({});
     setMessage("");
   }
 
@@ -245,114 +291,128 @@ export function FornecedoresManager() {
 
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 24 }}>
           <div className="form-grid-4">
-            <Field label="Razao social">
+            <Field label="Razao social" error={formErrors.razaoSocial}>
               <input
                 className="field-control"
+                aria-invalid={Boolean(formErrors.razaoSocial)}
                 placeholder="Razao social do fornecedor"
                 value={form.razaoSocial}
                 onChange={(event) => updateField("razaoSocial", event.target.value)}
               />
             </Field>
-            <Field label="Nome fantasia">
+            <Field label="Nome fantasia" error={formErrors.nomeFantasia}>
               <input
                 className="field-control"
+                aria-invalid={Boolean(formErrors.nomeFantasia)}
                 placeholder="Nome fantasia"
                 value={form.nomeFantasia}
                 onChange={(event) => updateField("nomeFantasia", event.target.value)}
               />
             </Field>
-            <Field label="CNPJ">
+            <Field label="CNPJ" error={formErrors.cnpj}>
               <input
                 className="field-control"
+                aria-invalid={Boolean(formErrors.cnpj)}
                 placeholder="00.000.000/0001-00"
                 value={form.cnpj}
                 onChange={(event) => updateField("cnpj", formatCnpjDocument(event.target.value))}
               />
             </Field>
-            <Field label="Inscricao estadual">
+            <Field label="Inscricao estadual" error={formErrors.inscricaoEstadual}>
               <input
                 className="field-control"
+                aria-invalid={Boolean(formErrors.inscricaoEstadual)}
                 placeholder="Inscricao estadual"
                 value={form.inscricaoEstadual}
                 onChange={(event) => updateField("inscricaoEstadual", event.target.value)}
               />
             </Field>
-            <Field label="Telefone">
+            <Field label="Telefone" error={formErrors.telefone}>
               <input
                 className="field-control"
+                aria-invalid={Boolean(formErrors.telefone)}
                 placeholder="(00) 00000-0000"
                 value={form.telefone}
                 onChange={(event) => updateField("telefone", formatTelefone(event.target.value))}
               />
             </Field>
-            <Field label="E-mail">
+            <Field label="E-mail" error={formErrors.email}>
               <input
                 className="field-control"
+                aria-invalid={Boolean(formErrors.email)}
                 placeholder="compras@fornecedor.com.br"
                 value={form.email}
                 onChange={(event) => updateField("email", event.target.value)}
               />
             </Field>
-            <Field label="Endereco principal">
+            <Field label="Endereco principal" error={formErrors.enderecoLinha1}>
               <input
                 className="field-control"
+                aria-invalid={Boolean(formErrors.enderecoLinha1)}
                 placeholder="Rua, avenida ou referencia"
                 value={form.enderecoLinha1}
                 onChange={(event) => updateField("enderecoLinha1", event.target.value)}
               />
             </Field>
-            <Field label="Numero">
+            <Field label="Numero" error={formErrors.enderecoNumero}>
               <input
                 className="field-control"
+                aria-invalid={Boolean(formErrors.enderecoNumero)}
                 placeholder="Numero residencial ou comercial"
                 value={form.enderecoNumero}
                 onChange={(event) => updateField("enderecoNumero", event.target.value)}
               />
             </Field>
-            <Field label="Complemento">
+            <Field label="Complemento" error={formErrors.enderecoLinha2}>
               <input
                 className="field-control"
+                aria-invalid={Boolean(formErrors.enderecoLinha2)}
                 placeholder="Bloco, sala, referencia"
                 value={form.enderecoLinha2}
                 onChange={(event) => updateField("enderecoLinha2", event.target.value)}
               />
             </Field>
-            <Field label="Bairro">
+            <Field label="Bairro" error={formErrors.bairro}>
               <input
                 className="field-control"
+                aria-invalid={Boolean(formErrors.bairro)}
                 placeholder="Bairro"
                 value={form.bairro}
                 onChange={(event) => updateField("bairro", event.target.value)}
               />
             </Field>
-            <Field label="Cidade">
+            <Field label="Cidade" error={formErrors.cidade}>
               <input
                 className="field-control"
+                aria-invalid={Boolean(formErrors.cidade)}
                 placeholder="Cidade"
                 value={form.cidade}
                 onChange={(event) => updateField("cidade", event.target.value)}
               />
             </Field>
-            <Field label="UF">
+            <Field label="UF" error={formErrors.uf}>
               <input
                 className="field-control"
+                aria-invalid={Boolean(formErrors.uf)}
                 placeholder="SP"
                 maxLength={2}
                 value={form.uf}
                 onChange={(event) => updateField("uf", event.target.value.toUpperCase())}
               />
             </Field>
-            <Field label="CEP">
+            <Field label="CEP" error={formErrors.cep}>
               <input
                 className="field-control"
+                aria-invalid={Boolean(formErrors.cep)}
                 placeholder="00000-000"
                 value={form.cep}
                 onChange={(event) => updateField("cep", formatCep(event.target.value))}
               />
             </Field>
-            <Field label="Status">
+            <Field label="Status" error={formErrors.status}>
               <select
                 className="field-control"
+                aria-invalid={Boolean(formErrors.status)}
                 value={form.status}
                 onChange={(event) => updateField("status", event.target.value as FormState["status"])}
               >
@@ -362,9 +422,10 @@ export function FornecedoresManager() {
             </Field>
           </div>
 
-          <Field label="Observacao">
+          <Field label="Observacao" error={formErrors.observacao}>
             <textarea
               className="field-control textarea-lg"
+              aria-invalid={Boolean(formErrors.observacao)}
               placeholder="Observacoes comerciais ou operacionais"
               value={form.observacao}
               onChange={(event) => updateField("observacao", event.target.value)}

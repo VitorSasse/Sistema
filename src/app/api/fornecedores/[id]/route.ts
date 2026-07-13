@@ -27,7 +27,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { message: "Dados invalidos.", issues: parsed.error.flatten() },
+      { message: "Revise os campos destacados.", issues: parsed.error.flatten() },
       { status: 400 }
     );
   }
@@ -48,7 +48,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (existing) {
       return NextResponse.json(
-        { message: "Ja existe fornecedor cadastrado com este CNPJ." },
+        {
+          message: "Ja existe fornecedor cadastrado com este CNPJ.",
+          issues: {
+            formErrors: [],
+            fieldErrors: { cnpj: ["Ja existe fornecedor cadastrado com este CNPJ."] }
+          }
+        },
         { status: 409 }
       );
     }
