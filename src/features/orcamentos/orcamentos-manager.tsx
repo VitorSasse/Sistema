@@ -26,6 +26,7 @@ type TipoItemOrcamento =
 type CategoriaRecursoOrcamento = "EQUIPAMENTO" | "EQUIPE" | "MATERIAL" | "TERCEIRO";
 type TipoPremissaOrcamento = "PREMISSA" | "CONDICAO" | "EXCLUSAO" | "OBSERVACAO";
 type ModoCustoOrcamento = "SIMPLIFICADO" | "COMPLETO";
+type ModoCustoFrente = "AUTO" | "MANUAL";
 type StatusCenarioOrcamento = "EM_ESTUDO" | "ACEITO" | "REJEITADO";
 type StatusPropostaComercial = "RASCUNHO" | "EMITIDA" | "ACEITA" | "REJEITADA" | "CANCELADA";
 
@@ -122,6 +123,7 @@ type FrenteForm = {
   quantidadePrevista: string;
   produtividadeDia: string;
   prazoEstimadoDias: string;
+  modoCusto: ModoCustoFrente;
   custoManual: string;
   calculoReferencia: "produtividadeDia" | "prazoEstimadoDias" | "";
   observacao: string;
@@ -321,6 +323,7 @@ type OrcamentoApi = {
     quantidadePrevista: string | number | null;
     produtividadeDia: string | number | null;
     prazoEstimadoDias: string | number | null;
+    modoCusto: ModoCustoFrente;
     custoManual: string | number;
     observacao: string | null;
   }>;
@@ -507,6 +510,7 @@ function createEmptyFrente(ordem: number): FrenteForm {
     quantidadePrevista: "",
     produtividadeDia: "",
     prazoEstimadoDias: "",
+    modoCusto: "AUTO",
     custoManual: "0",
     calculoReferencia: "",
     observacao: ""
@@ -865,6 +869,7 @@ function buildCostEngineInputFromForm(form: OrcamentoForm) {
       quantidadePrevista: frente.quantidadePrevista,
       produtividadeDia: frente.produtividadeDia,
       prazoEstimadoDias: frente.prazoEstimadoDias,
+      modoCusto: frente.modoCusto,
       custoManual: frente.custoManual
     })),
     recursos: form.itens
@@ -903,11 +908,9 @@ function buildEconomicPreview(
   const custoDiretoManual = roundMoney(Number(form.formacaoPreco.custoDireto) || 0);
   const custoDireto = roundMoney(
     isOperational
-      ? modoCusto === "COMPLETO"
+      ? form.frentes.length > 0
         ? custoDiretoCalculado
-        : custoDiretoCalculado > 0
-          ? custoDiretoCalculado
-          : custoDiretoManual
+        : custoDiretoManual
       : custoDiretoCalculado > 0
         ? custoDiretoCalculado
         : custoDiretoManual
@@ -1203,9 +1206,11 @@ export function OrcamentosManager() {
       frentes: motorCustosForm?.frentes.map((frente) => ({
         frenteId: frente.ref,
         frente: frente.nome,
+        modoCusto: frente.modoCusto,
         custoDireto: frente.custoDireto,
         origemCusto: frente.origemCusto,
         custoManual: frente.custoManual,
+        custoCalculadoRecursos: frente.custoCalculadoRecursos,
         recursos: frente.recursos
       })),
       custoDiretoConsolidado: motorCustosForm?.custoDiretoTotal ?? 0,
@@ -1316,8 +1321,31 @@ export function OrcamentosManager() {
   function updateFrente(localId: string, key: keyof FrenteForm, value: string | number) {
     setForm((current) => ({
       ...current,
+      frentes: current.frentes.map((frente) => {
+        if (frente.localId !== localId) {
+          return frente;
+        }
+
+        if (key === "custoManual") {
+          return {
+            ...frente,
+            modoCusto: "MANUAL",
+            custoManual: String(value)
+          };
+        }
+
+        return recalcularFrentePlanejamento(frente, key, value);
+      })
+    }));
+  }
+
+  function usarCalculoRecursos(localId: string) {
+    setForm((current) => ({
+      ...current,
       frentes: current.frentes.map((frente) =>
-        frente.localId === localId ? recalcularFrentePlanejamento(frente, key, value) : frente
+        frente.localId === localId
+          ? { ...frente, modoCusto: "AUTO", custoManual: "0" }
+          : frente
       )
     }));
   }
@@ -1655,6 +1683,8 @@ export function OrcamentosManager() {
       frentes: form.frentes.map((frente) => ({
         id: frente.localId,
         nome: frente.nome,
+        modoCusto: frente.modoCusto,
+        custoManual: Number(frente.custoManual) || 0,
         recursos: form.itens
           .filter((item) => isRecursoItem(item) && item.frenteTempId === frente.localId)
           .map((item) => ({
@@ -2044,6 +2074,7 @@ export function OrcamentosManager() {
                 onAdd={addFrente}
                 onRemove={removeFrente}
                 onUpdate={updateFrente}
+                onUseResourceCost={usarCalculoRecursos}
                 onAddItem={addItemToFrente}
                 onRemoveItem={removeItem}
                 onUpdateItem={updateItem}
@@ -2189,8 +2220,8 @@ export function OrcamentosManager() {
                         <span>Custo direto das frentes</span>
                         <strong>{formatCurrency(custoDiretoForm)}</strong>
                         <small>
-                          Informe o custo manual dentro de cada frente. Quando houver recursos
-                          validos, o calculo automatico tem prioridade.
+                          Cada frente utiliza o custo calculado pelos recursos ou a sobrescrita
+                          manual escolhida pelo engenheiro.
                         </small>
                       </div>
                     )}
@@ -2528,6 +2559,7 @@ function FrentesOperacionaisSection(props: {
   onAdd: () => void;
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, key: keyof FrenteForm, value: string | number) => void;
+  onUseResourceCost: (localId: string) => void;
   onAddItem: (frenteLocalId: string, tipoItem: TipoItemOrcamento) => void;
   onRemoveItem: (localId: string) => void;
   onUpdateItem: (localId: string, key: keyof ItemForm, value: string | number) => void;
@@ -2583,7 +2615,7 @@ function FrentesOperacionaisSection(props: {
           const servicosAuxiliares = itensDaFrente.filter((item) => item.tipoItem === "SERVICO_AUXILIAR");
           const recursosPlanejamento = itensDaFrente.filter((item) => isRecursoItem(item));
           const custoFrente = props.custosFrentes.find((item) => item.ref === frente.localId);
-          const custoCalculadoPorRecursos = custoFrente?.origemCusto === "RECURSOS";
+          const custoCalculadoPorRecursos = frente.modoCusto === "AUTO";
           const unidadeProdutividadeLabel = getProdutividadeLabel(frente.unidadeProducao);
           const frenteCalculoMessage = getFrenteCalculoMessage(frente);
           const openLevelId = getOpenLevel(frente.localId);
@@ -2884,8 +2916,6 @@ function FrentesOperacionaisSection(props: {
                           ? String(custoFrente?.custoDireto ?? 0)
                           : frente.custoManual
                       }
-                      readOnly={custoCalculadoPorRecursos}
-                      disabled={custoCalculadoPorRecursos}
                       onChange={(event) =>
                         props.onUpdate(frente.localId, "custoManual", event.target.value)
                       }
@@ -2900,9 +2930,18 @@ function FrentesOperacionaisSection(props: {
                     <strong>{formatCurrency(custoFrente?.custoDireto ?? 0)}</strong>
                     <small>
                       {custoCalculadoPorRecursos
-                        ? "O valor manual nao participa do Motor enquanto houver recursos validos."
-                        : "Sem recursos validos, este valor compoe o Custo Direto do orcamento."}
+                        ? `Soma atual dos recursos: ${formatCurrency(custoFrente?.custoCalculadoRecursos ?? 0)}. Edite o campo para sobrescrever.`
+                        : `Os recursos permanecem na memoria (${formatCurrency(custoFrente?.custoCalculadoRecursos ?? 0)}), mas nao participam do custo oficial.`}
                     </small>
+                    {!custoCalculadoPorRecursos ? (
+                      <button
+                        type="button"
+                        className="button-secondary orcamentos-front-cost-reset"
+                        onClick={() => props.onUseResourceCost(frente.localId)}
+                      >
+                        Usar calculo dos recursos
+                      </button>
+                    ) : null}
                   </div>
                     </div>
                     <textarea
@@ -3991,6 +4030,7 @@ function mapFrentePayload(frente: FrenteForm) {
     quantidadePrevista: frente.quantidadePrevista ? Number(frente.quantidadePrevista) : null,
     produtividadeDia: frente.produtividadeDia ? Number(frente.produtividadeDia) : null,
     prazoEstimadoDias: frente.prazoEstimadoDias ? Number(frente.prazoEstimadoDias) : null,
+    modoCusto: frente.modoCusto,
     custoManual: Number(frente.custoManual) || 0,
     observacao: frente.observacao
   };
@@ -4048,6 +4088,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
     quantidadePrevista: toStringValue(frente.quantidadePrevista),
     produtividadeDia: toStringValue(frente.produtividadeDia),
     prazoEstimadoDias: toStringValue(frente.prazoEstimadoDias),
+    modoCusto: frente.modoCusto === "MANUAL" ? "MANUAL" : "AUTO",
     custoManual: toStringValue(frente.custoManual ?? 0),
     calculoReferencia: "",
     observacao: frente.observacao ?? ""

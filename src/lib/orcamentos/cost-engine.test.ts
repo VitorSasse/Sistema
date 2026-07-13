@@ -8,7 +8,7 @@ import {
 describe("Motor de custos do orcamento operacional", () => {
   it("usa o custo manual quando a frente nao possui recursos validos", () => {
     const result = resolveFrontCost(
-      { ref: "frente-manual", nome: "Frente manual", custoManual: 12500 },
+      { ref: "frente-manual", nome: "Frente manual", modoCusto: "MANUAL", custoManual: 12500 },
       []
     );
 
@@ -17,9 +17,9 @@ describe("Motor de custos do orcamento operacional", () => {
     expect(result.recursos).toHaveLength(0);
   });
 
-  it("prioriza os recursos e nao soma o custo manual da mesma frente", () => {
+  it("permite sobrescrever manualmente uma frente que possui recursos", () => {
     const result = resolveFrontCost(
-      { ref: "frente-automatica", custoManual: 50000 },
+      { ref: "frente-automatica", modoCusto: "MANUAL", custoManual: 50000 },
       [
         {
           frenteRef: "frente-automatica",
@@ -31,13 +31,15 @@ describe("Motor de custos do orcamento operacional", () => {
       ]
     );
 
-    expect(result.origemCusto).toBe("RECURSOS");
-    expect(result.custoFrente).toBe(3000);
+    expect(result.origemCusto).toBe("MANUAL");
+    expect(result.custoFrente).toBe(50000);
     expect(result.custoManual).toBe(50000);
+    expect(result.custoCalculadoRecursos).toBe(3000);
+    expect(result.recursos).toHaveLength(1);
   });
 
-  it("volta ao custo manual quando todos os recursos sao removidos", () => {
-    const frente = { ref: "frente-1", custoManual: 7000 };
+  it("nao mantem custo automatico antigo quando todos os recursos sao removidos", () => {
+    const frente = { ref: "frente-1", modoCusto: "AUTO" as const, custoManual: 0 };
     const comRecurso = resolveFrontCost(frente, [
       {
         frenteRef: "frente-1",
@@ -51,12 +53,52 @@ describe("Motor de custos do orcamento operacional", () => {
 
     expect(comRecurso.custoFrente).toBe(2500);
     expect(comRecurso.origemCusto).toBe("RECURSOS");
-    expect(semRecursos.custoFrente).toBe(7000);
-    expect(semRecursos.origemCusto).toBe("MANUAL");
+    expect(semRecursos.custoFrente).toBe(0);
+    expect(semRecursos.origemCusto).toBe("RECURSOS");
+
+    const informadoManualmente = resolveFrontCost(
+      { ...frente, modoCusto: "MANUAL", custoManual: 7000 },
+      []
+    );
+    expect(informadoManualmente.custoFrente).toBe(7000);
+    expect(informadoManualmente.origemCusto).toBe("MANUAL");
+  });
+
+  it("atualiza a memoria sem alterar o custo oficial enquanto a frente esta manual", () => {
+    const frente = { ref: "frente-1", modoCusto: "MANUAL" as const, custoManual: 7000 };
+    const inicial = resolveFrontCost(frente, [
+      { frenteRef: "frente-1", quantidade: 2, custoOperacional: 100, unidadeCusto: "UN" }
+    ]);
+    const atualizado = resolveFrontCost(frente, [
+      { frenteRef: "frente-1", quantidade: 3, custoOperacional: 120, unidadeCusto: "UN" }
+    ]);
+
+    expect(inicial.custoFrente).toBe(7000);
+    expect(atualizado.custoFrente).toBe(7000);
+    expect(inicial.custoCalculadoRecursos).toBe(200);
+    expect(atualizado.custoCalculadoRecursos).toBe(360);
+  });
+
+  it("retorna ao calculo automatico usando a soma atual dos recursos", () => {
+    const recursos = [
+      { frenteRef: "frente-1", quantidade: 3, custoOperacional: 120, unidadeCusto: "UN" }
+    ];
+    const manual = resolveFrontCost(
+      { ref: "frente-1", modoCusto: "MANUAL", custoManual: 7000 },
+      recursos
+    );
+    const automatico = resolveFrontCost(
+      { ref: "frente-1", modoCusto: "AUTO", custoManual: 0 },
+      recursos
+    );
+
+    expect(manual.custoFrente).toBe(7000);
+    expect(automatico.custoFrente).toBe(360);
+    expect(automatico.origemCusto).toBe("RECURSOS");
   });
 
   it("recalcula imediatamente quando quantidade ou custo do recurso muda", () => {
-    const frente = { ref: "frente-1", custoManual: 0 };
+    const frente = { ref: "frente-1", modoCusto: "AUTO" as const, custoManual: 0 };
     const inicial = resolveFrontCost(frente, [
       { frenteRef: "frente-1", quantidade: 2, custoOperacional: 100, unidadeCusto: "UN" }
     ]);
@@ -71,8 +113,8 @@ describe("Motor de custos do orcamento operacional", () => {
   it("soma frentes automaticas e manuais sem misturar as origens", () => {
     const result = calcularMotorCustos({
       frentes: [
-        { ref: "automatica", unidadeProducao: "m3", quantidadePrevista: 10, custoManual: 9000 },
-        { ref: "manual", unidadeProducao: "mes", quantidadePrevista: 2, custoManual: 4000 }
+        { ref: "automatica", unidadeProducao: "m3", quantidadePrevista: 10, modoCusto: "AUTO", custoManual: 9000 },
+        { ref: "manual", unidadeProducao: "mes", quantidadePrevista: 2, modoCusto: "MANUAL", custoManual: 4000 }
       ],
       recursos: [
         {

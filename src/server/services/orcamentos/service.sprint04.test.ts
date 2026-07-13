@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ModoCustoFrente,
   StatusCenarioOrcamento,
   StatusOrcamento,
   StatusPropostaComercial,
@@ -41,6 +42,7 @@ function baseInput(overrides: Partial<OrcamentoInput> = {}): OrcamentoInput {
         quantidadePrevista: 100,
         produtividadeDia: 10,
         prazoEstimadoDias: 10,
+        modoCusto: ModoCustoFrente.AUTO,
         custoManual: 0,
         observacao: ""
       }
@@ -181,7 +183,13 @@ describe("orcamentos sprint 4.1-4.3", () => {
   it("persiste o custo manual da frente para reconstruir o motor na reabertura", async () => {
     const { db, records } = createFakeDb();
     const input = baseInput({
-      frentes: [{ ...baseInput().frentes[0], custoManual: 4321.9 }]
+      frentes: [
+        {
+          ...baseInput().frentes[0],
+          modoCusto: ModoCustoFrente.MANUAL,
+          custoManual: 4321.9
+        }
+      ]
     });
 
     await criarOrcamento(db as never, {
@@ -190,6 +198,7 @@ describe("orcamentos sprint 4.1-4.3", () => {
     });
 
     expect(records.frentes[0].custoManual).toBe(4321.9);
+    expect(records.frentes[0].modoCusto).toBe(ModoCustoFrente.MANUAL);
     expect(records.orcamentos[0].valorTotal).toBe(4321.9);
   });
 

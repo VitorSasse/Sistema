@@ -601,6 +601,7 @@ async function criarEstruturaOrcamento(
         quantidadePrevista: frente.quantidadePrevista ?? null,
         produtividadeDia: frente.produtividadeDia ?? null,
         prazoEstimadoDias: frente.prazoEstimadoDias ?? null,
+        modoCusto: frente.modoCusto,
         custoManual: frente.custoManual,
         observacao: clean(frente.observacao)
       },
@@ -1087,6 +1088,7 @@ export async function duplicarOrcamento(
         quantidadePrevista: frente.quantidadePrevista,
         produtividadeDia: frente.produtividadeDia,
         prazoEstimadoDias: frente.prazoEstimadoDias,
+        modoCusto: frente.modoCusto,
         custoManual: frente.custoManual,
         observacao: frente.observacao
       },

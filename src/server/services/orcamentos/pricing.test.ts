@@ -1,5 +1,6 @@
 import {
   CategoriaRecursoOrcamento,
+  ModoCustoFrente,
   ModoCustoOrcamento,
   StatusOrcamento,
   TipoItemOrcamento,
@@ -84,6 +85,7 @@ function inputOperacional(ajusteComercial = 0): OrcamentoInput {
         quantidadePrevista: 5560.66,
         produtividadeDia: 504,
         prazoEstimadoDias: 11.03,
+        modoCusto: ModoCustoFrente.AUTO,
         custoManual: 0,
         observacao: ""
       }
@@ -146,6 +148,7 @@ describe("Formacao do preco do orcamento operacional", () => {
       quantidadePrevista: 2,
       produtividadeDia: null,
       prazoEstimadoDias: null,
+      modoCusto: ModoCustoFrente.MANUAL,
       custoManual: 30000,
       observacao: ""
     });
@@ -154,5 +157,47 @@ describe("Formacao do preco do orcamento operacional", () => {
 
     expect(snapshot.formacaoPreco.custoDireto).toBe(126984.61);
     expect(snapshot.formacaoPreco.precoFinal).toBe(126984.61);
+  });
+
+  it("mantem recursos na memoria sem substituir a sobrescrita manual da frente", () => {
+    const input = inputOperacional();
+    input.frentes[0] = {
+      ...input.frentes[0],
+      modoCusto: ModoCustoFrente.MANUAL,
+      custoManual: 120000
+    };
+
+    const snapshot = buildPricingSnapshot(input);
+
+    expect(snapshot.formacaoPreco.custoDireto).toBe(120000);
+  });
+
+  it("nao utiliza preco de venda do servico principal como custo operacional", () => {
+    const input = inputOperacional();
+    input.itens.push({
+      frenteTempId: "frente-1",
+      frenteOrdem: null,
+      tipoItem: TipoItemOrcamento.SERVICO_PRINCIPAL,
+      servicoId: null,
+      materialId: null,
+      equipamentoId: null,
+      categoriaRecurso: null,
+      classeOperacional: "",
+      recursoReferenciaId: "",
+      recursoNome: "",
+      ordem: 5,
+      codigo: "SERV-001",
+      descricao: "Servico principal",
+      unidade: "m3",
+      quantidade: 5560.66,
+      produtividade: null,
+      custoUnitario: 999999,
+      valorUnitario: 999999,
+      observacao: ""
+    });
+
+    const snapshot = buildPricingSnapshot(input);
+
+    expect(snapshot.formacaoPreco.custoDireto).toBe(96984.61);
   });
 });

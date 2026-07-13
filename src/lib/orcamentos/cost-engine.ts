@@ -1,5 +1,7 @@
 export const JORNADA_PADRAO_HORAS_DIA = 8;
 
+export type CostEngineModoCustoFrente = "AUTO" | "MANUAL";
+
 type UnidadeEconomica =
   | "HORA"
   | "DIA"
@@ -21,6 +23,7 @@ export type CostEngineFrenteInput = {
   quantidadePrevista?: string | number | null;
   produtividadeDia?: string | number | null;
   prazoEstimadoDias?: string | number | null;
+  modoCusto?: CostEngineModoCustoFrente | null;
   custoManual?: string | number | null;
 };
 
@@ -59,14 +62,18 @@ export type CostEngineFrenteResultado = {
   prazoUnidade: string;
   custoDireto: number;
   custoDiretoUnitario: number;
+  modoCusto: CostEngineModoCustoFrente;
   custoManual: number;
+  custoCalculadoRecursos: number;
   origemCusto: "RECURSOS" | "MANUAL";
   recursos: CostEngineMemoriaRecurso[];
 };
 
 export type CostEngineResolucaoFrente = {
   custoFrente: number;
+  modoCusto: CostEngineModoCustoFrente;
   custoManual: number;
+  custoCalculadoRecursos: number;
   origemCusto: "RECURSOS" | "MANUAL";
   recursos: CostEngineMemoriaRecurso[];
   avisos: string[];
@@ -322,7 +329,6 @@ export function resolveFrontCost(
   const prazoUnidade = getPrazoUnidade(unidadeFrente);
   const frenteNome = frenteInput.nome?.trim() || "Frente";
   let custoRecursos = 0;
-  let recursosValidos = 0;
 
   for (const recurso of recursosInput) {
     if (recurso.frenteRef && recurso.frenteRef !== frenteInput.ref) {
@@ -383,8 +389,6 @@ export function resolveFrontCost(
     };
 
     custoRecursos = roundMoney(custoRecursos + custoTotal);
-    recursosValidos += 1;
-
     const memoriaExistente = memoriaByKey.get(memoriaKey);
 
     if (memoriaExistente) {
@@ -410,11 +414,15 @@ export function resolveFrontCost(
   }
 
   const custoManual = roundMoney(Math.max(0, toNumber(frenteInput.custoManual)));
-  const origemCusto = recursosValidos > 0 ? "RECURSOS" : "MANUAL";
+  const modoCusto: CostEngineModoCustoFrente =
+    frenteInput.modoCusto === "MANUAL" ? "MANUAL" : "AUTO";
+  const origemCusto = modoCusto === "MANUAL" ? "MANUAL" : "RECURSOS";
 
   return {
-    custoFrente: origemCusto === "RECURSOS" ? custoRecursos : custoManual,
+    custoFrente: modoCusto === "MANUAL" ? custoManual : custoRecursos,
+    modoCusto,
     custoManual,
+    custoCalculadoRecursos: custoRecursos,
     origemCusto,
     recursos: Array.from(memoriaByKey.values()),
     avisos
@@ -460,7 +468,9 @@ export function calcularMotorCustos(input: {
       prazoUnidade: getPrazoUnidade(unidadeNormalizada),
       custoDireto: resolucao.custoFrente,
       custoDiretoUnitario: quantidade > 0 ? roundMoney(resolucao.custoFrente / quantidade) : 0,
+      modoCusto: resolucao.modoCusto,
       custoManual: resolucao.custoManual,
+      custoCalculadoRecursos: resolucao.custoCalculadoRecursos,
       origemCusto: resolucao.origemCusto,
       recursos: resolucao.recursos
     };

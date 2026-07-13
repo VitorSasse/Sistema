@@ -8237,6 +8237,11 @@ button {
   line-height: 1.4;
 }
 
+.orcamentos-front-cost-origin .orcamentos-front-cost-reset {
+  width: fit-content;
+  margin-top: 4px;
+}
+
 @media (max-width: 720px) {
   .orcamentos-front-cost-panel {
     grid-template-columns: 1fr;

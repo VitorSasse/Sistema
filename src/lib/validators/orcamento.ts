@@ -1,5 +1,6 @@
 import {
   CategoriaRecursoOrcamento,
+  ModoCustoFrente,
   ModoCustoOrcamento,
   StatusCenarioOrcamento,
   StatusOrcamento,
@@ -48,6 +49,7 @@ const orcamentoFrenteSchema = z.object({
   quantidadePrevista: numeroDecimal(999999999).optional().nullable(),
   produtividadeDia: numeroDecimal(999999999).optional().nullable(),
   prazoEstimadoDias: numeroDecimal(9999).optional().nullable(),
+  modoCusto: z.nativeEnum(ModoCustoFrente).default(ModoCustoFrente.AUTO),
   custoManual: numeroDecimal(999999999).default(0),
   observacao: z.string().trim().max(500).optional().or(z.literal(""))
 });

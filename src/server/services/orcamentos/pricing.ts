@@ -38,6 +38,7 @@ function buildCostEngineInput(input: OrcamentoInput) {
       quantidadePrevista: frente.quantidadePrevista,
       produtividadeDia: frente.produtividadeDia,
       prazoEstimadoDias: frente.prazoEstimadoDias,
+      modoCusto: frente.modoCusto,
       custoManual: frente.custoManual
     })),
     recursos: input.itens
@@ -102,11 +103,9 @@ function buildSnapshot(input: OrcamentoInput, config: { operacional: boolean }) 
       ? ModoCustoOrcamento.COMPLETO
       : ModoCustoOrcamento.SIMPLIFICADO);
   const custoDireto = config.operacional
-    ? modoCusto === ModoCustoOrcamento.COMPLETO
+    ? input.frentes.length > 0
       ? custoDiretoCompleto
-      : custoDiretoCompleto > 0
-        ? custoDiretoCompleto
-        : custoDiretoManual
+      : custoDiretoManual
     : custoDiretoItens > 0
       ? custoDiretoItens
       : custoDiretoManual;

@@ -71,6 +71,11 @@ enum ModoCustoOrcamento {
   COMPLETO
 }
 
+enum ModoCustoFrente {
+  AUTO
+  MANUAL
+}
+
 enum StatusCenarioOrcamento {
   EM_ESTUDO
   ACEITO
@@ -811,6 +816,7 @@ model OrcamentoFrente {
   quantidadePrevista Decimal?        @db.Decimal(12, 2)
   produtividadeDia   Decimal?        @db.Decimal(12, 2)
   prazoEstimadoDias  Decimal?        @db.Decimal(12, 2)
+  modoCusto          ModoCustoFrente @default(AUTO)
   custoManual        Decimal         @default(0) @db.Decimal(14, 2)
   observacao         String?
   createdAt          DateTime        @default(now())
