@@ -468,20 +468,30 @@ function getItensDoCenario(
   });
 }
 
-function buildPropostaTotals(
+export function buildPropostaTotals(
   input: OrcamentoInput,
   proposta: OrcamentoInput["propostasComerciais"][number],
   cenario: OrcamentoInput["cenarios"][number] | undefined
 ) {
   const itensDoCenario = getItensDoCenario(input, cenario);
-  const subtotalCenario = itensDoCenario.reduce((sum, item) => sum + calcularValorItem(item), 0);
+  const pricing = buildPricingSnapshot(input, { cenario });
+  const subtotalCenario =
+    input.tipo === TipoOrcamento.OPERACIONAL
+      ? pricing.totals.valorSubtotal
+      : itensDoCenario.reduce((sum, item) => sum + calcularValorItem(item), 0);
   const subtotalOpcionais = proposta.opcionais.reduce(
     (sum, opcional) => sum + calcularValorOpcional(opcional),
     0
   );
   const valorSubtotal = Number((subtotalCenario + subtotalOpcionais).toFixed(2));
-  const valorDesconto = Number(input.valorDesconto ?? 0);
-  const valorAcrescimo = Number(input.valorAcrescimo ?? 0);
+  const valorDesconto =
+    input.tipo === TipoOrcamento.OPERACIONAL
+      ? pricing.totals.valorDesconto
+      : Number(input.valorDesconto ?? 0);
+  const valorAcrescimo =
+    input.tipo === TipoOrcamento.OPERACIONAL
+      ? pricing.totals.valorAcrescimo
+      : Number(input.valorAcrescimo ?? 0);
 
   return {
     valorSubtotal,
@@ -491,13 +501,17 @@ function buildPropostaTotals(
   };
 }
 
-function buildPropostaSnapshot(
+export function buildPropostaSnapshot(
   input: OrcamentoInput,
   proposta: OrcamentoInput["propostasComerciais"][number],
   cenario: OrcamentoInput["cenarios"][number] | undefined
 ) {
   const frentesDoCenario = getFrentesDoCenario(input, cenario);
   const itensDoCenario = getItensDoCenario(input, cenario);
+  const itensComerciais =
+    input.tipo === TipoOrcamento.OPERACIONAL
+      ? itensDoCenario.filter((item) => item.tipoItem === TipoItemOrcamento.SERVICO_PRINCIPAL)
+      : itensDoCenario;
   const opcionais = proposta.opcionais.filter((opcional) => opcional.descricao?.trim());
   const totals = buildPropostaTotals(input, proposta, cenario);
 
@@ -518,9 +532,27 @@ function buildPropostaSnapshot(
     valorDesconto: input.valorDesconto,
     valorAcrescimo: input.valorAcrescimo,
     totals,
-    formacaoPreco: input.formacaoPreco ?? null,
-    frentes: frentesDoCenario,
-    itens: itensDoCenario,
+    frentes: frentesDoCenario.map((frente) => ({
+      ordem: frente.ordem,
+      nome: frente.nome,
+      descricao: frente.descricao,
+      unidadeProducao: frente.unidadeProducao,
+      quantidadePrevista: frente.quantidadePrevista,
+      observacao: frente.observacao
+    })),
+    itens: itensComerciais.map((item) => ({
+      frenteTempId: item.frenteTempId,
+      frenteOrdem: item.frenteOrdem,
+      tipoItem: item.tipoItem,
+      ordem: item.ordem,
+      codigo: item.codigo,
+      descricao: item.descricao,
+      unidade: item.unidade,
+      quantidade: item.quantidade,
+      valorUnitario: item.valorUnitario,
+      valorTotal: calcularValorItem(item),
+      observacao: item.observacao
+    })),
     opcionais,
     premissasGerais: input.premissas.filter((premissa) => premissa.descricao?.trim()),
     criadoEm: new Date().toISOString()
@@ -688,7 +720,7 @@ async function criarEstruturaOrcamento(
           : cenarioInputByRef.get("padrao");
     const codigo = clean(proposta.codigo) ?? `PROP-${String(proposta.revisao + 1).padStart(3, "0")}`;
     const totals = buildPropostaTotals(input, proposta, cenarioInput);
-    const shouldSnapshot = proposta.status === StatusPropostaComercial.EMITIDA;
+    const shouldEmit = proposta.status === StatusPropostaComercial.EMITIDA;
 
     const created = await db.orcamentoPropostaComercial.create({
       data: {
@@ -704,8 +736,10 @@ async function criarEstruturaOrcamento(
         valorDesconto: totals.valorDesconto,
         valorAcrescimo: totals.valorAcrescimo,
         valorTotal: totals.valorTotal,
-        snapshotJson: shouldSnapshot ? buildPropostaSnapshot(input, proposta, cenarioInput) : undefined,
-        emitidaEm: shouldSnapshot ? new Date() : null
+        // Rascunhos tambem registram a fotografia comercial vigente. Ao emitir,
+        // esse snapshot deixa de ser recriado e passa a ser historico imutavel.
+        snapshotJson: buildPropostaSnapshot(input, proposta, cenarioInput),
+        emitidaEm: shouldEmit ? new Date() : null
       },
       select: {
         id: true

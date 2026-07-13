@@ -42,6 +42,35 @@ function recurso(
   };
 }
 
+function servicoPrincipal(
+  frenteTempId: string,
+  quantidade: number,
+  valorUnitario: number,
+  ordem = 10
+): OrcamentoInput["itens"][number] {
+  return {
+    frenteTempId,
+    frenteOrdem: null,
+    tipoItem: TipoItemOrcamento.SERVICO_PRINCIPAL,
+    servicoId: null,
+    materialId: null,
+    equipamentoId: null,
+    categoriaRecurso: null,
+    classeOperacional: "",
+    recursoReferenciaId: "",
+    recursoNome: "",
+    ordem,
+    codigo: "SERV-001",
+    descricao: "Servico principal",
+    unidade: "m3",
+    quantidade,
+    produtividade: null,
+    custoUnitario: 0,
+    valorUnitario,
+    observacao: ""
+  };
+}
+
 function inputOperacional(ajusteComercial = 0): OrcamentoInput {
   return {
     tipo: TipoOrcamento.OPERACIONAL,
@@ -159,7 +188,7 @@ describe("Formacao do preco do orcamento operacional", () => {
     expect(snapshot.formacaoPreco.precoFinal).toBe(126984.61);
   });
 
-  it("mantem recursos na memoria sem substituir a sobrescrita manual da frente", () => {
+  it("mantem custo manual separado e prioriza recursos validos", () => {
     const input = inputOperacional();
     input.frentes[0] = {
       ...input.frentes[0],
@@ -169,7 +198,8 @@ describe("Formacao do preco do orcamento operacional", () => {
 
     const snapshot = buildPricingSnapshot(input);
 
-    expect(snapshot.formacaoPreco.custoDireto).toBe(120000);
+    expect(snapshot.formacaoPreco.custoDireto).toBe(96984.61);
+    expect(snapshot.motorCustos?.frentes[0]?.origemCusto).toBe("RECURSOS");
   });
 
   it("nao utiliza preco de venda do servico principal como custo operacional", () => {
@@ -199,5 +229,50 @@ describe("Formacao do preco do orcamento operacional", () => {
     const snapshot = buildPricingSnapshot(input);
 
     expect(snapshot.formacaoPreco.custoDireto).toBe(96984.61);
+  });
+
+  it("usa a soma comercial das frentes quando todas possuem venda definida", () => {
+    const input = inputOperacional();
+    input.frentes.push({
+      ...input.frentes[0],
+      tempId: "frente-2",
+      ordem: 2,
+      nome: "Frente 2",
+      custoManual: 30000
+    });
+    input.itens.push(
+      servicoPrincipal("frente-1", 10, 10000),
+      servicoPrincipal("frente-2", 2, 30000, 11)
+    );
+
+    const snapshot = buildPricingSnapshot(input);
+
+    expect(snapshot.consolidacao?.valorComercialInformado).toBe(160000);
+    expect(snapshot.formacaoPreco.precoSugerido).toBe(0);
+    expect(snapshot.totals.valorTotal).toBe(160000);
+  });
+
+  it("forma preco apenas para a frente pendente em orcamento misto", () => {
+    const input = inputOperacional();
+    input.frentes.push({
+      ...input.frentes[0],
+      tempId: "frente-2",
+      ordem: 2,
+      nome: "Frente 2",
+      modoCusto: ModoCustoFrente.MANUAL,
+      custoManual: 30000
+    });
+    input.itens.push(servicoPrincipal("frente-1", 10, 10000));
+    input.formacaoPreco = {
+      ...input.formacaoPreco!,
+      margemPercentual: 10
+    };
+
+    const snapshot = buildPricingSnapshot(input);
+
+    expect(snapshot.formacaoPreco.custoDireto).toBe(126984.61);
+    expect(snapshot.consolidacao?.valorComercialInformado).toBe(100000);
+    expect(snapshot.formacaoPreco.precoSugerido).toBe(33000);
+    expect(snapshot.totals.valorTotal).toBe(133000);
   });
 });

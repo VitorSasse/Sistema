@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { SearchableSelect } from "@/components/form/searchable-select";
 import { calcularMotorCustos } from "@/lib/orcamentos/cost-engine";
+import { calcularConsolidacaoEconomica } from "@/lib/orcamentos/economic-engine";
+import { criarNovaRevisaoProposta } from "@/lib/orcamentos/proposta-revision";
 import { formatDateDisplay, formatDateInputValue } from "@/lib/utils/date";
 
 type TipoOrcamento = "COMERCIAL" | "OPERACIONAL";
@@ -885,64 +887,121 @@ function buildCostEngineInputFromForm(form: OrcamentoForm) {
   };
 }
 
-function buildEconomicPreview(
+function getDefaultOperationalScope(form: OrcamentoForm) {
+  const cenarioPadrao = form.cenarios.find((cenario) => cenario.isPadrao) ?? form.cenarios[0];
+  const frentes = cenarioPadrao
+    ? form.frentes.filter((frente) =>
+        frente.cenarioTempId
+          ? frente.cenarioTempId === cenarioPadrao.localId
+          : cenarioPadrao.isPadrao
+      )
+    : form.frentes;
+  const frenteIds = new Set(frentes.map((frente) => frente.localId));
+  const itens = form.itens.filter((item) => frenteIds.has(item.frenteTempId));
+
+  return { frentes, itens };
+}
+
+function buildOperationalConsolidation(
   form: OrcamentoForm,
-  motorCustosCalculado?: ReturnType<typeof calcularMotorCustos> | null
+  frentes: FrenteForm[],
+  itens: ItemForm[]
 ) {
+  const motorCustos = calcularMotorCustos(
+    buildCostEngineInputFromForm({ ...form, frentes, itens })
+  );
+  const consolidacao = calcularConsolidacaoEconomica({
+    frentes: motorCustos.frentes.map((frente) => ({
+      ref: frente.ref,
+      nome: frente.nome,
+      custoDireto: frente.custoDireto
+    })),
+    servicos: itens.map((item) => ({
+      frenteRef: item.frenteTempId,
+      tipoItem: item.tipoItem,
+      descricao: item.descricao,
+      unidade: item.unidade,
+      quantidade: item.quantidade,
+      valorUnitario: item.valorUnitario
+    })),
+    custoDiretoLegado: form.formacaoPreco.custoDireto,
+    custoIndireto: form.formacaoPreco.custoIndireto,
+    margemPercentual: form.formacaoPreco.margemPercentual,
+    impostosPercentual: form.formacaoPreco.impostosPercentual,
+    ajusteComercial: form.formacaoPreco.ajusteComercial,
+    valorDesconto: form.valorDesconto,
+    valorAcrescimo: form.valorAcrescimo
+  });
+
+  return { motorCustos, consolidacao };
+}
+
+function buildEconomicPreview(form: OrcamentoForm) {
   const isOperational = form.tipo === "OPERACIONAL";
   const modoCusto = isOperational ? form.formacaoPreco.modoCusto : "SIMPLIFICADO";
   const subtotalItens = roundMoney(form.itens.reduce((sum, item) => sum + calcItemTotal(item), 0));
   const itensParaCusto = isOperational
     ? form.itens.filter((item) => item.frenteTempId)
     : form.itens;
-  const motorCustos = isOperational
-    ? motorCustosCalculado === undefined
-      ? calcularMotorCustos(buildCostEngineInputFromForm(form))
-      : motorCustosCalculado
+  const escopoOperacional = isOperational ? getDefaultOperationalScope(form) : null;
+  const calculoOperacional = escopoOperacional
+    ? buildOperationalConsolidation(form, escopoOperacional.frentes, escopoOperacional.itens)
     : null;
+  const motorCustos = calculoOperacional?.motorCustos ?? null;
+  const consolidacao = calculoOperacional?.consolidacao ?? null;
   const custoDiretoCalculado = roundMoney(
     isOperational
-      ? motorCustos?.custoDiretoTotal ?? 0
+      ? consolidacao?.custoDiretoTotal ?? 0
       : itensParaCusto.reduce((sum, item) => sum + calcItemCost(item), 0)
   );
   const custoDiretoManual = roundMoney(Number(form.formacaoPreco.custoDireto) || 0);
   const custoDireto = roundMoney(
     isOperational
-      ? form.frentes.length > 0
-        ? custoDiretoCalculado
-        : custoDiretoManual
+      ? consolidacao?.custoDiretoTotal ?? custoDiretoManual
       : custoDiretoCalculado > 0
         ? custoDiretoCalculado
         : custoDiretoManual
   );
-  const custoIndireto = roundMoney(Number(form.formacaoPreco.custoIndireto) || 0);
-  const baseCustos = roundMoney(custoDireto + custoIndireto);
+  const custoIndireto = roundMoney(
+    isOperational
+      ? consolidacao?.custoIndireto ?? 0
+      : Number(form.formacaoPreco.custoIndireto) || 0
+  );
+  const baseCustos = roundMoney(
+    isOperational ? consolidacao?.custoTotal ?? 0 : custoDireto + custoIndireto
+  );
   const margemPercentual = Number(form.formacaoPreco.margemPercentual) || 0;
   const margemManual = Number(form.formacaoPreco.margemValor) || 0;
   const margemValor = roundMoney(
-    !isOperational && margemManual > 0
-      ? margemManual
-      : baseCustos * (margemPercentual / 100)
+    isOperational
+      ? consolidacao?.margemValor ?? 0
+      : margemManual > 0
+        ? margemManual
+        : baseCustos * (margemPercentual / 100)
   );
   const impostosPercentual = Number(form.formacaoPreco.impostosPercentual) || 0;
   const impostosManual = Number(form.formacaoPreco.impostosValor) || 0;
   const impostosValor = roundMoney(
-    !isOperational && impostosManual > 0
-      ? impostosManual
-      : (baseCustos + margemValor) * (impostosPercentual / 100)
+    isOperational
+      ? consolidacao?.impostosValor ?? 0
+      : impostosManual > 0
+        ? impostosManual
+        : (baseCustos + margemValor) * (impostosPercentual / 100)
   );
   const precoSugeridoCalculado = roundMoney(baseCustos + margemValor + impostosValor);
   const precoSugeridoManual = isOperational ? 0 : Number(form.formacaoPreco.precoSugerido) || 0;
   const precoSugerido = roundMoney(
-    precoSugeridoManual > 0 ? precoSugeridoManual : precoSugeridoCalculado
+    isOperational
+      ? consolidacao?.precoSugeridoPendentes ?? 0
+      : precoSugeridoManual > 0
+        ? precoSugeridoManual
+        : precoSugeridoCalculado
   );
   const ajusteComercial = roundMoney(Number(form.formacaoPreco.ajusteComercial) || 0);
   const precoFinalManual = roundMoney(Number(form.formacaoPreco.precoFinal) || 0);
   const baseVenda = roundMoney(
     isOperational
-      ? ajusteComercial > 0
-        ? ajusteComercial
-        : precoSugerido
+      ? consolidacao?.valorSubtotal ?? 0
       : precoFinalManual > 0
         ? precoFinalManual
         : subtotalItens > 0
@@ -951,7 +1010,11 @@ function buildEconomicPreview(
   );
   const desconto = roundMoney(Number(form.valorDesconto) || 0);
   const acrescimo = roundMoney(Number(form.valorAcrescimo) || 0);
-  const total = roundMoney(Math.max(0, baseVenda - desconto + acrescimo));
+  const total = roundMoney(
+    isOperational
+      ? consolidacao?.valorTotal ?? 0
+      : Math.max(0, baseVenda - desconto + acrescimo)
+  );
 
   return {
     isOperational,
@@ -971,7 +1034,8 @@ function buildEconomicPreview(
     desconto,
     acrescimo,
     total,
-    motorCustos
+    motorCustos,
+    consolidacao
   };
 }
 
@@ -989,11 +1053,15 @@ function buildCenarioTotals(form: OrcamentoForm) {
         .map((frente) => frente.localId)
     );
 
-    totals[cenario.localId] = roundMoney(
-      form.itens
-        .filter((item) => item.frenteTempId && frenteIds.has(item.frenteTempId))
-        .reduce((sum, item) => sum + calcItemTotal(item), 0)
+    const frentes = form.frentes.filter((frente) => frenteIds.has(frente.localId));
+    const itens = form.itens.filter(
+      (item) => item.frenteTempId && frenteIds.has(item.frenteTempId)
     );
+    totals[cenario.localId] = buildOperationalConsolidation(
+      form,
+      frentes,
+      itens
+    ).consolidacao.valorTotal;
   }
 
   return totals;
@@ -1136,9 +1204,30 @@ export function OrcamentosManager() {
         : null,
     [form.tipo, form.frentes, form.itens]
   );
+  const vendasTodasFrentesForm = useMemo(
+    () =>
+      form.tipo === "OPERACIONAL" && motorCustosForm
+        ? calcularConsolidacaoEconomica({
+            frentes: motorCustosForm.frentes.map((frente) => ({
+              ref: frente.ref,
+              nome: frente.nome,
+              custoDireto: frente.custoDireto
+            })),
+            servicos: form.itens.map((item) => ({
+              frenteRef: item.frenteTempId,
+              tipoItem: item.tipoItem,
+              descricao: item.descricao,
+              unidade: item.unidade,
+              quantidade: item.quantidade,
+              valorUnitario: item.valorUnitario
+            }))
+          }).frentes
+        : [],
+    [form.tipo, form.itens, motorCustosForm]
+  );
   const economicPreview = useMemo(
-    () => buildEconomicPreview(form, motorCustosForm),
-    [form, motorCustosForm]
+    () => buildEconomicPreview(form),
+    [form]
   );
   const cenarioTotals = useMemo(() => buildCenarioTotals(form), [form]);
   const modoCustoForm = economicPreview.modoCusto;
@@ -1149,12 +1238,14 @@ export function OrcamentosManager() {
   const baseCustosForm = economicPreview.baseCustos;
   const precoSugeridoForm = economicPreview.precoSugerido;
   const totalForm = economicPreview.total;
-  const gruposExecutivosForm = motorCustosForm?.gruposUnidade ?? [];
-  const unidadesHomogeneasForm = motorCustosForm?.unidadesHomogeneas ?? true;
+  const consolidacaoEconomicaForm = economicPreview.consolidacao;
+  const motorCustosCenarioForm = economicPreview.motorCustos;
+  const gruposExecutivosForm = motorCustosCenarioForm?.gruposUnidade ?? [];
+  const unidadesHomogeneasForm = motorCustosCenarioForm?.unidadesHomogeneas ?? true;
   const quantidadeHomogeneaForm = unidadesHomogeneasForm
-    ? motorCustosForm?.quantidadeTotal ?? 0
+    ? motorCustosCenarioForm?.quantidadeTotal ?? 0
     : 0;
-  const prazoCriticoForm = motorCustosForm?.prazoCritico;
+  const prazoCriticoForm = motorCustosCenarioForm?.prazoCritico;
   const prazoCriticoLabelForm =
     prazoCriticoForm && prazoCriticoForm.valor > 0
       ? `${prazoCriticoForm.valor.toLocaleString("pt-BR")} ${prazoCriticoForm.unidade}`
@@ -1203,7 +1294,7 @@ export function OrcamentosManager() {
       }))
     });
     debugCostFlow("D. Depois do cost-engine", {
-      frentes: motorCustosForm?.frentes.map((frente) => ({
+      frentes: motorCustosCenarioForm?.frentes.map((frente) => ({
         frenteId: frente.ref,
         frente: frente.nome,
         modoCusto: frente.modoCusto,
@@ -1213,9 +1304,9 @@ export function OrcamentosManager() {
         custoCalculadoRecursos: frente.custoCalculadoRecursos,
         recursos: frente.recursos
       })),
-      custoDiretoConsolidado: motorCustosForm?.custoDiretoTotal ?? 0,
-      indicadoresPorUnidade: motorCustosForm?.gruposUnidade ?? [],
-      avisos: motorCustosForm?.avisos ?? []
+      custoDiretoConsolidado: motorCustosCenarioForm?.custoDiretoTotal ?? 0,
+      indicadoresPorUnidade: motorCustosCenarioForm?.gruposUnidade ?? [],
+      avisos: motorCustosCenarioForm?.avisos ?? []
     });
     debugCostFlow("E. Engenharia Economica renderizada", {
       modoCusto: modoCustoForm,
@@ -1227,6 +1318,8 @@ export function OrcamentosManager() {
           : "form.formacaoPreco.custoDireto (compatibilidade legada)",
       custoIndireto: custoIndiretoForm,
       precoSugerido: precoSugeridoForm,
+      valorComercialInformado: consolidacaoEconomicaForm?.valorComercialInformado ?? 0,
+      frentesPendentes: consolidacaoEconomicaForm?.frentesPendentes ?? 0,
       ajusteComercial: economicPreview.ajusteComercial,
       precoFinal: totalForm
     });
@@ -1237,7 +1330,8 @@ export function OrcamentosManager() {
     economicPreview.ajusteComercial,
     form,
     modoCustoForm,
-    motorCustosForm,
+    motorCustosCenarioForm,
+    consolidacaoEconomicaForm,
     precoSugeridoForm,
     totalForm
   ]);
@@ -1329,24 +1423,13 @@ export function OrcamentosManager() {
         if (key === "custoManual") {
           return {
             ...frente,
-            modoCusto: "MANUAL",
+            modoCusto: Number(value) > 0 ? "MANUAL" : frente.modoCusto,
             custoManual: String(value)
           };
         }
 
         return recalcularFrentePlanejamento(frente, key, value);
       })
-    }));
-  }
-
-  function usarCalculoRecursos(localId: string) {
-    setForm((current) => ({
-      ...current,
-      frentes: current.frentes.map((frente) =>
-        frente.localId === localId
-          ? { ...frente, modoCusto: "AUTO", custoManual: "0" }
-          : frente
-      )
     }));
   }
 
@@ -1541,6 +1624,30 @@ export function OrcamentosManager() {
         propostasComerciais: [...current.propostasComerciais, proposta]
       };
     });
+  }
+
+  function createPropostaRevision(propostaLocalId: string) {
+    const propostaEmitida = form.propostasComerciais.find(
+      (proposta) => proposta.localId === propostaLocalId && proposta.status === "EMITIDA"
+    );
+
+    if (!propostaEmitida) {
+      return;
+    }
+
+    const novaRevisao = criarNovaRevisaoProposta({
+      propostaEmitida,
+      propostasExistentes: form.propostasComerciais,
+      criarPropostaId: () => uid("proposta"),
+      criarOpcionalId: () => uid("opcional")
+    }) as PropostaComercialForm;
+
+    setForm((current) => ({
+      ...current,
+      propostasComerciais: [...current.propostasComerciais, novaRevisao]
+    }));
+    clearError();
+    setMessage("Nova revisao criada a partir do orcamento atual.");
   }
 
   function updatePropostaComercial(
@@ -2065,6 +2172,7 @@ export function OrcamentosManager() {
                 frentes={form.frentes}
                 itens={form.itens}
                 custosFrentes={motorCustosForm?.frentes ?? []}
+                vendasFrentes={vendasTodasFrentesForm}
                 servicoOptions={servicoOptions}
                 materialOptions={materialOptions}
                 equipamentoOptions={equipamentoOptions}
@@ -2074,7 +2182,6 @@ export function OrcamentosManager() {
                 onAdd={addFrente}
                 onRemove={removeFrente}
                 onUpdate={updateFrente}
-                onUseResourceCost={usarCalculoRecursos}
                 onAddItem={addItemToFrente}
                 onRemoveItem={removeItem}
                 onUpdateItem={updateItem}
@@ -2088,6 +2195,7 @@ export function OrcamentosManager() {
                 onRemoveCenario={removeCenario}
                 onUpdateCenario={updateCenario}
                 onAddProposta={addPropostaComercial}
+                onCreateRevision={createPropostaRevision}
                 onRemoveProposta={removePropostaComercial}
                 onUpdateProposta={updatePropostaComercial}
                 onAddOpcional={addPropostaOpcional}
@@ -2187,18 +2295,36 @@ export function OrcamentosManager() {
                         </div>
 
                         <div className="orcamentos-cost-memory">
-                          <strong>Memoria de calculo</strong>
-                          {motorCustosForm?.memoria.length ? (
+                          <strong>Memoria de calculo por frente</strong>
+                          {consolidacaoEconomicaForm?.frentes.length ? (
                             <div className="orcamentos-cost-memory-list">
-                              {motorCustosForm.memoria.map((memoria, index) => (
-                                <div key={`${memoria.frenteRef}-${memoria.descricao}-${index}`}>
-                                  <span>
-                                    {memoria.descricao} ({memoria.unidadeCustoFormatada})
-                                  </span>
-                                  <small>{memoria.formula}</small>
-                                  <strong>{formatCurrency(memoria.custoTotal)}</strong>
-                                </div>
-                              ))}
+                              {consolidacaoEconomicaForm.frentes.map((frente) => {
+                                const custo = motorCustosCenarioForm?.frentes.find(
+                                  (item) => item.ref === frente.ref
+                                );
+                                const venda = frente.memoriaVenda
+                                  .map(
+                                    (item) =>
+                                      `${item.quantidade.toLocaleString("pt-BR")} ${item.unidade} x ${formatCurrency(item.valorUnitario)}`
+                                  )
+                                  .join(" + ");
+
+                                return (
+                                  <div key={frente.ref} className="orcamentos-front-memory-row">
+                                    <span>{frente.nome}</span>
+                                    <strong>{formatCurrency(frente.custoDireto)}</strong>
+                                    <small>
+                                      Custo: {custo?.origemCusto === "RECURSOS" ? "Recursos" : "Manual"}
+                                      {" | "}Venda: {venda || "pendente de precificacao"}
+                                    </small>
+                                    <small>
+                                      Status comercial: {frente.statusComercial === "VENDA_DEFINIDA"
+                                        ? `venda definida (${formatCurrency(frente.valorVenda)})`
+                                        : "pendente de precificacao"}
+                                    </small>
+                                  </div>
+                                );
+                              })}
                             </div>
                           ) : (
                             <small>
@@ -2206,9 +2332,9 @@ export function OrcamentosManager() {
                               simplificado enquanto detalha os recursos.
                             </small>
                           )}
-                          {motorCustosForm?.avisos.length ? (
+                          {motorCustosCenarioForm?.avisos.length ? (
                             <ul>
-                              {motorCustosForm.avisos.slice(0, 4).map((aviso) => (
+                              {motorCustosCenarioForm.avisos.slice(0, 4).map((aviso) => (
                                 <li key={aviso}>{aviso}</li>
                               ))}
                             </ul>
@@ -2220,8 +2346,8 @@ export function OrcamentosManager() {
                         <span>Custo direto das frentes</span>
                         <strong>{formatCurrency(custoDiretoForm)}</strong>
                         <small>
-                          Cada frente utiliza o custo calculado pelos recursos ou a sobrescrita
-                          manual escolhida pelo engenheiro.
+                          Cada frente utiliza recursos validos e, na ausencia deles, o custo
+                          direto manual informado pelo engenheiro.
                         </small>
                       </div>
                     )}
@@ -2252,6 +2378,18 @@ export function OrcamentosManager() {
                   <article className="orcamentos-layer-card">
                     <span className="orcamentos-layer-kicker">Formacao do preco</span>
                     <h4>Quanto devemos cobrar?</h4>
+                    <div className="orcamentos-commercial-breakdown">
+                      <div>
+                        <span>Venda definida</span>
+                        <strong>{formatCurrency(consolidacaoEconomicaForm?.valorComercialInformado ?? 0)}</strong>
+                        <small>{consolidacaoEconomicaForm?.frentesComVenda ?? 0} frente(s)</small>
+                      </div>
+                      <div>
+                        <span>Sugerido pendente</span>
+                        <strong>{formatCurrency(consolidacaoEconomicaForm?.precoSugeridoPendentes ?? 0)}</strong>
+                        <small>{consolidacaoEconomicaForm?.frentesPendentes ?? 0} frente(s)</small>
+                      </div>
+                    </div>
                     <div className="orcamentos-form-grid orcamentos-layer-grid">
                       <label className="manager-field">
                         <span className="manager-field-label">Margem %</span>
@@ -2286,8 +2424,8 @@ export function OrcamentosManager() {
                           onChange={(event) => updateFormacao("ajusteComercial", event.target.value)}
                         />
                         <small className="manager-field-hint">
-                          Opcional. Quando informado, substitui o preco sugerido antes de
-                          desconto e acrescimo.
+                          Opcional. Atua somente sobre o preco final consolidado, sem alterar
+                          custos ou vendas informadas nas frentes.
                         </small>
                       </label>
                       <label className="manager-field">
@@ -2453,7 +2591,8 @@ export function OrcamentosManager() {
                 <>
                   <span>Custo direto: {formatCurrency(custoDiretoForm)}</span>
                   <span>Indireto: {formatCurrency(custoIndiretoForm)}</span>
-                  <span>Sugerido: {formatCurrency(precoSugeridoForm)}</span>
+                  <span>Venda definida: {formatCurrency(consolidacaoEconomicaForm?.valorComercialInformado ?? 0)}</span>
+                  <span>Sugerido pendente: {formatCurrency(precoSugeridoForm)}</span>
                   <strong>Final: {formatCurrency(totalForm)}</strong>
                 </>
               ) : (
@@ -2488,11 +2627,26 @@ export function OrcamentosManager() {
                 </small>
               </article>
               <article>
+                <span>Valor comercial informado</span>
+                <strong>
+                  {formatCurrency(
+                    form.tipo === "OPERACIONAL"
+                      ? consolidacaoEconomicaForm?.valorComercialInformado ?? 0
+                      : subtotalForm
+                  )}
+                </strong>
+                <small>
+                  {form.tipo === "OPERACIONAL"
+                    ? `${consolidacaoEconomicaForm?.frentesComVenda ?? 0} frente(s) com venda definida.`
+                    : "Valor informado nos itens comerciais."}
+                </small>
+              </article>
+              <article>
                 <span>Preco sugerido</span>
                 <strong>{formatCurrency(precoSugeridoForm)}</strong>
                 <small>
                   {form.tipo === "OPERACIONAL"
-                    ? "Custo total + margem + impostos."
+                    ? `Somente para ${consolidacaoEconomicaForm?.frentesPendentes ?? 0} frente(s) sem venda.`
                     : "Custo + margem + impostos."}
                 </small>
               </article>
@@ -2550,6 +2704,7 @@ function FrentesOperacionaisSection(props: {
   frentes: FrenteForm[];
   itens: ItemForm[];
   custosFrentes: ReturnType<typeof calcularMotorCustos>["frentes"];
+  vendasFrentes: NonNullable<ReturnType<typeof buildEconomicPreview>["consolidacao"]>["frentes"];
   servicoOptions: ServicoSelectOption[];
   materialOptions: MaterialSelectOption[];
   equipamentoOptions: BasicSelectOption[];
@@ -2559,7 +2714,6 @@ function FrentesOperacionaisSection(props: {
   onAdd: () => void;
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, key: keyof FrenteForm, value: string | number) => void;
-  onUseResourceCost: (localId: string) => void;
   onAddItem: (frenteLocalId: string, tipoItem: TipoItemOrcamento) => void;
   onRemoveItem: (localId: string) => void;
   onUpdateItem: (localId: string, key: keyof ItemForm, value: string | number) => void;
@@ -2615,7 +2769,8 @@ function FrentesOperacionaisSection(props: {
           const servicosAuxiliares = itensDaFrente.filter((item) => item.tipoItem === "SERVICO_AUXILIAR");
           const recursosPlanejamento = itensDaFrente.filter((item) => isRecursoItem(item));
           const custoFrente = props.custosFrentes.find((item) => item.ref === frente.localId);
-          const custoCalculadoPorRecursos = frente.modoCusto === "AUTO";
+          const vendaFrente = props.vendasFrentes.find((item) => item.ref === frente.localId);
+          const custoCalculadoPorRecursos = custoFrente?.origemCusto === "RECURSOS";
           const unidadeProdutividadeLabel = getProdutividadeLabel(frente.unidadeProducao);
           const frenteCalculoMessage = getFrenteCalculoMessage(frente);
           const openLevelId = getOpenLevel(frente.localId);
@@ -2905,43 +3060,44 @@ function FrentesOperacionaisSection(props: {
                     />
                     <div className="orcamentos-front-cost-panel">
                   <label className="manager-field">
-                    <span className="manager-field-label">Custo da frente</span>
+                    <span className="manager-field-label">Custo direto manual da frente</span>
                     <input
                       className="field-control"
                       type="number"
                       min="0"
                       step="0.01"
-                      value={
-                        custoCalculadoPorRecursos
-                          ? String(custoFrente?.custoDireto ?? 0)
-                          : frente.custoManual
-                      }
+                      value={frente.custoManual}
                       onChange={(event) =>
                         props.onUpdate(frente.localId, "custoManual", event.target.value)
                       }
                     />
+                    <small className="manager-field-hint">
+                      Utilizado somente quando nenhum recurso valido gerar custo para a frente.
+                    </small>
                   </label>
                   <div className="orcamentos-front-cost-origin">
                     <span>
                       {custoCalculadoPorRecursos
-                        ? "Calculado pelos recursos"
-                        : "Informado manualmente"}
+                        ? "Origem do custo: Recursos"
+                        : "Origem do custo: Manual"}
                     </span>
                     <strong>{formatCurrency(custoFrente?.custoDireto ?? 0)}</strong>
                     <small>
                       {custoCalculadoPorRecursos
-                        ? `Soma atual dos recursos: ${formatCurrency(custoFrente?.custoCalculadoRecursos ?? 0)}. Edite o campo para sobrescrever.`
-                        : `Os recursos permanecem na memoria (${formatCurrency(custoFrente?.custoCalculadoRecursos ?? 0)}), mas nao participam do custo oficial.`}
+                        ? `Soma atual dos recursos: ${formatCurrency(custoFrente?.custoCalculadoRecursos ?? 0)}. O custo manual nao e somado.`
+                        : "Nenhum recurso valido gerou custo. O valor manual e o custo oficial desta frente."}
                     </small>
-                    {!custoCalculadoPorRecursos ? (
-                      <button
-                        type="button"
-                        className="button-secondary orcamentos-front-cost-reset"
-                        onClick={() => props.onUseResourceCost(frente.localId)}
-                      >
-                        Usar calculo dos recursos
-                      </button>
-                    ) : null}
+                  </div>
+                  <div className="orcamentos-front-sale-status">
+                    <span>
+                      {vendaFrente?.statusComercial === "VENDA_DEFINIDA"
+                        ? "Venda definida"
+                        : "Pendente de precificacao"}
+                    </span>
+                    <strong>{formatCurrency(vendaFrente?.valorVenda ?? 0)}</strong>
+                    <small>
+                      Soma de quantidade x preco de venda dos Servicos Principais desta frente.
+                    </small>
                   </div>
                     </div>
                     <textarea
@@ -2971,6 +3127,7 @@ function CenariosPropostasSection(props: {
   onRemoveCenario: (localId: string) => void;
   onUpdateCenario: (localId: string, key: keyof CenarioForm, value: string | number | boolean) => void;
   onAddProposta: () => void;
+  onCreateRevision: (propostaLocalId: string) => void;
   onRemoveProposta: (localId: string) => void;
   onUpdateProposta: (localId: string, key: keyof PropostaComercialForm, value: string) => void;
   onAddOpcional: (propostaLocalId: string) => void;
@@ -3279,9 +3436,23 @@ function CenariosPropostasSection(props: {
                 {isEmitida ? (
                   <p className="orcamentos-front-validation">Proposta emitida: snapshot preservado. Gere nova revisao para alterar.</p>
                 ) : null}
-                <button type="button" className="button-secondary" disabled={isEmitida} onClick={() => props.onRemoveProposta(proposta.localId)}>
-                  Remover proposta
-                </button>
+                {isEmitida ? (
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={() => props.onCreateRevision(proposta.localId)}
+                  >
+                    Criar nova revisao
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="button-secondary"
+                    onClick={() => props.onRemoveProposta(proposta.localId)}
+                  >
+                    Remover proposta
+                  </button>
+                )}
               </div>
               );
             })}
@@ -3422,7 +3593,11 @@ function ServiceItemFields(props: {
         />
       </label>
       <label className="manager-field">
-        <span className="manager-field-label">Valor unitario</span>
+        <span className="manager-field-label">
+          {props.item.tipoItem === "SERVICO_PRINCIPAL"
+            ? "Preco de venda unitario"
+            : "Valor unitario"}
+        </span>
         <input
           className="field-control"
           type="number"

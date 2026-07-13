@@ -9,7 +9,11 @@ import {
   TipoPremissaOrcamento
 } from "@prisma/client";
 import type { OrcamentoInput } from "@/lib/validators/orcamento";
-import { criarOrcamento } from "@/server/services/orcamentos/service";
+import {
+  buildPropostaSnapshot,
+  buildPropostaTotals,
+  criarOrcamento
+} from "@/server/services/orcamentos/service";
 
 function baseInput(overrides: Partial<OrcamentoInput> = {}): OrcamentoInput {
   return {
@@ -72,6 +76,41 @@ function baseInput(overrides: Partial<OrcamentoInput> = {}): OrcamentoInput {
     ],
     premissas: [],
     ...overrides
+  };
+}
+
+function propostaInput(revisao = 0) {
+  return {
+    tempId: `proposta-${revisao}`,
+    cenarioTempId: "",
+    cenarioOrdem: null,
+    codigo: "PROP-001",
+    revisao,
+    titulo: "Proposta operacional",
+    status: StatusPropostaComercial.EMITIDA,
+    condicoesComerciais: "Pagamento em 30 dias.",
+    observacao: "",
+    opcionais: []
+  } satisfies OrcamentoInput["propostasComerciais"][number];
+}
+
+function snapshotValues(snapshot: ReturnType<typeof buildPropostaSnapshot>) {
+  return snapshot as unknown as {
+    revisao: number;
+    totals: {
+      valorSubtotal: number;
+      valorDesconto: number;
+      valorAcrescimo: number;
+      valorTotal: number;
+    };
+    frentes: Array<{
+      quantidadePrevista: number | null;
+    }>;
+    itens: Array<{
+      quantidade: number;
+      valorUnitario: number;
+      valorTotal: number;
+    }>;
   };
 }
 
@@ -357,5 +396,106 @@ describe("orcamentos sprint 4.1-4.3", () => {
     expect(records.cenarios).toHaveLength(1);
     expect(records.opcionais).toHaveLength(1);
     expect(records.opcionais[0].propostaId).toBe(records.propostas[0].id);
+  });
+});
+
+describe("revisoes de propostas comerciais", () => {
+  it("reconstroi a nova revisao com o valor atual e preserva o snapshot emitido", () => {
+    const propostaRev0 = propostaInput(0);
+    const inputOriginal = baseInput({
+      itens: [{ ...baseInput().itens[0], valorUnitario: 100 }]
+    });
+    const snapshotRev0 = snapshotValues(
+      buildPropostaSnapshot(inputOriginal, propostaRev0, undefined)
+    );
+
+    const propostaRev1 = propostaInput(1);
+    const inputAtual = baseInput({
+      itens: [{ ...baseInput().itens[0], valorUnitario: 250 }]
+    });
+    const snapshotRev1 = snapshotValues(
+      buildPropostaSnapshot(inputAtual, propostaRev1, undefined)
+    );
+
+    expect(snapshotRev0.totals.valorTotal).toBe(10000);
+    expect(snapshotRev0.revisao).toBe(0);
+    expect(snapshotRev1.totals.valorTotal).toBe(25000);
+    expect(snapshotRev1.revisao).toBe(1);
+    expect(snapshotRev0.totals.valorTotal).toBe(10000);
+  });
+
+  it("reconstroi frentes e servicos quando a quantidade atual muda", () => {
+    const inputAtual = baseInput({
+      frentes: [{ ...baseInput().frentes[0], quantidadePrevista: 180 }],
+      itens: [{ ...baseInput().itens[0], quantidade: 180, valorUnitario: 100 }]
+    });
+    const snapshot = snapshotValues(
+      buildPropostaSnapshot(inputAtual, propostaInput(1), undefined)
+    );
+
+    expect(snapshot.frentes[0].quantidadePrevista).toBe(180);
+    expect(snapshot.itens[0].quantidade).toBe(180);
+    expect(snapshot.totals.valorTotal).toBe(18000);
+  });
+
+  it("usa o preco de venda vigente dos servicos principais", () => {
+    const inputAtual = baseInput({
+      itens: [{ ...baseInput().itens[0], valorUnitario: 325.5 }]
+    });
+    const snapshot = snapshotValues(
+      buildPropostaSnapshot(inputAtual, propostaInput(1), undefined)
+    );
+
+    expect(snapshot.itens[0].valorUnitario).toBe(325.5);
+    expect(snapshot.itens[0].valorTotal).toBe(32550);
+    expect(snapshot.totals.valorTotal).toBe(32550);
+  });
+
+  it("recalcula o preco sugerido quando somente os custos mudam", () => {
+    const recursoBase = {
+      ...baseInput().itens[0],
+      tipoItem: TipoItemOrcamento.RECURSO,
+      ordem: 2,
+      descricao: "Escavadeira",
+      quantidade: 10,
+      valorUnitario: 0
+    };
+    const inputAnterior = baseInput({
+      itens: [baseInput().itens[0], { ...recursoBase, custoUnitario: 500 }]
+    });
+    const inputAtual = baseInput({
+      itens: [baseInput().itens[0], { ...recursoBase, custoUnitario: 800 }]
+    });
+
+    const anterior = buildPropostaTotals(inputAnterior, propostaInput(0), undefined);
+    const atual = buildPropostaTotals(inputAtual, propostaInput(1), undefined);
+
+    expect(anterior.valorTotal).toBe(5000);
+    expect(atual.valorTotal).toBe(8000);
+  });
+
+  it("persiste a fotografia comercial tambem enquanto a nova revisao esta em rascunho", async () => {
+    const { db, records } = createFakeDb();
+    const propostaRascunho = {
+      ...propostaInput(1),
+      status: StatusPropostaComercial.RASCUNHO
+    };
+
+    await criarOrcamento(db as never, {
+      input: baseInput({
+        itens: [{ ...baseInput().itens[0], valorUnitario: 2536.4765 }],
+        propostasComerciais: [propostaRascunho]
+      }),
+      userId: "usuario-1"
+    });
+
+    const propostaPersistida = records.propostas[0];
+    const snapshot = snapshotValues(
+      propostaPersistida.snapshotJson as ReturnType<typeof buildPropostaSnapshot>
+    );
+
+    expect(propostaPersistida.status).toBe(StatusPropostaComercial.RASCUNHO);
+    expect(propostaPersistida.valorTotal).toBe(253647.65);
+    expect(snapshot.totals.valorTotal).toBe(253647.65);
   });
 });

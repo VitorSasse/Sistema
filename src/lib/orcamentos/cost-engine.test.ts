@@ -17,7 +17,7 @@ describe("Motor de custos do orcamento operacional", () => {
     expect(result.recursos).toHaveLength(0);
   });
 
-  it("permite sobrescrever manualmente uma frente que possui recursos", () => {
+  it("prioriza recursos validos mesmo quando existe custo manual", () => {
     const result = resolveFrontCost(
       { ref: "frente-automatica", modoCusto: "MANUAL", custoManual: 50000 },
       [
@@ -31,8 +31,8 @@ describe("Motor de custos do orcamento operacional", () => {
       ]
     );
 
-    expect(result.origemCusto).toBe("MANUAL");
-    expect(result.custoFrente).toBe(50000);
+    expect(result.origemCusto).toBe("RECURSOS");
+    expect(result.custoFrente).toBe(3000);
     expect(result.custoManual).toBe(50000);
     expect(result.custoCalculadoRecursos).toBe(3000);
     expect(result.recursos).toHaveLength(1);
@@ -54,7 +54,7 @@ describe("Motor de custos do orcamento operacional", () => {
     expect(comRecurso.custoFrente).toBe(2500);
     expect(comRecurso.origemCusto).toBe("RECURSOS");
     expect(semRecursos.custoFrente).toBe(0);
-    expect(semRecursos.origemCusto).toBe("RECURSOS");
+    expect(semRecursos.origemCusto).toBe("MANUAL");
 
     const informadoManualmente = resolveFrontCost(
       { ...frente, modoCusto: "MANUAL", custoManual: 7000 },
@@ -64,7 +64,7 @@ describe("Motor de custos do orcamento operacional", () => {
     expect(informadoManualmente.origemCusto).toBe("MANUAL");
   });
 
-  it("atualiza a memoria sem alterar o custo oficial enquanto a frente esta manual", () => {
+  it("recalcula recursos sem somar o custo manual armazenado", () => {
     const frente = { ref: "frente-1", modoCusto: "MANUAL" as const, custoManual: 7000 };
     const inicial = resolveFrontCost(frente, [
       { frenteRef: "frente-1", quantidade: 2, custoOperacional: 100, unidadeCusto: "UN" }
@@ -73,13 +73,13 @@ describe("Motor de custos do orcamento operacional", () => {
       { frenteRef: "frente-1", quantidade: 3, custoOperacional: 120, unidadeCusto: "UN" }
     ]);
 
-    expect(inicial.custoFrente).toBe(7000);
-    expect(atualizado.custoFrente).toBe(7000);
+    expect(inicial.custoFrente).toBe(200);
+    expect(atualizado.custoFrente).toBe(360);
     expect(inicial.custoCalculadoRecursos).toBe(200);
     expect(atualizado.custoCalculadoRecursos).toBe(360);
   });
 
-  it("retorna ao calculo automatico usando a soma atual dos recursos", () => {
+  it("mantem a soma atual dos recursos independente do modo legado", () => {
     const recursos = [
       { frenteRef: "frente-1", quantidade: 3, custoOperacional: 120, unidadeCusto: "UN" }
     ];
@@ -92,7 +92,8 @@ describe("Motor de custos do orcamento operacional", () => {
       recursos
     );
 
-    expect(manual.custoFrente).toBe(7000);
+    expect(manual.custoFrente).toBe(360);
+    expect(manual.origemCusto).toBe("RECURSOS");
     expect(automatico.custoFrente).toBe(360);
     expect(automatico.origemCusto).toBe("RECURSOS");
   });

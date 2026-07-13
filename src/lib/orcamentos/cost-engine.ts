@@ -414,12 +414,14 @@ export function resolveFrontCost(
   }
 
   const custoManual = roundMoney(Math.max(0, toNumber(frenteInput.custoManual)));
-  const modoCusto: CostEngineModoCustoFrente =
-    frenteInput.modoCusto === "MANUAL" ? "MANUAL" : "AUTO";
-  const origemCusto = modoCusto === "MANUAL" ? "MANUAL" : "RECURSOS";
+  const possuiCustoValidoPorRecursos = custoRecursos > 0;
+  const modoCusto: CostEngineModoCustoFrente = possuiCustoValidoPorRecursos
+    ? "AUTO"
+    : "MANUAL";
+  const origemCusto = possuiCustoValidoPorRecursos ? "RECURSOS" : "MANUAL";
 
   return {
-    custoFrente: modoCusto === "MANUAL" ? custoManual : custoRecursos,
+    custoFrente: possuiCustoValidoPorRecursos ? custoRecursos : custoManual,
     modoCusto,
     custoManual,
     custoCalculadoRecursos: custoRecursos,

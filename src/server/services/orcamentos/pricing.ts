@@ -1,8 +1,10 @@
 import { ModoCustoOrcamento, TipoItemOrcamento, TipoOrcamento } from "@prisma/client";
-import type { OrcamentoInput } from "@/lib/validators/orcamento";
 import { calcularMotorCustos } from "@/lib/orcamentos/cost-engine";
+import { calcularConsolidacaoEconomica } from "@/lib/orcamentos/economic-engine";
+import type { OrcamentoInput } from "@/lib/validators/orcamento";
 
 type OrcamentoItemInput = OrcamentoInput["itens"][number];
+type OrcamentoCenarioInput = OrcamentoInput["cenarios"][number];
 
 function clean(value?: string | null) {
   const normalized = value?.trim();
@@ -29,9 +31,37 @@ function getItemFrenteRef(item: OrcamentoItemInput) {
   return item.frenteTempId?.trim() || (item.frenteOrdem ? `ordem:${item.frenteOrdem}` : "");
 }
 
-function buildCostEngineInput(input: OrcamentoInput) {
+function pertenceAoCenario(
+  frente: OrcamentoInput["frentes"][number],
+  cenario: OrcamentoCenarioInput
+) {
+  if (cenario.tempId?.trim() && frente.cenarioTempId?.trim()) {
+    return frente.cenarioTempId.trim() === cenario.tempId.trim();
+  }
+
+  return frente.cenarioOrdem === cenario.ordem || (!frente.cenarioTempId?.trim() && cenario.isPadrao);
+}
+
+function getEscopoOperacional(
+  input: OrcamentoInput,
+  cenario?: OrcamentoCenarioInput | null
+) {
+  const cenarioAtivo = cenario ?? input.cenarios.find((item) => item.isPadrao) ?? input.cenarios[0];
+  const frentes = cenarioAtivo
+    ? input.frentes.filter((frente) => pertenceAoCenario(frente, cenarioAtivo))
+    : input.frentes;
+  const frenteRefs = new Set(frentes.map(getFrenteRef));
+  const itens = input.itens.filter((item) => frenteRefs.has(getItemFrenteRef(item)));
+
+  return { frentes, itens, cenario: cenarioAtivo ?? null };
+}
+
+function buildCostEngineInput(
+  frentes: OrcamentoInput["frentes"],
+  itens: OrcamentoInput["itens"]
+) {
   return {
-    frentes: input.frentes.map((frente) => ({
+    frentes: frentes.map((frente) => ({
       ref: getFrenteRef(frente),
       nome: frente.nome,
       unidadeProducao: frente.unidadeProducao,
@@ -41,7 +71,7 @@ function buildCostEngineInput(input: OrcamentoInput) {
       modoCusto: frente.modoCusto,
       custoManual: frente.custoManual
     })),
-    recursos: input.itens
+    recursos: itens
       .filter((item) => item.tipoItem === TipoItemOrcamento.RECURSO)
       .map((item) => ({
         frenteRef: getItemFrenteRef(item),
@@ -54,112 +84,128 @@ function buildCostEngineInput(input: OrcamentoInput) {
   };
 }
 
-function calcularMargemEImpostos(
+function buildOperationalSnapshot(
   input: OrcamentoInput,
-  baseCustos: number,
-  config: { operacional: boolean }
+  cenario?: OrcamentoCenarioInput | null
 ) {
   const formacao = input.formacaoPreco;
-  const margemPercentual = toMoney(Number(formacao?.margemPercentual ?? 0));
-  const margemManual = toMoney(Number(formacao?.margemValor ?? 0));
-  const margemValor =
-    !config.operacional && margemManual > 0
-      ? margemManual
-      : toMoney(baseCustos * (margemPercentual / 100));
-  const impostosPercentual = toMoney(Number(formacao?.impostosPercentual ?? 0));
-  const impostosManual = toMoney(Number(formacao?.impostosValor ?? 0));
-  const baseComMargem = toMoney(baseCustos + margemValor);
-  const impostosValor =
-    !config.operacional && impostosManual > 0
-      ? impostosManual
-      : toMoney(baseComMargem * (impostosPercentual / 100));
+  const escopo = getEscopoOperacional(input, cenario);
+  const motorCustos = calcularMotorCustos(buildCostEngineInput(escopo.frentes, escopo.itens));
+  const consolidacao = calcularConsolidacaoEconomica({
+    frentes: motorCustos.frentes.map((frente) => ({
+      ref: frente.ref,
+      nome: frente.nome,
+      custoDireto: frente.custoDireto
+    })),
+    servicos: escopo.itens.map((item) => ({
+      frenteRef: getItemFrenteRef(item),
+      tipoItem: item.tipoItem,
+      descricao: item.descricao,
+      unidade: item.unidade,
+      quantidade: item.quantidade,
+      valorUnitario: item.valorUnitario
+    })),
+    custoDiretoLegado: formacao?.custoDireto,
+    custoIndireto: formacao?.custoIndireto,
+    margemPercentual: formacao?.margemPercentual,
+    impostosPercentual: formacao?.impostosPercentual,
+    ajusteComercial: formacao?.ajusteComercial,
+    valorDesconto: input.valorDesconto,
+    valorAcrescimo: input.valorAcrescimo
+  });
+  const modoCusto =
+    formacao?.modoCusto ??
+    (escopo.frentes.length > 0
+      ? ModoCustoOrcamento.COMPLETO
+      : ModoCustoOrcamento.SIMPLIFICADO);
 
   return {
-    margemPercentual,
-    margemValor,
-    impostosPercentual,
-    impostosValor,
-    baseComMargem
+    formacaoPreco: {
+      modoCusto,
+      custoDireto: consolidacao.custoDiretoTotal,
+      custoIndireto: consolidacao.custoIndireto,
+      impostosPercentual: toMoney(Number(formacao?.impostosPercentual ?? 0)),
+      impostosValor: consolidacao.impostosValor,
+      margemPercentual: toMoney(Number(formacao?.margemPercentual ?? 0)),
+      margemValor: consolidacao.margemValor,
+      precoSugerido: consolidacao.precoSugeridoPendentes,
+      ajusteComercial: consolidacao.ajusteComercial,
+      precoFinal: consolidacao.valorTotal,
+      observacao: clean(formacao?.observacao)
+    },
+    totals: {
+      valorSubtotal: consolidacao.valorSubtotal,
+      valorDesconto: consolidacao.valorDesconto,
+      valorAcrescimo: consolidacao.valorAcrescimo,
+      valorTotal: consolidacao.valorTotal
+    },
+    consolidacao,
+    motorCustos,
+    cenario: escopo.cenario
   };
 }
 
-function buildSnapshot(input: OrcamentoInput, config: { operacional: boolean }) {
+function buildCommercialSnapshot(input: OrcamentoInput) {
   const formacao = input.formacaoPreco;
   const subtotalItens = toMoney(
     input.itens.reduce((sum, item) => sum + calcularValorItem(item), 0)
   );
-  const itensParaCusto = config.operacional
-    ? input.itens.filter((item) => item.frenteTempId || item.frenteOrdem)
-    : input.itens;
   const custoDiretoItens = toMoney(
-    itensParaCusto.reduce((sum, item) => sum + calcularCustoItem(item), 0)
+    input.itens.reduce((sum, item) => sum + calcularCustoItem(item), 0)
   );
-  const motorCustos = config.operacional ? calcularMotorCustos(buildCostEngineInput(input)) : null;
-  const custoDiretoCompleto = motorCustos?.custoDiretoTotal ?? custoDiretoItens;
   const custoDiretoManual = toMoney(Number(formacao?.custoDireto ?? 0));
-  const modoCusto =
-    formacao?.modoCusto ??
-    (config.operacional && custoDiretoCompleto > 0
-      ? ModoCustoOrcamento.COMPLETO
-      : ModoCustoOrcamento.SIMPLIFICADO);
-  const custoDireto = config.operacional
-    ? input.frentes.length > 0
-      ? custoDiretoCompleto
-      : custoDiretoManual
-    : custoDiretoItens > 0
-      ? custoDiretoItens
-      : custoDiretoManual;
+  const custoDireto = custoDiretoItens > 0 ? custoDiretoItens : custoDiretoManual;
   const custoIndireto = toMoney(Number(formacao?.custoIndireto ?? 0));
   const baseCustos = toMoney(custoDireto + custoIndireto);
-  const margem = calcularMargemEImpostos(input, baseCustos, config);
-  const precoSugeridoCalculado = toMoney(margem.baseComMargem + margem.impostosValor);
-  const precoSugeridoManual = config.operacional
-    ? 0
-    : toMoney(Number(formacao?.precoSugerido ?? 0));
-  const precoSugerido =
-    precoSugeridoManual > 0 ? precoSugeridoManual : precoSugeridoCalculado;
-  const ajusteComercial = toMoney(Number(formacao?.ajusteComercial ?? 0));
+  const margemPercentual = toMoney(Number(formacao?.margemPercentual ?? 0));
+  const margemManual = toMoney(Number(formacao?.margemValor ?? 0));
+  const margemValor = margemManual > 0 ? margemManual : toMoney(baseCustos * (margemPercentual / 100));
+  const impostosPercentual = toMoney(Number(formacao?.impostosPercentual ?? 0));
+  const impostosManual = toMoney(Number(formacao?.impostosValor ?? 0));
+  const impostosValor = impostosManual > 0
+    ? impostosManual
+    : toMoney((baseCustos + margemValor) * (impostosPercentual / 100));
+  const precoSugeridoCalculado = toMoney(baseCustos + margemValor + impostosValor);
+  const precoSugeridoManual = toMoney(Number(formacao?.precoSugerido ?? 0));
+  const precoSugerido = precoSugeridoManual > 0 ? precoSugeridoManual : precoSugeridoCalculado;
   const precoFinalManual = toMoney(Number(formacao?.precoFinal ?? 0));
-  const valorSubtotal = toMoney(
-    config.operacional
-      ? ajusteComercial > 0
-        ? ajusteComercial
-        : precoSugerido
-      : precoFinalManual > 0
-        ? precoFinalManual
-        : subtotalItens > 0
-          ? subtotalItens
-          : precoSugerido
-  );
+  const valorSubtotal = precoFinalManual > 0
+    ? precoFinalManual
+    : subtotalItens > 0
+      ? subtotalItens
+      : precoSugerido;
   const valorDesconto = toMoney(Number(input.valorDesconto ?? 0));
   const valorAcrescimo = toMoney(Number(input.valorAcrescimo ?? 0));
   const valorTotal = toMoney(Math.max(0, valorSubtotal - valorDesconto + valorAcrescimo));
 
   return {
     formacaoPreco: {
-      modoCusto,
+      modoCusto: formacao?.modoCusto ?? ModoCustoOrcamento.SIMPLIFICADO,
       custoDireto,
       custoIndireto,
-      impostosPercentual: margem.impostosPercentual,
-      impostosValor: margem.impostosValor,
-      margemPercentual: margem.margemPercentual,
-      margemValor: margem.margemValor,
+      impostosPercentual,
+      impostosValor,
+      margemPercentual,
+      margemValor,
       precoSugerido,
-      ajusteComercial,
+      ajusteComercial: toMoney(Number(formacao?.ajusteComercial ?? 0)),
       precoFinal: valorTotal,
       observacao: clean(formacao?.observacao)
     },
-    totals: {
-      valorSubtotal,
-      valorDesconto,
-      valorAcrescimo,
-      valorTotal
-    }
+    totals: { valorSubtotal, valorDesconto, valorAcrescimo, valorTotal },
+    consolidacao: null,
+    motorCustos: null,
+    cenario: null
   };
 }
 
-export function buildPricingSnapshot(input: OrcamentoInput) {
-  return buildSnapshot(input, { operacional: input.tipo === TipoOrcamento.OPERACIONAL });
+export function buildPricingSnapshot(
+  input: OrcamentoInput,
+  options?: { cenario?: OrcamentoCenarioInput | null }
+) {
+  return input.tipo === TipoOrcamento.OPERACIONAL
+    ? buildOperationalSnapshot(input, options?.cenario)
+    : buildCommercialSnapshot(input);
 }
 
 export function buildOrcamentoTotals(input: OrcamentoInput) {

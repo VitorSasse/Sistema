@@ -8285,7 +8285,7 @@ button {
 
 .orcamentos-front-cost-panel {
   display: grid;
-  grid-template-columns: minmax(220px, 0.7fr) minmax(260px, 1.3fr);
+  grid-template-columns: minmax(210px, 0.8fr) repeat(2, minmax(220px, 1fr));
   gap: 12px;
   align-items: end;
   padding: 12px;
@@ -8299,7 +8299,13 @@ button {
   gap: 4px;
 }
 
-.orcamentos-front-cost-origin span {
+.orcamentos-front-sale-status {
+  display: grid;
+  gap: 4px;
+}
+
+.orcamentos-front-cost-origin span,
+.orcamentos-front-sale-status span {
   width: fit-content;
   padding: 4px 8px;
   border-radius: 999px;
@@ -8311,12 +8317,14 @@ button {
   letter-spacing: 0.05em;
 }
 
-.orcamentos-front-cost-origin strong {
+.orcamentos-front-cost-origin strong,
+.orcamentos-front-sale-status strong {
   color: var(--screen-text);
   font-size: 1.05rem;
 }
 
-.orcamentos-front-cost-origin small {
+.orcamentos-front-cost-origin small,
+.orcamentos-front-sale-status small {
   color: var(--screen-muted);
   line-height: 1.4;
 }
@@ -8324,6 +8332,10 @@ button {
 .orcamentos-front-cost-origin .orcamentos-front-cost-reset {
   width: fit-content;
   margin-top: 4px;
+}
+
+.orcamentos-front-sale-status span {
+  background: color-mix(in srgb, #38bdf8 16%, transparent);
 }
 
 @media (max-width: 720px) {
@@ -8560,6 +8572,37 @@ button {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.03);
   font-size: 0.82rem;
+}
+
+.orcamentos-commercial-breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.orcamentos-commercial-breakdown > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--screen-border) 74%, transparent);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.orcamentos-commercial-breakdown span,
+.orcamentos-commercial-breakdown small {
+  color: var(--screen-muted);
+}
+
+.orcamentos-commercial-breakdown span {
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.orcamentos-commercial-breakdown strong {
+  color: var(--screen-text);
 }
 
 .orcamentos-cost-memory {
