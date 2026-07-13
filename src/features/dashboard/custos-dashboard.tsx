@@ -42,6 +42,7 @@ type RankingRow = {
 type CentroCustoRow = RankingRow & {
   manutencao: number;
   combustivel: number;
+  litrosCombustivel: number;
 };
 
 type EquipamentoRow = {
@@ -228,7 +229,7 @@ function EquipmentCostTooltip({
     name?: string;
     value?: number;
     color?: string;
-    payload?: EquipamentoRow & { nomeCurto: string; totalRanking: number };
+    payload?: CentroCustoRow & { nomeCurto: string; totalRanking: number };
   }>;
 }) {
   const row = payload?.[0]?.payload;
@@ -686,7 +687,7 @@ export function CustosDashboard() {
           </section>
 
           <section className="cost-wide-grid fade-up fade-up-delay-3">
-            <EquipmentCostChartPanel rows={data?.charts.equipamentos ?? []} />
+            <EquipmentCostChartPanel rows={centrosCusto} />
 
             <article className="surface section-card cost-chart-card">
               <div className="cost-card-header">
@@ -726,15 +727,16 @@ export function CustosDashboard() {
   );
 }
 
-function EquipmentCostChartPanel({ rows }: { rows: EquipamentoRow[] }) {
+function EquipmentCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
   const [hiddenEquipmentIds, setHiddenEquipmentIds] = useState<string[]>([]);
-  const availableIds = useMemo(() => new Set(rows.map((item) => item.equipamentoId).filter(Boolean)), [rows]);
+  const getRowId = (item: CentroCustoRow) => item.id ?? item.nome;
+  const availableIds = useMemo(() => new Set(rows.map((item) => item.id ?? item.nome)), [rows]);
   const effectiveHiddenIds = useMemo(
     () => hiddenEquipmentIds.filter((id) => availableIds.has(id)),
     [availableIds, hiddenEquipmentIds]
   );
   const chartRows = rows
-    .filter((item) => !effectiveHiddenIds.includes(item.equipamentoId ?? ""))
+    .filter((item) => !effectiveHiddenIds.includes(getRowId(item)))
     .filter((item) => item.combustivel > 0 || item.manutencao > 0)
     .map((item) => ({
       ...item,
@@ -770,12 +772,11 @@ function EquipmentCostChartPanel({ rows }: { rows: EquipamentoRow[] }) {
           </summary>
           <div className="cost-equipment-visibility-list">
             {rows.map((item) => (
-              <label key={item.equipamentoId ?? item.nome}>
+              <label key={getRowId(item)}>
                 <input
                   type="checkbox"
-                  checked={!effectiveHiddenIds.includes(item.equipamentoId ?? "")}
-                  disabled={!item.equipamentoId}
-                  onChange={() => item.equipamentoId && toggleEquipment(item.equipamentoId)}
+                  checked={!effectiveHiddenIds.includes(getRowId(item))}
+                  onChange={() => toggleEquipment(getRowId(item))}
                 />
                 <span>{item.nome}</span>
                 <small>{item.litrosCombustivel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L</small>
