@@ -21,6 +21,7 @@ type ExpandableChartProps = {
   height: number;
   expandedHeight?: number;
   className?: string;
+  dialogClassName?: string;
   children: ExpandableChartRender;
 };
 
@@ -29,6 +30,7 @@ export function ExpandableChart({
   height,
   expandedHeight = 620,
   className,
+  dialogClassName,
   children
 }: ExpandableChartProps) {
   const [open, setOpen] = useState(false);
@@ -146,7 +148,7 @@ export function ExpandableChart({
               }}
             >
               <section
-                className="expandable-chart-dialog"
+                className={`expandable-chart-dialog ${dialogClassName ?? ""}`}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={titleId}

@@ -938,6 +938,7 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
             height={Math.max(420, (data?.heatmap.rows.length ?? 0) * 58 + 70)}
             expandedHeight={700}
             className="executive-heatmap-expandable"
+            dialogClassName="executive-heatmap-dialog"
           >
             {({ expanded }) => renderHeatmap(expanded)}
           </ExpandableChart>

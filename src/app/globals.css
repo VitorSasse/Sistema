@@ -5236,11 +5236,38 @@ button {
   margin-bottom: 2px;
 }
 
+.executive-heatmap-dialog {
+  width: min(96vw, 1800px);
+  height: 92vh;
+  max-height: 1000px;
+  border-radius: 22px;
+}
+
+.executive-heatmap-dialog .expandable-chart-dialog-header {
+  padding: 16px 22px;
+}
+
+.executive-heatmap-dialog .expandable-chart-dialog-body {
+  padding: 14px 16px 16px;
+}
+
+.executive-heatmap-view.is-expanded .executive-heatmap-head,
+.executive-heatmap-view.is-expanded .executive-heatmap-row {
+  grid-template-columns: 240px repeat(var(--executive-heatmap-cols, 31), minmax(34px, 1fr));
+}
+
 .executive-heatmap-head,
 .executive-heatmap-row {
   grid-template-columns: 220px repeat(var(--executive-heatmap-cols, 31), minmax(28px, 1fr));
   align-items: center;
   min-width: max-content;
+}
+
+.executive-heatmap-head {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: var(--screen-surface-start);
 }
 
 .executive-heatmap-corner,
@@ -5252,9 +5279,17 @@ button {
 
 .executive-heatmap-corner,
 .executive-heatmap-label {
+  position: sticky;
+  left: 0;
+  z-index: 5;
   padding: 10px 12px;
   background: rgba(9, 18, 29, 0.82);
   border: 1px solid rgba(145, 163, 180, 0.12);
+  box-shadow: 12px 0 22px color-mix(in srgb, var(--screen-surface-start) 72%, transparent);
+}
+
+.executive-heatmap-corner {
+  z-index: 8;
 }
 
 .executive-heatmap-day {
