@@ -5212,6 +5212,30 @@ button {
   overflow-x: auto;
 }
 
+.executive-heatmap-expandable .expandable-chart-trigger {
+  top: -52px;
+  right: 0;
+  opacity: 1;
+  transform: none;
+}
+
+.executive-heatmap-view.is-expanded {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.executive-heatmap-view.is-expanded .executive-heatmap {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+.executive-heatmap-view.is-expanded .executive-heatmap-legend {
+  margin-bottom: 2px;
+}
+
 .executive-heatmap-head,
 .executive-heatmap-row {
   grid-template-columns: 220px repeat(var(--executive-heatmap-cols, 31), minmax(28px, 1fr));

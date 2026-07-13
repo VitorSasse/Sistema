@@ -408,6 +408,56 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
   const lossChartHeight = Math.max(320, lossTop.length * 42);
   const financialChartHeight = Math.max(320, financialTop.length * 42);
 
+  function renderHeatmap(expanded: boolean) {
+    return (
+      <div className={`executive-heatmap-view ${expanded ? "is-expanded" : ""}`}>
+        <div
+          className="executive-heatmap"
+          style={
+            {
+              ["--executive-heatmap-cols" as string]: data?.heatmap.days.length ?? 0
+            } as CSSProperties
+          }
+        >
+          <div className="executive-heatmap-head">
+            <div className="executive-heatmap-corner">Equipamento</div>
+            {data?.heatmap.days.map((day) => (
+              <div key={day.date} className={`executive-heatmap-day ${day.weekend ? "is-weekend" : ""}`}>
+                <span>{day.weekLabel}</span>
+                <strong>{day.label}</strong>
+              </div>
+            ))}
+          </div>
+
+          {(data?.heatmap.rows ?? []).map((row) => (
+            <div key={row.equipamentoId} className="executive-heatmap-row">
+              <div className="executive-heatmap-label">
+                <strong>{row.label}</strong>
+                <span>{row.tipoRecurso}</span>
+              </div>
+              {row.cells.map((cell) => (
+                <div
+                  key={`${row.equipamentoId}-${cell.date}`}
+                  className={`executive-heatmap-cell is-${cell.tone}`}
+                  title={`${row.label} | ${cell.label} | ${cell.status}`}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div className="executive-heatmap-legend">
+          <span><i className="executive-legend-dot is-produtivo" /> Produzindo</span>
+          <span><i className="executive-legend-dot is-ocioso" /> Ocioso</span>
+          <span><i className="executive-legend-dot is-manutencao" /> Manutencao</span>
+          <span><i className="executive-legend-dot is-admin" /> Administrativo</span>
+          <span><i className="executive-legend-dot is-externo" /> Externo</span>
+          <span><i className="executive-legend-dot is-folga" /> Folga</span>
+        </div>
+      </div>
+    );
+  }
+
   if (loading && !data) {
     return <DashboardSkeleton />;
   }
@@ -882,50 +932,16 @@ export function ExecutivoDashboard(props: { scope?: ExecutiveScope }) {
             <p>O heatmap aparece quando existem programacoes ou medicoes para os equipamentos filtrados.</p>
           </div>
         ) : null}
-        <div
-          className="executive-heatmap"
-          hidden={(data?.heatmap.rows?.length ?? 0) === 0}
-          style={
-            {
-              ["--executive-heatmap-cols" as string]: data?.heatmap.days.length ?? 0
-            } as CSSProperties
-          }
-        >
-          <div className="executive-heatmap-head">
-            <div className="executive-heatmap-corner">Equipamento</div>
-            {data?.heatmap.days.map((day) => (
-              <div key={day.date} className={`executive-heatmap-day ${day.weekend ? "is-weekend" : ""}`}>
-                <span>{day.weekLabel}</span>
-                <strong>{day.label}</strong>
-              </div>
-            ))}
-          </div>
-
-          {(data?.heatmap.rows ?? []).map((row) => (
-            <div key={row.equipamentoId} className="executive-heatmap-row">
-              <div className="executive-heatmap-label">
-                <strong>{row.label}</strong>
-                <span>{row.tipoRecurso}</span>
-              </div>
-              {row.cells.map((cell) => (
-                <div
-                  key={`${row.equipamentoId}-${cell.date}`}
-                  className={`executive-heatmap-cell is-${cell.tone}`}
-                  title={`${row.label} | ${cell.label} | ${cell.status}`}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-
-        <div className="executive-heatmap-legend">
-          <span><i className="executive-legend-dot is-produtivo" /> Produzindo</span>
-          <span><i className="executive-legend-dot is-ocioso" /> Ocioso</span>
-          <span><i className="executive-legend-dot is-manutencao" /> Manutencao</span>
-          <span><i className="executive-legend-dot is-admin" /> Administrativo</span>
-          <span><i className="executive-legend-dot is-externo" /> Externo</span>
-          <span><i className="executive-legend-dot is-folga" /> Folga</span>
-        </div>
+        {(data?.heatmap.rows?.length ?? 0) > 0 ? (
+          <ExpandableChart
+            title="Leitura instantanea da operacao"
+            height={Math.max(420, (data?.heatmap.rows.length ?? 0) * 58 + 70)}
+            expandedHeight={700}
+            className="executive-heatmap-expandable"
+          >
+            {({ expanded }) => renderHeatmap(expanded)}
+          </ExpandableChart>
+        ) : null}
       </section>
     </main>
   );
