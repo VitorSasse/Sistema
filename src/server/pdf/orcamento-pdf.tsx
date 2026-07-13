@@ -3,9 +3,12 @@ import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/render
 import { formatDateDisplay } from "@/lib/utils/date";
 import { formatCurrency } from "@/lib/utils/formatters";
 import { buildEmpresaRelatorioPdf, type EmpresaRelatorioPdf } from "@/server/pdf/empresa-relatorio";
+import { formatarUnidadeComercial } from "@/server/pdf/orcamento-proposta";
 
 type OrcamentoPdfProps = {
   codigo: string;
+  revisao: number;
+  dataEmissao: Date;
   tipo: string;
   status: string;
   dataOrcamento: Date;
@@ -13,9 +16,6 @@ type OrcamentoPdfProps = {
   titulo: string | null;
   objeto: string | null;
   observacaoCliente: string | null;
-  valorSubtotal: number;
-  valorDesconto: number;
-  valorAcrescimo: number;
   valorTotal: number;
   cliente: {
     codigo?: string | null;
@@ -37,27 +37,12 @@ type OrcamentoPdfProps = {
     nome: string;
     email?: string | null;
   } | null;
-  formacaoPreco: {
-    custoDireto: number;
-    custoIndireto: number;
-    margemPercentual: number;
-    margemValor: number;
-    impostosPercentual: number;
-    impostosValor: number;
-    precoSugerido: number;
-    precoFinal: number;
-    observacao: string | null;
-  } | null;
   frentes: Array<{
     ordem: number;
     nome: string;
     descricao: string | null;
-    metodoExecutivo: string | null;
     unidadeProducao: string | null;
     quantidadePrevista: number | null;
-    produtividadeDia: number | null;
-    prazoEstimadoDias: number | null;
-    observacao: string | null;
   }>;
   itens: Array<{
     ordem: number;
@@ -293,6 +278,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold"
   },
+  globalValueBox: {
+    marginTop: 14,
+    borderWidth: 1.5,
+    borderColor: "#1f4f78",
+    backgroundColor: "#edf5fb",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  globalValueLabel: {
+    fontSize: 10,
+    fontWeight: "bold"
+  },
+  globalValue: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#163f61"
+  },
   premissaItem: {
     borderLeftWidth: 1,
     borderRightWidth: 1,
@@ -439,7 +444,7 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
     dateStyle: "short",
     timeStyle: "short",
     timeZone: "America/Sao_Paulo"
-  }).format(new Date());
+  }).format(props.dataEmissao);
   const premissasPorTipo = ["PREMISSA", "CONDICAO", "EXCLUSAO", "OBSERVACAO"].map((tipo) => ({
     tipo,
     items: props.premissas
@@ -496,27 +501,21 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
             <View style={styles.table}>
               <View style={styles.tableHeader}>
                 <Text style={[styles.cell, styles.headCell, { width: "8%" }]}>#</Text>
-                <Text style={[styles.cell, styles.headCell, { width: "25%" }]}>Frente</Text>
-                <Text style={[styles.cell, styles.headCell, { width: "35%" }]}>Metodo / descricao</Text>
-                <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "12%" }]}>Qtd</Text>
-                <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "10%" }]}>Un</Text>
-                <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "10%", borderRightWidth: 0 }]}>Prazo</Text>
+                <Text style={[styles.cell, styles.headCell, { width: "30%" }]}>Frente</Text>
+                <Text style={[styles.cell, styles.headCell, { width: "42%" }]}>Descricao</Text>
+                <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "10%" }]}>Qtd</Text>
+                <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "10%", borderRightWidth: 0 }]}>Unidade</Text>
               </View>
               {props.frentes.map((frente) => (
                 <View key={`${frente.ordem}-${frente.nome}`} style={styles.tableRow} wrap={false}>
                   <Text style={[styles.cell, { width: "8%" }]}>{frente.ordem}</Text>
-                  <Text style={[styles.cell, { width: "25%" }]}>{frente.nome}</Text>
-                  <Text style={[styles.cell, { width: "35%" }]}>
-                    {frente.metodoExecutivo || frente.descricao || "-"}
-                  </Text>
-                  <Text style={[styles.cell, styles.centerCell, { width: "12%" }]}>
+                  <Text style={[styles.cell, { width: "30%" }]}>{frente.nome}</Text>
+                  <Text style={[styles.cell, { width: "42%" }]}>{frente.descricao || "-"}</Text>
+                  <Text style={[styles.cell, styles.centerCell, { width: "10%" }]}>
                     {formatNumber(frente.quantidadePrevista)}
                   </Text>
-                  <Text style={[styles.cell, styles.centerCell, { width: "10%" }]}>
-                    {frente.unidadeProducao || "-"}
-                  </Text>
                   <Text style={[styles.cell, styles.centerCell, { width: "10%", borderRightWidth: 0 }]}>
-                    {frente.prazoEstimadoDias ? `${Number(frente.prazoEstimadoDias).toFixed(2)} d` : "-"}
+                    {formatarUnidadeComercial(frente.unidadeProducao, frente.quantidadePrevista)}
                   </Text>
                 </View>
               ))}
@@ -524,8 +523,10 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
           </>
         ) : null}
 
-        <Text style={styles.sectionTitle}>ITENS DA PROPOSTA</Text>
-        <View style={styles.table}>
+        {isOrcamentoComercial && props.itens.length > 0 ? (
+          <>
+            <Text style={styles.sectionTitle}>ITENS DA PROPOSTA</Text>
+            <View style={styles.table}>
           <View style={styles.tableHeader}>
             <Text style={[styles.cell, styles.headCell, styles.centerCell, styles.itemCol]}>Item</Text>
             {isOrcamentoComercial ? null : (
@@ -611,44 +612,8 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
               </Text>
             </View>
           ))}
-        </View>
-
-        <View style={styles.summaryGrid} wrap={false}>
-          <View style={styles.summaryBox}>
-            <Text style={styles.summaryLabel}>SUBTOTAL</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(props.valorSubtotal)}</Text>
-          </View>
-          <View style={styles.summaryBox}>
-            <Text style={styles.summaryLabel}>DESCONTO</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(props.valorDesconto)}</Text>
-          </View>
-          <View style={styles.summaryBox}>
-            <Text style={styles.summaryLabel}>ACRESCIMO</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(props.valorAcrescimo)}</Text>
-          </View>
-          <View style={styles.summaryBox}>
-            <Text style={styles.summaryLabel}>TOTAL DA PROPOSTA</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(props.valorTotal)}</Text>
-          </View>
-        </View>
-
-        {props.formacaoPreco ? (
-          <View style={styles.summaryGrid} wrap={false}>
-            <View style={styles.summaryBox}>
-              <Text style={styles.summaryLabel}>PRECO SUGERIDO</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(props.formacaoPreco.precoSugerido)}</Text>
             </View>
-            <View style={styles.summaryBox}>
-              <Text style={styles.summaryLabel}>CUSTO ESTIMADO</Text>
-              <Text style={styles.summaryValue}>
-                {formatCurrency(props.formacaoPreco.custoDireto + props.formacaoPreco.custoIndireto)}
-              </Text>
-            </View>
-            <View style={styles.summaryBox}>
-              <Text style={styles.summaryLabel}>MARGEM</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(props.formacaoPreco.margemValor)}</Text>
-            </View>
-          </View>
+          </>
         ) : null}
 
         {premissasPorTipo.map(({ tipo, items }) =>
@@ -666,6 +631,11 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
         )}
 
         {renderSection("OBSERVACOES AO CLIENTE", props.observacaoCliente)}
+
+        <View style={styles.globalValueBox} wrap={false}>
+          <Text style={styles.globalValueLabel}>TOTAL DA PROPOSTA</Text>
+          <Text style={styles.globalValue}>{formatCurrency(props.valorTotal)}</Text>
+        </View>
 
         <View wrap={false}>
           <Text style={styles.sectionTitle}>ACEITE DA PROPOSTA</Text>
@@ -685,7 +655,7 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>Documento emitido pelo BasePro OS</Text>
           <Text style={styles.footerCenter}>
-            Data e hora da emissão: {dataHoraEmissao} | Revisão: 0
+            Data e hora da emissão: {dataHoraEmissao} | Revisão: {props.revisao}
           </Text>
           <Text
             style={styles.footerRight}

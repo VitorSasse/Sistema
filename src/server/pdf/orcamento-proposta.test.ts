@@ -1,0 +1,89 @@
+import { renderToBuffer } from "@react-pdf/renderer";
+import { describe, expect, it } from "vitest";
+import { OrcamentoPdfDocument } from "@/server/pdf/orcamento-pdf";
+import {
+  formatarUnidadeComercial,
+  montarFrentesComerciais,
+  resolverValorGlobalProposta,
+  selecionarItensComerciais
+} from "@/server/pdf/orcamento-proposta";
+
+describe("conteudo comercial do PDF de orcamentos", () => {
+  it("remove recursos, materiais, terceiros e itens zerados da selecao comercial", () => {
+    const selecionados = selecionarItensComerciais([
+      { ordem: 1, tipoItem: "SERVICO_PRINCIPAL", descricao: "Escavacao", unidade: "m3", quantidade: 100, valorTotal: 15000 },
+      { ordem: 2, tipoItem: "RECURSO", descricao: "Escavadeira", unidade: "UN", quantidade: 1, valorTotal: 0 },
+      { ordem: 3, tipoItem: "MATERIAL", descricao: "Material", unidade: "UN", quantidade: 1, valorTotal: 500 },
+      { ordem: 4, tipoItem: "OUTRO", descricao: "MTR", unidade: "m3", quantidade: 100, valorTotal: 700 },
+      { ordem: 5, tipoItem: "COMERCIAL", descricao: "Item zerado", unidade: "UN", quantidade: 1, valorTotal: 0 }
+    ]);
+
+    expect(selecionados).toEqual([
+      expect.objectContaining({ tipoItem: "SERVICO_PRINCIPAL", descricao: "Escavacao" })
+    ]);
+  });
+
+  it("preserva frentes globais com unidades diferentes sem converter meses em dias", () => {
+    const frentes = montarFrentesComerciais(
+      [
+        { ordem: 1, nome: "Escavacao de Terraplenagem", descricao: "Escavacao e transporte", unidadeProducao: "m3", quantidadePrevista: 5560.66 },
+        { ordem: 2, nome: "Escavacao de Parede Diafragma", descricao: "Escavacao e destinacao", unidadeProducao: "m3", quantidadePrevista: 529.62 },
+        { ordem: 3, nome: "Escavacao de Blocos e Vigas Baldrame", descricao: "Escavacao de blocos", unidadeProducao: "m3", quantidadePrevista: 706.16 },
+        { ordem: 4, nome: "Escavacao de Fundacoes", descricao: "Escavacao de fundacoes", unidadeProducao: "m3", quantidadePrevista: 2846.48 },
+        { ordem: 5, nome: "Escavacao de Cisternas", descricao: "Escavacao de cisternas", unidadeProducao: "m3", quantidadePrevista: 17.48 },
+        { ordem: 6, nome: "Apoio Operacional - Escavadeira 15 t", descricao: null, unidadeProducao: "mes", quantidadePrevista: 3.2 },
+        { ordem: 7, nome: "Apoio Operacional - Mini Escavadeira 5,5 t", descricao: null, unidadeProducao: "mes", quantidadePrevista: 2 }
+      ],
+      []
+    );
+
+    expect(frentes).toHaveLength(7);
+    expect(frentes[0]).toMatchObject({ quantidadePrevista: 5560.66, unidadeProducao: "m3" });
+    expect(frentes[5]).toMatchObject({ quantidadePrevista: 3.2, unidadeProducao: "mes" });
+    expect(frentes[6]).toMatchObject({ quantidadePrevista: 2, unidadeProducao: "mes" });
+    expect(formatarUnidadeComercial(frentes[0].unidadeProducao, frentes[0].quantidadePrevista)).toBe("m³");
+    expect(formatarUnidadeComercial(frentes[5].unidadeProducao, frentes[5].quantidadePrevista)).toBe("meses");
+    expect(formatarUnidadeComercial(frentes[6].unidadeProducao, frentes[6].quantidadePrevista)).toBe("meses");
+  });
+
+  it("usa o valor final congelado no snapshot como unico valor global", () => {
+    expect(
+      resolverValorGlobalProposta({
+        snapshotValorTotal: 166603.69,
+        propostaValorTotal: 166603.69,
+        orcamentoValorTotal: 253647.65
+      })
+    ).toBe(166603.69);
+  });
+
+  it("renderiza proposta operacional global com frentes em m3 e mes", async () => {
+    const buffer = await renderToBuffer(
+      OrcamentoPdfDocument({
+        codigo: "PROP-001",
+        revisao: 0,
+        dataEmissao: new Date("2026-07-13T14:01:54.418Z"),
+        tipo: "OPERACIONAL",
+        status: "PROPOSTA_EMITIDA",
+        dataOrcamento: new Date("2026-07-13T12:00:00.000Z"),
+        validadeAte: null,
+        titulo: "Proposta operacional global",
+        objeto: "Execucao dos servicos de terraplenagem.",
+        observacaoCliente: null,
+        valorTotal: 166603.69,
+        cliente: { nome: "Cliente teste" },
+        obra: { nome: "Obra teste" },
+        responsavel: null,
+        frentes: [
+          { ordem: 1, nome: "Escavacao", descricao: "Escavacao e transporte", unidadeProducao: "m3", quantidadePrevista: 5560.66 },
+          { ordem: 2, nome: "Apoio operacional", descricao: null, unidadeProducao: "mes", quantidadePrevista: 3.2 }
+        ],
+        itens: [],
+        premissas: [
+          { tipo: "CONDICAO", ordem: 1, titulo: "Pagamento", descricao: "Conforme contrato." }
+        ]
+      })
+    );
+
+    expect(buffer.byteLength).toBeGreaterThan(1000);
+  });
+});

@@ -5,6 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { buscarOrcamento } from "@/server/services/orcamentos/service";
 import { buildEmpresaRelatorioPdf } from "@/server/pdf/empresa-relatorio";
 import { OrcamentoPdfDocument } from "@/server/pdf/orcamento-pdf";
+import {
+  montarFrentesComerciais,
+  resolverValorGlobalProposta,
+  selecionarItensComerciais
+} from "@/server/pdf/orcamento-proposta";
 import { resolveReportLogoSource } from "@/server/pdf/report-logo";
 
 export const runtime = "nodejs";
@@ -149,26 +154,6 @@ function getSnapshotTotals(snapshot: Record<string, unknown>) {
   };
 }
 
-function getSnapshotFormacaoPreco(snapshot: Record<string, unknown>) {
-  const formacaoPreco = isRecord(snapshot.formacaoPreco) ? snapshot.formacaoPreco : null;
-
-  if (!formacaoPreco) {
-    return null;
-  }
-
-  return {
-    custoDireto: asNumber(formacaoPreco.custoDireto),
-    custoIndireto: asNumber(formacaoPreco.custoIndireto),
-    margemPercentual: asNumber(formacaoPreco.margemPercentual),
-    margemValor: asNumber(formacaoPreco.margemValor),
-    impostosPercentual: asNumber(formacaoPreco.impostosPercentual),
-    impostosValor: asNumber(formacaoPreco.impostosValor),
-    precoSugerido: asNumber(formacaoPreco.precoSugerido),
-    precoFinal: asNumber(formacaoPreco.precoFinal),
-    observacao: asNullableString(formacaoPreco.observacao)
-  };
-}
-
 export async function GET(request: Request, context: RouteContext) {
   const session = await auth();
 
@@ -229,7 +214,7 @@ export async function GET(request: Request, context: RouteContext) {
         prazoEstimadoDias: frente.prazoEstimadoDias ? Number(frente.prazoEstimadoDias) : null,
         observacao: frente.observacao
       }));
-  const itensPdf = snapshotOperacional
+  const itensFontePdf = snapshotOperacional
     ? mapSnapshotItens(snapshotOperacional)
     : [
         ...itensDaProposta.map((item) => ({
@@ -255,7 +240,13 @@ export async function GET(request: Request, context: RouteContext) {
           valorTotal: Number(opcional.valorTotal)
         }))
       ];
-  const premissasPdf = snapshotOperacional
+  const itensPdf = orcamento.tipo === "OPERACIONAL"
+    ? []
+    : selecionarItensComerciais(itensFontePdf);
+  const frentesComerciaisPdf = orcamento.tipo === "OPERACIONAL"
+    ? montarFrentesComerciais(frentesPdf, itensFontePdf)
+    : [];
+  const premissasBasePdf = snapshotOperacional
     ? mapSnapshotPremissas(snapshotOperacional)
     : [
         ...orcamento.premissas.map((premissa) => ({
@@ -273,26 +264,30 @@ export async function GET(request: Request, context: RouteContext) {
             descricao: opcional.condicoes ?? ""
           }))
       ];
-  const snapshotTotals = snapshotOperacional ? getSnapshotTotals(snapshotOperacional) : null;
-  const formacaoPrecoPdf = snapshotOperacional
-    ? getSnapshotFormacaoPreco(snapshotOperacional)
-    : orcamento.formacaoPreco
-      ? {
-          custoDireto: Number(orcamento.formacaoPreco.custoDireto),
-          custoIndireto: Number(orcamento.formacaoPreco.custoIndireto),
-          margemPercentual: Number(orcamento.formacaoPreco.margemPercentual),
-          margemValor: Number(orcamento.formacaoPreco.margemValor),
-          impostosPercentual: Number(orcamento.formacaoPreco.impostosPercentual),
-          impostosValor: Number(orcamento.formacaoPreco.impostosValor),
-          precoSugerido: Number(orcamento.formacaoPreco.precoSugerido),
-          precoFinal: Number(orcamento.formacaoPreco.precoFinal),
-          observacao: orcamento.formacaoPreco.observacao
+  const premissasPdf = propostaOperacional?.condicoesComerciais?.trim()
+    ? [
+        ...premissasBasePdf,
+        {
+          tipo: "CONDICAO",
+          ordem: 800,
+          titulo: "Condicoes comerciais",
+          descricao: propostaOperacional.condicoesComerciais
         }
-      : null;
+      ]
+    : premissasBasePdf;
+  const snapshotTotals = snapshotOperacional ? getSnapshotTotals(snapshotOperacional) : null;
+  const valorGlobalProposta = resolverValorGlobalProposta({
+    snapshotValorTotal: snapshotTotals?.valorTotal,
+    propostaValorTotal: propostaOperacional ? Number(propostaOperacional.valorTotal) : null,
+    orcamentoValorTotal: Number(orcamento.valorTotal)
+  });
+  const possuiEscopoComercial = orcamento.tipo === "OPERACIONAL"
+    ? frentesComerciaisPdf.length > 0
+    : itensPdf.length > 0;
 
-  if (itensPdf.length === 0) {
+  if (!possuiEscopoComercial) {
     return NextResponse.json(
-      { message: "Inclua pelo menos um item antes de gerar a proposta em PDF." },
+      { message: "Inclua pelo menos uma frente ou item comercial antes de gerar a proposta em PDF." },
       { status: 400 }
     );
   }
@@ -303,18 +298,21 @@ export async function GET(request: Request, context: RouteContext) {
 
   const buffer = await renderToBuffer(
     OrcamentoPdfDocument({
-      codigo: orcamento.codigo,
+      codigo: propostaOperacional?.codigo ?? orcamento.codigo,
+      revisao: snapshotOperacional
+        ? asNumber(snapshotOperacional.revisao, propostaOperacional?.revisao ?? 0)
+        : propostaOperacional?.revisao ?? 0,
+      dataEmissao: propostaOperacional?.emitidaEm ?? new Date(),
       tipo: orcamento.tipo,
       status: orcamento.status,
       dataOrcamento: orcamento.dataOrcamento,
       validadeAte: orcamento.validadeAte,
-      titulo: propostaOperacional?.titulo ?? orcamento.titulo,
-      objeto: orcamento.objeto,
+      titulo:
+        propostaOperacional?.titulo ??
+        (snapshotOperacional ? asNullableString(snapshotOperacional.titulo) : orcamento.titulo),
+      objeto: snapshotOperacional ? asNullableString(snapshotOperacional.objeto) : orcamento.objeto,
       observacaoCliente: orcamento.observacaoCliente,
-      valorSubtotal: snapshotTotals?.valorSubtotal ?? Number(propostaOperacional?.valorSubtotal ?? orcamento.valorSubtotal),
-      valorDesconto: snapshotTotals?.valorDesconto ?? Number(propostaOperacional?.valorDesconto ?? orcamento.valorDesconto),
-      valorAcrescimo: snapshotTotals?.valorAcrescimo ?? Number(propostaOperacional?.valorAcrescimo ?? orcamento.valorAcrescimo),
-      valorTotal: snapshotTotals?.valorTotal ?? Number(propostaOperacional?.valorTotal ?? orcamento.valorTotal),
+      valorTotal: valorGlobalProposta,
       cliente: {
         codigo: orcamento.cliente?.codigo,
         nome: orcamento.cliente?.nome ?? "Cliente nao informado",
@@ -339,8 +337,7 @@ export async function GET(request: Request, context: RouteContext) {
             email: orcamento.responsavel.email
           }
         : null,
-      formacaoPreco: formacaoPrecoPdf,
-      frentes: frentesPdf,
+      frentes: frentesComerciaisPdf,
       itens: itensPdf,
       premissas: premissasPdf,
       logoPath: resolveReportLogoSource(empresa?.logoUrl),
