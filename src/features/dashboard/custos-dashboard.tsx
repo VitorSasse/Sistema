@@ -29,7 +29,6 @@ type Option = {
   id: string;
   label: string;
   status?: string;
-  clienteId?: string;
 };
 
 type RankingRow = {
@@ -73,16 +72,12 @@ type DashboardPayload = {
     centroCustoIds: string[];
     equipamentoIds: string[];
     planoContaIds: string[];
-    clienteIds: string[];
-    obraIds: string[];
     categoria: CategoriaCusto | "TODOS";
     tipoCompra: TipoCompraFiltro;
     fornecedores: Option[];
     centrosCusto: Option[];
     equipamentos: Array<Option & { tipoRecurso: string }>;
     planosConta: Array<Option & { categoria: string | null }>;
-    clientes: Option[];
-    obras: Option[];
   };
   summary: {
     totalCusto: number;
@@ -321,8 +316,6 @@ export function CustosDashboard() {
   const [fornecedorIds, setFornecedorIds] = useState<string[]>([]);
   const [centroCustoIds, setCentroCustoIds] = useState<string[]>([]);
   const [planoContaIds, setPlanoContaIds] = useState<string[]>([]);
-  const [clienteIds, setClienteIds] = useState<string[]>([]);
-  const [obraIds, setObraIds] = useState<string[]>([]);
   const [categoria, setCategoria] = useState<CategoriaCusto | "TODOS">("TODOS");
   const [tipoCompra, setTipoCompra] = useState<TipoCompraFiltro>("TODOS");
   const [data, setData] = useState<DashboardPayload | null>(null);
@@ -335,8 +328,6 @@ export function CustosDashboard() {
       fornecedorIds: string[];
       centroCustoIds: string[];
       planoContaIds: string[];
-      clienteIds: string[];
-      obraIds: string[];
       categoria: CategoriaCusto | "TODOS";
       tipoCompra: TipoCompraFiltro;
       customStart: string;
@@ -350,8 +341,6 @@ export function CustosDashboard() {
       const activeFornecedorIds = overrides?.fornecedorIds ?? fornecedorIds;
       const activeCentroCustoIds = overrides?.centroCustoIds ?? centroCustoIds;
       const activePlanoContaIds = overrides?.planoContaIds ?? planoContaIds;
-      const activeClienteIds = overrides?.clienteIds ?? clienteIds;
-      const activeObraIds = overrides?.obraIds ?? obraIds;
       const activeCategoria = overrides?.categoria ?? categoria;
       const activeTipoCompra = overrides?.tipoCompra ?? tipoCompra;
       const activeCustomStart = overrides?.customStart ?? customStart;
@@ -366,8 +355,6 @@ export function CustosDashboard() {
       if (activeFornecedorIds.length) params.set("fornecedorIds", activeFornecedorIds.join(","));
       if (activeCentroCustoIds.length) params.set("centroCustoIds", activeCentroCustoIds.join(","));
       if (activePlanoContaIds.length) params.set("planoContaIds", activePlanoContaIds.join(","));
-      if (activeClienteIds.length) params.set("clienteIds", activeClienteIds.join(","));
-      if (activeObraIds.length) params.set("obraIds", activeObraIds.join(","));
       if (activeCategoria !== "TODOS") params.set("categoria", activeCategoria);
       if (activeTipoCompra !== "TODOS") params.set("tipoCompra", activeTipoCompra);
 
@@ -409,12 +396,6 @@ export function CustosDashboard() {
     [data]
   );
 
-  const filteredObras = useMemo(() => {
-    const allObras = data?.filters.obras ?? [];
-    if (clienteIds.length === 0) return allObras;
-    return allObras.filter((obra) => obra.clienteId && clienteIds.includes(obra.clienteId));
-  }, [clienteIds, data]);
-
   function handleApply() {
     void loadDashboard(period);
   }
@@ -424,16 +405,12 @@ export function CustosDashboard() {
     setFornecedorIds([]);
     setCentroCustoIds([]);
     setPlanoContaIds([]);
-    setClienteIds([]);
-    setObraIds([]);
     setCategoria("TODOS");
     setTipoCompra("TODOS");
     void loadDashboard("current_month", {
       fornecedorIds: [],
       centroCustoIds: [],
       planoContaIds: [],
-      clienteIds: [],
-      obraIds: [],
       categoria: "TODOS",
       tipoCompra: "TODOS"
     });
@@ -587,31 +564,6 @@ export function CustosDashboard() {
               options={(data?.filters.planosConta ?? []).map((item) => ({ value: item.id, label: item.label }))}
               placeholder="Buscar planos"
               onChange={setPlanoContaIds}
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Cliente</span>
-            <SearchableMultiSelect
-              values={clienteIds}
-              options={(data?.filters.clientes ?? []).map((item) => ({ value: item.id, label: item.label }))}
-              placeholder="Buscar clientes"
-              onChange={(values) => {
-                setClienteIds(values);
-                const allowedObras =
-                  values.length === 0
-                    ? data?.filters.obras ?? []
-                    : (data?.filters.obras ?? []).filter((obra) => obra.clienteId && values.includes(obra.clienteId));
-                setObraIds((current) => current.filter((obraId) => allowedObras.some((obra) => obra.id === obraId)));
-              }}
-            />
-          </label>
-          <label className="field">
-            <span className="field-label">Obra</span>
-            <SearchableMultiSelect
-              values={obraIds}
-              options={filteredObras.map((item) => ({ value: item.id, label: item.label }))}
-              placeholder="Buscar obras"
-              onChange={setObraIds}
             />
           </label>
         </div>

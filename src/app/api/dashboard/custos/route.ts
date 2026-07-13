@@ -214,8 +214,6 @@ export async function GET(request: NextRequest) {
   const centroCustoIds = parseIdList(request.nextUrl.searchParams.get("centroCustoIds"));
   const equipamentoIds = parseIdList(request.nextUrl.searchParams.get("equipamentoIds"));
   const planoContaIds = parseIdList(request.nextUrl.searchParams.get("planoContaIds"));
-  const clienteIds = parseIdList(request.nextUrl.searchParams.get("clienteIds"));
-  const obraIds = parseIdList(request.nextUrl.searchParams.get("obraIds"));
   const categoriaFiltro = request.nextUrl.searchParams.get("categoria") as CategoriaCusto | "TODOS" | null;
   const tipoCompraFiltro = request.nextUrl.searchParams.get("tipoCompra") ?? "TODOS";
 
@@ -224,8 +222,6 @@ export async function GET(request: NextRequest) {
     centrosCusto,
     equipamentos,
     planosConta,
-    clientes,
-    obras,
     ordensPeriodo,
     ordensPeriodoAnterior
   ] = await Promise.all([
@@ -244,14 +240,6 @@ export async function GET(request: NextRequest) {
     prisma.planoConta.findMany({
       select: { id: true, classificacao: true, nome: true, categoria: true, status: true },
       orderBy: [{ classificacao: "asc" }]
-    }),
-    prisma.cliente.findMany({
-      select: { id: true, codigo: true, nome: true, status: true },
-      orderBy: [{ nome: "asc" }]
-    }),
-    prisma.obra.findMany({
-      select: { id: true, codigo: true, nome: true, clienteId: true, status: true },
-      orderBy: [{ nome: "asc" }]
     }),
     prisma.ordemCompra.findMany({
       where: {
@@ -297,38 +285,12 @@ export async function GET(request: NextRequest) {
     })
   ]);
 
-  const selectedClientes = clientes.filter((item) => clienteIds.includes(item.id));
-  const selectedObras = obras.filter((item) => obraIds.includes(item.id));
-
   function matchesOrderFilters(ordem: (typeof ordensPeriodo)[number] | (typeof ordensPeriodoAnterior)[number]) {
     if (fornecedorIds.length > 0 && !fornecedorIds.includes(ordem.fornecedorId)) return false;
     if (centroCustoIds.length > 0 && (!ordem.centroCustoId || !centroCustoIds.includes(ordem.centroCustoId))) return false;
     if (equipamentoIds.length > 0 && (!ordem.centroCustoEquipamentoId || !equipamentoIds.includes(ordem.centroCustoEquipamentoId))) return false;
     if (planoContaIds.length > 0 && (!ordem.planoContaId || !planoContaIds.includes(ordem.planoContaId))) return false;
     if (tipoCompraFiltro !== "TODOS" && ordem.tipoCompra !== tipoCompraFiltro) return false;
-
-    const searchable = normalizeText(
-      [
-        ordem.centroCustoNome,
-        ordem.observacao,
-        ordem.observacaoFinanceira,
-        ordem.itens.map((item) => item.descricao).join(" ")
-      ].join(" ")
-    );
-
-    if (selectedClientes.length > 0) {
-      const matchesCliente = selectedClientes.some((cliente) =>
-        [cliente.codigo, cliente.nome].some((value) => searchable.includes(normalizeText(value)))
-      );
-      if (!matchesCliente) return false;
-    }
-
-    if (selectedObras.length > 0) {
-      const matchesObra = selectedObras.some((obra) =>
-        [obra.codigo, obra.nome].some((value) => searchable.includes(normalizeText(value)))
-      );
-      if (!matchesObra) return false;
-    }
 
     return true;
   }
@@ -541,16 +503,12 @@ export async function GET(request: NextRequest) {
       centroCustoIds,
       equipamentoIds,
       planoContaIds,
-      clienteIds,
-      obraIds,
       categoria: categoriaFiltro ?? "TODOS",
       tipoCompra: tipoCompraFiltro,
       fornecedores: fornecedores.map((item) => ({ id: item.id, label: item.nomeFantasia || item.razaoSocial, status: item.status })),
       centrosCusto: centrosCusto.map((item) => ({ id: item.id, label: item.nome, status: item.status })),
       equipamentos: equipamentos.map((item) => ({ id: item.id, label: `${item.placaOuTag} - ${item.descricao}`, tipoRecurso: item.tipoRecurso, status: item.status })),
-      planosConta: planosConta.map((item) => ({ id: item.id, label: `${item.classificacao} - ${item.nome}`, categoria: item.categoria, status: item.status })),
-      clientes: clientes.map((item) => ({ id: item.id, label: `${item.codigo} - ${item.nome}`, status: item.status })),
-      obras: obras.map((item) => ({ id: item.id, clienteId: item.clienteId, label: `${item.codigo} - ${item.nome}`, status: item.status }))
+      planosConta: planosConta.map((item) => ({ id: item.id, label: `${item.classificacao} - ${item.nome}`, categoria: item.categoria, status: item.status }))
     },
     summary: {
       totalCusto,
