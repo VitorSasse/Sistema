@@ -94,4 +94,97 @@ describe("Motor de custos do orcamento operacional", () => {
     expect(result.custoDiretoTotal).toBe(20000);
     expect(result.frentes[0]?.custoDiretoUnitario).toBe(400);
   });
+
+  it("consolida financeiramente por soma de frentes sem somar quantidades de unidades diferentes", () => {
+    const result = calcularMotorCustos({
+      frentes: [
+        {
+          ref: "escavacao",
+          nome: "Escavacoes",
+          unidadeProducao: "m3",
+          quantidadePrevista: 100,
+          produtividadeDia: 20
+        },
+        {
+          ref: "apoio",
+          nome: "Apoio operacional",
+          unidadeProducao: "mes",
+          quantidadePrevista: 2
+        }
+      ],
+      recursos: [
+        {
+          frenteRef: "escavacao",
+          categoria: "EQUIPAMENTO",
+          descricao: "Escavadeira",
+          quantidade: 1,
+          custoOperacional: 10,
+          unidadeCusto: "R$/m3"
+        },
+        {
+          frenteRef: "apoio",
+          categoria: "TERCEIRO",
+          descricao: "Equipe mensal",
+          quantidade: 1,
+          custoOperacional: 5000,
+          unidadeCusto: "R$/mes"
+        }
+      ]
+    });
+
+    expect(result.custoDiretoTotal).toBe(11000);
+    expect(result.unidadesHomogeneas).toBe(false);
+    expect(result.quantidadeTotal).toBe(0);
+    expect(result.custoDiretoUnitarioMedio).toBe(0);
+    expect(result.gruposUnidade).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ unidade: "m3", quantidadeTotal: 100, custoDireto: 1000 }),
+        expect.objectContaining({ unidade: "mes", quantidadeTotal: 2, custoDireto: 10000 })
+      ])
+    );
+  });
+
+  it("remove recursos zerados e consolida duplicidades na memoria de calculo", () => {
+    const result = calcularMotorCustos({
+      frentes: [
+        {
+          ref: "frente-1",
+          unidadeProducao: "dia",
+          quantidadePrevista: 2
+        }
+      ],
+      recursos: [
+        {
+          frenteRef: "frente-1",
+          categoria: "EQUIPAMENTO",
+          descricao: "Escavadeira 15 ton",
+          quantidade: 1,
+          custoOperacional: 100,
+          unidadeCusto: "R$/dia"
+        },
+        {
+          frenteRef: "frente-1",
+          categoria: "EQUIPAMENTO",
+          descricao: "Escavadeira 15 ton",
+          quantidade: 1,
+          custoOperacional: 100,
+          unidadeCusto: "R$/dia"
+        },
+        {
+          frenteRef: "frente-1",
+          categoria: "EQUIPAMENTO",
+          descricao: "Caminhao vazio",
+          quantidade: 1,
+          custoOperacional: 0,
+          unidadeCusto: "R$/dia"
+        }
+      ]
+    });
+
+    expect(result.custoDiretoTotal).toBe(400);
+    expect(result.memoria).toHaveLength(1);
+    expect(result.memoria[0]?.descricao).toBe("Escavadeira 15 ton");
+    expect(result.memoria[0]?.quantidadeRecursos).toBe(2);
+    expect(result.memoria[0]?.custoTotal).toBe(400);
+  });
 });

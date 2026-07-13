@@ -1098,53 +1098,32 @@ export function OrcamentosManager() {
   const precoSugeridoForm = economicPreview.precoSugerido;
   const totalForm = economicPreview.total;
   const motorCustosForm = economicPreview.motorCustos;
-  const prazoEstimadoForm = useMemo(
-    () =>
-      form.frentes.reduce(
-        (maiorPrazo, frente) => Math.max(maiorPrazo, Number(frente.prazoEstimadoDias) || 0),
-        0
-      ),
-    [form.frentes]
-  );
-  const quantidadeFrentesForm = useMemo(
-    () =>
-      form.frentes.reduce(
-        (total, frente) => total + (parseFrenteNumber(frente.quantidadePrevista) ?? 0),
-        0
-      ),
-    [form.frentes]
-  );
+  const gruposExecutivosForm = motorCustosForm?.gruposUnidade ?? [];
+  const unidadesHomogeneasForm = motorCustosForm?.unidadesHomogeneas ?? true;
+  const quantidadeHomogeneaForm = unidadesHomogeneasForm
+    ? motorCustosForm?.quantidadeTotal ?? 0
+    : 0;
+  const prazoCriticoForm = motorCustosForm?.prazoCritico;
+  const prazoCriticoLabelForm =
+    prazoCriticoForm && prazoCriticoForm.valor > 0
+      ? `${prazoCriticoForm.valor.toLocaleString("pt-BR")} ${prazoCriticoForm.unidade}`
+      : "-";
   const recursosPlanejadosForm = useMemo(
     () => form.itens.filter((item) => isRecursoItem(item) && item.frenteTempId).length,
     [form.itens]
   );
   const custoDiretoUnitarioForm =
-    quantidadeFrentesForm > 0 ? roundMoney(custoDiretoForm / quantidadeFrentesForm) : 0;
+    unidadesHomogeneasForm && quantidadeHomogeneaForm > 0
+      ? roundMoney(custoDiretoForm / quantidadeHomogeneaForm)
+      : 0;
   const custoTotalUnitarioForm =
-    quantidadeFrentesForm > 0 ? roundMoney(baseCustosForm / quantidadeFrentesForm) : 0;
+    unidadesHomogeneasForm && quantidadeHomogeneaForm > 0
+      ? roundMoney(baseCustosForm / quantidadeHomogeneaForm)
+      : 0;
   const precoFinalUnitarioForm =
-    quantidadeFrentesForm > 0 ? roundMoney(totalForm / quantidadeFrentesForm) : 0;
-  const producaoPrevistaForm = useMemo(
-    () =>
-      form.frentes.reduce(
-        (total, frente) => total + (parseFrenteNumber(frente.produtividadeDia) ?? 0),
-        0
-      ),
-    [form.frentes]
-  );
-  const unidadeExecutivaForm = useMemo(() => {
-    const unidades = Array.from(
-      new Set(
-        form.frentes
-          .map((frente) => normalizeUnidadeProducao(frente.unidadeProducao))
-          .filter((unidade) => unidade && unidade !== "unidade")
-      )
-    );
-
-    if (unidades.length === 0) return "-";
-    if (unidades.length === 1) return unidades[0];
-    return "unidades mistas";
-  }, [form.frentes]);
+    unidadesHomogeneasForm && quantidadeHomogeneaForm > 0
+      ? roundMoney(totalForm / quantidadeHomogeneaForm)
+      : 0;
 
   useEffect(() => {
     async function init() {
@@ -2003,8 +1982,8 @@ export function OrcamentosManager() {
                     <div className="orcamentos-layer-metrics">
                       <strong>{form.frentes.length}</strong>
                       <small>frente(s)</small>
-                      <strong>{prazoEstimadoForm ? `${prazoEstimadoForm} dia(s)` : "-"}</strong>
-                      <small>maior prazo</small>
+                      <strong>{prazoCriticoLabelForm}</strong>
+                      <small>frente critica</small>
                       <strong>{recursosPlanejadosForm}</strong>
                       <small>recurso(s)</small>
                     </div>
@@ -2094,8 +2073,14 @@ export function OrcamentosManager() {
                       />
                     </label>
                     <div className="orcamentos-unit-costs">
-                      <span>Direto/unidade: {formatCurrency(custoDiretoUnitarioForm)}</span>
-                      <span>Total/unidade: {formatCurrency(custoTotalUnitarioForm)}</span>
+                      {unidadesHomogeneasForm ? (
+                        <>
+                          <span>Direto/unidade: {formatCurrency(custoDiretoUnitarioForm)}</span>
+                          <span>Total/unidade: {formatCurrency(custoTotalUnitarioForm)}</span>
+                        </>
+                      ) : (
+                        <span>Custos unitarios exibidos separadamente por unidade no painel executivo.</span>
+                      )}
                     </div>
                   </article>
 
@@ -2167,39 +2152,42 @@ export function OrcamentosManager() {
                 </div>
 
                 <div className="orcamentos-executive-cost-panel">
-                  <div>
-                    <span>Quantidade</span>
-                    <strong>
-                      {quantidadeFrentesForm ? quantidadeFrentesForm.toLocaleString("pt-BR") : "-"}
-                    </strong>
-                    <small>{unidadeExecutivaForm}</small>
-                  </div>
-                  <div>
-                    <span>Producao prevista</span>
-                    <strong>
-                      {producaoPrevistaForm ? producaoPrevistaForm.toLocaleString("pt-BR") : "-"}
-                    </strong>
-                    <small>{unidadeExecutivaForm}/dia</small>
-                  </div>
-                  <div>
-                    <span>Prazo estimado</span>
-                    <strong>{prazoEstimadoForm ? `${prazoEstimadoForm} dia(s)` : "-"}</strong>
-                    <small>maior prazo entre frentes</small>
-                  </div>
-                  <div>
-                    <span>Custo direto unitario</span>
-                    <strong>{formatCurrency(custoDiretoUnitarioForm)}</strong>
-                    <small>por {unidadeExecutivaForm}</small>
-                  </div>
+                  {gruposExecutivosForm.length ? (
+                    gruposExecutivosForm.map((grupo) => (
+                      <div key={grupo.unidade}>
+                        <span>{grupo.frentes.join(", ")}</span>
+                        <strong>
+                          {grupo.quantidadeTotal.toLocaleString("pt-BR")} {grupo.unidade}
+                        </strong>
+                        <small>
+                          Producao: {grupo.producaoPrevistaDia.toLocaleString("pt-BR")} {grupo.unidade}/dia
+                        </small>
+                        <small>
+                          Prazo critico: {grupo.prazoCritico.toLocaleString("pt-BR")} {grupo.prazoUnidade}
+                        </small>
+                        <small>Custo unit.: {formatCurrency(grupo.custoDiretoUnitario)}</small>
+                      </div>
+                    ))
+                  ) : (
+                    <div>
+                      <span>Planejamento</span>
+                      <strong>-</strong>
+                      <small>Informe frentes e recursos para gerar indicadores.</small>
+                    </div>
+                  )}
                   <div>
                     <span>Preco final unitario</span>
-                    <strong>{formatCurrency(precoFinalUnitarioForm)}</strong>
-                    <small>apos ajustes comerciais</small>
+                    <strong>{unidadesHomogeneasForm ? formatCurrency(precoFinalUnitarioForm) : "-"}</strong>
+                    <small>
+                      {unidadesHomogeneasForm
+                        ? "apos ajustes comerciais"
+                        : "nao consolidado para unidades diferentes"}
+                    </small>
                   </div>
-                  <div>
+                  <div className="is-total">
                     <span>Valor total do orcamento</span>
                     <strong>{formatCurrency(totalForm)}</strong>
-                    <small>preco final</small>
+                    <small>soma financeira das frentes</small>
                   </div>
                 </div>
               </>

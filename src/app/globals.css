@@ -8313,7 +8313,7 @@ button {
 
 .orcamentos-executive-cost-panel {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 10px;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--screen-border));
@@ -8344,6 +8344,15 @@ button {
 .orcamentos-executive-cost-panel strong {
   color: var(--screen-text);
   font-size: 1.1rem;
+}
+
+.orcamentos-executive-cost-panel .is-total {
+  border-color: rgba(249, 115, 22, 0.42);
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.16), rgba(2, 6, 23, 0.16));
+}
+
+.orcamentos-executive-cost-panel .is-total strong {
+  color: #fdba74;
 }
 
 .orcamentos-executive-cost-panel small {
