@@ -8,6 +8,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Line,
   LineChart,
   Pie,
@@ -42,7 +43,7 @@ type RankingRow = {
 type CentroCustoRow = RankingRow & {
   manutencao: number;
   combustivel: number;
-  litrosCombustivel: number;
+  litrosDiesel: number;
 };
 
 type EquipamentoRow = {
@@ -52,7 +53,7 @@ type EquipamentoRow = {
   total: number;
   manutencao: number;
   combustivel: number;
-  litrosCombustivel: number;
+  litrosDiesel: number;
   ordens: number;
   fornecedores: string[];
   horasReferencia: number;
@@ -241,7 +242,7 @@ function EquipmentCostTooltip({
       <span>Total no ranking: {formatCurrency(row.totalRanking)}</span>
       <span>Combustivel: {formatCurrency(row.combustivel)}</span>
       <span>Manutencao: {formatCurrency(row.manutencao)}</span>
-      <b>{row.litrosCombustivel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} litros abastecidos</b>
+      <b>{row.litrosDiesel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} litros de diesel</b>
     </div>
   );
 }
@@ -284,7 +285,6 @@ export function CustosDashboard() {
   const [customEnd, setCustomEnd] = useState(() => toInputDate(new Date()));
   const [fornecedorIds, setFornecedorIds] = useState<string[]>([]);
   const [centroCustoIds, setCentroCustoIds] = useState<string[]>([]);
-  const [equipamentoIds, setEquipamentoIds] = useState<string[]>([]);
   const [planoContaIds, setPlanoContaIds] = useState<string[]>([]);
   const [clienteIds, setClienteIds] = useState<string[]>([]);
   const [obraIds, setObraIds] = useState<string[]>([]);
@@ -299,7 +299,6 @@ export function CustosDashboard() {
     overrides?: Partial<{
       fornecedorIds: string[];
       centroCustoIds: string[];
-      equipamentoIds: string[];
       planoContaIds: string[];
       clienteIds: string[];
       obraIds: string[];
@@ -315,7 +314,6 @@ export function CustosDashboard() {
     try {
       const activeFornecedorIds = overrides?.fornecedorIds ?? fornecedorIds;
       const activeCentroCustoIds = overrides?.centroCustoIds ?? centroCustoIds;
-      const activeEquipamentoIds = overrides?.equipamentoIds ?? equipamentoIds;
       const activePlanoContaIds = overrides?.planoContaIds ?? planoContaIds;
       const activeClienteIds = overrides?.clienteIds ?? clienteIds;
       const activeObraIds = overrides?.obraIds ?? obraIds;
@@ -332,7 +330,6 @@ export function CustosDashboard() {
 
       if (activeFornecedorIds.length) params.set("fornecedorIds", activeFornecedorIds.join(","));
       if (activeCentroCustoIds.length) params.set("centroCustoIds", activeCentroCustoIds.join(","));
-      if (activeEquipamentoIds.length) params.set("equipamentoIds", activeEquipamentoIds.join(","));
       if (activePlanoContaIds.length) params.set("planoContaIds", activePlanoContaIds.join(","));
       if (activeClienteIds.length) params.set("clienteIds", activeClienteIds.join(","));
       if (activeObraIds.length) params.set("obraIds", activeObraIds.join(","));
@@ -391,7 +388,6 @@ export function CustosDashboard() {
     setPeriod("current_month");
     setFornecedorIds([]);
     setCentroCustoIds([]);
-    setEquipamentoIds([]);
     setPlanoContaIds([]);
     setClienteIds([]);
     setObraIds([]);
@@ -400,7 +396,6 @@ export function CustosDashboard() {
     void loadDashboard("current_month", {
       fornecedorIds: [],
       centroCustoIds: [],
-      equipamentoIds: [],
       planoContaIds: [],
       clienteIds: [],
       obraIds: [],
@@ -532,15 +527,6 @@ export function CustosDashboard() {
         </div>
 
         <div className="cost-filter-grid cost-filter-grid-wide">
-          <label className="field">
-            <span className="field-label">Equipamento</span>
-            <SearchableMultiSelect
-              values={equipamentoIds}
-              options={(data?.filters.equipamentos ?? []).map((item) => ({ value: item.id, label: item.label }))}
-              placeholder="Buscar equipamentos"
-              onChange={setEquipamentoIds}
-            />
-          </label>
           <label className="field">
             <span className="field-label">Fornecedor</span>
             <SearchableMultiSelect
@@ -728,12 +714,12 @@ export function CustosDashboard() {
 }
 
 function EquipmentCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
-  const [hiddenEquipmentIds, setHiddenEquipmentIds] = useState<string[]>([]);
+  const [hiddenCenterIds, setHiddenCenterIds] = useState<string[]>([]);
   const getRowId = (item: CentroCustoRow) => item.id ?? item.nome;
   const availableIds = useMemo(() => new Set(rows.map((item) => item.id ?? item.nome)), [rows]);
   const effectiveHiddenIds = useMemo(
-    () => hiddenEquipmentIds.filter((id) => availableIds.has(id)),
-    [availableIds, hiddenEquipmentIds]
+    () => hiddenCenterIds.filter((id) => availableIds.has(id)),
+    [availableIds, hiddenCenterIds]
   );
   const chartRows = rows
     .filter((item) => !effectiveHiddenIds.includes(getRowId(item)))
@@ -744,14 +730,15 @@ function EquipmentCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
       nomeCurto: item.nome.length > 16 ? `${item.nome.slice(0, 16)}...` : item.nome
     }))
     .sort((a, b) => b.totalRanking - a.totalRanking);
-  const chartMinWidth = Math.max(760, chartRows.length * 96);
+  const chartMinWidth = Math.max(820, chartRows.length * 128);
   const visibleTotal = chartRows.reduce((total, item) => total + item.totalRanking, 0);
+  const visibleLitrosDiesel = chartRows.reduce((total, item) => total + item.litrosDiesel, 0);
 
-  function toggleEquipment(equipamentoId: string) {
-    setHiddenEquipmentIds((current) =>
-      current.includes(equipamentoId)
-        ? current.filter((id) => id !== equipamentoId)
-        : [...current, equipamentoId]
+  function toggleCenter(centroId: string) {
+    setHiddenCenterIds((current) =>
+      current.includes(centroId)
+        ? current.filter((id) => id !== centroId)
+        : [...current, centroId]
     );
   }
 
@@ -759,16 +746,19 @@ function EquipmentCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
     <article className="surface section-card cost-chart-card">
       <div className="cost-card-header">
         <div>
-          <span className="cost-kicker">Equipamentos</span>
-          <h2 className="section-title">Ranking de custo por equipamento</h2>
+          <span className="cost-kicker">Centros de custo</span>
+          <h2 className="section-title">Ranking de custo por centro de custo</h2>
         </div>
-        <strong className="cost-equipment-visible-total">{formatCurrency(visibleTotal)}</strong>
+        <div className="cost-equipment-visible-metrics">
+          <strong className="cost-equipment-visible-total">{formatCurrency(visibleTotal)}</strong>
+          <span>{visibleLitrosDiesel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L de diesel no periodo</span>
+        </div>
       </div>
 
       {rows.length > 0 ? (
         <details className="cost-equipment-visibility">
           <summary>
-            Equipamentos exibidos: {chartRows.length} de {rows.length}
+            Centros de custo exibidos: {chartRows.length} de {rows.length}
           </summary>
           <div className="cost-equipment-visibility-list">
             {rows.map((item) => (
@@ -776,14 +766,14 @@ function EquipmentCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
                 <input
                   type="checkbox"
                   checked={!effectiveHiddenIds.includes(getRowId(item))}
-                  onChange={() => toggleEquipment(getRowId(item))}
+                  onChange={() => toggleCenter(getRowId(item))}
                 />
                 <span>{item.nome}</span>
-                <small>{item.litrosCombustivel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L</small>
+                <small>{item.litrosDiesel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L diesel</small>
               </label>
             ))}
             {effectiveHiddenIds.length > 0 ? (
-              <button type="button" onClick={() => setHiddenEquipmentIds([])}>
+              <button type="button" onClick={() => setHiddenCenterIds([])}>
                 Exibir todos
               </button>
             ) : null}
@@ -793,8 +783,8 @@ function EquipmentCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
 
       {chartRows.length === 0 ? (
         <div className="cost-empty-state cost-empty-state-compact">
-          <strong>Sem custos por equipamento no periodo</strong>
-          <p>Os filtros aplicados ou a selecao de exibicao nao possuem equipamentos com combustivel ou manutencao.</p>
+          <strong>Sem custos por centro de custo no periodo</strong>
+          <p>Os filtros aplicados ou a selecao de exibicao nao possuem centros com combustivel ou manutencao.</p>
         </div>
       ) : (
         <div className="cost-center-chart cost-center-chart-vertical">
@@ -802,7 +792,7 @@ function EquipmentCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
             <span><i style={{ background: categoryColors.COMBUSTIVEL }} /> Combustivel</span>
             <span><i style={{ background: categoryColors.MANUTENCAO }} /> Manutencao</span>
           </div>
-          <ExpandableChart title="Ranking de custo por equipamento" height={360}>
+          <ExpandableChart title="Ranking de custo por centro de custo" height={380}>
             {({ height, width }) => (
               <div className="cost-chart-scroll">
                 <div
@@ -814,27 +804,36 @@ function EquipmentCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
                   }}
                 >
                   <ResponsiveContainer width={typeof width === "number" ? Math.max(width, chartMinWidth) : width} height={height}>
-                    <BarChart data={chartRows} margin={{ top: 16, right: 20, left: 6, bottom: 76 }} barCategoryGap={14}>
+                    <BarChart data={chartRows} margin={{ top: 36, right: 24, left: 12, bottom: 92 }} barCategoryGap={14}>
                       <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
                       <XAxis
                         dataKey="nomeCurto"
                         interval={0}
-                        height={72}
-                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 12, fontWeight: 700 }}
+                        height={88}
+                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 15, fontWeight: 800 }}
                         tickLine={false}
                         angle={-38}
                         textAnchor="end"
                       />
                       <YAxis
                         tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 12, fontWeight: 700 }}
+                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 14, fontWeight: 800 }}
                         tickLine={false}
                         axisLine={false}
-                        width={92}
+                        width={112}
                       />
                       <Tooltip content={<EquipmentCostTooltip />} />
                       <Bar dataKey="combustivel" name="Combustivel" stackId="centro" fill={categoryColors.COMBUSTIVEL} radius={[0, 0, 0, 0]} maxBarSize={34} />
-                      <Bar dataKey="manutencao" name="Manutencao" stackId="centro" fill={categoryColors.MANUTENCAO} radius={[10, 10, 0, 0]} maxBarSize={34} />
+                      <Bar dataKey="manutencao" name="Manutencao" stackId="centro" fill={categoryColors.MANUTENCAO} radius={[10, 10, 0, 0]} maxBarSize={34}>
+                        <LabelList
+                          dataKey="totalRanking"
+                          position="top"
+                          formatter={(value) => formatCurrency(Number(value))}
+                          fill="var(--screen-chart-tick)"
+                          fontSize={13}
+                          fontWeight={850}
+                        />
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

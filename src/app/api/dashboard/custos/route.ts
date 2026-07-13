@@ -390,8 +390,8 @@ export async function GET(request: NextRequest) {
   const monthKeys = buildMonthKeys(period.start, period.end);
 
   const byCategoria = new Map<CategoriaCusto, { categoria: CategoriaCusto; label: string; total: number; count: number }>();
-  const byEquipamento = new Map<string, { id: string | null; nome: string; tipoControle: string | null; total: number; count: number; manutencao: number; combustivel: number; litrosCombustivel: number; fornecedores: Set<string> }>();
-  const byCentro = new Map<string, { id: string | null; nome: string; total: number; count: number; manutencao: number; combustivel: number; litrosCombustivel: number }>();
+  const byEquipamento = new Map<string, { id: string | null; nome: string; tipoControle: string | null; total: number; count: number; manutencao: number; combustivel: number; litrosDiesel: number; fornecedores: Set<string> }>();
+  const byCentro = new Map<string, { id: string | null; nome: string; total: number; count: number; manutencao: number; combustivel: number; litrosDiesel: number }>();
   const byFornecedor = new Map<string, { id: string; nome: string; status: string; total: number; count: number }>();
   const byPlano = new Map<string, { id: string | null; nome: string; total: number; count: number }>();
   const byPareto = new Map<string, { motivo: string; categoria: CategoriaCusto; categoriaLabel: string; total: number; count: number }>();
@@ -411,7 +411,7 @@ export async function GET(request: NextRequest) {
         count: 0,
         manutencao: 0,
         combustivel: 0,
-        litrosCombustivel: 0,
+        litrosDiesel: 0,
         fornecedores: new Set<string>()
       },
       item.subtotal
@@ -420,19 +420,19 @@ export async function GET(request: NextRequest) {
     if (item.categoria === "MANUTENCAO") equipamento.manutencao += item.subtotal;
     if (item.categoria === "COMBUSTIVEL") {
       equipamento.combustivel += item.subtotal;
-      equipamento.litrosCombustivel += item.quantidade;
+      if (item.subcategoria === "Diesel") equipamento.litrosDiesel += item.quantidade;
     }
 
     const centro = addToMap(
       byCentro,
       item.centroCustoId ?? item.centroCustoNome,
-      { id: item.centroCustoId, nome: item.centroCustoNome, total: 0, count: 0, manutencao: 0, combustivel: 0, litrosCombustivel: 0 },
+      { id: item.centroCustoId, nome: item.centroCustoNome, total: 0, count: 0, manutencao: 0, combustivel: 0, litrosDiesel: 0 },
       item.subtotal
     );
     if (item.categoria === "MANUTENCAO") centro.manutencao += item.subtotal;
     if (item.categoria === "COMBUSTIVEL") {
       centro.combustivel += item.subtotal;
-      centro.litrosCombustivel += item.quantidade;
+      if (item.subcategoria === "Diesel") centro.litrosDiesel += item.quantidade;
     }
     addToMap(byFornecedor, item.fornecedorId, { id: item.fornecedorId, nome: item.fornecedorNome, status: item.fornecedorStatus, total: 0, count: 0 }, item.subtotal);
     addToMap(byPlano, item.planoContaId ?? item.planoContaNome, { id: item.planoContaId, nome: item.planoContaNome, total: 0, count: 0 }, item.subtotal);
@@ -487,7 +487,7 @@ export async function GET(request: NextRequest) {
         total: Number(item.total.toFixed(2)),
         manutencao: Number(item.manutencao.toFixed(2)),
         combustivel: Number(item.combustivel.toFixed(2)),
-        litrosCombustivel: Number(item.litrosCombustivel.toFixed(2)),
+        litrosDiesel: Number(item.litrosDiesel.toFixed(2)),
         ordens: item.count,
         fornecedores: Array.from(item.fornecedores).slice(0, 5),
         horasReferencia: Number(horasReferencia.toFixed(2)),
@@ -512,7 +512,7 @@ export async function GET(request: NextRequest) {
     total: Number(item.total.toFixed(2)),
     manutencao: Number(item.manutencao.toFixed(2)),
     combustivel: Number(item.combustivel.toFixed(2)),
-    litrosCombustivel: Number(item.litrosCombustivel.toFixed(2)),
+    litrosDiesel: Number(item.litrosDiesel.toFixed(2)),
     sharePercent: totalCusto > 0 ? (item.total / totalCusto) * 100 : 0
   })).sort((a, b) => b.total - a.total);
   const rankingPlanos = Array.from(byPlano.values()).map((item) => ({ ...item, total: Number(item.total.toFixed(2)), sharePercent: totalCusto > 0 ? (item.total / totalCusto) * 100 : 0 })).sort((a, b) => b.total - a.total);
