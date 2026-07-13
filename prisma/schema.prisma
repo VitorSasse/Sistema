@@ -763,6 +763,7 @@ model OrcamentoFormacaoPreco {
   margemPercentual   Decimal   @default(0) @db.Decimal(7, 4)
   margemValor        Decimal   @default(0) @db.Decimal(14, 2)
   precoSugerido      Decimal   @default(0) @db.Decimal(14, 2)
+  ajusteComercial    Decimal   @default(0) @db.Decimal(14, 2)
   precoFinal         Decimal   @default(0) @db.Decimal(14, 2)
   observacao         String?
   createdAt          DateTime  @default(now())
@@ -810,6 +811,7 @@ model OrcamentoFrente {
   quantidadePrevista Decimal?        @db.Decimal(12, 2)
   produtividadeDia   Decimal?        @db.Decimal(12, 2)
   prazoEstimadoDias  Decimal?        @db.Decimal(12, 2)
+  custoManual        Decimal         @default(0) @db.Decimal(14, 2)
   observacao         String?
   createdAt          DateTime        @default(now())
   updatedAt          DateTime        @updatedAt

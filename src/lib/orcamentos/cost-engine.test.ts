@@ -1,7 +1,100 @@
 import { describe, expect, it } from "vitest";
-import { calcularMotorCustos, JORNADA_PADRAO_HORAS_DIA } from "@/lib/orcamentos/cost-engine";
+import {
+  calcularMotorCustos,
+  JORNADA_PADRAO_HORAS_DIA,
+  resolveFrontCost
+} from "@/lib/orcamentos/cost-engine";
 
 describe("Motor de custos do orcamento operacional", () => {
+  it("usa o custo manual quando a frente nao possui recursos validos", () => {
+    const result = resolveFrontCost(
+      { ref: "frente-manual", nome: "Frente manual", custoManual: 12500 },
+      []
+    );
+
+    expect(result.origemCusto).toBe("MANUAL");
+    expect(result.custoFrente).toBe(12500);
+    expect(result.recursos).toHaveLength(0);
+  });
+
+  it("prioriza os recursos e nao soma o custo manual da mesma frente", () => {
+    const result = resolveFrontCost(
+      { ref: "frente-automatica", custoManual: 50000 },
+      [
+        {
+          frenteRef: "frente-automatica",
+          descricao: "Equipamento",
+          quantidade: 2,
+          custoOperacional: 1500,
+          unidadeCusto: "UN"
+        }
+      ]
+    );
+
+    expect(result.origemCusto).toBe("RECURSOS");
+    expect(result.custoFrente).toBe(3000);
+    expect(result.custoManual).toBe(50000);
+  });
+
+  it("volta ao custo manual quando todos os recursos sao removidos", () => {
+    const frente = { ref: "frente-1", custoManual: 7000 };
+    const comRecurso = resolveFrontCost(frente, [
+      {
+        frenteRef: "frente-1",
+        descricao: "Recurso temporario",
+        quantidade: 1,
+        custoOperacional: 2500,
+        unidadeCusto: "UN"
+      }
+    ]);
+    const semRecursos = resolveFrontCost(frente, []);
+
+    expect(comRecurso.custoFrente).toBe(2500);
+    expect(comRecurso.origemCusto).toBe("RECURSOS");
+    expect(semRecursos.custoFrente).toBe(7000);
+    expect(semRecursos.origemCusto).toBe("MANUAL");
+  });
+
+  it("recalcula imediatamente quando quantidade ou custo do recurso muda", () => {
+    const frente = { ref: "frente-1", custoManual: 0 };
+    const inicial = resolveFrontCost(frente, [
+      { frenteRef: "frente-1", quantidade: 2, custoOperacional: 100, unidadeCusto: "UN" }
+    ]);
+    const atualizado = resolveFrontCost(frente, [
+      { frenteRef: "frente-1", quantidade: 3, custoOperacional: 120, unidadeCusto: "UN" }
+    ]);
+
+    expect(inicial.custoFrente).toBe(200);
+    expect(atualizado.custoFrente).toBe(360);
+  });
+
+  it("soma frentes automaticas e manuais sem misturar as origens", () => {
+    const result = calcularMotorCustos({
+      frentes: [
+        { ref: "automatica", unidadeProducao: "m3", quantidadePrevista: 10, custoManual: 9000 },
+        { ref: "manual", unidadeProducao: "mes", quantidadePrevista: 2, custoManual: 4000 }
+      ],
+      recursos: [
+        {
+          frenteRef: "automatica",
+          descricao: "Escavadeira",
+          quantidade: 2,
+          custoOperacional: 1000,
+          unidadeCusto: "UN"
+        }
+      ]
+    });
+
+    expect(result.custoDiretoTotal).toBe(6000);
+    expect(result.frentes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ ref: "automatica", custoDireto: 2000, origemCusto: "RECURSOS" }),
+        expect.objectContaining({ ref: "manual", custoDireto: 4000, origemCusto: "MANUAL" })
+      ])
+    );
+    expect(result.unidadesHomogeneas).toBe(false);
+  });
+
   it("converte recursos por hora para custo direto da frente usando prazo e jornada padrao", () => {
     const result = calcularMotorCustos({
       frentes: [
@@ -43,7 +136,7 @@ describe("Motor de custos do orcamento operacional", () => {
     expect(result.avisos.some((aviso) => aviso.includes("jornada padrao"))).toBe(true);
   });
 
-  it("converte recurso com unidade igual a unidade da frente por quantidade produzida", () => {
+  it("usa uma unica vez a quantidade total do recurso quando sua unidade coincide com a frente", () => {
     const result = calcularMotorCustos({
       frentes: [
         {
@@ -65,8 +158,8 @@ describe("Motor de custos do orcamento operacional", () => {
       ]
     });
 
-    expect(result.custoDiretoTotal).toBe(1000);
-    expect(result.custoDiretoUnitarioMedio).toBe(10);
+    expect(result.custoDiretoTotal).toBe(10);
+    expect(result.custoDiretoUnitarioMedio).toBe(0.1);
   });
 
   it("converte recurso diario usando o prazo estimado da frente", () => {
@@ -132,16 +225,69 @@ describe("Motor de custos do orcamento operacional", () => {
       ]
     });
 
-    expect(result.custoDiretoTotal).toBe(11000);
+    expect(result.custoDiretoTotal).toBe(5010);
     expect(result.unidadesHomogeneas).toBe(false);
     expect(result.quantidadeTotal).toBe(0);
     expect(result.custoDiretoUnitarioMedio).toBe(0);
     expect(result.gruposUnidade).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ unidade: "m3", quantidadeTotal: 100, custoDireto: 1000 }),
-        expect.objectContaining({ unidade: "mes", quantidadeTotal: 2, custoDireto: 10000 })
+        expect.objectContaining({ unidade: "m3", quantidadeTotal: 100, custoDireto: 10 }),
+        expect.objectContaining({ unidade: "mes", quantidadeTotal: 2, custoDireto: 5000 })
       ])
     );
+  });
+
+  it("calcula a Frente 1 homologada com todos os quatro recursos", () => {
+    const result = calcularMotorCustos({
+      frentes: [
+        {
+          ref: "frente-1",
+          nome: "Escavacao de Terraplenagem",
+          unidadeProducao: "m3",
+          quantidadePrevista: 5560.66,
+          produtividadeDia: 504,
+          prazoEstimadoDias: 11.03
+        }
+      ],
+      recursos: [
+        {
+          frenteRef: "frente-1",
+          categoria: "EQUIPAMENTO",
+          descricao: "Escavadeira 15 t",
+          quantidade: 1,
+          custoOperacional: 9929.75,
+          unidadeCusto: "UN"
+        },
+        {
+          frenteRef: "frente-1",
+          categoria: "EQUIPAMENTO",
+          descricao: "Caminhao Basculante",
+          quantidade: 3,
+          custoOperacional: 12710.08,
+          unidadeCusto: "UN"
+        },
+        {
+          frenteRef: "frente-1",
+          categoria: "TERCEIRO",
+          descricao: "MTR",
+          quantidade: 5560.66,
+          custoOperacional: 7,
+          unidadeCusto: "m3"
+        },
+        {
+          frenteRef: "frente-1",
+          categoria: "EQUIPAMENTO",
+          descricao: "Escavadeira 22 t",
+          quantidade: 1,
+          custoOperacional: 10000,
+          unidadeCusto: "UN"
+        }
+      ]
+    });
+
+    expect(result.frentes[0]?.recursos).toHaveLength(4);
+    expect(result.frentes[0]?.custoDireto).toBe(96984.61);
+    expect(result.custoDiretoTotal).toBe(96984.61);
   });
 
   it("remove recursos zerados e consolida duplicidades na memoria de calculo", () => {
@@ -181,10 +327,10 @@ describe("Motor de custos do orcamento operacional", () => {
       ]
     });
 
-    expect(result.custoDiretoTotal).toBe(400);
+    expect(result.custoDiretoTotal).toBe(200);
     expect(result.memoria).toHaveLength(1);
     expect(result.memoria[0]?.descricao).toBe("Escavadeira 15 ton");
     expect(result.memoria[0]?.quantidadeRecursos).toBe(2);
-    expect(result.memoria[0]?.custoTotal).toBe(400);
+    expect(result.memoria[0]?.custoTotal).toBe(200);
   });
 });

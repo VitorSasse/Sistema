@@ -37,7 +37,8 @@ function buildCostEngineInput(input: OrcamentoInput) {
       unidadeProducao: frente.unidadeProducao,
       quantidadePrevista: frente.quantidadePrevista,
       produtividadeDia: frente.produtividadeDia,
-      prazoEstimadoDias: frente.prazoEstimadoDias
+      prazoEstimadoDias: frente.prazoEstimadoDias,
+      custoManual: frente.custoManual
     })),
     recursos: input.itens
       .filter((item) => item.tipoItem === TipoItemOrcamento.RECURSO)
@@ -52,17 +53,25 @@ function buildCostEngineInput(input: OrcamentoInput) {
   };
 }
 
-function calcularMargemEImpostos(input: OrcamentoInput, baseCustos: number) {
+function calcularMargemEImpostos(
+  input: OrcamentoInput,
+  baseCustos: number,
+  config: { operacional: boolean }
+) {
   const formacao = input.formacaoPreco;
   const margemPercentual = toMoney(Number(formacao?.margemPercentual ?? 0));
   const margemManual = toMoney(Number(formacao?.margemValor ?? 0));
   const margemValor =
-    margemManual > 0 ? margemManual : toMoney(baseCustos * (margemPercentual / 100));
+    !config.operacional && margemManual > 0
+      ? margemManual
+      : toMoney(baseCustos * (margemPercentual / 100));
   const impostosPercentual = toMoney(Number(formacao?.impostosPercentual ?? 0));
   const impostosManual = toMoney(Number(formacao?.impostosValor ?? 0));
   const baseComMargem = toMoney(baseCustos + margemValor);
   const impostosValor =
-    impostosManual > 0 ? impostosManual : toMoney(baseComMargem * (impostosPercentual / 100));
+    !config.operacional && impostosManual > 0
+      ? impostosManual
+      : toMoney(baseComMargem * (impostosPercentual / 100));
 
   return {
     margemPercentual,
@@ -95,24 +104,27 @@ function buildSnapshot(input: OrcamentoInput, config: { operacional: boolean }) 
   const custoDireto = config.operacional
     ? modoCusto === ModoCustoOrcamento.COMPLETO
       ? custoDiretoCompleto
-      : custoDiretoManual
+      : custoDiretoCompleto > 0
+        ? custoDiretoCompleto
+        : custoDiretoManual
     : custoDiretoItens > 0
       ? custoDiretoItens
       : custoDiretoManual;
   const custoIndireto = toMoney(Number(formacao?.custoIndireto ?? 0));
   const baseCustos = toMoney(custoDireto + custoIndireto);
-  const margem = calcularMargemEImpostos(input, baseCustos);
+  const margem = calcularMargemEImpostos(input, baseCustos, config);
   const precoSugeridoCalculado = toMoney(margem.baseComMargem + margem.impostosValor);
   const precoSugeridoManual = config.operacional
     ? 0
     : toMoney(Number(formacao?.precoSugerido ?? 0));
   const precoSugerido =
     precoSugeridoManual > 0 ? precoSugeridoManual : precoSugeridoCalculado;
+  const ajusteComercial = toMoney(Number(formacao?.ajusteComercial ?? 0));
   const precoFinalManual = toMoney(Number(formacao?.precoFinal ?? 0));
   const valorSubtotal = toMoney(
     config.operacional
-      ? precoFinalManual > 0
-        ? precoFinalManual
+      ? ajusteComercial > 0
+        ? ajusteComercial
         : precoSugerido
       : precoFinalManual > 0
         ? precoFinalManual
@@ -134,6 +146,7 @@ function buildSnapshot(input: OrcamentoInput, config: { operacional: boolean }) 
       margemPercentual: margem.margemPercentual,
       margemValor: margem.margemValor,
       precoSugerido,
+      ajusteComercial,
       precoFinal: valorTotal,
       observacao: clean(formacao?.observacao)
     },

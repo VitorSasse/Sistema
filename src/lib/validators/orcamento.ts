@@ -48,6 +48,7 @@ const orcamentoFrenteSchema = z.object({
   quantidadePrevista: numeroDecimal(999999999).optional().nullable(),
   produtividadeDia: numeroDecimal(999999999).optional().nullable(),
   prazoEstimadoDias: numeroDecimal(9999).optional().nullable(),
+  custoManual: numeroDecimal(999999999).default(0),
   observacao: z.string().trim().max(500).optional().or(z.literal(""))
 });
 
@@ -175,6 +176,7 @@ const orcamentoFormacaoPrecoSchema = z.object({
   margemPercentual: numeroDecimal(9999).default(0),
   margemValor: numeroDecimal(999999999).default(0),
   precoSugerido: numeroDecimal(999999999).default(0),
+  ajusteComercial: numeroDecimal(999999999).default(0),
   precoFinal: numeroDecimal(999999999).default(0),
   observacao: z.string().trim().max(500).optional().or(z.literal(""))
 });

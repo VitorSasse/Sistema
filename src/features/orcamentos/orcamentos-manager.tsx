@@ -122,6 +122,7 @@ type FrenteForm = {
   quantidadePrevista: string;
   produtividadeDia: string;
   prazoEstimadoDias: string;
+  custoManual: string;
   calculoReferencia: "produtividadeDia" | "prazoEstimadoDias" | "";
   observacao: string;
 };
@@ -192,6 +193,7 @@ type FormacaoPrecoForm = {
   margemPercentual: string;
   margemValor: string;
   precoSugerido: string;
+  ajusteComercial: string;
   precoFinal: string;
   observacao: string;
 };
@@ -319,6 +321,7 @@ type OrcamentoApi = {
     quantidadePrevista: string | number | null;
     produtividadeDia: string | number | null;
     prazoEstimadoDias: string | number | null;
+    custoManual: string | number;
     observacao: string | null;
   }>;
   itens: Array<{
@@ -467,6 +470,7 @@ function createEmptyForm(): OrcamentoForm {
       margemPercentual: "0",
       margemValor: "0",
       precoSugerido: "0",
+      ajusteComercial: "0",
       precoFinal: "0",
       observacao: ""
     },
@@ -503,6 +507,7 @@ function createEmptyFrente(ordem: number): FrenteForm {
     quantidadePrevista: "",
     produtividadeDia: "",
     prazoEstimadoDias: "",
+    custoManual: "0",
     calculoReferencia: "",
     observacao: ""
   };
@@ -677,6 +682,24 @@ function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function isCostDebugEnabled() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  return new URLSearchParams(window.location.search).get("debugCustos") === "1";
+}
+
+function debugCostFlow(stage: string, value: unknown) {
+  if (!isCostDebugEnabled()) {
+    return;
+  }
+
+  console.groupCollapsed(`[Orcamentos][Custos] ${stage}`);
+  console.log(value);
+  console.groupEnd();
+}
+
 function parseFrenteNumber(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -833,7 +856,34 @@ function parseApiErrorPayload(payload: ApiErrorPayload, fallback: string) {
   };
 }
 
-function buildEconomicPreview(form: OrcamentoForm) {
+function buildCostEngineInputFromForm(form: OrcamentoForm) {
+  return {
+    frentes: form.frentes.map((frente) => ({
+      ref: frente.localId,
+      nome: frente.nome,
+      unidadeProducao: frente.unidadeProducao,
+      quantidadePrevista: frente.quantidadePrevista,
+      produtividadeDia: frente.produtividadeDia,
+      prazoEstimadoDias: frente.prazoEstimadoDias,
+      custoManual: frente.custoManual
+    })),
+    recursos: form.itens
+      .filter((item) => isRecursoItem(item))
+      .map((item) => ({
+        frenteRef: item.frenteTempId,
+        categoria: item.categoriaRecurso,
+        descricao: item.descricao,
+        quantidade: item.quantidade,
+        custoOperacional: item.custoUnitario,
+        unidadeCusto: item.unidade
+      }))
+  };
+}
+
+function buildEconomicPreview(
+  form: OrcamentoForm,
+  motorCustosCalculado?: ReturnType<typeof calcularMotorCustos> | null
+) {
   const isOperational = form.tipo === "OPERACIONAL";
   const modoCusto = isOperational ? form.formacaoPreco.modoCusto : "SIMPLIFICADO";
   const subtotalItens = roundMoney(form.itens.reduce((sum, item) => sum + calcItemTotal(item), 0));
@@ -841,26 +891,9 @@ function buildEconomicPreview(form: OrcamentoForm) {
     ? form.itens.filter((item) => item.frenteTempId)
     : form.itens;
   const motorCustos = isOperational
-    ? calcularMotorCustos({
-        frentes: form.frentes.map((frente) => ({
-          ref: frente.localId,
-          nome: frente.nome,
-          unidadeProducao: frente.unidadeProducao,
-          quantidadePrevista: frente.quantidadePrevista,
-          produtividadeDia: frente.produtividadeDia,
-          prazoEstimadoDias: frente.prazoEstimadoDias
-        })),
-        recursos: form.itens
-          .filter((item) => isRecursoItem(item))
-          .map((item) => ({
-            frenteRef: item.frenteTempId,
-            categoria: item.categoriaRecurso,
-            descricao: item.descricao,
-            quantidade: item.quantidade,
-            custoOperacional: item.custoUnitario,
-            unidadeCusto: item.unidade
-          }))
-      })
+    ? motorCustosCalculado === undefined
+      ? calcularMotorCustos(buildCostEngineInputFromForm(form))
+      : motorCustosCalculado
     : null;
   const custoDiretoCalculado = roundMoney(
     isOperational
@@ -872,7 +905,9 @@ function buildEconomicPreview(form: OrcamentoForm) {
     isOperational
       ? modoCusto === "COMPLETO"
         ? custoDiretoCalculado
-        : custoDiretoManual
+        : custoDiretoCalculado > 0
+          ? custoDiretoCalculado
+          : custoDiretoManual
       : custoDiretoCalculado > 0
         ? custoDiretoCalculado
         : custoDiretoManual
@@ -882,12 +917,14 @@ function buildEconomicPreview(form: OrcamentoForm) {
   const margemPercentual = Number(form.formacaoPreco.margemPercentual) || 0;
   const margemManual = Number(form.formacaoPreco.margemValor) || 0;
   const margemValor = roundMoney(
-    margemManual > 0 ? margemManual : baseCustos * (margemPercentual / 100)
+    !isOperational && margemManual > 0
+      ? margemManual
+      : baseCustos * (margemPercentual / 100)
   );
   const impostosPercentual = Number(form.formacaoPreco.impostosPercentual) || 0;
   const impostosManual = Number(form.formacaoPreco.impostosValor) || 0;
   const impostosValor = roundMoney(
-    impostosManual > 0
+    !isOperational && impostosManual > 0
       ? impostosManual
       : (baseCustos + margemValor) * (impostosPercentual / 100)
   );
@@ -896,11 +933,12 @@ function buildEconomicPreview(form: OrcamentoForm) {
   const precoSugerido = roundMoney(
     precoSugeridoManual > 0 ? precoSugeridoManual : precoSugeridoCalculado
   );
+  const ajusteComercial = roundMoney(Number(form.formacaoPreco.ajusteComercial) || 0);
   const precoFinalManual = roundMoney(Number(form.formacaoPreco.precoFinal) || 0);
   const baseVenda = roundMoney(
     isOperational
-      ? precoFinalManual > 0
-        ? precoFinalManual
+      ? ajusteComercial > 0
+        ? ajusteComercial
         : precoSugerido
       : precoFinalManual > 0
         ? precoFinalManual
@@ -924,6 +962,7 @@ function buildEconomicPreview(form: OrcamentoForm) {
     margemValor,
     impostosValor,
     precoSugerido,
+    ajusteComercial,
     precoFinalManual,
     baseVenda,
     desconto,
@@ -1087,7 +1126,17 @@ export function OrcamentosManager() {
     [options.fornecedores]
   );
 
-  const economicPreview = useMemo(() => buildEconomicPreview(form), [form]);
+  const motorCustosForm = useMemo(
+    () =>
+      form.tipo === "OPERACIONAL"
+        ? calcularMotorCustos(buildCostEngineInputFromForm(form))
+        : null,
+    [form.tipo, form.frentes, form.itens]
+  );
+  const economicPreview = useMemo(
+    () => buildEconomicPreview(form, motorCustosForm),
+    [form, motorCustosForm]
+  );
   const cenarioTotals = useMemo(() => buildCenarioTotals(form), [form]);
   const modoCustoForm = economicPreview.modoCusto;
   const subtotalForm = economicPreview.subtotalItens;
@@ -1097,7 +1146,6 @@ export function OrcamentosManager() {
   const baseCustosForm = economicPreview.baseCustos;
   const precoSugeridoForm = economicPreview.precoSugerido;
   const totalForm = economicPreview.total;
-  const motorCustosForm = economicPreview.motorCustos;
   const gruposExecutivosForm = motorCustosForm?.gruposUnidade ?? [];
   const unidadesHomogeneasForm = motorCustosForm?.unidadesHomogeneas ?? true;
   const quantidadeHomogeneaForm = unidadesHomogeneasForm
@@ -1124,6 +1172,70 @@ export function OrcamentosManager() {
     unidadesHomogeneasForm && quantidadeHomogeneaForm > 0
       ? roundMoney(totalForm / quantidadeHomogeneaForm)
       : 0;
+
+  useEffect(() => {
+    if (!isCostDebugEnabled() || form.tipo !== "OPERACIONAL") {
+      return;
+    }
+
+    const entradaMotor = buildCostEngineInputFromForm(form);
+
+    debugCostFlow("C. Antes do cost-engine", {
+      quantidadeFrentes: entradaMotor.frentes.length,
+      quantidadeRecursos: entradaMotor.recursos.length,
+      recursosPorFrente: entradaMotor.frentes.map((frente) => ({
+        frenteId: frente.ref,
+        frente: frente.nome,
+        recursos: entradaMotor.recursos
+          .filter((recurso) => recurso.frenteRef === frente.ref)
+          .map((recurso) => ({
+            descricao: recurso.descricao,
+            quantidade: Number(recurso.quantidade) || 0,
+            custoUnitario: Number(recurso.custoOperacional) || 0,
+            total: roundMoney(
+              (Number(recurso.quantidade) || 0) * (Number(recurso.custoOperacional) || 0)
+            ),
+            unidade: recurso.unidadeCusto
+          }))
+      }))
+    });
+    debugCostFlow("D. Depois do cost-engine", {
+      frentes: motorCustosForm?.frentes.map((frente) => ({
+        frenteId: frente.ref,
+        frente: frente.nome,
+        custoDireto: frente.custoDireto,
+        origemCusto: frente.origemCusto,
+        custoManual: frente.custoManual,
+        recursos: frente.recursos
+      })),
+      custoDiretoConsolidado: motorCustosForm?.custoDiretoTotal ?? 0,
+      indicadoresPorUnidade: motorCustosForm?.gruposUnidade ?? [],
+      avisos: motorCustosForm?.avisos ?? []
+    });
+    debugCostFlow("E. Engenharia Economica renderizada", {
+      modoCusto: modoCustoForm,
+      custoDiretoCalculado: custoDiretoCalculadoForm,
+      custoDiretoExibido: custoDiretoForm,
+      origem:
+        custoDiretoCalculadoForm > 0
+          ? "motorCustosForm.custoDiretoTotal"
+          : "form.formacaoPreco.custoDireto (compatibilidade legada)",
+      custoIndireto: custoIndiretoForm,
+      precoSugerido: precoSugeridoForm,
+      ajusteComercial: economicPreview.ajusteComercial,
+      precoFinal: totalForm
+    });
+  }, [
+    custoDiretoCalculadoForm,
+    custoDiretoForm,
+    custoIndiretoForm,
+    economicPreview.ajusteComercial,
+    form,
+    modoCustoForm,
+    motorCustosForm,
+    precoSugeridoForm,
+    totalForm
+  ]);
 
   useEffect(() => {
     async function init() {
@@ -1537,7 +1649,26 @@ export function OrcamentosManager() {
     setMessage("");
     clearError();
 
-    const payload = buildPayload(form);
+    const payload = buildPayload(form, economicPreview);
+    debugCostFlow("A. Antes de salvar", {
+      orcamentoId: selectedId || null,
+      frentes: form.frentes.map((frente) => ({
+        id: frente.localId,
+        nome: frente.nome,
+        recursos: form.itens
+          .filter((item) => isRecursoItem(item) && item.frenteTempId === frente.localId)
+          .map((item) => ({
+            id: item.localId,
+            descricao: item.descricao,
+            quantidade: Number(item.quantidade) || 0,
+            custoUnitario: Number(item.custoUnitario) || 0,
+            total: roundMoney(
+              (Number(item.quantidade) || 0) * (Number(item.custoUnitario) || 0)
+            )
+          }))
+      })),
+      payload
+    });
     const response = await fetch(selectedId ? `/api/orcamentos/${selectedId}` : "/api/orcamentos", {
       method: selectedId ? "PATCH" : "POST",
       headers: {
@@ -1546,6 +1677,14 @@ export function OrcamentosManager() {
       body: JSON.stringify(payload)
     });
     const data = await response.json().catch(() => ({}));
+    debugCostFlow("B. Depois do retorno do salvamento", {
+      statusHttp: response.status,
+      payloadRetornado: data,
+      recursosRetornados: Array.isArray(data.itens)
+        ? data.itens.filter((item: OrcamentoApi["itens"][number]) => item.tipoItem === "RECURSO")
+        : [],
+      formacaoPrecoPersistida: data.formacaoPreco ?? null
+    });
 
     if (!response.ok) {
       applyApiError(data, "Nao foi possivel salvar o orcamento.");
@@ -1895,6 +2034,7 @@ export function OrcamentosManager() {
                 cenarios={form.cenarios}
                 frentes={form.frentes}
                 itens={form.itens}
+                custosFrentes={motorCustosForm?.frentes ?? []}
                 servicoOptions={servicoOptions}
                 materialOptions={materialOptions}
                 equipamentoOptions={equipamentoOptions}
@@ -2045,20 +2185,14 @@ export function OrcamentosManager() {
                         </div>
                       </>
                     ) : (
-                      <label className="manager-field">
-                        <span className="manager-field-label">Custo direto manual</span>
-                        <input
-                          className="field-control"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={form.formacaoPreco.custoDireto}
-                          onChange={(event) => updateFormacao("custoDireto", event.target.value)}
-                        />
-                        <small className="manager-field-hint">
-                          Use quando ainda nao houver recursos detalhados.
+                      <div className="orcamentos-calculated-field">
+                        <span>Custo direto das frentes</span>
+                        <strong>{formatCurrency(custoDiretoForm)}</strong>
+                        <small>
+                          Informe o custo manual dentro de cada frente. Quando houver recursos
+                          validos, o calculo automatico tem prioridade.
                         </small>
-                      </label>
+                      </div>
                     )}
 
                     <label className="manager-field">
@@ -2117,8 +2251,8 @@ export function OrcamentosManager() {
                           type="number"
                           min="0"
                           step="0.01"
-                          value={form.formacaoPreco.precoFinal}
-                          onChange={(event) => updateFormacao("precoFinal", event.target.value)}
+                          value={form.formacaoPreco.ajusteComercial}
+                          onChange={(event) => updateFormacao("ajusteComercial", event.target.value)}
                         />
                         <small className="manager-field-hint">
                           Opcional. Quando informado, substitui o preco sugerido antes de
@@ -2384,6 +2518,7 @@ function FrentesOperacionaisSection(props: {
   cenarios: CenarioForm[];
   frentes: FrenteForm[];
   itens: ItemForm[];
+  custosFrentes: ReturnType<typeof calcularMotorCustos>["frentes"];
   servicoOptions: ServicoSelectOption[];
   materialOptions: MaterialSelectOption[];
   equipamentoOptions: BasicSelectOption[];
@@ -2423,9 +2558,9 @@ function FrentesOperacionaisSection(props: {
           const itensDaFrente = props.itens.filter((item) => item.frenteTempId === frente.localId);
           const servicosPrincipais = itensDaFrente.filter((item) => item.tipoItem === "SERVICO_PRINCIPAL");
           const servicosAuxiliares = itensDaFrente.filter((item) => item.tipoItem === "SERVICO_AUXILIAR");
-          const recursosPlanejamento = itensDaFrente.filter(
-            (item) => item.tipoItem !== "SERVICO_PRINCIPAL" && item.tipoItem !== "SERVICO_AUXILIAR"
-          );
+          const recursosPlanejamento = itensDaFrente.filter((item) => isRecursoItem(item));
+          const custoFrente = props.custosFrentes.find((item) => item.ref === frente.localId);
+          const custoCalculadoPorRecursos = custoFrente?.origemCusto === "RECURSOS";
           const unidadeProdutividadeLabel = getProdutividadeLabel(frente.unidadeProducao);
           const frenteCalculoMessage = getFrenteCalculoMessage(frente);
 
@@ -2639,6 +2774,40 @@ function FrentesOperacionaisSection(props: {
                   onRemove={props.onRemoveItem}
                   onUpdate={props.onUpdateItem}
                 />
+                <div className="orcamentos-front-cost-panel">
+                  <label className="manager-field">
+                    <span className="manager-field-label">Custo da frente</span>
+                    <input
+                      className="field-control"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={
+                        custoCalculadoPorRecursos
+                          ? String(custoFrente?.custoDireto ?? 0)
+                          : frente.custoManual
+                      }
+                      readOnly={custoCalculadoPorRecursos}
+                      disabled={custoCalculadoPorRecursos}
+                      onChange={(event) =>
+                        props.onUpdate(frente.localId, "custoManual", event.target.value)
+                      }
+                    />
+                  </label>
+                  <div className="orcamentos-front-cost-origin">
+                    <span>
+                      {custoCalculadoPorRecursos
+                        ? "Calculado pelos recursos"
+                        : "Informado manualmente"}
+                    </span>
+                    <strong>{formatCurrency(custoFrente?.custoDireto ?? 0)}</strong>
+                    <small>
+                      {custoCalculadoPorRecursos
+                        ? "O valor manual nao participa do Motor enquanto houver recursos validos."
+                        : "Sem recursos validos, este valor compoe o Custo Direto do orcamento."}
+                    </small>
+                  </div>
+                </div>
                 <textarea
                   className="field-control"
                   rows={2}
@@ -3531,14 +3700,17 @@ function PremissasSection(props: {
   );
 }
 
-function buildPayload(form: OrcamentoForm) {
+function buildPayload(
+  form: OrcamentoForm,
+  previewCalculado?: ReturnType<typeof buildEconomicPreview>
+) {
   const itensPreenchidos = form.itens.filter(isItemPreenchido);
   const itensValidos =
     form.tipo === "OPERACIONAL"
       ? itensPreenchidos.filter((item) => Boolean(item.frenteTempId))
       : itensPreenchidos;
-  const economicPreview = buildEconomicPreview(form);
-  const formacaoPreco = buildFormacaoPayload(form.formacaoPreco, economicPreview);
+  const economicPreview = previewCalculado ?? buildEconomicPreview(form);
+  const formacaoPreco = buildFormacaoPayload(form, economicPreview);
 
   return {
     tipo: form.tipo,
@@ -3653,9 +3825,10 @@ function toNumberOrZero(value: string) {
 }
 
 function buildFormacaoPayload(
-  formacaoPreco: FormacaoPrecoForm,
+  form: OrcamentoForm,
   economicPreview: ReturnType<typeof buildEconomicPreview>
 ) {
+  const formacaoPreco = form.formacaoPreco;
   const payload = {
     modoCusto: formacaoPreco.modoCusto,
     custoDireto: economicPreview.custoDireto,
@@ -3665,7 +3838,11 @@ function buildFormacaoPayload(
     margemPercentual: toNumberOrZero(formacaoPreco.margemPercentual),
     margemValor: economicPreview.margemValor,
     precoSugerido: economicPreview.precoSugerido,
-    precoFinal: toNumberOrZero(formacaoPreco.precoFinal),
+    ajusteComercial: toNumberOrZero(formacaoPreco.ajusteComercial),
+    precoFinal:
+      form.tipo === "OPERACIONAL"
+        ? economicPreview.total
+        : toNumberOrZero(formacaoPreco.precoFinal),
     observacao: formacaoPreco.observacao.trim()
   };
 
@@ -3715,6 +3892,7 @@ function mapFrentePayload(frente: FrenteForm) {
     quantidadePrevista: frente.quantidadePrevista ? Number(frente.quantidadePrevista) : null,
     produtividadeDia: frente.produtividadeDia ? Number(frente.produtividadeDia) : null,
     prazoEstimadoDias: frente.prazoEstimadoDias ? Number(frente.prazoEstimadoDias) : null,
+    custoManual: Number(frente.custoManual) || 0,
     observacao: frente.observacao
   };
 }
@@ -3771,6 +3949,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
     quantidadePrevista: toStringValue(frente.quantidadePrevista),
     produtividadeDia: toStringValue(frente.produtividadeDia),
     prazoEstimadoDias: toStringValue(frente.prazoEstimadoDias),
+    custoManual: toStringValue(frente.custoManual ?? 0),
     calculoReferencia: "",
     observacao: frente.observacao ?? ""
   }));
@@ -3822,7 +4001,11 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
       margemPercentual: toStringValue(item.formacaoPreco?.margemPercentual ?? 0),
       margemValor: toStringValue(item.formacaoPreco?.margemValor ?? 0),
       precoSugerido: toStringValue(item.formacaoPreco?.precoSugerido ?? 0),
-      precoFinal: toStringValue(item.formacaoPreco?.precoFinal ?? 0),
+      ajusteComercial: toStringValue(item.formacaoPreco?.ajusteComercial ?? 0),
+      precoFinal:
+        item.tipo === "OPERACIONAL"
+          ? "0"
+          : toStringValue(item.formacaoPreco?.precoFinal ?? 0),
       observacao: toStringValue(item.formacaoPreco?.observacao ?? "")
     },
     cenarios,

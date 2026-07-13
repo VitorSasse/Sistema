@@ -21,6 +21,7 @@ export type CostEngineFrenteInput = {
   quantidadePrevista?: string | number | null;
   produtividadeDia?: string | number | null;
   prazoEstimadoDias?: string | number | null;
+  custoManual?: string | number | null;
 };
 
 export type CostEngineRecursoInput = {
@@ -58,7 +59,17 @@ export type CostEngineFrenteResultado = {
   prazoUnidade: string;
   custoDireto: number;
   custoDiretoUnitario: number;
+  custoManual: number;
+  origemCusto: "RECURSOS" | "MANUAL";
   recursos: CostEngineMemoriaRecurso[];
+};
+
+export type CostEngineResolucaoFrente = {
+  custoFrente: number;
+  custoManual: number;
+  origemCusto: "RECURSOS" | "MANUAL";
+  recursos: CostEngineMemoriaRecurso[];
+  avisos: string[];
 };
 
 export type CostEngineGrupoUnidade = {
@@ -210,13 +221,9 @@ function resolverBaseConversao(params: {
   const { unidadeCusto, unidadeFrente, quantidadeFrente, prazoDias } = params;
 
   if (unidadesCompativeis(unidadeCusto, unidadeFrente)) {
-    if (quantidadeFrente <= 0) {
-      observacoes.push("Quantidade da frente ausente; recurso por unidade produzida nao entrou no custo.");
-    }
-
     return {
-      baseConversao: quantidadeFrente > 0 ? quantidadeFrente : 0,
-      formulaBase: "quantidade prevista da frente",
+      baseConversao: 1,
+      formulaBase: "quantidade total informada do recurso",
       observacoes
     };
   }
@@ -303,39 +310,22 @@ function resolverBaseConversao(params: {
   };
 }
 
-export function calcularMotorCustos(input: {
-  frentes: CostEngineFrenteInput[];
-  recursos: CostEngineRecursoInput[];
-}): CostEngineResultado {
+export function resolveFrontCost(
+  frenteInput: CostEngineFrenteInput,
+  recursosInput: CostEngineRecursoInput[]
+): CostEngineResolucaoFrente {
   const avisos: string[] = [];
   const memoriaByKey = new Map<string, CostEngineMemoriaRecurso>();
-  const frentes = input.frentes.map((frente) => {
-    const quantidade = toNumber(frente.quantidadePrevista);
-    const produtividadeDia = toNumber(frente.produtividadeDia);
-    const prazoDias = calcularPrazoDias(frente);
-    const unidadeNormalizada = normalizeUnidade(frente.unidadeProducao);
+  const quantidadeFrente = toNumber(frenteInput.quantidadePrevista);
+  const prazoDias = calcularPrazoDias(frenteInput);
+  const unidadeFrente = normalizeUnidade(frenteInput.unidadeProducao);
+  const prazoUnidade = getPrazoUnidade(unidadeFrente);
+  const frenteNome = frenteInput.nome?.trim() || "Frente";
+  let custoRecursos = 0;
+  let recursosValidos = 0;
 
-    return {
-      ref: frente.ref,
-      nome: frente.nome?.trim() || "Frente",
-      unidade: formatarUnidadeFrente(frente.unidadeProducao),
-      unidadeNormalizada,
-      quantidade,
-      produtividadeDia,
-      prazoDias,
-      prazoUnidade: getPrazoUnidade(unidadeNormalizada),
-      custoDireto: 0,
-      custoDiretoUnitario: 0,
-      recursos: [] as CostEngineMemoriaRecurso[]
-    };
-  });
-  const frenteByRef = new Map(frentes.map((frente) => [frente.ref, frente]));
-
-  for (const recurso of input.recursos) {
-    const frente = recurso.frenteRef ? frenteByRef.get(recurso.frenteRef) : null;
-
-    if (!frente) {
-      avisos.push(`Recurso "${recurso.descricao || "sem descricao"}" sem frente valida foi ignorado.`);
+  for (const recurso of recursosInput) {
+    if (recurso.frenteRef && recurso.frenteRef !== frenteInput.ref) {
       continue;
     }
 
@@ -351,10 +341,10 @@ export function calcularMotorCustos(input: {
     const unidadeCustoFormatada = formatarUnidadeCusto(recurso.unidadeCusto);
     const conversao = resolverBaseConversao({
       unidadeCusto,
-      unidadeFrente: frente.unidadeNormalizada,
-      quantidadeFrente: frente.quantidade,
-      prazoDias: frente.prazoDias,
-      prazoUnidade: frente.prazoUnidade
+      unidadeFrente,
+      quantidadeFrente,
+      prazoDias,
+      prazoUnidade
     });
     const custoTotal = roundMoney(quantidadeRecursos * custoOperacional * conversao.baseConversao);
 
@@ -365,9 +355,9 @@ export function calcularMotorCustos(input: {
     }
 
     const custoUnitarioFrente =
-      frente.quantidade > 0 ? roundMoney(custoTotal / frente.quantidade) : 0;
+      quantidadeFrente > 0 ? roundMoney(custoTotal / quantidadeFrente) : 0;
     const memoriaKey = [
-      frente.ref,
+      frenteInput.ref,
       recurso.categoria?.trim() || "RECURSO",
       recurso.descricao?.trim() || "Recurso sem descricao",
       unidadeCustoFormatada,
@@ -375,8 +365,8 @@ export function calcularMotorCustos(input: {
       conversao.baseConversao
     ].join("|");
     const memoria: CostEngineMemoriaRecurso = {
-      frenteRef: frente.ref,
-      frenteNome: frente.nome,
+      frenteRef: frenteInput.ref,
+      frenteNome,
       categoria: recurso.categoria?.trim() || "RECURSO",
       descricao: recurso.descricao?.trim() || "Recurso sem descricao",
       quantidadeRecursos,
@@ -386,13 +376,14 @@ export function calcularMotorCustos(input: {
       baseConversao: roundMoney(conversao.baseConversao),
       custoTotal,
       custoUnitarioFrente,
-      formula: `${quantidadeRecursos} recurso(s) x ${unidadeCustoFormatada} ${roundMoney(
+      formula: `${quantidadeRecursos} ${recurso.unidadeCusto?.trim() || "un"} x ${unidadeCustoFormatada} ${roundMoney(
         custoOperacional
       )} x ${conversao.formulaBase}`,
       observacoes: conversao.observacoes
     };
 
-    frente.custoDireto = roundMoney(frente.custoDireto + custoTotal);
+    custoRecursos = roundMoney(custoRecursos + custoTotal);
+    recursosValidos += 1;
 
     const memoriaExistente = memoriaByKey.get(memoriaKey);
 
@@ -402,33 +393,78 @@ export function calcularMotorCustos(input: {
       );
       memoriaExistente.custoTotal = roundMoney(memoriaExistente.custoTotal + memoria.custoTotal);
       memoriaExistente.custoUnitarioFrente =
-        frente.quantidade > 0 ? roundMoney(memoriaExistente.custoTotal / frente.quantidade) : 0;
-      memoriaExistente.formula = `${memoriaExistente.quantidadeRecursos} recurso(s) x ${
+        quantidadeFrente > 0 ? roundMoney(memoriaExistente.custoTotal / quantidadeFrente) : 0;
+      memoriaExistente.formula = `${memoriaExistente.quantidadeRecursos} ${
+        memoriaExistente.unidadeCustoOriginal
+      } x ${
         memoriaExistente.unidadeCustoFormatada
       } ${roundMoney(memoriaExistente.custoOperacional)} x ${conversao.formulaBase}`;
       memoriaExistente.observacoes = Array.from(
         new Set([...memoriaExistente.observacoes, ...memoria.observacoes])
       );
     } else {
-      frente.recursos.push(memoria);
       memoriaByKey.set(memoriaKey, memoria);
     }
 
     avisos.push(...conversao.observacoes.map((observacao) => `${memoria.descricao}: ${observacao}`));
   }
 
-  const resultadosFrentes: CostEngineFrenteResultado[] = frentes.map((frente) => ({
-    ref: frente.ref,
-    nome: frente.nome,
-    unidade: frente.unidade,
-    quantidade: roundMoney(frente.quantidade),
-    produtividadeDia: roundMoney(frente.produtividadeDia),
-    prazoDias: roundMoney(frente.prazoDias),
-    prazoUnidade: frente.prazoUnidade,
-    custoDireto: roundMoney(frente.custoDireto),
-    custoDiretoUnitario: frente.quantidade > 0 ? roundMoney(frente.custoDireto / frente.quantidade) : 0,
-    recursos: frente.recursos
-  }));
+  const custoManual = roundMoney(Math.max(0, toNumber(frenteInput.custoManual)));
+  const origemCusto = recursosValidos > 0 ? "RECURSOS" : "MANUAL";
+
+  return {
+    custoFrente: origemCusto === "RECURSOS" ? custoRecursos : custoManual,
+    custoManual,
+    origemCusto,
+    recursos: Array.from(memoriaByKey.values()),
+    avisos
+  };
+}
+
+export function calcularMotorCustos(input: {
+  frentes: CostEngineFrenteInput[];
+  recursos: CostEngineRecursoInput[];
+}): CostEngineResultado {
+  const avisos: string[] = [];
+  const frenteRefs = new Set(input.frentes.map((frente) => frente.ref));
+  const recursosPorFrente = new Map<string, CostEngineRecursoInput[]>();
+
+  for (const recurso of input.recursos) {
+    const frenteRef = recurso.frenteRef?.trim();
+
+    if (!frenteRef || !frenteRefs.has(frenteRef)) {
+      avisos.push(`Recurso "${recurso.descricao || "sem descricao"}" sem frente valida foi ignorado.`);
+      continue;
+    }
+
+    const recursos = recursosPorFrente.get(frenteRef) ?? [];
+    recursos.push(recurso);
+    recursosPorFrente.set(frenteRef, recursos);
+  }
+
+  const resultadosFrentes: CostEngineFrenteResultado[] = input.frentes.map((frente) => {
+    const quantidade = toNumber(frente.quantidadePrevista);
+    const produtividadeDia = toNumber(frente.produtividadeDia);
+    const prazoDias = calcularPrazoDias(frente);
+    const unidadeNormalizada = normalizeUnidade(frente.unidadeProducao);
+    const resolucao = resolveFrontCost(frente, recursosPorFrente.get(frente.ref) ?? []);
+    avisos.push(...resolucao.avisos);
+
+    return {
+      ref: frente.ref,
+      nome: frente.nome?.trim() || "Frente",
+      unidade: formatarUnidadeFrente(frente.unidadeProducao),
+      quantidade: roundMoney(quantidade),
+      produtividadeDia: roundMoney(produtividadeDia),
+      prazoDias: roundMoney(prazoDias),
+      prazoUnidade: getPrazoUnidade(unidadeNormalizada),
+      custoDireto: resolucao.custoFrente,
+      custoDiretoUnitario: quantidade > 0 ? roundMoney(resolucao.custoFrente / quantidade) : 0,
+      custoManual: resolucao.custoManual,
+      origemCusto: resolucao.origemCusto,
+      recursos: resolucao.recursos
+    };
+  });
   const memoria = resultadosFrentes.flatMap((frente) => frente.recursos);
   const custoDiretoTotal = roundMoney(
     resultadosFrentes.reduce((sum, frente) => sum + frente.custoDireto, 0)
@@ -466,8 +502,8 @@ export function calcularMotorCustos(input: {
   );
   const prazoEstimadoTotalDias = unidadesHomogeneas ? gruposUnidade[0]?.prazoCritico ?? 0 : 0;
 
-  if (memoria.length === 0) {
-    avisos.push("Nenhum recurso valido para calcular o custo direto no modo completo.");
+  if (memoria.length === 0 && custoDiretoTotal === 0) {
+    avisos.push("Nenhum recurso valido ou custo manual informado para calcular o custo direto.");
   }
 
   return {

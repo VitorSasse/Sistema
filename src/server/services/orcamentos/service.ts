@@ -601,6 +601,7 @@ async function criarEstruturaOrcamento(
         quantidadePrevista: frente.quantidadePrevista ?? null,
         produtividadeDia: frente.produtividadeDia ?? null,
         prazoEstimadoDias: frente.prazoEstimadoDias ?? null,
+        custoManual: frente.custoManual,
         observacao: clean(frente.observacao)
       },
       select: {
@@ -1086,6 +1087,7 @@ export async function duplicarOrcamento(
         quantidadePrevista: frente.quantidadePrevista,
         produtividadeDia: frente.produtividadeDia,
         prazoEstimadoDias: frente.prazoEstimadoDias,
+        custoManual: frente.custoManual,
         observacao: frente.observacao
       },
       select: {
@@ -1108,6 +1110,7 @@ export async function duplicarOrcamento(
         margemPercentual: origem.formacaoPreco.margemPercentual,
         margemValor: origem.formacaoPreco.margemValor,
         precoSugerido: origem.formacaoPreco.precoSugerido,
+        ajusteComercial: origem.formacaoPreco.ajusteComercial,
         precoFinal: origem.formacaoPreco.precoFinal,
         observacao: origem.formacaoPreco.observacao
       }
@@ -1224,6 +1227,7 @@ export async function evoluirOrcamentoParaOperacional(db: DbClient, id: string) 
         quantidadePrevista: null,
         produtividadeDia: null,
         prazoEstimadoDias: null,
+        custoManual: 0,
         observacao: "Frente criada automaticamente na evolucao comercial para operacional."
       }
     }));

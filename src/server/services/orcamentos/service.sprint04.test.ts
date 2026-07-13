@@ -41,6 +41,7 @@ function baseInput(overrides: Partial<OrcamentoInput> = {}): OrcamentoInput {
         quantidadePrevista: 100,
         produtividadeDia: 10,
         prazoEstimadoDias: 10,
+        custoManual: 0,
         observacao: ""
       }
     ],
@@ -175,6 +176,21 @@ describe("orcamentos sprint 4.1-4.3", () => {
     expect(records.cenarios[0].isPadrao).toBe(true);
     expect(records.frentes[0].cenarioId).toBe(records.cenarios[0].id);
     expect(records.propostas).toHaveLength(0);
+  });
+
+  it("persiste o custo manual da frente para reconstruir o motor na reabertura", async () => {
+    const { db, records } = createFakeDb();
+    const input = baseInput({
+      frentes: [{ ...baseInput().frentes[0], custoManual: 4321.9 }]
+    });
+
+    await criarOrcamento(db as never, {
+      input,
+      userId: "usuario-1"
+    });
+
+    expect(records.frentes[0].custoManual).toBe(4321.9);
+    expect(records.orcamentos[0].valorTotal).toBe(4321.9);
   });
 
   it("mantem orcamento comercial sem cenario automatico", async () => {

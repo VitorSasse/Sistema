@@ -8082,6 +8082,50 @@ button {
   font-weight: 800;
 }
 
+.orcamentos-front-cost-panel {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(260px, 1.3fr);
+  gap: 12px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--primary) 34%, var(--screen-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--primary) 7%, transparent);
+}
+
+.orcamentos-front-cost-origin {
+  display: grid;
+  gap: 4px;
+}
+
+.orcamentos-front-cost-origin span {
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--screen-text);
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.orcamentos-front-cost-origin strong {
+  color: var(--screen-text);
+  font-size: 1.05rem;
+}
+
+.orcamentos-front-cost-origin small {
+  color: var(--screen-muted);
+  line-height: 1.4;
+}
+
+@media (max-width: 720px) {
+  .orcamentos-front-cost-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
 .orcamentos-depth-heading button {
   width: fit-content;
   border: 1px solid var(--screen-border);
