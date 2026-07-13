@@ -178,6 +178,13 @@ function formatPercent(value: number) {
   return `${value.toFixed(1).replace(".", ",")}%`;
 }
 
+function formatLiters(value: number) {
+  return `${value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  })} L`;
+}
+
 function toInputDate(date: Date) {
   return formatDateInputValue(date);
 }
@@ -242,8 +249,36 @@ function EquipmentCostTooltip({
       <span>Total no ranking: {formatCurrency(row.totalRanking)}</span>
       <span>Combustivel: {formatCurrency(row.combustivel)}</span>
       <span>Manutencao: {formatCurrency(row.manutencao)}</span>
-      <b>{row.litrosDiesel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} litros de diesel</b>
+      <b>{formatLiters(row.litrosDiesel)} de diesel</b>
     </div>
+  );
+}
+
+function CenterCostAxisTick({
+  x = 0,
+  y = 0,
+  payload,
+  rows
+}: {
+  x?: string | number;
+  y?: string | number;
+  payload?: { value?: string };
+  rows: Array<CentroCustoRow & { nomeCurto: string; totalRanking: number }>;
+}) {
+  const row = rows.find((item) => item.nome === payload?.value);
+  if (!row) return null;
+
+  return (
+    <g transform={`translate(${Number(x)},${Number(y)})`}>
+      <text textAnchor="middle">
+        <tspan x="0" dy="18" fill="var(--screen-chart-tick)" fontSize="14" fontWeight="850">
+          {row.nomeCurto}
+        </tspan>
+        <tspan x="0" dy="20" fill="#38bdf8" fontSize="13" fontWeight="900">
+          {formatLiters(row.litrosDiesel)} diesel
+        </tspan>
+      </text>
+    </g>
   );
 }
 
@@ -723,7 +758,7 @@ function EquipmentCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
   );
   const chartRows = rows
     .filter((item) => !effectiveHiddenIds.includes(getRowId(item)))
-    .filter((item) => item.combustivel > 0 || item.manutencao > 0)
+    .filter((item) => item.combustivel > 0 || item.manutencao > 0 || item.litrosDiesel > 0)
     .map((item) => ({
       ...item,
       totalRanking: item.combustivel + item.manutencao,
@@ -750,8 +785,14 @@ function EquipmentCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
           <h2 className="section-title">Ranking de custo por centro de custo</h2>
         </div>
         <div className="cost-equipment-visible-metrics">
-          <strong className="cost-equipment-visible-total">{formatCurrency(visibleTotal)}</strong>
-          <span>{visibleLitrosDiesel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L de diesel no periodo</span>
+          <span className="cost-equipment-visible-cost">
+            <small>Custo exibido</small>
+            <strong className="cost-equipment-visible-total">{formatCurrency(visibleTotal)}</strong>
+          </span>
+          <span className="cost-diesel-volume">
+            <small>Diesel no periodo</small>
+            <strong>{formatLiters(visibleLitrosDiesel)}</strong>
+          </span>
         </div>
       </div>
 
@@ -769,7 +810,7 @@ function EquipmentCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
                   onChange={() => toggleCenter(getRowId(item))}
                 />
                 <span>{item.nome}</span>
-                <small>{item.litrosDiesel.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} L diesel</small>
+                <small>{formatLiters(item.litrosDiesel)} diesel</small>
               </label>
             ))}
             {effectiveHiddenIds.length > 0 ? (
@@ -804,16 +845,14 @@ function EquipmentCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
                   }}
                 >
                   <ResponsiveContainer width={typeof width === "number" ? Math.max(width, chartMinWidth) : width} height={height}>
-                    <BarChart data={chartRows} margin={{ top: 36, right: 24, left: 12, bottom: 92 }} barCategoryGap={14}>
+                    <BarChart data={chartRows} margin={{ top: 36, right: 24, left: 12, bottom: 76 }} barCategoryGap={14}>
                       <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
                       <XAxis
-                        dataKey="nomeCurto"
+                        dataKey="nome"
                         interval={0}
-                        height={88}
-                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 15, fontWeight: 800 }}
+                        height={68}
+                        tick={(props) => <CenterCostAxisTick {...props} rows={chartRows} />}
                         tickLine={false}
-                        angle={-38}
-                        textAnchor="end"
                       />
                       <YAxis
                         tickFormatter={(value) => formatCurrency(value).replace(",00", "")}

@@ -7367,16 +7367,41 @@ button {
 }
 
 .cost-equipment-visible-metrics {
-  display: grid;
-  gap: 4px;
-  justify-items: end;
-  text-align: right;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
-.cost-equipment-visible-metrics span {
+.cost-equipment-visible-cost,
+.cost-diesel-volume {
+  display: grid;
+  min-width: 150px;
+  gap: 2px;
+  border: 1px solid var(--screen-border);
+  border-radius: 13px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--screen-surface-soft) 86%, transparent);
+  text-align: left;
+}
+
+.cost-equipment-visible-metrics small {
+  color: var(--screen-muted);
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cost-diesel-volume {
+  border-color: color-mix(in srgb, #38bdf8 50%, var(--screen-border));
+  background: color-mix(in srgb, #38bdf8 12%, var(--screen-surface-soft));
+}
+
+.cost-diesel-volume strong {
   color: #38bdf8;
-  font-size: 0.86rem;
-  font-weight: 900;
+  font-size: 1.1rem;
+  font-weight: 950;
 }
 
 .cost-equipment-visibility {
