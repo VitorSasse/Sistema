@@ -2,7 +2,8 @@ import {
   StatusCadastro,
   StatusEquipamentoOperacional,
   TipoControleEquipamento,
-  TipoRecurso
+  TipoRecurso,
+  UnidadeEconomicaCusto
 } from "@prisma/client";
 import { z } from "zod";
 
@@ -20,6 +21,12 @@ export const equipamentoSchema = z.object({
   dataEntrada: z.string().trim().optional().or(z.literal("")),
   capacidadeM3: z.union([z.number().nonnegative().max(999999), z.null()]).optional(),
   unidadeCapacidade: z.string().trim().max(20).optional().or(z.literal("")),
+  unidadeEconomicaPadrao: z
+    .nativeEnum(UnidadeEconomicaCusto)
+    .optional()
+    .nullable()
+    .or(z.literal("")),
+  caracteristicasTecnicas: z.record(z.string(), z.unknown()).optional().nullable(),
   apelido: z.string().trim().max(80).optional().or(z.literal("")),
   observacao: z.string().trim().max(500).optional().or(z.literal("")),
   status: z.nativeEnum(StatusCadastro).default(StatusCadastro.ATIVO),

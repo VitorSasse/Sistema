@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { calcularProximaClassificacaoPlanoConta } from "@/lib/plano-contas";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { planoContaSchema } from "@/lib/validators/plano-conta";
 
 export async function GET() {
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
     });
     const created = await prisma.planoConta.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         classificacao,
         nome,
         tipo: parsed.data.tipo,

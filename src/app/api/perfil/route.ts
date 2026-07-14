@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { runWithoutTenantScope } from "@/lib/tenant-store";
 import { formatTelefone } from "@/lib/utils/document";
 import { perfilUpdateSchema } from "@/lib/validators/perfil";
 import {
@@ -49,16 +50,18 @@ export async function PATCH(request: NextRequest) {
     const fotoPerfilUrl = parsed.data.fotoPerfilUrl?.startsWith("/api/perfil/foto?v=")
       ? undefined
       : parsed.data.fotoPerfilUrl;
-    const usuario = await prisma.usuario.update({
-      where: { id: session.user.id },
-      data: {
-        nome: parsed.data.nome,
-        email: parsed.data.email.toLowerCase(),
-        telefone: parsed.data.telefone ? formatTelefone(parsed.data.telefone) : null,
-        ...(fotoPerfilUrl !== undefined ? { fotoPerfilUrl } : {})
-      },
-      select: perfilUsuarioSelect
-    });
+    const usuario = await runWithoutTenantScope(() =>
+      prisma.usuario.update({
+        where: { id: session.user.id },
+        data: {
+          nome: parsed.data.nome,
+          email: parsed.data.email.toLowerCase(),
+          telefone: parsed.data.telefone ? formatTelefone(parsed.data.telefone) : null,
+          ...(fotoPerfilUrl !== undefined ? { fotoPerfilUrl } : {})
+        },
+        select: perfilUsuarioSelect
+      })
+    );
 
     return NextResponse.json({
       message: "Perfil atualizado com sucesso.",

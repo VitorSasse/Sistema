@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import {
   StatusEquipamentoOperacional,
   TipoControleEquipamento,
-  TipoRecurso
+  TipoRecurso,
+  UnidadeEconomicaCusto
 } from "@prisma/client";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
@@ -24,6 +25,8 @@ type Equipamento = {
   dataEntrada: string | null;
   capacidadeM3: string | null;
   unidadeCapacidade: string | null;
+  unidadeEconomicaPadrao: UnidadeEconomicaCusto | null;
+  caracteristicasTecnicas: Record<string, unknown> | null;
   apelido: string | null;
   observacao: string | null;
   status: "ATIVO" | "INATIVO";
@@ -49,6 +52,8 @@ type FormState = {
   dataEntrada: string;
   capacidadeM3: string;
   unidadeCapacidade: string;
+  unidadeEconomicaPadrao: UnidadeEconomicaCusto | "";
+  caracteristicasTecnicas: Record<string, unknown> | null;
   apelido: string;
   observacao: string;
   status: "ATIVO" | "INATIVO";
@@ -73,6 +78,8 @@ const initialForm: FormState = {
   dataEntrada: "",
   capacidadeM3: "",
   unidadeCapacidade: "m3",
+  unidadeEconomicaPadrao: "",
+  caracteristicasTecnicas: null,
   apelido: "",
   observacao: "",
   status: "ATIVO",
@@ -89,6 +96,21 @@ const tipoRecursoOptions: TipoRecurso[] = [
   "CARRETA",
   "EQUIPAMENTO_APOIO",
   "OUTRO"
+];
+
+const unidadeEconomicaOptions: Array<{ value: UnidadeEconomicaCusto; label: string }> = [
+  { value: "CUSTO_FIXO", label: "Custo fixo" },
+  { value: "DIA", label: "Por dia (R$/dia)" },
+  { value: "HORA", label: "Por hora (R$/hora)" },
+  { value: "KM", label: "Por km (R$/km)" },
+  { value: "M3", label: "Por m3 (R$/m3)" },
+  { value: "M2", label: "Por m2 (R$/m2)" },
+  { value: "VIAGEM", label: "Por viagem" },
+  { value: "CARGA", label: "Por carga" },
+  { value: "MES", label: "Por mes" },
+  { value: "UNIDADE_PRODUZIDA", label: "Por unidade produzida" },
+  { value: "UNIDADE", label: "Por unidade de recurso" },
+  { value: "VALOR_TOTAL", label: "Valor total" }
 ];
 
 const statusOperacionalOptions: StatusEquipamentoOperacional[] = [
@@ -199,7 +221,9 @@ export function EquipamentosManager() {
         periodicidadeManutencaoHoras: "",
         periodicidadeManutencaoKm: "",
         capacidadeM3: "",
-        unidadeCapacidade: ""
+        unidadeCapacidade: "",
+        unidadeEconomicaPadrao: "",
+        caracteristicasTecnicas: null
       };
     });
   }
@@ -250,6 +274,8 @@ export function EquipamentosManager() {
       dataEntrada: equipamento.dataEntrada ? equipamento.dataEntrada.slice(0, 10) : "",
       capacidadeM3: equipamento.capacidadeM3 ?? "",
       unidadeCapacidade: equipamento.unidadeCapacidade ?? "",
+      unidadeEconomicaPadrao: equipamento.unidadeEconomicaPadrao ?? "",
+      caracteristicasTecnicas: equipamento.caracteristicasTecnicas ?? null,
       apelido: equipamento.apelido ?? "",
       observacao: equipamento.observacao ?? "",
       status: equipamento.status,
@@ -524,6 +550,29 @@ export function EquipamentosManager() {
                 disabled={recursoApoioSelecionado}
                 onChange={(event) => updateField("unidadeCapacidade", event.target.value)}
               />
+            </Field>
+            <Field label="Forma de contratacao padrao">
+              <select
+                className="field-control"
+                value={form.unidadeEconomicaPadrao}
+                disabled={recursoApoioSelecionado}
+                onChange={(event) =>
+                  updateField(
+                    "unidadeEconomicaPadrao",
+                    event.target.value as FormState["unidadeEconomicaPadrao"]
+                  )
+                }
+              >
+                <option value="">Nao definida</option>
+                {unidadeEconomicaOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <small className="manager-field-hint">
+                Define a base economica herdada pelos novos recursos do orcamento.
+              </small>
             </Field>
             <Field label="Status do cadastro">
               <select

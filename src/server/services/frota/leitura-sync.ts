@@ -1,4 +1,5 @@
 import { OrigemLeituraEquipamento, Prisma } from "@prisma/client";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 
 type PrismaTx = Prisma.TransactionClient;
 
@@ -67,6 +68,7 @@ export async function sincronizarLeituraPorLancamento(
       observacao: input.observacao ?? null
     },
     create: {
+      empresaId: requireActiveTenantEmpresaId(),
       equipamentoId: input.equipamentoId,
       lancamentoDiarioId: input.lancamentoDiarioId,
       dataLeitura: input.dataLeitura,

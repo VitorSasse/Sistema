@@ -4,6 +4,7 @@ const { randomUUID } = require("crypto");
 const { PrismaClient, TipoRecurso, FuncaoColaborador } = require("@prisma/client");
 
 const prisma = new PrismaClient();
+const TARGET_EMPRESA_ID = process.env.TARGET_EMPRESA_ID?.trim();
 
 const WORKBOOK_PATH =
   process.env.WORKBOOK_JSON_PATH || path.join(process.cwd(), "tmp", "fdb_terrplanagem_2026.json");
@@ -185,6 +186,10 @@ function buildNaturalKey(row) {
 }
 
 async function main() {
+  if (!TARGET_EMPRESA_ID) {
+    throw new Error("Defina TARGET_EMPRESA_ID para gerar uma carga com isolamento multiempresa.");
+  }
+
   const workbook = JSON.parse(fs.readFileSync(WORKBOOK_PATH, "utf8").replace(/^\uFEFF/, ""));
   const [
     usuario,
@@ -197,19 +202,22 @@ async function main() {
     fichasDb,
     lancamentosDb,
   ] = await Promise.all([
-    prisma.usuario.findFirst({ select: { id: true, email: true } }),
-    prisma.cliente.findMany({ select: { id: true, codigo: true, nome: true, cnpj: true, cpf: true, status: true } }),
-    prisma.obra.findMany({ select: { id: true, codigo: true, nome: true, clienteId: true, status: true } }),
+    prisma.usuario.findFirst({ where: { empresaId: TARGET_EMPRESA_ID }, select: { id: true, email: true } }),
+    prisma.cliente.findMany({ where: { empresaId: TARGET_EMPRESA_ID }, select: { id: true, codigo: true, nome: true, cnpj: true, cpf: true, status: true } }),
+    prisma.obra.findMany({ where: { empresaId: TARGET_EMPRESA_ID }, select: { id: true, codigo: true, nome: true, clienteId: true, status: true } }),
     prisma.equipamento.findMany({
+      where: { empresaId: TARGET_EMPRESA_ID },
       select: { id: true, descricao: true, placaOuTag: true, apelido: true, tipoRecurso: true, status: true },
     }),
-    prisma.material.findMany({ select: { id: true, codigoMaterial: true, descricao: true, unidadePadrao: true, status: true } }),
+    prisma.material.findMany({ where: { empresaId: TARGET_EMPRESA_ID }, select: { id: true, codigoMaterial: true, descricao: true, unidadePadrao: true, status: true } }),
     prisma.servico.findMany({
+      where: { empresaId: TARGET_EMPRESA_ID },
       select: { id: true, codigo: true, tipoServico: true, formaMedicao: true, unidadeFaturamento: true, status: true },
     }),
-    prisma.colaborador.findMany({ select: { id: true, codigo: true, nome: true, funcao: true, status: true } }),
-    prisma.ficha.findMany({ select: { id: true, numero: true, data: true, clienteId: true, obraId: true } }),
+    prisma.colaborador.findMany({ where: { empresaId: TARGET_EMPRESA_ID }, select: { id: true, codigo: true, nome: true, funcao: true, status: true } }),
+    prisma.ficha.findMany({ where: { empresaId: TARGET_EMPRESA_ID }, select: { id: true, numero: true, data: true, clienteId: true, obraId: true } }),
     prisma.lancamentoDiario.findMany({
+      where: { empresaId: TARGET_EMPRESA_ID },
       select: {
         id: true,
         data: true,
@@ -576,7 +584,7 @@ async function main() {
   if (missingClients.length > 0) {
     sqlParts.push("-- BLOCO CLIENTES AUSENTES");
     sqlParts.push(
-      `INSERT INTO "Cliente" ("id", "codigo", "tipoCliente", "nome", "cnpj", "cpf", "status", "createdAt", "updatedAt")`,
+      `INSERT INTO "Cliente" ("id", "empresaId", "codigo", "tipoCliente", "nome", "cnpj", "cpf", "status", "createdAt", "updatedAt")`,
     );
     sqlParts.push("VALUES");
     sqlParts.push(
@@ -585,6 +593,7 @@ async function main() {
         (row) =>
           [
             toSqlString(row.id),
+            toSqlString(TARGET_EMPRESA_ID),
             toSqlString(row.codigo),
             toSqlString(row.cnpjCpf && row.cnpjCpf.length > 14 ? "CNPJ" : "CPF"),
             toSqlString(row.nome),
@@ -602,7 +611,7 @@ async function main() {
   if (missingWorks.length > 0) {
     sqlParts.push("-- BLOCO OBRAS AUSENTES");
     sqlParts.push(
-      `INSERT INTO "Obra" ("id", "codigo", "clienteId", "nome", "status", "liberadaParaLancamento", "createdAt", "updatedAt")`,
+      `INSERT INTO "Obra" ("id", "empresaId", "codigo", "clienteId", "nome", "status", "liberadaParaLancamento", "createdAt", "updatedAt")`,
     );
     sqlParts.push("VALUES");
     sqlParts.push(
@@ -611,6 +620,7 @@ async function main() {
         (row) =>
           [
             toSqlString(row.id),
+            toSqlString(TARGET_EMPRESA_ID),
             toSqlString(row.codigo),
             toSqlString(row.clienteId),
             toSqlString(row.nome),
@@ -627,7 +637,7 @@ async function main() {
   if (missingServices.length > 0) {
     sqlParts.push("-- BLOCO SERVIÇOS AUSENTES");
     sqlParts.push(
-      `INSERT INTO "Servico" ("id", "codigo", "tipoServico", "formaMedicao", "unidadeApontamento", "unidadeFaturamento", "exigeMaterial", "ativoParaMedicao", "status", "createdAt", "updatedAt")`,
+      `INSERT INTO "Servico" ("id", "empresaId", "codigo", "tipoServico", "formaMedicao", "unidadeApontamento", "unidadeFaturamento", "exigeMaterial", "ativoParaMedicao", "status", "createdAt", "updatedAt")`,
     );
     sqlParts.push("VALUES");
     sqlParts.push(
@@ -636,6 +646,7 @@ async function main() {
         (row) =>
           [
             toSqlString(row.id),
+            toSqlString(TARGET_EMPRESA_ID),
             toSqlString(row.codigo),
             toSqlString(row.tipoServico),
             toSqlString(row.formaMedicao),
@@ -655,7 +666,7 @@ async function main() {
   if (missingEquipments.length > 0) {
     sqlParts.push("-- BLOCO EQUIPAMENTOS AUSENTES");
     sqlParts.push(
-      `INSERT INTO "Equipamento" ("id", "tipoRecurso", "tipoControle", "descricao", "placaOuTag", "apelido", "status", "statusOperacional", "createdAt", "updatedAt")`,
+      `INSERT INTO "Equipamento" ("id", "empresaId", "tipoRecurso", "tipoControle", "descricao", "placaOuTag", "apelido", "status", "statusOperacional", "createdAt", "updatedAt")`,
     );
     sqlParts.push("VALUES");
     sqlParts.push(
@@ -664,6 +675,7 @@ async function main() {
         (row) =>
           [
             toSqlString(row.id),
+            toSqlString(TARGET_EMPRESA_ID),
             toSqlString(row.tipoRecurso),
             toSqlString(row.tipoRecurso === "CAMINHAO" || row.tipoRecurso === "CARRETA" ? "KM" : "HORIMETRO"),
             toSqlString(row.descricao),
@@ -682,7 +694,7 @@ async function main() {
   if (missingCollaborators.length > 0) {
     sqlParts.push("-- BLOCO COLABORADORES AUSENTES");
     sqlParts.push(
-      `INSERT INTO "Colaborador" ("id", "codigo", "nome", "funcao", "status", "createdAt", "updatedAt")`,
+      `INSERT INTO "Colaborador" ("id", "empresaId", "codigo", "nome", "funcao", "status", "createdAt", "updatedAt")`,
     );
     sqlParts.push("VALUES");
     sqlParts.push(
@@ -691,6 +703,7 @@ async function main() {
         (row) =>
           [
             toSqlString(row.id),
+            toSqlString(TARGET_EMPRESA_ID),
             toSqlString(row.codigo),
             toSqlString(row.nome),
             toSqlString(row.funcao),
@@ -706,7 +719,7 @@ async function main() {
   if (generatedFichas.length > 0) {
     sqlParts.push("-- BLOCO FICHAS");
     sqlParts.push(
-      `INSERT INTO "Ficha" ("id", "numero", "data", "clienteId", "obraId", "observacao", "origem", "criadoPorId", "createdAt", "updatedAt")`,
+      `INSERT INTO "Ficha" ("id", "empresaId", "numero", "data", "clienteId", "obraId", "observacao", "origem", "criadoPorId", "createdAt", "updatedAt")`,
     );
     sqlParts.push("VALUES");
     sqlParts.push(
@@ -715,6 +728,7 @@ async function main() {
         (row) =>
           [
             toSqlString(row.id),
+            toSqlString(TARGET_EMPRESA_ID),
             toSqlString(row.numero),
             toSqlTimestamp(row.data),
             toSqlString(row.clienteId),
@@ -725,7 +739,7 @@ async function main() {
             "CURRENT_TIMESTAMP",
             "CURRENT_TIMESTAMP",
           ].join(", "),
-      ) + "\nON CONFLICT (\"numero\", \"data\") DO NOTHING;",
+      ) + "\nON CONFLICT (\"numero\", \"data\", \"clienteId\", \"obraId\") DO NOTHING;",
     );
     sqlParts.push("");
   }
@@ -734,7 +748,7 @@ async function main() {
   lancamentoBlocks.forEach((block, index) => {
     sqlParts.push(`-- BLOCO ${index + 1}`);
     sqlParts.push(
-      `INSERT INTO "LancamentoDiario" ("id", "fichaId", "data", "clienteId", "obraId", "servicoId", "materialId", "equipamentoId", "colaboradorId", "quantidadeApontada", "unidadeApontada", "quantidadeFaturada", "unidadeFaturada", "horimetroInformado", "kmInformado", "observacao", "statusValidacao", "origem", "precoAplicadoId", "criadoPorId", "atualizadoPorId", "createdAt", "updatedAt", "deletedAt")`,
+      `INSERT INTO "LancamentoDiario" ("id", "empresaId", "fichaId", "data", "clienteId", "obraId", "servicoId", "materialId", "equipamentoId", "colaboradorId", "quantidadeApontada", "unidadeApontada", "quantidadeFaturada", "unidadeFaturada", "horimetroInformado", "kmInformado", "observacao", "statusValidacao", "origem", "precoAplicadoId", "criadoPorId", "atualizadoPorId", "createdAt", "updatedAt", "deletedAt")`,
     );
     sqlParts.push("VALUES");
     sqlParts.push(
@@ -743,6 +757,7 @@ async function main() {
         (row) =>
           [
             toSqlString(row.id),
+            toSqlString(TARGET_EMPRESA_ID),
             toSqlString(row.fichaId),
             toSqlTimestamp(row.data),
             toSqlString(row.clienteId),

@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { generateFornecedorCode } from "@/lib/utils/code-generation";
 import {
   formatCep,
@@ -83,6 +84,7 @@ export async function POST(request: NextRequest) {
     const codigo = await generateFornecedorCode();
     const fornecedor = await prisma.fornecedor.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         codigo,
         razaoSocial: parsed.data.razaoSocial,
         nomeFantasia: parsed.data.nomeFantasia || null,

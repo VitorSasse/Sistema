@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { Prisma, StatusCadastro } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { validateApiPermission } from "@/lib/auth-guards";
 import { usuarioCreateSchema } from "@/lib/validators/usuario";
 
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
     const usuario = await prisma.$transaction(async (tx) => {
       const created = await tx.usuario.create({
         data: {
+          empresaId: requireActiveTenantEmpresaId(),
           nome: parsed.data.nome.trim(),
           email,
           senhaHash,

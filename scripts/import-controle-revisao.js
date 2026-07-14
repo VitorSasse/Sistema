@@ -3,6 +3,7 @@ const path = require("path");
 const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
+const TARGET_EMPRESA_ID = process.env.TARGET_EMPRESA_ID?.trim();
 
 const SOURCE_PATH =
   process.env.SOURCE_PATH ||
@@ -218,6 +219,10 @@ function buildEquipmentMap(equipamentos) {
 }
 
 async function main() {
+  if (!TARGET_EMPRESA_ID) {
+    throw new Error("Defina TARGET_EMPRESA_ID para executar a importacao com isolamento multiempresa.");
+  }
+
   if (!fs.existsSync(SOURCE_PATH)) {
     throw new Error(`Planilha nao encontrada: ${SOURCE_PATH}`);
   }
@@ -231,6 +236,7 @@ async function main() {
   );
 
   const equipamentos = await prisma.equipamento.findMany({
+    where: { empresaId: TARGET_EMPRESA_ID },
     select: {
       id: true,
       descricao: true,
@@ -242,7 +248,7 @@ async function main() {
       horimetroAtual: true,
       kmAtual: true,
       planosManutencao: {
-        where: { status: "ATIVO" },
+        where: { empresaId: TARGET_EMPRESA_ID, status: "ATIVO" },
         orderBy: [{ createdAt: "asc" }],
         select: {
           id: true,
@@ -360,7 +366,7 @@ async function main() {
     await prisma.$transaction(async (tx) => {
       for (const item of updates) {
         await tx.planoManutencao.update({
-          where: { id: item.id },
+          where: { id: item.id, empresaId: TARGET_EMPRESA_ID },
           data: item.data
         });
       }
@@ -368,6 +374,7 @@ async function main() {
       for (const item of creates) {
         await tx.planoManutencao.create({
           data: {
+            empresaId: TARGET_EMPRESA_ID,
             equipamentoId: item.equipamentoId,
             ...item.data
           }

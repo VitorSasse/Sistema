@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { generateColaboradorCode } from "@/lib/utils/code-generation";
 import { formatCpf } from "@/lib/utils/cpf";
 import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
     const codigo = await generateColaboradorCode();
     const colaborador = await prisma.colaborador.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         codigo,
         nome: parsed.data.nome,
         apelido: parsed.data.apelido || null,

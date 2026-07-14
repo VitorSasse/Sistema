@@ -9,6 +9,7 @@ import {
 } from "@/lib/ordens-compra";
 import { normalizarPagamentoOrdemCompra } from "@/lib/ordens-compra-pagamento";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { generateOrdemCompraCode } from "@/lib/utils/code-generation";
 import { parseDateOnlyEnd, parseDateOnlyStart } from "@/lib/utils/date";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
@@ -392,9 +393,11 @@ export async function POST(request: NextRequest) {
     });
 
     const numeroOrdem = await generateOrdemCompraCode(parsed.data.tipoCompra);
+    const empresaId = requireActiveTenantEmpresaId();
 
     const ordemCompra = await prisma.ordemCompra.create({
       data: {
+        empresaId,
         numeroOrdem,
         dataEmissao,
         status: parsed.data.status,
@@ -418,10 +421,11 @@ export async function POST(request: NextRequest) {
         valorTotal,
         criadoPorId: session.user.id,
         itens: {
-          create: itensCalculados
+          create: itensCalculados.map((item) => ({ ...item, empresaId }))
         },
         parcelas: {
           create: parcelas.map((parcela) => ({
+            empresaId,
             numeroParcela: parcela.numeroParcela,
             dataVencimento: parcela.dataVencimento,
             valorParcela: parcela.valorParcela

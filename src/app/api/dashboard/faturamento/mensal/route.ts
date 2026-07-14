@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 
 type MonthlyRow = {
   monthNumber: number;
@@ -64,6 +65,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
+  const empresaId = getActiveTenantEmpresaId();
+
+  if (!empresaId) {
+    return NextResponse.json({ message: "Selecione uma empresa para visualizar o faturamento mensal." }, { status: 409 });
+  }
+
   const currentYear = new Date().getFullYear();
   const yearParam = Number(request.nextUrl.searchParams.get("year"));
   const selectedYear = Number.isInteger(yearParam) && yearParam > 2000 ? yearParam : currentYear;
@@ -82,7 +89,9 @@ export async function GET(request: NextRequest) {
         INNER JOIN "MedicaoItem" item
           ON item."medicaoId" = medicao.id
          AND item."deletedAt" IS NULL
+         AND item."empresaId" = ${empresaId}
         WHERE medicao."deletedAt" IS NULL
+          AND medicao."empresaId" = ${empresaId}
           AND medicao.status <> 'CANCELADA'::"StatusMedicao"
         GROUP BY medicao.id, medicao.status
         HAVING MAX(item."data") >= ${period.start}
@@ -108,7 +117,9 @@ export async function GET(request: NextRequest) {
         INNER JOIN "MedicaoItem" item
           ON item."medicaoId" = medicao.id
          AND item."deletedAt" IS NULL
+         AND item."empresaId" = ${empresaId}
         WHERE medicao."deletedAt" IS NULL
+          AND medicao."empresaId" = ${empresaId}
           AND medicao.status <> 'CANCELADA'::"StatusMedicao"
         GROUP BY medicao.id
       )
@@ -165,11 +176,15 @@ export async function GET(request: NextRequest) {
         INNER JOIN "MedicaoItem" item
           ON item."medicaoId" = medicao.id
          AND item."deletedAt" IS NULL
+         AND item."empresaId" = ${empresaId}
         INNER JOIN "Cliente" cliente
           ON cliente.id = medicao."clienteId"
+         AND cliente."empresaId" = ${empresaId}
         LEFT JOIN "Obra" obra
           ON obra.id = medicao."obraId"
+         AND obra."empresaId" = ${empresaId}
         WHERE medicao."deletedAt" IS NULL
+          AND medicao."empresaId" = ${empresaId}
           AND medicao.status <> 'CANCELADA'::"StatusMedicao"
         GROUP BY medicao.id, medicao."clienteId", cliente.nome, medicao."obraId", obra.nome, obra.codigo
         HAVING MAX(item."data") >= ${period.start}

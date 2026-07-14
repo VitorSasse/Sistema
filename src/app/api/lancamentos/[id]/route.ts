@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { StatusCadastro, StatusLancamento, TipoAlteracao } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { canEditMedicaoContent } from "@/lib/utils/medicao-status";
 import {
@@ -334,6 +335,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
               return tx.ficha.create({
                 data: {
+                  empresaId: requireActiveTenantEmpresaId(),
                   numero: parsed.data.fichaNumero,
                   data: dataReferencia,
                   clienteId: cliente.id,
@@ -512,6 +514,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         if (valorAnterior !== valorNovo) {
           await tx.historicoAlteracao.create({
             data: {
+              empresaId: requireActiveTenantEmpresaId(),
               entidade: "lancamento_diario",
               entidadeId: id,
               campo,

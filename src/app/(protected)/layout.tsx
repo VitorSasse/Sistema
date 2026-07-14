@@ -7,6 +7,8 @@ import { BaseproLogo } from "@/components/branding/basepro-logo";
 import { AppHeader } from "@/components/layout/app-header";
 import { SidebarScrollArea } from "@/components/layout/sidebar-scroll-area";
 import { hasRoleAccess, requireSession } from "@/lib/auth-guards";
+import { prisma } from "@/lib/prisma";
+import { runWithoutTenantScope } from "@/lib/tenant-store";
 import { getPerfilUsuario } from "@/server/services/perfil";
 
 const navigationGroups = [
@@ -91,6 +93,19 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
   const canManageUsers = hasRoleAccess(session.user.roles, "users.manage");
   const canReadAudit = hasRoleAccess(session.user.roles, "auditoria.read");
   const isMaster = session.user.isMaster;
+  const selectedEmpresa = session.user.empresaSelecionadaId
+    ? await runWithoutTenantScope(() =>
+        prisma.empresa.findFirst({
+          where: { id: session.user.empresaSelecionadaId!, status: "ATIVO", deletedAt: null },
+          select: { nome: true, nomeFantasia: true, razaoSocial: true }
+        })
+      )
+    : null;
+  const companyName = selectedEmpresa
+    ? selectedEmpresa.nomeFantasia || selectedEmpresa.razaoSocial || selectedEmpresa.nome
+    : !isMaster
+      ? profile.empresa?.nomeFantasia || profile.empresa?.razaoSocial
+      : null;
 
   const securityItems = [
     ...(isMaster ? [{ href: "/master" as Route, label: "Painel Master" }] : []),
@@ -126,7 +141,7 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
 
           <div className="admin-company-context">
             <span>Empresa atual</span>
-            <strong>{profile.empresa?.nomeFantasia || profile.empresa?.razaoSocial || "Visao global"}</strong>
+            <strong>{companyName || "Selecione uma empresa"}</strong>
           </div>
 
           <AdminNav groups={navigation} />
@@ -138,7 +153,7 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
           userEmail={profile.email}
           userName={profile.nome}
           userAvatarUrl={profile.fotoPerfilUrl}
-          companyName={profile.empresa?.nomeFantasia || profile.empresa?.razaoSocial}
+          companyName={companyName}
           isMaster={isMaster}
         />
         <div className="admin-content">{children}</div>

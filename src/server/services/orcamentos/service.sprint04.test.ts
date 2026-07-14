@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   ModoCustoOrcamento,
   ModoCustoFrente,
@@ -16,6 +16,15 @@ import {
   buildPropostaTotals,
   criarOrcamento
 } from "@/server/services/orcamentos/service";
+
+vi.mock("@/lib/tenant-store", async (importOriginal) => {
+  const tenantStore = await importOriginal<typeof import("@/lib/tenant-store")>();
+
+  return {
+    ...tenantStore,
+    requireActiveTenantEmpresaId: () => "empresa-teste"
+  };
+});
 
 function baseInput(overrides: Partial<OrcamentoInput> = {}): OrcamentoInput {
   return {

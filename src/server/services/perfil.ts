@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { getRoleEmpresaLabel, type PerfilUsuario } from "@/lib/perfil";
 import { prisma } from "@/lib/prisma";
+import { runWithoutTenantScope } from "@/lib/tenant-store";
 
 export const perfilUsuarioSelect = Prisma.validator<Prisma.UsuarioSelect>()({
   id: true,
@@ -50,10 +51,12 @@ export function serializePerfilUsuario(usuario: PerfilUsuarioRecord): PerfilUsua
 }
 
 export async function getPerfilUsuario(usuarioId: string) {
-  const usuario = await prisma.usuario.findUnique({
-    where: { id: usuarioId },
-    select: perfilUsuarioSelect
-  });
+  const usuario = await runWithoutTenantScope(() =>
+    prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      select: perfilUsuarioSelect
+    })
+  );
 
   return usuario ? serializePerfilUsuario(usuario) : null;
 }

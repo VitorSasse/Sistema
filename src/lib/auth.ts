@@ -6,7 +6,11 @@ import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { MASTER_EMPRESA_COOKIE } from "@/lib/master-empresa-cookie";
 import { prisma } from "@/lib/prisma";
-import { setTenantContext } from "@/lib/tenant-store";
+import {
+  beginTenantContext,
+  resolveTenantContext,
+  runWithoutTenantScope
+} from "@/lib/tenant-store";
 
 const signInSchema = z.object({
   email: z.string().email(),
@@ -20,6 +24,7 @@ declare module "next-auth" {
       empresaId: string;
       roleEmpresa: RoleUsuarioEmpresa;
       isMaster: boolean;
+      empresaSelecionadaId: string | null;
       roles: RoleCodigo[];
     };
   }
@@ -45,95 +50,52 @@ const nextAuth = NextAuth({
             password: String(credentials?.password ?? "")
           });
 
-          console.info("[auth] inicio authorize", {
-            rawEmail: String(credentials?.email ?? ""),
-            normalizedEmail: parsed.success ? parsed.data.email : null,
-            hasPassword: Boolean(String(credentials?.password ?? ""))
-          });
-
           if (!parsed.success) {
-            console.warn("[auth] credenciais invalidas no parse", {
-              email: String(credentials?.email ?? ""),
-              issues: parsed.error.issues.map((issue) => ({
-                path: issue.path.join("."),
-                message: issue.message
-              }))
-            });
             return null;
           }
 
-          const user = await prisma.usuario.findUnique({
-            where: { email: parsed.data.email },
-            include: {
-              empresa: {
-                select: {
-                  id: true,
-                  status: true,
-                  deletedAt: true
-                }
-              },
-              roles: {
-                include: {
-                  role: true
+          const user = await runWithoutTenantScope(() =>
+            prisma.usuario.findUnique({
+              where: { email: parsed.data.email },
+              include: {
+                empresa: {
+                  select: {
+                    id: true,
+                    status: true,
+                    deletedAt: true
+                  }
+                },
+                roles: {
+                  include: {
+                    role: true
+                  }
                 }
               }
-            }
-          });
-
-          console.info("[auth] resultado busca usuario", {
-            email: parsed.data.email,
-            found: Boolean(user),
-            status: user?.status ?? null,
-            empresaId: user?.empresaId ?? null,
-            roleEmpresa: user?.roleEmpresa ?? null
-          });
+            })
+          );
 
           if (!user || user.status !== "ATIVO") {
-            console.warn("[auth] usuario nao encontrado ou inativo", {
-              email: parsed.data.email,
-              found: Boolean(user),
-              status: user?.status ?? null
-            });
             return null;
           }
 
           const isMaster = user.roleEmpresa === RoleUsuarioEmpresa.MASTER;
 
           if (!isMaster && (user.empresa.status !== "ATIVO" || user.empresa.deletedAt)) {
-            console.warn("[auth] empresa inativa ou excluida", {
-              email: parsed.data.email,
-              userId: user.id,
-              empresaId: user.empresaId,
-              empresaStatus: user.empresa.status,
-              empresaDeletedAt: user.empresa.deletedAt
-            });
             return null;
           }
 
           const passwordMatches = await bcrypt.compare(parsed.data.password, user.senhaHash);
 
-          console.info("[auth] comparacao senha", {
-            email: parsed.data.email,
-            passwordMatches
-          });
-
           if (!passwordMatches) {
-            console.warn("[auth] senha invalida", {
-              email: parsed.data.email
-            });
             return null;
           }
 
-          await prisma.usuario.update({
-            where: { id: user.id },
-            data: { ultimoLoginEm: new Date() }
-          });
-
-          console.info("[auth] login autorizado", {
-            email: parsed.data.email,
-            userId: user.id,
-            roles: user.roles.map((item) => item.role.codigo)
-          });
+          await runWithoutTenantScope(() =>
+            prisma.usuario.update({
+              where: { id: user.id },
+              data: { ultimoLoginEm: new Date() }
+            })
+          );
 
           return {
             id: user.id,
@@ -176,6 +138,7 @@ const nextAuth = NextAuth({
         session.user.roleEmpresa =
           (token as { roleEmpresa?: RoleUsuarioEmpresa }).roleEmpresa ?? RoleUsuarioEmpresa.ADMIN_EMPRESA;
         session.user.isMaster = (token as { isMaster?: boolean }).isMaster ?? false;
+        session.user.empresaSelecionadaId = null;
         session.user.roles = (token as { roles?: RoleCodigo[] }).roles ?? [];
       }
 
@@ -205,19 +168,79 @@ async function getEmpresaSelecionadaMaster(isMaster: boolean) {
 }
 
 export async function auth() {
+  const tenantContext = beginTenantContext();
   const session = await nextAuth.auth();
 
-  if (session?.user?.id && session.user.empresaId) {
-    const empresaSelecionadaId = await getEmpresaSelecionadaMaster(session.user.isMaster);
-
-    setTenantContext({
-      usuarioId: session.user.id,
-      empresaId: empresaSelecionadaId ?? session.user.empresaId,
-      roleEmpresa: session.user.roleEmpresa,
-      isMaster: session.user.isMaster,
-      empresaSelecionadaId
-    });
+  if (!session?.user?.id) {
+    resolveTenantContext(tenantContext, null);
+    return null;
   }
+
+  const usuario = await runWithoutTenantScope(() =>
+    prisma.usuario.findUnique({
+      where: { id: session.user.id },
+      select: {
+        id: true,
+        empresaId: true,
+        roleEmpresa: true,
+        status: true,
+        empresa: {
+          select: {
+            status: true,
+            deletedAt: true
+          }
+        },
+        roles: {
+          select: {
+            role: {
+              select: { codigo: true }
+            }
+          }
+        }
+      }
+    })
+  );
+
+  if (!usuario || usuario.status !== "ATIVO") {
+    resolveTenantContext(tenantContext, null);
+    return null;
+  }
+
+  const isMaster = usuario.roleEmpresa === RoleUsuarioEmpresa.MASTER;
+
+  if (!isMaster && (!usuario.empresaId || usuario.empresa.status !== "ATIVO" || usuario.empresa.deletedAt)) {
+    resolveTenantContext(tenantContext, null);
+    return null;
+  }
+
+  const empresaSelecionadaCookie = await getEmpresaSelecionadaMaster(isMaster);
+  const empresaSelecionadaId = empresaSelecionadaCookie
+    ? await runWithoutTenantScope(async () => {
+        const empresa = await prisma.empresa.findFirst({
+          where: {
+            id: empresaSelecionadaCookie,
+            status: "ATIVO",
+            deletedAt: null
+          },
+          select: { id: true }
+        });
+        return empresa?.id ?? null;
+      })
+    : null;
+
+  session.user.empresaId = usuario.empresaId;
+  session.user.roleEmpresa = usuario.roleEmpresa;
+  session.user.isMaster = isMaster;
+  session.user.empresaSelecionadaId = empresaSelecionadaId;
+  session.user.roles = usuario.roles.map((item) => item.role.codigo);
+
+  resolveTenantContext(tenantContext, {
+    usuarioId: usuario.id,
+    empresaId: usuario.empresaId,
+    roleEmpresa: usuario.roleEmpresa,
+    isMaster,
+    empresaSelecionadaId
+  });
 
   return session;
 }

@@ -2,6 +2,7 @@ import { Prisma, StatusAgendaProgramacao, TipoRecurso } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
 
 const allowedPresets = [
@@ -385,6 +386,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
+  const empresaId = getActiveTenantEmpresaId();
+
+  if (!empresaId) {
+    return NextResponse.json({ message: "Selecione uma empresa para visualizar o dashboard executivo." }, { status: 409 });
+  }
+
   const period = resolvePeriod(request.nextUrl.searchParams);
 
   if (!period) {
@@ -418,7 +425,9 @@ export async function GET(request: NextRequest) {
     INNER JOIN "MedicaoItem" item
       ON item."medicaoId" = medicao.id
      AND item."deletedAt" IS NULL
+     AND item."empresaId" = ${empresaId}
     WHERE medicao."deletedAt" IS NULL
+      AND medicao."empresaId" = ${empresaId}
       AND medicao.status <> 'CANCELADA'::"StatusMedicao"
     GROUP BY medicao.id
     HAVING MAX(item."data") >= ${period.start}

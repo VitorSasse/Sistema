@@ -15,6 +15,7 @@ import {
 import { z } from "zod";
 import { parseDateOnlyStart, parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
+import { CAMPOS_TECNICOS_RECURSO } from "@/lib/orcamentos/resource-inheritance";
 
 function optionalUuid() {
   return z.preprocess(
@@ -61,6 +62,18 @@ function normalizarUnidadeOperacional(value?: string | null) {
   if (["un", "und", "unidade", "unidades"].includes(unidade)) return "UN";
   return unidade ? "DESCONHECIDA" : "";
 }
+
+const caracteristicasRecursoSnapshotSchema = z.object({
+  versao: z.literal(1),
+  origem: z.literal("CADASTRO_MESTRE"),
+  recursoId: z.string().trim().min(1).max(120),
+  herdados: z.object({
+    capacidadePorViagem: z.number().finite().nonnegative().nullable(),
+    unidadeCapacidade: z.string().trim().max(40).nullable(),
+    unidadeEconomicaCusto: z.nativeEnum(UnidadeEconomicaCusto).nullable(),
+    caracteristicasTecnicas: z.record(z.string(), z.unknown()).nullable()
+  })
+});
 
 const orcamentoFrenteSchema = z.object({
   cenarioTempId: z.string().trim().max(80).optional().or(z.literal("")),
@@ -148,6 +161,8 @@ const orcamentoItemSchema = z.object({
   quilometrosTotais: numeroDecimal(999999999).optional().nullable(),
   capacidadePorViagem: numeroDecimal(999999999).optional().nullable(),
   unidadeCapacidade: z.string().trim().max(40).optional().or(z.literal("")),
+  caracteristicasRecursoSnapshot: caracteristicasRecursoSnapshotSchema.optional().nullable(),
+  camposTecnicosPersonalizados: z.array(z.enum(CAMPOS_TECNICOS_RECURSO)).optional(),
   cargasTotais: numeroDecimal(999999999).optional().nullable(),
   mesesTotais: numeroDecimal(999999).optional().nullable(),
   diasTrabalhadosMes: numeroDecimal(31).optional().nullable(),

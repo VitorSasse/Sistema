@@ -5,8 +5,6 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTenantContext, runWithoutTenantScope } from "@/lib/tenant-store";
 
-export const EMPRESA_PADRAO_ID = "00000000-0000-0000-0000-000000000001";
-
 export type CurrentUserContext = {
   id: string;
   nome: string;
@@ -211,18 +209,26 @@ export function scopedEmpresaWhere<TWhere extends Record<string, unknown>>(
   user: CurrentUserContext,
   where?: TWhere
 ) {
-  if (user.isMaster && !user.empresaSelecionadaId) {
-    return where ?? {};
+  const empresaId = user.isMaster ? user.empresaSelecionadaId : user.empresaId;
+
+  if (!empresaId) {
+    throw new Error("Selecione uma empresa antes de acessar dados operacionais.");
   }
 
   return {
     ...(where ?? {}),
-    empresaId: user.empresaSelecionadaId ?? user.empresaId
+    empresaId
   };
 }
 
 export function empresaData(user: CurrentUserContext) {
+  const empresaId = user.isMaster ? user.empresaSelecionadaId : user.empresaId;
+
+  if (!empresaId) {
+    throw new Error("Selecione uma empresa antes de criar dados operacionais.");
+  }
+
   return {
-    empresaId: user.empresaSelecionadaId ?? user.empresaId
+    empresaId
   };
 }

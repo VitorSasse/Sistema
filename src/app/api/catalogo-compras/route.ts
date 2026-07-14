@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { generateCatalogoCompraCode } from "@/lib/utils/code-generation";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { catalogoCompraSchema } from "@/lib/validators/catalogo-compra";
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
     const codigo = await generateCatalogoCompraCode();
     const created = await prisma.catalogoCompra.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         codigo,
         tipo: parsed.data.tipo,
         descricao: parsed.data.descricao,

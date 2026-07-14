@@ -2,6 +2,7 @@ import { Prisma, PrismaClient, StatusLancamento, StatusMedicao, TipoMedicao } fr
 import type { MedicaoCreateInput, MedicaoPreviewInput } from "@/lib/validators/medicao";
 import { formatDateInputValue, parseDateOnlyEnd, parseDateOnlyStart } from "@/lib/utils/date";
 import { canEditMedicaoContent, canTransitionMedicao } from "@/lib/utils/medicao-status";
+import { getActiveTenantEmpresaId, requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { medicaoDetailInclude, medicaoListInclude, medicaoTransitionInclude } from "@/server/services/medicoes/queries";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
@@ -44,12 +45,19 @@ export function endOfDay(value: string) {
 }
 
 export async function buildCodigoMedicao(db: DbClient) {
+  const empresaId = getActiveTenantEmpresaId();
+
+  if (!empresaId) {
+    throw new Error("Empresa ativa nao definida para gerar o codigo da medicao.");
+  }
+
   const rows = await db.$queryRaw<Array<{ numero: number }>>(
     Prisma.sql`
       WITH numeros AS (
         SELECT CAST(SUBSTRING("codigoMedicao" FROM 'MED-([0-9]+)$') AS INTEGER) AS numero
         FROM "Medicao"
         WHERE "codigoMedicao" ~ '^MED-[0-9]+$'
+          AND "empresaId" = ${empresaId}
           AND "deletedAt" IS NULL
       ),
       candidatos AS (
@@ -113,12 +121,21 @@ export async function listarMedicoes(
   };
 
   if (filters.periodoInicial || filters.periodoFinal) {
+    const empresaId = getActiveTenantEmpresaId();
+
+    if (!empresaId) {
+      throw new Error("Empresa ativa nao definida para listar medicoes.");
+    }
+
     const rows = await db.$queryRaw<Array<{ medicaoId: string }>>(
       Prisma.sql`
         SELECT item."medicaoId"
         FROM "MedicaoItem" item
-        INNER JOIN "Medicao" medicao ON medicao.id = item."medicaoId"
+        INNER JOIN "Medicao" medicao
+          ON medicao.id = item."medicaoId"
+         AND medicao."empresaId" = ${empresaId}
         WHERE item."deletedAt" IS NULL
+          AND item."empresaId" = ${empresaId}
           AND medicao."deletedAt" IS NULL
         GROUP BY item."medicaoId"
         HAVING MAX(item."data") >= ${filters.periodoInicial ? startOfDay(filters.periodoInicial) : new Date("1900-01-01T00:00:00.000Z")}
@@ -398,6 +415,7 @@ export async function adicionarLancamentosNaMedicao(
     const valorTotalItem = Number(item.quantidadeFaturada) * valorUnitario;
 
     return {
+      empresaId: requireActiveTenantEmpresaId(),
       medicaoId: medicao.id,
       lancamentoId: item.id,
       data: item.data,
@@ -512,6 +530,7 @@ export async function criarMedicao(
       const codigoMedicao = await buildCodigoMedicao(db);
       created = await db.medicao.create({
         data: {
+          empresaId: requireActiveTenantEmpresaId(),
           codigoMedicao,
           tipoMedicao: input.tipoMedicao,
           clienteId: input.clienteId,
@@ -544,6 +563,7 @@ export async function criarMedicao(
 
   await db.medicaoItem.createMany({
     data: itensMedicao.map((medicaoItem) => ({
+      empresaId: requireActiveTenantEmpresaId(),
       medicaoId: created.id,
       lancamentoId: medicaoItem.item.id,
       data: medicaoItem.item.data,

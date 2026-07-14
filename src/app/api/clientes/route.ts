@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { generateClienteCode } from "@/lib/utils/code-generation";
 import {
   formatCep,
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
     const codigo = await generateClienteCode();
     const cliente = await prisma.cliente.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         codigo,
         tipoCliente: parsed.data.tipoCliente,
         nome: parsed.data.nome,

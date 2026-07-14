@@ -3,6 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { resolveReportLogoSource } from "@/server/pdf/report-logo";
 import { LancamentosRelatorioPdfDocument } from "@/server/pdf/lancamentos-relatorio-pdf";
 import { RomaneiosRelatorioPdfDocument } from "@/server/pdf/romaneios-relatorio-pdf";
@@ -79,8 +80,14 @@ export async function GET(request: NextRequest) {
   const medicaoId = searchParams.get("medicaoId");
   const includeDeleted = searchParams.get("includeDeleted") === "true";
   const modo = searchParams.get("modo");
+  const empresaId = getActiveTenantEmpresaId();
+
+  if (!empresaId) {
+    return NextResponse.json({ message: "Selecione uma empresa para gerar o relatorio." }, { status: 409 });
+  }
+
   const empresa = await prisma.empresa.findUnique({
-    where: { id: session.user.empresaId }
+    where: { id: empresaId }
   });
 
   const medicao = medicaoId

@@ -2,6 +2,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { buildEmpresaRelatorioPdf } from "@/server/pdf/empresa-relatorio";
 import { OrdemCompraPdfDocument } from "@/server/pdf/ordem-compra-pdf";
 import { resolveReportLogoSource } from "@/server/pdf/report-logo";
@@ -32,6 +33,11 @@ export async function GET(_: Request, context: RouteContext) {
   }
 
   const { id } = await context.params;
+  const empresaId = getActiveTenantEmpresaId();
+
+  if (!empresaId) {
+    return NextResponse.json({ message: "Selecione uma empresa para gerar o PDF." }, { status: 409 });
+  }
 
   const [ordemCompra, empresa] = await Promise.all([
     prisma.ordemCompra.findUnique({
@@ -48,7 +54,7 @@ export async function GET(_: Request, context: RouteContext) {
       }
     }),
     prisma.empresa.findUnique({
-      where: { id: session.user.empresaId }
+      where: { id: empresaId }
     })
   ]);
 

@@ -5,6 +5,7 @@ import { TipoAnexo } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 
 export const runtime = "nodejs";
 
@@ -165,6 +166,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const anexo = await prisma.anexo.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         ordemCompraId: ordemCompra.id,
         tipo,
         nomeArquivo: file.name,

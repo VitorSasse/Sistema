@@ -9,6 +9,7 @@ import {
   TipoOrcamento
 } from "@prisma/client";
 import { generateOrcamentoCode } from "@/lib/utils/code-generation";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseDateOnlyEnd, parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import type { OrcamentoInput } from "@/lib/validators/orcamento";
 import {
@@ -108,6 +109,10 @@ export const orcamentoInclude = {
           descricao: true,
           tipoRecurso: true,
           classeOperacional: true,
+          capacidadeM3: true,
+          unidadeCapacidade: true,
+          unidadeEconomicaPadrao: true,
+          caracteristicasTecnicas: true,
           status: true
         }
       }
@@ -595,6 +600,7 @@ async function criarEstruturaOrcamento(
   for (const cenario of cenariosInput) {
     const created = await db.orcamentoCenario.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId,
         ordem: cenario.ordem,
         nome: cenario.nome,
@@ -632,6 +638,7 @@ async function criarEstruturaOrcamento(
 
     const created = await db.orcamentoFrente.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId,
         cenarioId,
         ordem: frente.ordem,
@@ -672,6 +679,7 @@ async function criarEstruturaOrcamento(
       },
       update: formacaoPreco,
       create: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId,
         ...formacaoPreco
       }
@@ -683,6 +691,7 @@ async function criarEstruturaOrcamento(
   } else if (formacaoPreco) {
     await db.orcamentoFormacaoPreco.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId,
         ...formacaoPreco
       }
@@ -697,6 +706,7 @@ async function criarEstruturaOrcamento(
 
     await db.orcamentoItem.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId,
         frenteId,
         tipoItem: item.tipoItem,
@@ -725,6 +735,10 @@ async function criarEstruturaOrcamento(
         quilometrosTotais: item.quilometrosTotais ?? null,
         capacidadePorViagem: item.capacidadePorViagem ?? null,
         unidadeCapacidade: clean(item.unidadeCapacidade),
+        caracteristicasRecursoSnapshot: item.caracteristicasRecursoSnapshot
+          ? (item.caracteristicasRecursoSnapshot as Prisma.InputJsonValue)
+          : undefined,
+        camposTecnicosPersonalizados: item.camposTecnicosPersonalizados ?? [],
         viagensTeoricas: transportePorKm ? memoriaRecurso?.viagensTeoricas ?? 0 : null,
         viagensOperacionais: transportePorKm ? memoriaRecurso?.viagensOperacionais ?? 0 : null,
         custoPorViagem: transportePorKm ? memoriaRecurso?.custoPorViagem ?? 0 : null,
@@ -743,6 +757,7 @@ async function criarEstruturaOrcamento(
   for (const premissa of input.premissas) {
     await db.orcamentoPremissa.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId,
         cenarioId: null,
         tipo: premissa.tipo,
@@ -773,6 +788,7 @@ async function criarEstruturaOrcamento(
 
     const created = await db.orcamentoPropostaComercial.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId,
         cenarioId,
         codigo,
@@ -798,6 +814,7 @@ async function criarEstruturaOrcamento(
     for (const opcional of proposta.opcionais) {
       await db.orcamentoPropostaOpcional.create({
         data: {
+          empresaId: requireActiveTenantEmpresaId(),
           propostaId: created.id,
           ordem: opcional.ordem,
           codigo: clean(opcional.codigo),
@@ -1017,6 +1034,7 @@ export async function criarOrcamento(
 
   const orcamento = await db.orcamento.create({
     data: {
+      empresaId: requireActiveTenantEmpresaId(),
       codigo,
       ...buildOrcamentoData(params.input, params.userId)
     },
@@ -1146,6 +1164,7 @@ export async function duplicarOrcamento(
 
   const novo = await db.orcamento.create({
     data: {
+      empresaId: requireActiveTenantEmpresaId(),
       codigo: await generateOrcamentoCode(db),
       tipo: origem.tipo,
       status: StatusOrcamento.RASCUNHO,
@@ -1174,6 +1193,7 @@ export async function duplicarOrcamento(
   for (const cenario of origem.cenarios) {
     const created = await db.orcamentoCenario.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId: novo.id,
         ordem: cenario.ordem,
         nome: cenario.nome,
@@ -1196,6 +1216,7 @@ export async function duplicarOrcamento(
   for (const frente of origem.frentes) {
     const created = await db.orcamentoFrente.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId: novo.id,
         cenarioId: frente.cenarioId ? cenarioIdMap.get(frente.cenarioId) ?? null : null,
         ordem: frente.ordem,
@@ -1224,6 +1245,7 @@ export async function duplicarOrcamento(
   if (origem.formacaoPreco) {
     await db.orcamentoFormacaoPreco.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId: novo.id,
         modoCusto: origem.formacaoPreco.modoCusto,
         custoDireto: origem.formacaoPreco.custoDireto,
@@ -1243,6 +1265,7 @@ export async function duplicarOrcamento(
   for (const item of origem.itens) {
     await db.orcamentoItem.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId: novo.id,
         frenteId: item.frenteId ? frenteIdMap.get(item.frenteId) ?? null : null,
         tipoItem: item.tipoItem,
@@ -1271,6 +1294,10 @@ export async function duplicarOrcamento(
         quilometrosTotais: item.quilometrosTotais,
         capacidadePorViagem: item.capacidadePorViagem,
         unidadeCapacidade: item.unidadeCapacidade,
+        caracteristicasRecursoSnapshot: item.caracteristicasRecursoSnapshot
+          ? (item.caracteristicasRecursoSnapshot as Prisma.InputJsonValue)
+          : undefined,
+        camposTecnicosPersonalizados: item.camposTecnicosPersonalizados,
         viagensTeoricas: item.viagensTeoricas,
         viagensOperacionais: item.viagensOperacionais,
         custoPorViagem: item.custoPorViagem,
@@ -1289,6 +1316,7 @@ export async function duplicarOrcamento(
   for (const premissa of origem.premissas) {
     await db.orcamentoPremissa.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId: novo.id,
         cenarioId: premissa.cenarioId ? cenarioIdMap.get(premissa.cenarioId) ?? null : null,
         tipo: premissa.tipo,
@@ -1302,6 +1330,7 @@ export async function duplicarOrcamento(
   for (const proposta of origem.propostas) {
     const propostaCriada = await db.orcamentoPropostaComercial.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId: novo.id,
         cenarioId: proposta.cenarioId ? cenarioIdMap.get(proposta.cenarioId) ?? null : null,
         codigo: proposta.codigo,
@@ -1323,6 +1352,7 @@ export async function duplicarOrcamento(
     for (const opcional of proposta.opcionais) {
       await db.orcamentoPropostaOpcional.create({
         data: {
+          empresaId: requireActiveTenantEmpresaId(),
           propostaId: propostaCriada.id,
           ordem: opcional.ordem,
           codigo: opcional.codigo,
@@ -1360,6 +1390,7 @@ export async function evoluirOrcamentoParaOperacional(db: DbClient, id: string) 
     origem.frentes[0] ??
     (await db.orcamentoFrente.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         orcamentoId: id,
         ordem: 1,
         nome: "Frente operacional",

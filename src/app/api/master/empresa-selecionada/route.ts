@@ -27,33 +27,34 @@ export async function POST(request: NextRequest) {
   const payload = (await request.json()) as { empresaId?: string | null };
   const empresaId = payload.empresaId?.trim() || null;
 
-  return access.run(async () => {
-    if (empresaId) {
-      const empresa = await prisma.empresa.findFirst({
-        where: { id: empresaId, deletedAt: null },
-        select: { id: true }
-      });
+  if (!empresaId) {
+    return NextResponse.json(
+      { message: "Selecione uma empresa para acessar as telas operacionais." },
+      { status: 400 }
+    );
+  }
 
-      if (!empresa) {
-        return NextResponse.json({ message: "Empresa nao encontrada." }, { status: 404 });
-      }
+  return access.run(async () => {
+    const empresa = await prisma.empresa.findFirst({
+      where: { id: empresaId, status: "ATIVO", deletedAt: null },
+      select: { id: true }
+    });
+
+    if (!empresa) {
+      return NextResponse.json({ message: "Empresa ativa nao encontrada." }, { status: 404 });
     }
 
     const response = NextResponse.json({
       empresaId,
-      message: empresaId ? "Empresa selecionada para visualizacao operacional." : "Visao global do MASTER ativada."
+      message: "Empresa selecionada para visualizacao operacional."
     });
 
-    if (empresaId) {
-      response.cookies.set(MASTER_EMPRESA_COOKIE, empresaId, {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 30
-      });
-    } else {
-      response.cookies.delete(MASTER_EMPRESA_COOKIE);
-    }
+    response.cookies.set(MASTER_EMPRESA_COOKIE, empresaId, {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30
+    });
 
     return response;
   });

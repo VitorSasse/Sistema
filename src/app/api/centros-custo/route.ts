@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { generateCentroCustoCompraCode } from "@/lib/utils/code-generation";
 import { centroCustoCompraSchema } from "@/lib/validators/centro-custo-compra";
 
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
     const codigo = await generateCentroCustoCompraCode();
     const created = await prisma.centroCustoCompra.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         codigo,
         nome: parsed.data.nome,
         descricao: parsed.data.descricao || null,

@@ -14,7 +14,7 @@ Esta entrega cria a fundacao tecnica sem alterar as regras de negocio atuais dos
 - Usuario vinculado a uma empresa.
 - Papel SaaS separado das permissoes legadas do sistema.
 
-## Empresa padrao
+## Dados legados da JMIX
 
 Todos os dados existentes foram vinculados inicialmente a:
 
@@ -23,7 +23,7 @@ JMIX TERRAPLANAGEM
 ID: 00000000-0000-0000-0000-000000000001
 ```
 
-Esse default permite que o sistema continue funcionando enquanto as rotas sao atualizadas gradualmente para preencher `empresaId` com a empresa do usuario logado.
+Essa atribuicao ocorreu somente na migracao inicial dos dados legados. O banco e o schema nao possuem mais default de `empresaId`: toda nova gravacao deve receber a empresa autenticada ou uma empresa explicitamente informada por uma rotina administrativa.
 
 ## Novo modelo Empresa
 
@@ -148,16 +148,16 @@ data: {
 ```
 
 6. Em criacoes aninhadas, como ordem de compra com itens e parcelas, o `empresaId` tambem e propagado para os registros filhos.
+7. Se uma consulta operacional ocorrer sem contexto inicializado, o Prisma falha fechado e nao executa a consulta.
+8. A lista de models protegidos e derivada automaticamente do schema: todo model com campo `empresaId` recebe isolamento.
 
 Essa estrategia evita depender apenas do frontend e reduz o risco de uma rota operacional ficar sem filtro de empresa.
 
 ## Comportamento do usuario MASTER
 
-Usuario `MASTER` nao recebe filtro automatico por empresa.
+O `MASTER` possui visao global somente nas APIs exclusivas do Painel Master, por meio de bypass explicito e auditavel.
 
-Isso preserva a futura visao global do Painel Master e evita quebrar telas administrativas.
-
-Enquanto ainda nao existir seletor de empresa para MASTER, as telas operacionais continuam funcionando com visao global para esse perfil.
+Nas telas operacionais, o `MASTER` deve selecionar uma empresa ativa. Sem essa selecao, consultas operacionais sao recusadas. Depois da selecao, o mesmo filtro aplicado aos usuarios comuns e aplicado usando `empresaSelecionadaId`.
 
 ## Painel Master
 
@@ -246,10 +246,7 @@ Usuarios `MASTER` devem ser mantidos fora do cadastro operacional de usuarios po
 
 O cabecalho do sistema passa a exibir um seletor de escopo apenas para usuarios `MASTER`.
 
-Opcoes:
-
-- `Visao global`: o MASTER visualiza os dados operacionais sem filtro automatico de empresa.
-- Empresa especifica: o MASTER passa a visualizar telas operacionais, dashboards e APIs escopadas para a empresa selecionada.
+O seletor exige uma empresa especifica. Nao existe opcao global nas telas operacionais.
 
 O seletor grava a empresa escolhida em cookie HTTP-only:
 
@@ -285,6 +282,7 @@ Os PDFs de ordem de compra e proposta recebem tambem:
 A sessao do NextAuth agora carrega:
 
 - `empresaId`
+- `empresaSelecionadaId`, para MASTER
 - `roleEmpresa`
 - `isMaster`
 - roles legadas existentes
@@ -293,28 +291,32 @@ Usuarios comuns so fazem login se a empresa estiver ativa e nao excluida.
 
 Usuario `MASTER` representa acesso administrativo global do SaaS.
 
-## O que ainda falta nas proximas etapas
+## Unicidade por empresa
 
-As etapas 1, 2 e 3 criaram a fundacao, isolamento central em backend e Painel Master.
+Codigos e documentos operacionais usam unicidade composta com `empresaId`. Assim, duas empresas podem possuir `CLI-001`, `OBR-001`, `MED-001` ou a mesma tag sem colisao. Permanecem globais apenas identificadores da plataforma, como e-mail de login, CNPJ da propria empresa e codigos de permissao.
 
-Proximas etapas recomendadas:
+## Auditoria e testes
 
-1. Criar Configuracoes da Empresa para usuarios `ADMIN_EMPRESA`.
-2. Ajustar validacoes de relacionamento com mensagens mais especificas quando um vinculo nao pertencer a empresa logada.
-3. Revisar indices unicos globais para unicidade por empresa quando necessario.
-4. Criar painel financeiro/comercial do SaaS, se necessario.
+Comandos disponiveis:
 
-## Observacao importante sobre codigos unicos
-
-Alguns cadastros ainda possuem campos globais `@unique`, como codigo, placa/tag e numero de ordem.
-
-Para SaaS completo, alguns desses campos devem virar unicidade composta por empresa, por exemplo:
-
-```text
-@@unique([empresaId, codigo])
+```bash
+npm run audit:multiempresa
+npm run test
+npm run test:multiempresa
 ```
 
-Essa mudanca foi deixada para uma etapa propria para evitar quebrar cadastros e imports existentes.
+`audit:multiempresa` e somente leitura e informa contagens por model/empresa, registros sem empresa, empresas inexistentes, registros atribuidos a JMIX, usuarios orfaos e relacionamentos cruzados. `test:multiempresa` usa as empresas existentes para validar contagens isoladas, criacao no tenant, rejeicao de `empresaId` divergente, acesso por ID, update/delete cruzados, concorrencia do `AsyncLocalStorage` e selecao de empresa pelo MASTER.
+
+## Scripts administrativos e importacoes
+
+Scripts que acessam o Prisma administrativo fora de uma requisicao autenticada exigem a empresa de destino de forma explicita:
+
+```powershell
+$env:TARGET_EMPRESA_ID="uuid-da-empresa"
+npm run <script-administrativo>
+```
+
+Sem `TARGET_EMPRESA_ID`, os scripts de importacao encerram sem ler ou gravar dados operacionais. O seed inicial usa a empresa JMIX somente para criar o ambiente legado controlado; ele nao reatribui registros existentes nem serve de fallback para a aplicacao.
 
 ## Checklist manual de testes de isolamento
 
@@ -343,14 +345,13 @@ Essa mudanca foi deixada para uma etapa propria para evitar quebrar cadastros e 
 
 1. Fazer login como `MASTER`.
 2. Acessar `/master` e confirmar listagem global de empresas.
-3. Usar `Visao global` no seletor do cabecalho.
-4. Confirmar que dashboards e consultas operacionais aparecem em visao global.
+3. Sem selecionar empresa, confirmar que APIs operacionais recusam a consulta.
+4. Confirmar que a visao global permanece disponivel somente dentro do Painel Master.
 5. Selecionar Empresa A no seletor.
 6. Confirmar que telas operacionais passam a exibir apenas dados da Empresa A.
 7. Selecionar Empresa B no seletor.
 8. Confirmar que telas operacionais passam a exibir apenas dados da Empresa B.
-9. Voltar para `Visao global`.
-10. Confirmar que o Painel Master continua listando e editando todas as empresas.
+9. Confirmar que o Painel Master continua listando e editando todas as empresas independentemente da selecao operacional.
 
 ### PDFs e relatorios
 

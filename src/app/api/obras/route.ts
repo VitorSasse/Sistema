@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { generateObraCode } from "@/lib/utils/code-generation";
 import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import { obraSchema } from "@/lib/validators/obra";
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
     const codigo = await generateObraCode();
     const obra = await prisma.obra.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         clienteId: parsed.data.clienteId,
         codigo,
         nome: parsed.data.nome,

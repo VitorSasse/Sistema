@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseDateOnlyEnd, parseDateOnlyStart } from "@/lib/utils/date";
 import { leituraEquipamentoSchema } from "@/lib/validators/frota/leitura-equipamento";
 import { recalcularAcumuladoEquipamento } from "@/server/services/frota/leitura-sync";
@@ -103,6 +104,7 @@ export async function POST(request: NextRequest) {
   const leitura = await prisma.$transaction(async (tx) => {
     const created = await tx.leituraEquipamento.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         equipamentoId: parsed.data.equipamentoId,
         dataLeitura: parseDateOnlyStart(parsed.data.dataLeitura),
         horimetroValor: parsed.data.horimetroValor ?? null,

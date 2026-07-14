@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
         dataEntrada: parseOptionalDateOnlyStart(data.dataEntrada),
         capacidadeM3: data.capacidadeM3 ?? null,
         unidadeCapacidade: data.unidadeCapacidade || null,
+        unidadeEconomicaPadrao: data.unidadeEconomicaPadrao || null,
+        caracteristicasTecnicas: data.caracteristicasTecnicas ?? undefined,
         apelido: data.apelido || null,
         observacao: data.observacao || null,
         status: data.status as any,

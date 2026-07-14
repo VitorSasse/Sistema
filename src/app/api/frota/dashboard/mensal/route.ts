@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { formatDateInputValue } from "@/lib/utils/date";
 
 type SectionType = "CAMINHAO" | "MAQUINA";
@@ -199,7 +200,7 @@ function computeMonthlyMetrics(
   };
 }
 
-async function loadFleetMeasuredItems(period: { start: Date; end: Date }) {
+async function loadFleetMeasuredItems(period: { start: Date; end: Date }, empresaId: string) {
   const [equipamentos, yearItems, yearRows] = await Promise.all([
     prisma.equipamento.findMany({
       where: {
@@ -248,15 +249,19 @@ async function loadFleetMeasuredItems(period: { start: Date; end: Date }) {
       FROM "MedicaoItem" item
       INNER JOIN "Medicao" medicao
         ON medicao.id = item."medicaoId"
+       AND medicao."empresaId" = ${empresaId}
        AND medicao."deletedAt" IS NULL
        AND medicao.status <> 'CANCELADA'::"StatusMedicao"
       INNER JOIN "LancamentoDiario" lancamento
         ON lancamento.id = item."lancamentoId"
+       AND lancamento."empresaId" = ${empresaId}
        AND lancamento."deletedAt" IS NULL
       INNER JOIN "Equipamento" equipamento
         ON equipamento.id = lancamento."equipamentoId"
+       AND equipamento."empresaId" = ${empresaId}
        AND equipamento."tipoRecurso" IN ('CAMINHAO'::"TipoRecurso", 'MAQUINA'::"TipoRecurso")
       WHERE item."deletedAt" IS NULL
+        AND item."empresaId" = ${empresaId}
       ORDER BY year DESC
     `)
   ]);
@@ -393,6 +398,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
+  const empresaId = getActiveTenantEmpresaId();
+
+  if (!empresaId) {
+    return NextResponse.json({ message: "Selecione uma empresa para visualizar a frota." }, { status: 409 });
+  }
+
   const currentYear = new Date().getFullYear();
   const yearParam = Number(request.nextUrl.searchParams.get("year"));
   const selectedYear = Number.isInteger(yearParam) && yearParam > 2000 ? yearParam : currentYear;
@@ -403,7 +414,7 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams.get("equipmentId");
   const requestedEquipmentIds = parseSelectedEquipmentIds(equipmentIdsParam);
 
-  const { equipamentos, rawItems, availableYears } = await loadFleetMeasuredItems(period);
+  const { equipamentos, rawItems, availableYears } = await loadFleetMeasuredItems(period, empresaId);
 
   const relevantEquipmentIds = new Set(rawItems.map((item) => item.equipamento.id));
   const equipmentOptions: EquipmentOption[] = equipamentos

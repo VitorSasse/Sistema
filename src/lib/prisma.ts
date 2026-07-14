@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { getTenantContext } from "@/lib/tenant-store";
 
 declare global {
@@ -6,44 +6,11 @@ declare global {
   var prismaGlobal: PrismaClient | undefined;
 }
 
-const TENANT_MODELS = new Set([
-  "Usuario",
-  "Cliente",
-  "Obra",
-  "Fornecedor",
-  "CentroCustoCompra",
-  "CatalogoCompra",
-  "PlanoConta",
-  "Equipamento",
-  "OrdemCompra",
-  "OrdemCompraItem",
-  "OrdemCompraParcela",
-  "Orcamento",
-  "OrcamentoFormacaoPreco",
-  "OrcamentoFrente",
-  "OrcamentoItem",
-  "OrcamentoPremissa",
-  "Material",
-  "Servico",
-  "Colaborador",
-  "PrecoClienteObra",
-  "Ficha",
-  "FichaRomaneio",
-  "LancamentoDiario",
-  "LancamentoRomaneio",
-  "LeituraEquipamento",
-  "PlanoManutencao",
-  "AgendaManutencao",
-  "AgendaProgramacao",
-  "ManutencaoExecutada",
-  "AlertaManutencao",
-  "AnexoManutencao",
-  "Medicao",
-  "MedicaoItem",
-  "HistoricoAlteracao",
-  "Anexo",
-  "LogAuditoria"
-]);
+export const TENANT_MODELS = new Set(
+  Prisma.dmmf.datamodel.models
+    .filter((model) => model.fields.some((field) => field.name === "empresaId"))
+    .map((model) => model.name)
+);
 
 type PrismaQueryArgs = {
   where?: Record<string, unknown>;
@@ -55,17 +22,31 @@ type PrismaQueryArgs = {
 function shouldScopeTenant(model: string | undefined) {
   const tenant = getTenantContext();
 
-  if (!model || !TENANT_MODELS.has(model) || !tenant || tenant.bypassTenantScope) {
+  if (!model || !TENANT_MODELS.has(model)) {
     return null;
   }
 
-  if (tenant.isMaster && !tenant.empresaSelecionadaId) {
+  if (!tenant?.initialized) {
+    throw new Error(`Contexto de empresa ausente para acessar ${model}.`);
+  }
+
+  if (tenant.bypassTenantScope) {
     return null;
+  }
+
+  const empresaId = tenant.isMaster ? tenant.empresaSelecionadaId : tenant.empresaId;
+
+  if (!empresaId) {
+    throw new Error(
+      tenant.isMaster
+        ? "Selecione uma empresa antes de acessar dados operacionais."
+        : "Usuario sem empresa vinculada. Entre em contato com o administrador."
+    );
   }
 
   return {
     ...tenant,
-    empresaId: tenant.empresaSelecionadaId ?? tenant.empresaId
+    empresaId
   };
 }
 
@@ -166,14 +147,14 @@ function createPrismaClient(): PrismaClient {
           if (["findUnique", "findUniqueOrThrow", "update", "delete", "upsert"].includes(operation)) {
             mergeTenantWhere(scopedArgs, tenant.empresaId, "direct");
           } else if (
-            ["findMany", "findFirst", "findFirstOrThrow", "count", "aggregate", "groupBy", "updateMany", "deleteMany"].includes(
+            ["findMany", "findFirst", "findFirstOrThrow", "count", "aggregate", "groupBy", "updateMany", "updateManyAndReturn", "deleteMany"].includes(
               operation
             )
           ) {
             mergeTenantWhere(scopedArgs, tenant.empresaId);
           }
 
-          if (["create", "createMany", "update", "updateMany", "upsert"].includes(operation)) {
+          if (["create", "createMany", "createManyAndReturn", "update", "updateMany", "updateManyAndReturn", "upsert"].includes(operation)) {
             applyTenantToWriteArgs(scopedArgs, tenant.empresaId);
           }
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import { planoManutencaoSchema } from "@/lib/validators/frota/plano-manutencao";
 import { calcularProximaManutencao } from "@/server/services/frota/plano-service";
@@ -78,8 +79,18 @@ export async function POST(request: NextRequest) {
     ultimaLeituraKm: parsed.data.ultimaLeituraKm ?? null
   });
 
+  const equipamento = await prisma.equipamento.findUnique({
+    where: { id: parsed.data.equipamentoId },
+    select: { id: true, status: true }
+  });
+
+  if (!equipamento || equipamento.status !== "ATIVO") {
+    return NextResponse.json({ message: "Equipamento nao encontrado ou inativo." }, { status: 404 });
+  }
+
   const created = await prisma.planoManutencao.create({
     data: {
+      empresaId: requireActiveTenantEmpresaId(),
       equipamentoId: parsed.data.equipamentoId,
       titulo: parsed.data.tipoManutencao,
       tipoManutencao: parsed.data.tipoManutencao,

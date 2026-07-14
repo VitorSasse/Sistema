@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+const TARGET_EMPRESA_ID = process.env.TARGET_EMPRESA_ID?.trim();
 
 const TARGET_CLIENT = "JACKSON";
 const TARGET_WORK = "JACKSON(AREIA SUJA)";
@@ -21,7 +22,7 @@ function nextSequentialCode(prefix: string, existingCodes: string[]) {
 
 async function ensureClient() {
   const existing = await prisma.cliente.findFirst({
-    where: { nome: TARGET_CLIENT },
+    where: { empresaId: TARGET_EMPRESA_ID!, nome: TARGET_CLIENT },
     select: { id: true, codigo: true, nome: true, status: true }
   });
 
@@ -30,11 +31,13 @@ async function ensureClient() {
   }
 
   const codes = await prisma.cliente.findMany({
+    where: { empresaId: TARGET_EMPRESA_ID! },
     select: { codigo: true }
   });
 
   const created = await prisma.cliente.create({
     data: {
+      empresaId: TARGET_EMPRESA_ID!,
       codigo: nextSequentialCode(
         "CLI-",
         codes.map((item) => item.codigo)
@@ -51,6 +54,7 @@ async function ensureClient() {
 async function ensureWork(clienteId: string) {
   const existing = await prisma.obra.findFirst({
     where: {
+      empresaId: TARGET_EMPRESA_ID!,
       clienteId,
       nome: TARGET_WORK
     },
@@ -68,11 +72,13 @@ async function ensureWork(clienteId: string) {
   }
 
   const codes = await prisma.obra.findMany({
+    where: { empresaId: TARGET_EMPRESA_ID! },
     select: { codigo: true }
   });
 
   const created = await prisma.obra.create({
     data: {
+      empresaId: TARGET_EMPRESA_ID!,
       codigo: nextSequentialCode(
         "OBR-",
         codes.map((item) => item.codigo)
@@ -95,6 +101,10 @@ async function ensureWork(clienteId: string) {
 }
 
 async function main() {
+  if (!TARGET_EMPRESA_ID) {
+    throw new Error("Informe TARGET_EMPRESA_ID para executar este script.");
+  }
+
   const clientResult = await ensureClient();
   const workResult = await ensureWork(clientResult.cliente.id);
 

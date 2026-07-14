@@ -340,7 +340,7 @@ enum TipoAlertaManutencao {
 
 model Usuario {
   id                            String                @id @default(uuid())
-  empresaId                     String                @default("00000000-0000-0000-0000-000000000001")
+  empresaId                     String
   nome                          String
   email                         String                @unique
   senhaHash                     String
@@ -455,13 +455,13 @@ model Empresa {
 
 model Cliente {
   id                String             @id @default(uuid())
-  empresaId         String             @default("00000000-0000-0000-0000-000000000001")
-  codigo            String             @unique
+  empresaId         String
+  codigo            String
   tipoCliente       TipoCliente        @default(CNPJ)
   nome              String
   nomeFantasia      String?
-  cpf               String?            @unique
-  cnpj              String?            @unique
+  cpf               String?
+  cnpj              String?
   inscricaoEstadual String?
   contatoNome       String?
   telefone          String?
@@ -485,6 +485,9 @@ model Cliente {
   medicoes          Medicao[]
   orcamentos        Orcamento[]
 
+  @@unique([empresaId, codigo])
+  @@unique([empresaId, cpf])
+  @@unique([empresaId, cnpj])
   @@index([empresaId])
   @@index([nome])
   @@index([status, nome])
@@ -492,8 +495,8 @@ model Cliente {
 
 model Obra {
   id                     String              @id @default(uuid())
-  empresaId              String              @default("00000000-0000-0000-0000-000000000001")
-  codigo                 String              @unique
+  empresaId              String
+  codigo                 String
   clienteId              String
   nome                   String
   contratoNumero         String?
@@ -516,6 +519,7 @@ model Obra {
   programacoes           AgendaProgramacao[]
   orcamentos             Orcamento[]
 
+  @@unique([empresaId, codigo])
   @@index([empresaId])
   @@index([nome])
   @@index([clienteId, status])
@@ -523,11 +527,11 @@ model Obra {
 
 model Fornecedor {
   id                String         @id @default(uuid())
-  empresaId         String         @default("00000000-0000-0000-0000-000000000001")
-  codigo            String         @unique
+  empresaId         String
+  codigo            String
   razaoSocial       String
   nomeFantasia      String?
-  cnpj              String?        @unique
+  cnpj              String?
   inscricaoEstadual String?
   telefone          String?
   email             String?
@@ -545,6 +549,8 @@ model Fornecedor {
   empresa           Empresa        @relation(fields: [empresaId], references: [id])
   ordensCompra      OrdemCompra[]
 
+  @@unique([empresaId, codigo])
+  @@unique([empresaId, cnpj])
   @@index([empresaId])
   @@index([razaoSocial])
   @@index([nomeFantasia])
@@ -553,8 +559,8 @@ model Fornecedor {
 
 model CentroCustoCompra {
   id           String         @id @default(uuid())
-  empresaId    String         @default("00000000-0000-0000-0000-000000000001")
-  codigo       String         @unique
+  empresaId    String
+  codigo       String
   nome         String
   descricao    String?
   status       StatusCadastro @default(ATIVO)
@@ -563,6 +569,7 @@ model CentroCustoCompra {
   empresa      Empresa        @relation(fields: [empresaId], references: [id])
   ordensCompra OrdemCompra[]
 
+  @@unique([empresaId, codigo])
   @@index([empresaId])
   @@index([nome])
   @@index([status, nome])
@@ -570,8 +577,8 @@ model CentroCustoCompra {
 
 model CatalogoCompra {
   id               String             @id @default(uuid())
-  empresaId        String             @default("00000000-0000-0000-0000-000000000001")
-  codigo           String             @unique
+  empresaId        String
+  codigo           String
   tipo             TipoCatalogoCompra
   descricao        String
   unidadePadrao    String
@@ -583,6 +590,7 @@ model CatalogoCompra {
   empresa          Empresa            @relation(fields: [empresaId], references: [id])
   itensOrdemCompra OrdemCompraItem[]
 
+  @@unique([empresaId, codigo])
   @@index([empresaId])
   @@index([tipo, status, descricao])
   @@index([descricao])
@@ -590,8 +598,8 @@ model CatalogoCompra {
 
 model PlanoConta {
   id            String         @id @default(uuid())
-  empresaId     String         @default("00000000-0000-0000-0000-000000000001")
-  classificacao String         @unique
+  empresaId     String
+  classificacao String
   nome          String
   tipo          TipoPlanoConta
   categoria     String?
@@ -602,6 +610,7 @@ model PlanoConta {
   empresa       Empresa        @relation(fields: [empresaId], references: [id])
   ordensCompra  OrdemCompra[]
 
+  @@unique([empresaId, classificacao])
   @@index([empresaId])
   @@index([tipo, status, nome])
   @@index([status, nome])
@@ -610,11 +619,11 @@ model PlanoConta {
 
 model Equipamento {
   id                           String                       @id @default(uuid())
-  empresaId                    String                       @default("00000000-0000-0000-0000-000000000001")
+  empresaId                    String
   tipoRecurso                  TipoRecurso
   tipoControle                 TipoControleEquipamento      @default(HORIMETRO)
   descricao                    String
-  placaOuTag                   String                       @unique
+  placaOuTag                   String
   classeOperacional            String?
   complementar                 Boolean                      @default(false)
   fabricante                   String?
@@ -624,6 +633,8 @@ model Equipamento {
   dataEntrada                  DateTime?
   capacidadeM3                 Decimal?                     @db.Decimal(10, 2)
   unidadeCapacidade            String?
+  unidadeEconomicaPadrao       UnidadeEconomicaCusto?
+  caracteristicasTecnicas      Json?
   apelido                      String?
   observacao                   String?
   status                       StatusCadastro               @default(ATIVO)
@@ -646,6 +657,7 @@ model Equipamento {
   ordensCompraCentroCusto      OrdemCompra[]                @relation("OrdemCompraCentroCustoEquipamento")
   orcamentoItens               OrcamentoItem[]
 
+  @@unique([empresaId, placaOuTag])
   @@index([empresaId])
   @@index([descricao])
   @@index([tipoRecurso, status])
@@ -656,8 +668,8 @@ model Equipamento {
 
 model OrdemCompra {
   id                       String                     @id @default(uuid())
-  empresaId                String                     @default("00000000-0000-0000-0000-000000000001")
-  numeroOrdem              String                     @unique
+  empresaId                String
+  numeroOrdem              String
   dataEmissao              DateTime                   @default(now())
   status                   StatusOrdemCompra          @default(ABERTA)
   tipoCompra               TipoCatalogoCompra         @default(PRODUTO)
@@ -691,6 +703,7 @@ model OrdemCompra {
   parcelas                 OrdemCompraParcela[]
   anexos                   Anexo[]
 
+  @@unique([empresaId, numeroOrdem])
   @@index([empresaId])
   @@index([status, dataEmissao])
   @@index([fornecedorId, dataEmissao])
@@ -702,7 +715,7 @@ model OrdemCompra {
 
 model OrdemCompraItem {
   id               String             @id @default(uuid())
-  empresaId        String             @default("00000000-0000-0000-0000-000000000001")
+  empresaId        String
   ordemCompraId    String
   catalogoCompraId String?
   tipoItem         TipoCatalogoCompra @default(PRODUTO)
@@ -726,7 +739,7 @@ model OrdemCompraItem {
 
 model OrdemCompraParcela {
   id             String      @id @default(uuid())
-  empresaId      String      @default("00000000-0000-0000-0000-000000000001")
+  empresaId      String
   ordemCompraId  String
   numeroParcela  Int
   dataVencimento DateTime
@@ -743,8 +756,8 @@ model OrdemCompraParcela {
 
 model Orcamento {
   id                String                       @id @default(uuid())
-  empresaId         String                       @default("00000000-0000-0000-0000-000000000001")
-  codigo            String                       @unique
+  empresaId         String
+  codigo            String
   tipo              TipoOrcamento                @default(COMERCIAL)
   status            StatusOrcamento              @default(RASCUNHO)
   clienteId         String
@@ -776,6 +789,7 @@ model Orcamento {
   premissas         OrcamentoPremissa[]
   propostas         OrcamentoPropostaComercial[]
 
+  @@unique([empresaId, codigo])
   @@index([empresaId])
   @@index([clienteId, obraId, dataOrcamento])
   @@index([status, dataOrcamento])
@@ -786,7 +800,7 @@ model Orcamento {
 
 model OrcamentoFormacaoPreco {
   id                 String             @id @default(uuid())
-  empresaId          String             @default("00000000-0000-0000-0000-000000000001")
+  empresaId          String
   orcamentoId        String             @unique
   modoCusto          ModoCustoOrcamento @default(SIMPLIFICADO)
   custoDireto        Decimal            @default(0) @db.Decimal(14, 2)
@@ -809,7 +823,7 @@ model OrcamentoFormacaoPreco {
 
 model OrcamentoCenario {
   id              String                       @id @default(uuid())
-  empresaId       String                       @default("00000000-0000-0000-0000-000000000001")
+  empresaId       String
   orcamentoId     String
   ordem           Int                          @default(1)
   nome            String
@@ -833,7 +847,7 @@ model OrcamentoCenario {
 
 model OrcamentoFrente {
   id                 String            @id @default(uuid())
-  empresaId          String            @default("00000000-0000-0000-0000-000000000001")
+  empresaId          String
   orcamentoId        String
   cenarioId          String?
   ordem              Int               @default(1)
@@ -863,55 +877,57 @@ model OrcamentoFrente {
 }
 
 model OrcamentoItem {
-  id                    String                     @id @default(uuid())
-  empresaId             String                     @default("00000000-0000-0000-0000-000000000001")
-  orcamentoId           String
-  frenteId              String?
-  tipoItem              TipoItemOrcamento          @default(COMERCIAL)
-  servicoId             String?
-  materialId            String?
-  equipamentoId         String?
-  categoriaRecurso      CategoriaRecursoOrcamento?
-  classeOperacional     String?
-  recursoReferenciaId   String?
-  recursoNome           String?
-  ordem                 Int                        @default(1)
-  codigo                String?
-  descricao             String
-  unidade               String
-  quantidade            Decimal                    @default(0) @db.Decimal(12, 2)
-  produtividade         Decimal?                   @db.Decimal(12, 2)
-  custoUnitario         Decimal                    @default(0) @db.Decimal(12, 2)
-  tipoCalculoRecurso    TipoCalculoRecurso         @default(AUTOMATICO)
-  unidadeEconomicaCusto UnidadeEconomicaCusto?
-  valorCusto            Decimal?                   @db.Decimal(14, 4)
-  horasDia              Decimal?                   @db.Decimal(8, 2)
-  horasTotais           Decimal?                   @db.Decimal(12, 2)
-  viagensDia            Decimal?                   @db.Decimal(10, 2)
-  viagensTotais         Decimal?                   @db.Decimal(12, 2)
-  distanciaViagemKm     Decimal?                   @db.Decimal(12, 2)
-  quilometrosTotais     Decimal?                   @db.Decimal(14, 2)
-  capacidadePorViagem   Decimal?                   @db.Decimal(14, 4)
-  unidadeCapacidade     String?
-  viagensTeoricas       Decimal?                   @db.Decimal(14, 4)
-  viagensOperacionais   Int?
-  custoPorViagem        Decimal?                   @db.Decimal(14, 2)
-  cargasTotais          Decimal?                   @db.Decimal(12, 2)
-  mesesTotais           Decimal?                   @db.Decimal(10, 2)
-  diasTrabalhadosMes    Decimal?                   @default(22) @db.Decimal(8, 2)
-  custoTotalCalculado   Decimal                    @default(0) @db.Decimal(14, 2)
-  memoriaCalculo        String?
-  valorUnitario         Decimal                    @default(0) @db.Decimal(12, 2)
-  valorTotal            Decimal                    @default(0) @db.Decimal(14, 2)
-  observacao            String?
-  createdAt             DateTime                   @default(now())
-  updatedAt             DateTime                   @updatedAt
-  empresa               Empresa                    @relation(fields: [empresaId], references: [id])
-  orcamento             Orcamento                  @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
-  frente                OrcamentoFrente?           @relation(fields: [frenteId], references: [id], onDelete: Cascade)
-  servico               Servico?                   @relation(fields: [servicoId], references: [id])
-  material              Material?                  @relation(fields: [materialId], references: [id])
-  equipamento           Equipamento?               @relation(fields: [equipamentoId], references: [id])
+  id                             String                     @id @default(uuid())
+  empresaId                      String
+  orcamentoId                    String
+  frenteId                       String?
+  tipoItem                       TipoItemOrcamento          @default(COMERCIAL)
+  servicoId                      String?
+  materialId                     String?
+  equipamentoId                  String?
+  categoriaRecurso               CategoriaRecursoOrcamento?
+  classeOperacional              String?
+  recursoReferenciaId            String?
+  recursoNome                    String?
+  ordem                          Int                        @default(1)
+  codigo                         String?
+  descricao                      String
+  unidade                        String
+  quantidade                     Decimal                    @default(0) @db.Decimal(12, 2)
+  produtividade                  Decimal?                   @db.Decimal(12, 2)
+  custoUnitario                  Decimal                    @default(0) @db.Decimal(12, 2)
+  tipoCalculoRecurso             TipoCalculoRecurso         @default(AUTOMATICO)
+  unidadeEconomicaCusto          UnidadeEconomicaCusto?
+  valorCusto                     Decimal?                   @db.Decimal(14, 4)
+  horasDia                       Decimal?                   @db.Decimal(8, 2)
+  horasTotais                    Decimal?                   @db.Decimal(12, 2)
+  viagensDia                     Decimal?                   @db.Decimal(10, 2)
+  viagensTotais                  Decimal?                   @db.Decimal(12, 2)
+  distanciaViagemKm              Decimal?                   @db.Decimal(12, 2)
+  quilometrosTotais              Decimal?                   @db.Decimal(14, 2)
+  capacidadePorViagem            Decimal?                   @db.Decimal(14, 4)
+  unidadeCapacidade              String?
+  caracteristicasRecursoSnapshot Json?
+  camposTecnicosPersonalizados   String[]                   @default([])
+  viagensTeoricas                Decimal?                   @db.Decimal(14, 4)
+  viagensOperacionais            Int?
+  custoPorViagem                 Decimal?                   @db.Decimal(14, 2)
+  cargasTotais                   Decimal?                   @db.Decimal(12, 2)
+  mesesTotais                    Decimal?                   @db.Decimal(10, 2)
+  diasTrabalhadosMes             Decimal?                   @default(22) @db.Decimal(8, 2)
+  custoTotalCalculado            Decimal                    @default(0) @db.Decimal(14, 2)
+  memoriaCalculo                 String?
+  valorUnitario                  Decimal                    @default(0) @db.Decimal(12, 2)
+  valorTotal                     Decimal                    @default(0) @db.Decimal(14, 2)
+  observacao                     String?
+  createdAt                      DateTime                   @default(now())
+  updatedAt                      DateTime                   @updatedAt
+  empresa                        Empresa                    @relation(fields: [empresaId], references: [id])
+  orcamento                      Orcamento                  @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+  frente                         OrcamentoFrente?           @relation(fields: [frenteId], references: [id], onDelete: Cascade)
+  servico                        Servico?                   @relation(fields: [servicoId], references: [id])
+  material                       Material?                  @relation(fields: [materialId], references: [id])
+  equipamento                    Equipamento?               @relation(fields: [equipamentoId], references: [id])
 
   @@index([empresaId])
   @@index([orcamentoId, ordem])
@@ -925,7 +941,7 @@ model OrcamentoItem {
 
 model OrcamentoPremissa {
   id          String                @id @default(uuid())
-  empresaId   String                @default("00000000-0000-0000-0000-000000000001")
+  empresaId   String
   orcamentoId String
   cenarioId   String?
   tipo        TipoPremissaOrcamento @default(PREMISSA)
@@ -945,7 +961,7 @@ model OrcamentoPremissa {
 
 model OrcamentoPropostaComercial {
   id                  String                      @id @default(uuid())
-  empresaId           String                      @default("00000000-0000-0000-0000-000000000001")
+  empresaId           String
   orcamentoId         String
   cenarioId           String?
   codigo              String
@@ -975,7 +991,7 @@ model OrcamentoPropostaComercial {
 
 model OrcamentoPropostaOpcional {
   id            String                     @id @default(uuid())
-  empresaId     String                     @default("00000000-0000-0000-0000-000000000001")
+  empresaId     String
   propostaId    String
   ordem         Int                        @default(1)
   codigo        String?
@@ -997,8 +1013,8 @@ model OrcamentoPropostaOpcional {
 
 model Material {
   id             String             @id @default(uuid())
-  empresaId      String             @default("00000000-0000-0000-0000-000000000001")
-  codigoMaterial String             @unique
+  empresaId      String
+  codigoMaterial String
   descricao      String
   categoria      String?
   unidadePadrao  String
@@ -1013,14 +1029,15 @@ model Material {
   precos         PrecoClienteObra[]
   orcamentoItens OrcamentoItem[]
 
+  @@unique([empresaId, codigoMaterial])
   @@index([empresaId])
   @@index([descricao])
 }
 
 model Servico {
   id                 String             @id @default(uuid())
-  empresaId          String             @default("00000000-0000-0000-0000-000000000001")
-  codigo             String             @unique
+  empresaId          String
+  codigo             String
   tipoServico        String
   categoria          String?
   natureza           NaturezaServico    @default(OPERACIONAL)
@@ -1045,6 +1062,7 @@ model Servico {
   precos             PrecoClienteObra[]
   orcamentoItens     OrcamentoItem[]
 
+  @@unique([empresaId, codigo])
   @@index([empresaId])
   @@index([codigo])
   @@index([status, tipoServico])
@@ -1053,8 +1071,8 @@ model Servico {
 
 model Colaborador {
   id           String             @id @default(uuid())
-  empresaId    String             @default("00000000-0000-0000-0000-000000000001")
-  codigo       String             @unique
+  empresaId    String
+  codigo       String
   nome         String
   apelido      String?
   funcao       FuncaoColaborador
@@ -1069,6 +1087,7 @@ model Colaborador {
   empresa      Empresa            @relation(fields: [empresaId], references: [id])
   lancamentos  LancamentoDiario[]
 
+  @@unique([empresaId, codigo])
   @@index([empresaId])
   @@index([nome])
   @@index([funcao, status])
@@ -1076,7 +1095,7 @@ model Colaborador {
 
 model PrecoClienteObra {
   id                   String             @id @default(uuid())
-  empresaId            String             @default("00000000-0000-0000-0000-000000000001")
+  empresaId            String
   clienteId            String
   obraId               String
   servicoId            String
@@ -1106,7 +1125,7 @@ model PrecoClienteObra {
 
 model Ficha {
   id          String             @id @default(uuid())
-  empresaId   String             @default("00000000-0000-0000-0000-000000000001")
+  empresaId   String
   numero      String
   data        DateTime
   clienteId   String
@@ -1131,7 +1150,7 @@ model Ficha {
 
 model FichaRomaneio {
   id        String    @id @default(uuid())
-  empresaId String    @default("00000000-0000-0000-0000-000000000001")
+  empresaId String
   fichaId   String
   numero    String
   createdAt DateTime  @default(now())
@@ -1146,7 +1165,7 @@ model FichaRomaneio {
 
 model LancamentoDiario {
   id                 String               @id @default(uuid())
-  empresaId          String               @default("00000000-0000-0000-0000-000000000001")
+  empresaId          String
   fichaId            String
   data               DateTime
   clienteId          String
@@ -1196,7 +1215,7 @@ model LancamentoDiario {
 
 model LancamentoRomaneio {
   id           String           @id @default(uuid())
-  empresaId    String           @default("00000000-0000-0000-0000-000000000001")
+  empresaId    String
   lancamentoId String
   numero       String
   createdAt    DateTime         @default(now())
@@ -1211,7 +1230,7 @@ model LancamentoRomaneio {
 
 model LeituraEquipamento {
   id                 String                   @id @default(uuid())
-  empresaId          String                   @default("00000000-0000-0000-0000-000000000001")
+  empresaId          String
   equipamentoId      String
   dataLeitura        DateTime
   horimetroValor     Decimal?                 @db.Decimal(12, 2)
@@ -1234,7 +1253,7 @@ model LeituraEquipamento {
 
 model PlanoManutencao {
   id                     String                     @id @default(uuid())
-  empresaId              String                     @default("00000000-0000-0000-0000-000000000001")
+  empresaId              String
   equipamentoId          String
   titulo                 String
   tipoManutencao         String
@@ -1267,7 +1286,7 @@ model PlanoManutencao {
 
 model AgendaManutencao {
   id                       String                     @id @default(uuid())
-  empresaId                String                     @default("00000000-0000-0000-0000-000000000001")
+  empresaId                String
   equipamentoId            String
   planoId                  String?
   tipoManutencao           String
@@ -1298,7 +1317,7 @@ model AgendaManutencao {
 
 model AgendaProgramacao {
   id            String                  @id @default(uuid())
-  empresaId     String                  @default("00000000-0000-0000-0000-000000000001")
+  empresaId     String
   equipamentoId String
   obraId        String?
   local         String?
@@ -1324,7 +1343,7 @@ model AgendaProgramacao {
 
 model ManutencaoExecutada {
   id                String            @id @default(uuid())
-  empresaId         String            @default("00000000-0000-0000-0000-000000000001")
+  empresaId         String
   equipamentoId     String
   planoId           String?
   agendaId          String?
@@ -1357,7 +1376,7 @@ model ManutencaoExecutada {
 
 model AlertaManutencao {
   id                         String                 @id @default(uuid())
-  empresaId                  String                 @default("00000000-0000-0000-0000-000000000001")
+  empresaId                  String
   equipamentoId              String
   planoId                    String?
   agendaId                   String?
@@ -1387,7 +1406,7 @@ model AlertaManutencao {
 
 model AnexoManutencao {
   id           String              @id @default(uuid())
-  empresaId    String              @default("00000000-0000-0000-0000-000000000001")
+  empresaId    String
   manutencaoId String
   nomeArquivo  String
   mimeType     String
@@ -1403,8 +1422,8 @@ model AnexoManutencao {
 
 model Medicao {
   id                        String        @id @default(uuid())
-  empresaId                 String        @default("00000000-0000-0000-0000-000000000001")
-  codigoMedicao             String        @unique
+  empresaId                 String
+  codigoMedicao             String
   tipoMedicao               TipoMedicao   @default(QUINZENAL)
   clienteId                 String
   obraId                    String?
@@ -1437,6 +1456,7 @@ model Medicao {
   itens                     MedicaoItem[]
   anexos                    Anexo[]
 
+  @@unique([empresaId, codigoMedicao])
   @@index([empresaId])
   @@index([clienteId, obraId, periodoInicial, periodoFinal])
   @@index([status])
@@ -1447,7 +1467,7 @@ model Medicao {
 
 model MedicaoItem {
   id                 String           @id @default(uuid())
-  empresaId          String           @default("00000000-0000-0000-0000-000000000001")
+  empresaId          String
   medicaoId          String
   lancamentoId       String
   data               DateTime
@@ -1476,7 +1496,7 @@ model MedicaoItem {
 
 model HistoricoAlteracao {
   id            String        @id @default(uuid())
-  empresaId     String        @default("00000000-0000-0000-0000-000000000001")
+  empresaId     String
   entidade      String
   entidadeId    String
   campo         String
@@ -1495,7 +1515,7 @@ model HistoricoAlteracao {
 
 model Anexo {
   id            String       @id @default(uuid())
-  empresaId     String       @default("00000000-0000-0000-0000-000000000001")
+  empresaId     String
   fichaId       String?
   medicaoId     String?
   ordemCompraId String?
@@ -1518,7 +1538,7 @@ model Anexo {
 
 model LogAuditoria {
   id         String           @id @default(uuid())
-  empresaId  String           @default("00000000-0000-0000-0000-000000000001")
+  empresaId  String
   tipo       TipoLogAuditoria
   entidade   String?
   entidadeId String?

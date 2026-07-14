@@ -4,6 +4,7 @@ const { randomUUID } = require("crypto");
 const { PrismaClient, OrigemLeituraEquipamento } = require("@prisma/client");
 
 const prisma = new PrismaClient();
+const TARGET_EMPRESA_ID = process.env.TARGET_EMPRESA_ID?.trim();
 
 const EXTRACT_DIR =
   process.env.EXTRACT_DIR || path.join(process.cwd(), "tmp", "xlsx_agenda_extract");
@@ -179,6 +180,7 @@ function createObservation(row) {
 
 async function loadEquipamentosMap() {
   const equipamentos = await prisma.equipamento.findMany({
+    where: { empresaId: TARGET_EMPRESA_ID },
     select: {
       id: true,
       descricao: true,
@@ -209,10 +211,14 @@ async function loadEquipamentosMap() {
 }
 
 async function main() {
+  if (!TARGET_EMPRESA_ID) {
+    throw new Error("Defina TARGET_EMPRESA_ID para executar a importacao com isolamento multiempresa.");
+  }
+
   const sharedStrings = parseSharedStrings(SHARED_STRINGS_PATH);
   const rows = parseWorksheet(SHEET_PATH, sharedStrings).filter((row) => row.Data && row.Cod_maquina);
   const usuario = await prisma.usuario.findFirst({
-    where: { email: "admin@gestaofichas.local" },
+    where: { empresaId: TARGET_EMPRESA_ID, email: "admin@gestaofichas.local" },
     select: { id: true, email: true },
   });
 
@@ -222,6 +228,7 @@ async function main() {
 
   const equipamentosMap = await loadEquipamentosMap();
   const leiturasExistentes = await prisma.leituraEquipamento.findMany({
+    where: { empresaId: TARGET_EMPRESA_ID },
     select: {
       equipamentoId: true,
       dataLeitura: true,
@@ -328,6 +335,7 @@ async function main() {
       await prisma.leituraEquipamento.createMany({
         data: chunk.map((item) => ({
           id: item.id,
+          empresaId: TARGET_EMPRESA_ID,
           equipamentoId: item.equipamentoId,
           dataLeitura: item.dataLeitura,
           horimetroValor: item.horimetroValor,
@@ -341,7 +349,7 @@ async function main() {
 
     for (const equipamentoId of touchedEquipmentIds) {
       const ultimaLeitura = await prisma.leituraEquipamento.findFirst({
-        where: { equipamentoId },
+        where: { empresaId: TARGET_EMPRESA_ID, equipamentoId },
         orderBy: [{ dataLeitura: "desc" }, { createdAt: "desc" }],
         select: {
           horimetroValor: true,
@@ -350,7 +358,7 @@ async function main() {
       });
 
       await prisma.equipamento.update({
-        where: { id: equipamentoId },
+        where: { id: equipamentoId, empresaId: TARGET_EMPRESA_ID },
         data: {
           horimetroAtual: ultimaLeitura?.horimetroValor ?? null,
           kmAtual: ultimaLeitura?.kmValor ?? null,

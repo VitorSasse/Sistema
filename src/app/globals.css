@@ -7821,6 +7821,54 @@ button {
   line-height: 1.35;
 }
 
+.orcamentos-resource-field-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.orcamentos-resource-field-header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.orcamentos-resource-origin {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.orcamentos-resource-origin.is-inherited {
+  color: color-mix(in srgb, var(--screen-muted) 78%, #38bdf8);
+}
+
+.orcamentos-resource-origin.is-custom {
+  color: #fb923c;
+}
+
+.orcamentos-resource-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid color-mix(in srgb, var(--primary) 38%, var(--screen-border));
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  color: var(--screen-text);
+  font-size: 0.7rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.orcamentos-resource-edit:hover,
+.orcamentos-resource-edit:focus-visible {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 .manager-field-control {
   width: 100%;
 }

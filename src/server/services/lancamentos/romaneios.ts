@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 
 type PrismaTx = Prisma.TransactionClient;
 
@@ -17,6 +18,7 @@ export async function substituirRomaneiosDoLancamento(
 
   await tx.lancamentoRomaneio.createMany({
     data: numeros.map((numero) => ({
+      empresaId: requireActiveTenantEmpresaId(),
       lancamentoId,
       numero
     }))

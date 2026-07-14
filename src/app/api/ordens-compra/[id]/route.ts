@@ -11,6 +11,7 @@ import {
 } from "@/lib/ordens-compra";
 import { normalizarPagamentoOrdemCompra } from "@/lib/ordens-compra-pagamento";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseDateOnlyStart } from "@/lib/utils/date";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { ordemCompraSchema } from "@/lib/validators/ordem-compra";
@@ -273,6 +274,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       numeroParcelas: pagamentoNormalizado.numeroParcelas,
       dataBase: dataBaseParcelas
     });
+    const empresaId = requireActiveTenantEmpresaId();
 
     await prisma.$transaction([
       prisma.ordemCompraItem.deleteMany({
@@ -311,10 +313,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
               : null,
           valorTotal,
           itens: {
-            create: itensCalculados
+            create: itensCalculados.map((item) => ({ ...item, empresaId }))
           },
           parcelas: {
             create: parcelas.map((parcela) => ({
+              empresaId,
               numeroParcela: parcela.numeroParcela,
               dataVencimento: parcela.dataVencimento,
               valorParcela: parcela.valorParcela

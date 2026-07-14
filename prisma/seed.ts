@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { PrismaClient, RoleCodigo, StatusCadastro } from "@prisma/client";
 
 const prisma = new PrismaClient();
+const DEFAULT_EMPRESA_ID = "00000000-0000-0000-0000-000000000001";
 
 async function seedRoles() {
   const roles = Object.values(RoleCodigo);
@@ -56,6 +57,7 @@ async function seedAdmin() {
       })
     : await prisma.usuario.create({
         data: {
+          empresaId: DEFAULT_EMPRESA_ID,
           nome,
           email,
           senhaHash,

@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+const TARGET_EMPRESA_ID = process.env.TARGET_EMPRESA_ID?.trim();
 
 const TARGET_NAME = "JOEL MORAES";
 
@@ -19,8 +20,13 @@ function nextSequentialCode(prefix: string, existingCodes: string[]) {
 }
 
 async function main() {
+  if (!TARGET_EMPRESA_ID) {
+    throw new Error("Informe TARGET_EMPRESA_ID para executar este script.");
+  }
+
   const existing = await prisma.cliente.findFirst({
     where: {
+      empresaId: TARGET_EMPRESA_ID,
       nome: TARGET_NAME
     },
     select: {
@@ -46,6 +52,7 @@ async function main() {
   }
 
   const codes = await prisma.cliente.findMany({
+    where: { empresaId: TARGET_EMPRESA_ID },
     select: { codigo: true }
   });
 
@@ -56,6 +63,7 @@ async function main() {
 
   const created = await prisma.cliente.create({
     data: {
+      empresaId: TARGET_EMPRESA_ID,
       codigo,
       nome: TARGET_NAME,
       status: "ATIVO"

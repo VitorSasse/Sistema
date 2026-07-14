@@ -82,6 +82,10 @@ export async function GET() {
         placaOuTag: true,
         tipoRecurso: true,
         classeOperacional: true,
+        capacidadeM3: true,
+        unidadeCapacidade: true,
+        unidadeEconomicaPadrao: true,
+        caracteristicasTecnicas: true,
         status: true
       },
       orderBy: [{ descricao: "asc" }]

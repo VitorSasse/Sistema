@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { LockKeyhole, Pencil } from "lucide-react";
 import { SearchableSelect } from "@/components/form/searchable-select";
 import {
   calcularMotorCustos,
@@ -8,6 +9,15 @@ import {
 } from "@/lib/orcamentos/cost-engine";
 import { calcularConsolidacaoEconomica } from "@/lib/orcamentos/economic-engine";
 import { criarNovaRevisaoProposta } from "@/lib/orcamentos/proposta-revision";
+import {
+  campoTecnicoHerdado,
+  criarSnapshotCaracteristicasRecurso,
+  normalizarSnapshotCaracteristicasRecurso,
+  personalizarCampoTecnico,
+  valoresEfetivosDaHeranca,
+  type CampoTecnicoRecurso,
+  type SnapshotCaracteristicasRecurso
+} from "@/lib/orcamentos/resource-inheritance";
 import { formatDateDisplay, formatDateInputValue } from "@/lib/utils/date";
 
 type TipoOrcamento = "COMERCIAL" | "OPERACIONAL";
@@ -84,6 +94,10 @@ type EquipamentoOption = {
   descricao: string;
   tipoRecurso: string;
   classeOperacional?: string | null;
+  capacidadeM3?: string | number | null;
+  unidadeCapacidade?: string | null;
+  unidadeEconomicaPadrao?: UnidadeEconomicaCusto | null;
+  caracteristicasTecnicas?: Record<string, unknown> | null;
 };
 
 type ColaboradorOption = {
@@ -125,6 +139,15 @@ type MaterialSelectOption = {
   unidadePadrao: string;
 };
 type BasicSelectOption = { value: string; label: string };
+type EquipamentoResourceOption = BasicSelectOption & {
+  nome: string;
+  classeOperacional: string;
+  capacidadeM3: string | number | null;
+  unidadeCapacidade: string | null;
+  unidadeEconomicaPadrao: UnidadeEconomicaCusto | null;
+  caracteristicasTecnicas: Record<string, unknown> | null;
+  legado?: boolean;
+};
 type NamedSelectOption = { value: string; label: string; nome: string };
 type RecursoSelectOption = BasicSelectOption & {
   nome?: string;
@@ -215,6 +238,8 @@ type ItemForm = {
   quilometrosTotais: string;
   capacidadePorViagem: string;
   unidadeCapacidade: string;
+  caracteristicasRecursoSnapshot: SnapshotCaracteristicasRecurso | null;
+  camposTecnicosPersonalizados: string[];
   cargasTotais: string;
   mesesTotais: string;
   diasTrabalhadosMes: string;
@@ -397,6 +422,8 @@ type OrcamentoApi = {
     quilometrosTotais: string | number | null;
     capacidadePorViagem: string | number | null;
     unidadeCapacidade: string | null;
+    caracteristicasRecursoSnapshot: unknown;
+    camposTecnicosPersonalizados: string[];
     viagensTeoricas: string | number | null;
     viagensOperacionais: number | null;
     custoPorViagem: string | number | null;
@@ -661,6 +688,8 @@ function createEmptyItem(tipoItem: TipoItemOrcamento, ordem: number, frenteTempI
     quilometrosTotais: "",
     capacidadePorViagem: "",
     unidadeCapacidade: "",
+    caracteristicasRecursoSnapshot: null,
+    camposTecnicosPersonalizados: [],
     cargasTotais: "",
     mesesTotais: "",
     diasTrabalhadosMes: "22",
@@ -758,6 +787,8 @@ function normalizeItemUpdate(item: ItemForm, key: keyof ItemForm, value: string 
       classeOperacional: "",
       recursoReferenciaId: "",
       recursoNome: "",
+      caracteristicasRecursoSnapshot: null,
+      camposTecnicosPersonalizados: [],
       custoUnitario: "0",
       produtividade: ""
     };
@@ -772,6 +803,8 @@ function normalizeItemUpdate(item: ItemForm, key: keyof ItemForm, value: string 
       classeOperacional: "",
       recursoReferenciaId: "",
       recursoNome: "",
+      caracteristicasRecursoSnapshot: null,
+      camposTecnicosPersonalizados: [],
       materialId: categoriaRecurso === "MATERIAL" ? next.materialId : "",
       equipamentoId: ""
     };
@@ -1260,7 +1293,12 @@ export function OrcamentosManager() {
       options.equipamentos.map((equipamento) => ({
         value: equipamento.id,
         label: `${equipamento.placaOuTag} - ${equipamento.descricao}`,
-        classeOperacional: equipamento.classeOperacional ?? ""
+        nome: equipamento.descricao,
+        classeOperacional: equipamento.classeOperacional ?? equipamento.descricao,
+        capacidadeM3: equipamento.capacidadeM3 ?? null,
+        unidadeCapacidade: equipamento.unidadeCapacidade ?? null,
+        unidadeEconomicaPadrao: equipamento.unidadeEconomicaPadrao ?? null,
+        caracteristicasTecnicas: equipamento.caracteristicasTecnicas ?? null
       })),
     [options.equipamentos]
   );
@@ -1545,6 +1583,72 @@ export function OrcamentosManager() {
       ...current,
       itens: current.itens.map((item) =>
         item.localId === localId ? normalizeItemUpdate(item, key, value) : item
+      )
+    }));
+  }
+
+  function selectEquipmentResource(localId: string, equipamento: EquipamentoResourceOption) {
+    setForm((current) => ({
+      ...current,
+      itens: current.itens.map((item) => {
+        if (item.localId !== localId) {
+          return item;
+        }
+
+        if (equipamento.legado) {
+          return {
+            ...item,
+            classeOperacional: equipamento.value,
+            recursoReferenciaId: "",
+            recursoNome: equipamento.nome,
+            descricao: equipamento.nome,
+            capacidadePorViagem: "",
+            unidadeCapacidade: "",
+            unidadeEconomicaCusto: "CUSTO_FIXO",
+            caracteristicasRecursoSnapshot: null,
+            camposTecnicosPersonalizados: []
+          };
+        }
+
+        const snapshot = criarSnapshotCaracteristicasRecurso({
+          id: equipamento.value,
+          capacidadeM3: equipamento.capacidadeM3,
+          unidadeCapacidade: equipamento.unidadeCapacidade,
+          unidadeEconomicaPadrao: equipamento.unidadeEconomicaPadrao,
+          caracteristicasTecnicas: equipamento.caracteristicasTecnicas
+        });
+        const herdados = valoresEfetivosDaHeranca(snapshot);
+
+        return {
+          ...item,
+          classeOperacional: equipamento.classeOperacional,
+          recursoReferenciaId: equipamento.value,
+          recursoNome: equipamento.nome,
+          descricao: equipamento.nome,
+          capacidadePorViagem: herdados.capacidadePorViagem,
+          unidadeCapacidade: herdados.unidadeCapacidade,
+          unidadeEconomicaCusto:
+            (herdados.unidadeEconomicaCusto as UnidadeEconomicaCusto | "") || "CUSTO_FIXO",
+          caracteristicasRecursoSnapshot: snapshot,
+          camposTecnicosPersonalizados: []
+        };
+      })
+    }));
+  }
+
+  function personalizeResourceField(localId: string, campo: CampoTecnicoRecurso) {
+    setForm((current) => ({
+      ...current,
+      itens: current.itens.map((item) =>
+        item.localId === localId
+          ? {
+              ...item,
+              camposTecnicosPersonalizados: personalizarCampoTecnico(
+                item.camposTecnicosPersonalizados,
+                campo
+              )
+            }
+          : item
       )
     }));
   }
@@ -2292,6 +2396,8 @@ export function OrcamentosManager() {
                 onAddItem={addItemToFrente}
                 onRemoveItem={removeItem}
                 onUpdateItem={updateItem}
+                onSelectEquipment={selectEquipmentResource}
+                onPersonalizeResourceField={personalizeResourceField}
               />
               <CenariosPropostasSection
                 cenarios={form.cenarios}
@@ -2814,7 +2920,7 @@ function FrentesOperacionaisSection(props: {
   vendasFrentes: NonNullable<ReturnType<typeof buildEconomicPreview>["consolidacao"]>["frentes"];
   servicoOptions: ServicoSelectOption[];
   materialOptions: MaterialSelectOption[];
-  equipamentoOptions: BasicSelectOption[];
+  equipamentoOptions: EquipamentoResourceOption[];
   classeOperacionalOptions: BasicSelectOption[];
   colaboradorOptions: NamedSelectOption[];
   fornecedorOptions: NamedSelectOption[];
@@ -2824,6 +2930,8 @@ function FrentesOperacionaisSection(props: {
   onAddItem: (frenteLocalId: string, tipoItem: TipoItemOrcamento) => void;
   onRemoveItem: (localId: string) => void;
   onUpdateItem: (localId: string, key: keyof ItemForm, value: string | number) => void;
+  onSelectEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
+  onPersonalizeResourceField: (localId: string, campo: CampoTecnicoRecurso) => void;
 }) {
   type OperationalLevel = "principal" | "metodo" | "auxiliares" | "recursos";
   const [openLevels, setOpenLevels] = useState<Record<string, OperationalLevel[]>>({});
@@ -3079,6 +3187,8 @@ function FrentesOperacionaisSection(props: {
                       fornecedorOptions={props.fornecedorOptions}
                       onRemove={props.onRemoveItem}
                       onUpdate={props.onUpdateItem}
+                      onSelectEquipment={props.onSelectEquipment}
+                      onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
                   </div>
                 ) : null}
@@ -3161,6 +3271,8 @@ function FrentesOperacionaisSection(props: {
                       fornecedorOptions={props.fornecedorOptions}
                       onRemove={props.onRemoveItem}
                       onUpdate={props.onUpdateItem}
+                      onSelectEquipment={props.onSelectEquipment}
+                      onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
                   </div>
                 ) : null}
@@ -3208,6 +3320,8 @@ function FrentesOperacionaisSection(props: {
                       fornecedorOptions={props.fornecedorOptions}
                       onRemove={props.onRemoveItem}
                       onUpdate={props.onUpdateItem}
+                      onSelectEquipment={props.onSelectEquipment}
+                      onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
                     <div className="orcamentos-front-cost-panel">
                   <label className="manager-field">
@@ -3620,12 +3734,14 @@ function OperationalItemList(props: {
   memoriasRecursos?: CostEngineMemoriaRecurso[];
   servicoOptions: ServicoSelectOption[];
   materialOptions: MaterialSelectOption[];
-  equipamentoOptions: BasicSelectOption[];
+  equipamentoOptions: EquipamentoResourceOption[];
   classeOperacionalOptions: BasicSelectOption[];
   colaboradorOptions: NamedSelectOption[];
   fornecedorOptions: NamedSelectOption[];
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
+  onSelectEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
+  onPersonalizeResourceField: (localId: string, campo: CampoTecnicoRecurso) => void;
 }) {
   if (props.itens.length === 0) {
     return <p className="orcamentos-operational-empty">{props.emptyLabel}</p>;
@@ -3665,11 +3781,14 @@ function OperationalItemList(props: {
               <ResourceItemFields
                 item={item}
                 materialOptions={props.materialOptions}
+                equipamentoOptions={props.equipamentoOptions}
                 classeOperacionalOptions={props.classeOperacionalOptions}
                 colaboradorOptions={props.colaboradorOptions}
                 fornecedorOptions={props.fornecedorOptions}
                 memoria={memoriaRecurso}
                 onUpdate={props.onUpdate}
+                onSelectEquipment={props.onSelectEquipment}
+                onPersonalizeResourceField={props.onPersonalizeResourceField}
               />
             ) : (
               <ServiceItemFields
@@ -3773,24 +3892,68 @@ function ServiceItemFields(props: {
 function ResourceItemFields(props: {
   item: ItemForm;
   materialOptions: MaterialSelectOption[];
+  equipamentoOptions: EquipamentoResourceOption[];
   classeOperacionalOptions: BasicSelectOption[];
   colaboradorOptions: NamedSelectOption[];
   fornecedorOptions: NamedSelectOption[];
   memoria?: CostEngineMemoriaRecurso;
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
+  onSelectEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
+  onPersonalizeResourceField: (localId: string, campo: CampoTecnicoRecurso) => void;
 }) {
   const recursoOptions = getRecursoOptions(props.item.categoriaRecurso, props);
   const recursoValue = getRecursoValue(props.item);
+
+  function isInherited(campo: CampoTecnicoRecurso) {
+    return campoTecnicoHerdado(
+      props.item.caracteristicasRecursoSnapshot,
+      props.item.camposTecnicosPersonalizados,
+      campo
+    );
+  }
+
+  function isPersonalized(campo: CampoTecnicoRecurso) {
+    return props.item.camposTecnicosPersonalizados.includes(campo);
+  }
+
+  function updateTechnicalField(
+    campo: CampoTecnicoRecurso,
+    value: string
+  ) {
+    if (props.item.caracteristicasRecursoSnapshot && !isPersonalized(campo)) {
+      props.onPersonalizeResourceField(props.item.localId, campo);
+    }
+    props.onUpdate(props.item.localId, campo, value);
+  }
 
   function handleResourceChange(value: string) {
     const selected = recursoOptions.find((option) => option.value === value);
     const label = selected?.nome ?? selected?.label ?? "";
 
     if (props.item.categoriaRecurso === "EQUIPAMENTO") {
-      props.onUpdate(props.item.localId, "classeOperacional", value);
-      props.onUpdate(props.item.localId, "recursoReferenciaId", "");
-      props.onUpdate(props.item.localId, "recursoNome", value);
-      props.onUpdate(props.item.localId, "descricao", value);
+      const equipamentosDaClasse = props.equipamentoOptions.filter(
+        (option) => option.classeOperacional === value
+      );
+      const equipamento =
+        equipamentosDaClasse.find((option) => option.unidadeEconomicaPadrao) ??
+        equipamentosDaClasse.find((option) => option.capacidadeM3 !== null) ??
+        equipamentosDaClasse[0];
+      const classeLegada = props.classeOperacionalOptions.find((option) => option.value === value);
+
+      props.onSelectEquipment(
+        props.item.localId,
+        equipamento ?? {
+          value,
+          label: classeLegada?.label ?? value,
+          nome: classeLegada?.label ?? value,
+          classeOperacional: value,
+          capacidadeM3: null,
+          unidadeCapacidade: null,
+          unidadeEconomicaPadrao: null,
+          caracteristicasTecnicas: null,
+          legado: true
+        }
+      );
       return;
     }
 
@@ -3865,12 +4028,18 @@ function ResourceItemFields(props: {
           ))}
         </select>
       </label>
-      <label className="manager-field">
-        <span className="manager-field-label">Base de calculo do custo</span>
+      <div className="manager-field">
+        <ResourceTechnicalFieldHeader
+          label="Base de calculo do custo"
+          inherited={isInherited("unidadeEconomicaCusto")}
+          personalized={isPersonalized("unidadeEconomicaCusto")}
+          onEdit={() => props.onPersonalizeResourceField(props.item.localId, "unidadeEconomicaCusto")}
+        />
         <select
           className="field-control"
           value={props.item.unidadeEconomicaCusto}
-          onChange={(event) => props.onUpdate(props.item.localId, "unidadeEconomicaCusto", event.target.value)}
+          disabled={isInherited("unidadeEconomicaCusto")}
+          onChange={(event) => updateTechnicalField("unidadeEconomicaCusto", event.target.value)}
           required
         >
           <option value="">Selecione a base de calculo</option>
@@ -3881,7 +4050,7 @@ function ResourceItemFields(props: {
         <small className="manager-field-hint">
           Unidade economica: {props.memoria?.unidadeCustoFormatada || "selecione uma base"}.
         </small>
-      </label>
+      </div>
       <label className="manager-field">
         <span className="manager-field-label">
           {props.item.unidadeEconomicaCusto === "KM" ? "Custo por km" : "Valor do custo"}
@@ -3912,8 +4081,13 @@ function ResourceItemFields(props: {
       ) : null}
       {props.item.tipoCalculoRecurso === "AUTOMATICO" && props.item.unidadeEconomicaCusto === "KM" ? (
         <>
-          <label className="manager-field">
-            <span className="manager-field-label">Capacidade por viagem</span>
+          <div className="manager-field">
+            <ResourceTechnicalFieldHeader
+              label="Capacidade por viagem"
+              inherited={isInherited("capacidadePorViagem")}
+              personalized={isPersonalized("capacidadePorViagem")}
+              onEdit={() => props.onPersonalizeResourceField(props.item.localId, "capacidadePorViagem")}
+            />
             <input
               className="field-control"
               type="number"
@@ -3921,18 +4095,25 @@ function ResourceItemFields(props: {
               step="0.01"
               value={props.item.capacidadePorViagem}
               placeholder="Ex.: 14"
-              onChange={(event) => props.onUpdate(props.item.localId, "capacidadePorViagem", event.target.value)}
+              disabled={isInherited("capacidadePorViagem")}
+              onChange={(event) => updateTechnicalField("capacidadePorViagem", event.target.value)}
             />
-          </label>
-          <label className="manager-field">
-            <span className="manager-field-label">Unidade da capacidade</span>
+          </div>
+          <div className="manager-field">
+            <ResourceTechnicalFieldHeader
+              label="Unidade da capacidade"
+              inherited={isInherited("unidadeCapacidade")}
+              personalized={isPersonalized("unidadeCapacidade")}
+              onEdit={() => props.onPersonalizeResourceField(props.item.localId, "unidadeCapacidade")}
+            />
             <input
               className="field-control"
               value={props.item.unidadeCapacidade}
               placeholder="Ex.: m3"
-              onChange={(event) => props.onUpdate(props.item.localId, "unidadeCapacidade", event.target.value)}
+              disabled={isInherited("unidadeCapacidade")}
+              onChange={(event) => updateTechnicalField("unidadeCapacidade", event.target.value)}
             />
-          </label>
+          </div>
           <label className="manager-field">
             <span className="manager-field-label">Distancia por viagem (ida e volta)</span>
             <input
@@ -3989,23 +4170,59 @@ function ResourceItemFields(props: {
   );
 }
 
+function ResourceTechnicalFieldHeader(props: {
+  label: string;
+  inherited: boolean;
+  personalized: boolean;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="orcamentos-resource-field-header">
+      <div>
+        <span className="manager-field-label">{props.label}</span>
+        {props.inherited ? (
+          <small className="orcamentos-resource-origin is-inherited">
+            <LockKeyhole size={12} aria-hidden="true" />
+            Herdado do Cadastro Mestre
+          </small>
+        ) : props.personalized ? (
+          <small className="orcamentos-resource-origin is-custom">
+            Valor personalizado nesta Frente
+          </small>
+        ) : null}
+      </div>
+      {props.inherited ? (
+        <button type="button" className="orcamentos-resource-edit" onClick={props.onEdit}>
+          <Pencil size={12} aria-hidden="true" />
+          Editar
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function getRecursoOptions(
   categoria: CategoriaRecursoOrcamento,
   options: {
     materialOptions: MaterialSelectOption[];
+    equipamentoOptions: EquipamentoResourceOption[];
     classeOperacionalOptions: BasicSelectOption[];
     colaboradorOptions: NamedSelectOption[];
     fornecedorOptions: NamedSelectOption[];
   }
 ) : RecursoSelectOption[] {
-  if (categoria === "EQUIPAMENTO") return options.classeOperacionalOptions;
+  if (categoria === "EQUIPAMENTO") {
+    return options.classeOperacionalOptions;
+  }
   if (categoria === "MATERIAL") return options.materialOptions;
   if (categoria === "EQUIPE") return options.colaboradorOptions;
   return options.fornecedorOptions;
 }
 
 function getRecursoValue(item: ItemForm) {
-  if (item.categoriaRecurso === "EQUIPAMENTO") return item.classeOperacional;
+  if (item.categoriaRecurso === "EQUIPAMENTO") {
+    return item.classeOperacional;
+  }
   if (item.categoriaRecurso === "MATERIAL") return item.materialId;
   return item.recursoReferenciaId;
 }
@@ -4023,7 +4240,7 @@ function ItensSection(props: {
   frentes: FrenteForm[];
   servicoOptions: ServicoSelectOption[];
   materialOptions: MaterialSelectOption[];
-  equipamentoOptions: BasicSelectOption[];
+  equipamentoOptions: EquipamentoResourceOption[];
   classeOperacionalOptions: BasicSelectOption[];
   colaboradorOptions: NamedSelectOption[];
   fornecedorOptions: NamedSelectOption[];
@@ -4393,6 +4610,8 @@ function mapItemPayload(item: ItemForm, tipoOrcamento: TipoOrcamento) {
     quilometrosTotais: recurso && item.quilometrosTotais ? Number(item.quilometrosTotais) : null,
     capacidadePorViagem: recurso && item.capacidadePorViagem ? Number(item.capacidadePorViagem) : null,
     unidadeCapacidade: recurso ? item.unidadeCapacidade.trim() || null : null,
+    caracteristicasRecursoSnapshot: recurso ? item.caracteristicasRecursoSnapshot : null,
+    camposTecnicosPersonalizados: recurso ? item.camposTecnicosPersonalizados : [],
     cargasTotais: recurso && item.cargasTotais ? Number(item.cargasTotais) : null,
     mesesTotais: recurso && item.mesesTotais ? Number(item.mesesTotais) : null,
     diasTrabalhadosMes: recurso ? Number(item.diasTrabalhadosMes) || 22 : null,
@@ -4641,6 +4860,10 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
             quilometrosTotais: toStringValue(orcamentoItem.quilometrosTotais),
             capacidadePorViagem: toStringValue(orcamentoItem.capacidadePorViagem),
             unidadeCapacidade: orcamentoItem.unidadeCapacidade ?? "",
+            caracteristicasRecursoSnapshot: normalizarSnapshotCaracteristicasRecurso(
+              orcamentoItem.caracteristicasRecursoSnapshot
+            ),
+            camposTecnicosPersonalizados: orcamentoItem.camposTecnicosPersonalizados ?? [],
             cargasTotais: toStringValue(orcamentoItem.cargasTotais),
             mesesTotais: toStringValue(orcamentoItem.mesesTotais),
             diasTrabalhadosMes: toStringValue(orcamentoItem.diasTrabalhadosMes ?? 22),

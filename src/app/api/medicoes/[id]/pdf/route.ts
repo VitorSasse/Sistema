@@ -2,6 +2,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { MedicaoPdfDocument, type MedicaoPdfTipo } from "@/server/pdf/medicao-pdf";
 import { resolveReportLogoSource } from "@/server/pdf/report-logo";
 
@@ -72,6 +73,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params;
+  const empresaId = getActiveTenantEmpresaId();
+
+  if (!empresaId) {
+    return NextResponse.json({ message: "Selecione uma empresa para gerar o PDF." }, { status: 409 });
+  }
 
   const [medicao, empresa] = await Promise.all([
     prisma.medicao.findFirst({
@@ -98,7 +104,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         }
       }
     }),
-    prisma.empresa.findUnique({ where: { id: session.user.empresaId } })
+    prisma.empresa.findUnique({ where: { id: empresaId } })
   ]);
 
   if (!medicao) {

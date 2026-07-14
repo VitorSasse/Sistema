@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
 
 const allowedPresets = [
@@ -139,6 +140,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
+  const empresaId = getActiveTenantEmpresaId();
+
+  if (!empresaId) {
+    return NextResponse.json({ message: "Selecione uma empresa para visualizar o faturamento." }, { status: 409 });
+  }
+
   const period = resolvePeriod(request.nextUrl.searchParams);
 
   if (!period) {
@@ -168,7 +175,9 @@ export async function GET(request: NextRequest) {
         INNER JOIN "MedicaoItem" item
           ON item."medicaoId" = medicao.id
          AND item."deletedAt" IS NULL
+         AND item."empresaId" = ${empresaId}
         WHERE medicao."deletedAt" IS NULL
+          AND medicao."empresaId" = ${empresaId}
           AND medicao.status <> 'CANCELADA'::"StatusMedicao"
         GROUP BY medicao.id, medicao.status, medicao."clienteId"
         HAVING MAX(item."data") >= ${period.start}
@@ -183,7 +192,9 @@ export async function GET(request: NextRequest) {
         COALESCE(SUM(medicao."valorLiquido"), 0) AS "totalGeral",
         COUNT(DISTINCT medicao.id) AS "totalMedicoes"
       FROM medicoes_periodo medicao
-      INNER JOIN "Cliente" cliente ON cliente.id = medicao."clienteId"
+      INNER JOIN "Cliente" cliente
+        ON cliente.id = medicao."clienteId"
+       AND cliente."empresaId" = ${empresaId}
       GROUP BY cliente.id, cliente.codigo, cliente.nome
       ORDER BY "totalGeral" DESC, cliente.nome ASC
     `),
@@ -199,7 +210,9 @@ export async function GET(request: NextRequest) {
         INNER JOIN "MedicaoItem" item
           ON item."medicaoId" = medicao.id
          AND item."deletedAt" IS NULL
+         AND item."empresaId" = ${empresaId}
         WHERE medicao."deletedAt" IS NULL
+          AND medicao."empresaId" = ${empresaId}
           AND medicao.status <> 'CANCELADA'::"StatusMedicao"
         GROUP BY medicao.id, medicao.status, medicao."clienteId"
         HAVING MAX(item."data") >= ${period.start}
@@ -226,7 +239,9 @@ export async function GET(request: NextRequest) {
         INNER JOIN "MedicaoItem" item
           ON item."medicaoId" = medicao.id
          AND item."deletedAt" IS NULL
+         AND item."empresaId" = ${empresaId}
         WHERE medicao."deletedAt" IS NULL
+          AND medicao."empresaId" = ${empresaId}
           AND medicao.status <> 'CANCELADA'::"StatusMedicao"
         GROUP BY medicao.id
         HAVING MAX(item."data") >= ${period.start}
@@ -240,7 +255,9 @@ export async function GET(request: NextRequest) {
         COALESCE(SUM(medicao."valorBase" * medicao."permutaPercentual" / 100), 0) AS "valorPermuta",
         COUNT(DISTINCT medicao.id) AS "totalMedicoes"
       FROM medicoes_periodo medicao
-      INNER JOIN "Cliente" cliente ON cliente.id = medicao."clienteId"
+      INNER JOIN "Cliente" cliente
+        ON cliente.id = medicao."clienteId"
+       AND cliente."empresaId" = ${empresaId}
       GROUP BY cliente.id, cliente.codigo, cliente.nome
       HAVING COALESCE(SUM(medicao."valorBase"), 0) > 0
       ORDER BY "valorPermuta" DESC, "valorBase" DESC, cliente.nome ASC

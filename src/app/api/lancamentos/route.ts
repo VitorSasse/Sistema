@@ -2,6 +2,7 @@ import { StatusCadastro, StatusLancamento } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import {
   calcularQuantidadeRomaneiosEsperada,
@@ -377,6 +378,7 @@ export async function POST(request: NextRequest) {
       if (!ficha) {
         ficha = await tx.ficha.create({
           data: {
+            empresaId: requireActiveTenantEmpresaId(),
             numero: parsed.data.fichaNumero,
             data: dataReferencia,
             clienteId: cliente.id,
@@ -400,6 +402,7 @@ export async function POST(request: NextRequest) {
 
       const lancamento = await tx.lancamentoDiario.create({
         data: {
+          empresaId: requireActiveTenantEmpresaId(),
           fichaId: ficha.id,
           data: dataReferencia,
           clienteId: cliente.id,

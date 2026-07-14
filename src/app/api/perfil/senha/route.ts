@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { runWithoutTenantScope } from "@/lib/tenant-store";
 import { alterarSenhaSchema } from "@/lib/validators/perfil";
 
 export async function PATCH(request: NextRequest) {
@@ -23,10 +24,12 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const usuario = await prisma.usuario.findUnique({
-    where: { id: session.user.id },
-    select: { id: true, senhaHash: true }
-  });
+  const usuario = await runWithoutTenantScope(() =>
+    prisma.usuario.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, senhaHash: true }
+    })
+  );
 
   if (!usuario) {
     return NextResponse.json({ message: "Usuario nao encontrado." }, { status: 404 });
@@ -56,10 +59,14 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  await prisma.usuario.update({
-    where: { id: usuario.id },
-    data: { senhaHash: await bcrypt.hash(parsed.data.novaSenha, 10) }
-  });
+  const senhaHash = await bcrypt.hash(parsed.data.novaSenha, 10);
+
+  await runWithoutTenantScope(() =>
+    prisma.usuario.update({
+      where: { id: usuario.id },
+      data: { senhaHash }
+    })
+  );
 
   return NextResponse.json({ message: "Senha alterada com sucesso." });
 }

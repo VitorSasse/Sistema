@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { PrismaClient, RoleCodigo, StatusCadastro } from "@prisma/client";
 
 const prisma = new PrismaClient();
+const TARGET_EMPRESA_ID = process.env.TARGET_EMPRESA_ID?.trim();
 
 const USERS = [
   { nome: "ENGENHARIA", email: "engenharia@jtbterraplenagem.com.br" },
@@ -12,6 +13,10 @@ const PASSWORD = "Jmix2026";
 const ROLE = RoleCodigo.ADMIN;
 
 async function main() {
+  if (!TARGET_EMPRESA_ID) {
+    throw new Error("Informe TARGET_EMPRESA_ID para criar usuarios sem assumir uma empresa padrao.");
+  }
+
   const senhaHash = await bcrypt.hash(PASSWORD, 10);
 
   const role = await prisma.role.findUniqueOrThrow({
@@ -27,6 +32,7 @@ async function main() {
         status: StatusCadastro.ATIVO
       },
       create: {
+        empresaId: TARGET_EMPRESA_ID,
         nome: user.nome,
         email: user.email,
         senhaHash,

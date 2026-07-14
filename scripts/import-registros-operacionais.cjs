@@ -4,9 +4,15 @@ const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 const inputPath = process.argv[2];
+const TARGET_EMPRESA_ID = process.env.TARGET_EMPRESA_ID?.trim();
 
 if (!inputPath) {
   console.error("Uso: node scripts/import-registros-operacionais.cjs <arquivo-json>");
+  process.exit(1);
+}
+
+if (!TARGET_EMPRESA_ID) {
+  console.error("Defina TARGET_EMPRESA_ID para executar a importacao com isolamento multiempresa.");
   process.exit(1);
 }
 
@@ -61,6 +67,7 @@ async function main() {
       const [existingServicos, existingMateriais, existingClientes, existingObras] =
         await Promise.all([
           tx.servico.findMany({
+            where: { empresaId: TARGET_EMPRESA_ID },
             select: {
               id: true,
               codigo: true,
@@ -72,6 +79,7 @@ async function main() {
             },
           }),
           tx.material.findMany({
+            where: { empresaId: TARGET_EMPRESA_ID },
             select: {
               id: true,
               codigoMaterial: true,
@@ -82,6 +90,7 @@ async function main() {
             },
           }),
           tx.cliente.findMany({
+            where: { empresaId: TARGET_EMPRESA_ID },
             select: {
               id: true,
               codigo: true,
@@ -92,6 +101,7 @@ async function main() {
             },
           }),
           tx.obra.findMany({
+            where: { empresaId: TARGET_EMPRESA_ID },
             select: {
               id: true,
               codigo: true,
@@ -133,7 +143,7 @@ async function main() {
 
         if (existing) {
           await tx.servico.update({
-            where: { id: existing.id },
+            where: { id: existing.id, empresaId: TARGET_EMPRESA_ID },
             data: { tipoServico, formaMedicao, unidadeFaturamento, observacao, status },
           });
           result.reused.push(`SERVIÇO: ${existing.codigo} | ${tipoServico}`);
@@ -143,6 +153,7 @@ async function main() {
         const codigo = nextSequentialCode("SER", usedCodes.servicos);
         const created = await tx.servico.create({
           data: {
+            empresaId: TARGET_EMPRESA_ID,
             codigo,
             tipoServico,
             formaMedicao,
@@ -179,7 +190,7 @@ async function main() {
 
         if (existing) {
           await tx.material.update({
-            where: { id: existing.id },
+            where: { id: existing.id, empresaId: TARGET_EMPRESA_ID },
             data: { descricao, unidadePadrao, observacao, status },
           });
           result.reused.push(
@@ -191,6 +202,7 @@ async function main() {
         const codigoMaterial = nextSequentialCode("MAT", usedCodes.materiais);
         const created = await tx.material.create({
           data: {
+            empresaId: TARGET_EMPRESA_ID,
             codigoMaterial,
             descricao,
             unidadePadrao,
@@ -234,7 +246,7 @@ async function main() {
 
         if (existing) {
           await tx.cliente.update({
-            where: { id: existing.id },
+            where: { id: existing.id, empresaId: TARGET_EMPRESA_ID },
             data: { nome, status, tipoCliente, cpf, cnpj },
           });
           clientPlanilhaToReal.set(planilhaId, existing.id);
@@ -245,6 +257,7 @@ async function main() {
         const codigo = nextSequentialCode("CLI", usedCodes.clientes);
         const created = await tx.cliente.create({
           data: {
+            empresaId: TARGET_EMPRESA_ID,
             codigo,
             tipoCliente,
             nome,
@@ -287,7 +300,7 @@ async function main() {
 
         if (existing) {
           await tx.obra.update({
-            where: { id: existing.id },
+            where: { id: existing.id, empresaId: TARGET_EMPRESA_ID },
             data: { nome, status, liberadaParaLancamento },
           });
           result.reused.push(`OBRA: ${existing.codigo} | ${nome}`);
@@ -296,7 +309,14 @@ async function main() {
 
         const codigo = nextSequentialCode("OBR", usedCodes.obras);
         const created = await tx.obra.create({
-          data: { codigo, clienteId, nome, status, liberadaParaLancamento },
+          data: {
+            empresaId: TARGET_EMPRESA_ID,
+            codigo,
+            clienteId,
+            nome,
+            status,
+            liberadaParaLancamento
+          },
         });
 
         existingObras.push({

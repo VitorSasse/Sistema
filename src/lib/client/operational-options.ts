@@ -10,6 +10,10 @@ export type OperationalOption = {
   placaOuTag?: string;
   tipoRecurso?: string;
   classeOperacional?: string | null;
+  capacidadeM3?: string | number | null;
+  unidadeCapacidade?: string | null;
+  unidadeEconomicaPadrao?: string | null;
+  caracteristicasTecnicas?: Record<string, unknown> | null;
   status: "ATIVO" | "INATIVO";
   clienteId?: string;
   liberadaParaLancamento?: boolean;

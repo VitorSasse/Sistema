@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { formatDateInputValue } from "@/lib/utils/date";
 import { programacaoSchema } from "@/lib/validators/programacao";
 import {
@@ -163,7 +164,10 @@ export async function POST(request: NextRequest) {
 
         records.push(
           await tx.agendaProgramacao.create({
-            data,
+            data: {
+              ...data,
+              empresaId: requireActiveTenantEmpresaId()
+            },
             include: {
               equipamento: {
                 select: {

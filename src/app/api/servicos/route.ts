@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { generateServicoCode } from "@/lib/utils/code-generation";
 import { servicoSchema } from "@/lib/validators/servico";
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
     const codigo = await generateServicoCode();
     const servico = await prisma.servico.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         codigo,
         tipoServico: parsed.data.tipoServico,
         categoria: parsed.data.categoria || null,

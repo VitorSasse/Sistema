@@ -39,7 +39,7 @@ export function MasterCompanySelector() {
 
   const selectedLabel = useMemo(() => {
     if (!selectedEmpresaId) {
-      return "Visao global";
+      return "Selecione uma empresa";
     }
 
     const empresa = empresas.find((item) => item.id === selectedEmpresaId);
@@ -47,13 +47,17 @@ export function MasterCompanySelector() {
   }, [empresas, selectedEmpresaId]);
 
   function handleChange(value: string) {
+    if (!value) {
+      return;
+    }
+
     setSelectedEmpresaId(value);
 
     startTransition(async () => {
       await fetch("/api/master/empresa-selecionada", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ empresaId: value || null })
+        body: JSON.stringify({ empresaId: value })
       });
 
       window.location.reload();
@@ -70,7 +74,7 @@ export function MasterCompanySelector() {
         disabled={isPending}
         aria-label="Selecionar empresa para visualizacao operacional"
       >
-        <option value="">Visao global</option>
+        <option value="" disabled>Selecione uma empresa</option>
         {empresas.map((empresa) => (
           <option key={empresa.id} value={empresa.id}>
             {empresa.nomeFantasia || empresa.nome} {empresa.status === "INATIVO" ? "(inativa)" : ""}

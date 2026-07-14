@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { generateMaterialCode } from "@/lib/utils/code-generation";
 import { materialSchema } from "@/lib/validators/material";
 
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
     const codigoMaterial = await generateMaterialCode();
     const material = await prisma.material.create({
       data: {
+        empresaId: requireActiveTenantEmpresaId(),
         codigoMaterial,
         descricao: parsed.data.descricao,
         categoria: parsed.data.categoria || null,
