@@ -32,9 +32,15 @@ export function MedicaoEditDialog(props: {
     onCancel
   } = props;
   const dialogRef = useRef<HTMLElement | null>(null);
+  const onCancelRef = useRef(onCancel);
+  const isPendingRef = useRef(isPending);
+  const isOpen = editing !== null;
+
+  onCancelRef.current = onCancel;
+  isPendingRef.current = isPending;
 
   useEffect(() => {
-    if (!editing) {
+    if (!isOpen) {
       return;
     }
 
@@ -43,8 +49,8 @@ export function MedicaoEditDialog(props: {
     dialogRef.current?.focus();
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !isPending) {
-        onCancel();
+      if (event.key === "Escape" && !isPendingRef.current) {
+        onCancelRef.current();
       }
     }
 
@@ -54,7 +60,7 @@ export function MedicaoEditDialog(props: {
       document.body.style.overflow = originalOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [editing, isPending, onCancel]);
+  }, [isOpen]);
 
   if (!editing) {
     return null;
