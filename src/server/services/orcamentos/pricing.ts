@@ -68,18 +68,34 @@ function buildCostEngineInput(
       quantidadePrevista: frente.quantidadePrevista,
       produtividadeDia: frente.produtividadeDia,
       prazoEstimadoDias: frente.prazoEstimadoDias,
+      prazoTeoricoDias: frente.prazoTeoricoDias,
+      prazoAdotadoDias: frente.prazoAdotadoDias,
+      origemPrazo: frente.origemPrazo,
       modoCusto: frente.modoCusto,
       custoManual: frente.custoManual
     })),
     recursos: itens
       .filter((item) => item.tipoItem === TipoItemOrcamento.RECURSO)
       .map((item) => ({
+        ref: item.tempId?.trim() || `${getItemFrenteRef(item)}:item:${item.ordem}`,
         frenteRef: getItemFrenteRef(item),
         categoria: item.categoriaRecurso,
         descricao: item.descricao,
         quantidade: item.quantidade,
         custoOperacional: item.custoUnitario,
-        unidadeCusto: item.unidade
+        unidadeCusto: item.unidade,
+        tipoCalculo: item.tipoCalculoRecurso,
+        unidadeEconomicaCusto: item.unidadeEconomicaCusto,
+        valorCusto: item.valorCusto,
+        horasDia: item.horasDia,
+        horasTotais: item.horasTotais,
+        viagensDia: item.viagensDia,
+        viagensTotais: item.viagensTotais,
+        distanciaViagemKm: item.distanciaViagemKm,
+        quilometrosTotais: item.quilometrosTotais,
+        cargasTotais: item.cargasTotais,
+        mesesTotais: item.mesesTotais,
+        diasTrabalhadosMes: item.diasTrabalhadosMes
       }))
   };
 }

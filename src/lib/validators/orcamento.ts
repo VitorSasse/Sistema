@@ -2,12 +2,15 @@ import {
   CategoriaRecursoOrcamento,
   ModoCustoFrente,
   ModoCustoOrcamento,
+  OrigemPrazoFrente,
   StatusCenarioOrcamento,
   StatusOrcamento,
   StatusPropostaComercial,
+  TipoCalculoRecurso,
   TipoItemOrcamento,
   TipoOrcamento,
-  TipoPremissaOrcamento
+  TipoPremissaOrcamento,
+  UnidadeEconomicaCusto
 } from "@prisma/client";
 import { z } from "zod";
 import { parseDateOnlyStart, parseOptionalDateOnlyStart } from "@/lib/utils/date";
@@ -49,6 +52,9 @@ const orcamentoFrenteSchema = z.object({
   quantidadePrevista: numeroDecimal(999999999).optional().nullable(),
   produtividadeDia: numeroDecimal(999999999).optional().nullable(),
   prazoEstimadoDias: numeroDecimal(9999).optional().nullable(),
+  prazoTeoricoDias: numeroDecimal(9999).optional().nullable(),
+  prazoAdotadoDias: numeroDecimal(9999).optional().nullable(),
+  origemPrazo: z.nativeEnum(OrigemPrazoFrente).optional(),
   modoCusto: z.nativeEnum(ModoCustoFrente).default(ModoCustoFrente.AUTO),
   custoManual: numeroDecimal(999999999).default(0),
   observacao: z.string().trim().max(500).optional().or(z.literal(""))
@@ -91,6 +97,7 @@ const orcamentoPropostaComercialSchema = z.object({
 });
 
 const orcamentoItemSchema = z.object({
+  tempId: z.string().trim().max(80).optional().or(z.literal("")),
   frenteTempId: z.string().trim().max(80).optional().or(z.literal("")),
   frenteOrdem: z.number().int().positive().max(999).optional().nullable(),
   tipoItem: z.nativeEnum(TipoItemOrcamento).default(TipoItemOrcamento.COMERCIAL),
@@ -108,6 +115,20 @@ const orcamentoItemSchema = z.object({
   quantidade: numeroDecimal(999999999),
   produtividade: numeroDecimal(999999999).optional().nullable(),
   custoUnitario: numeroDecimal(999999999).default(0),
+  tipoCalculoRecurso: z.nativeEnum(TipoCalculoRecurso).optional(),
+  unidadeEconomicaCusto: z.nativeEnum(UnidadeEconomicaCusto).optional().nullable(),
+  valorCusto: numeroDecimal(999999999).optional().nullable(),
+  horasDia: numeroDecimal(24).optional().nullable(),
+  horasTotais: numeroDecimal(999999999).optional().nullable(),
+  viagensDia: numeroDecimal(999999).optional().nullable(),
+  viagensTotais: numeroDecimal(999999999).optional().nullable(),
+  distanciaViagemKm: numeroDecimal(999999).optional().nullable(),
+  quilometrosTotais: numeroDecimal(999999999).optional().nullable(),
+  cargasTotais: numeroDecimal(999999999).optional().nullable(),
+  mesesTotais: numeroDecimal(999999).optional().nullable(),
+  diasTrabalhadosMes: numeroDecimal(31).optional().nullable(),
+  custoTotalCalculado: numeroDecimal(999999999).optional(),
+  memoriaCalculo: z.string().trim().max(3000).optional().or(z.literal("")),
   valorUnitario: numeroDecimal(999999999).default(0),
   observacao: z.string().trim().max(500).optional().or(z.literal(""))
 }).superRefine((item, context) => {
@@ -130,6 +151,65 @@ const orcamentoItemSchema = z.object({
       message: "Informe a categoria do recurso."
     });
     return;
+  }
+
+  if (item.unidadeEconomicaCusto && Number(item.valorCusto ?? 0) <= 0) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["valorCusto"],
+      message: "Informe um valor de custo maior que zero."
+    });
+  }
+
+  if (
+    item.tipoCalculoRecurso === TipoCalculoRecurso.AUTOMATICO &&
+    item.unidadeEconomicaCusto === UnidadeEconomicaCusto.HORA &&
+    Number(item.horasTotais ?? 0) <= 0 &&
+    Number(item.horasDia ?? 0) <= 0
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["horasTotais"],
+      message: "Informe o total de horas."
+    });
+  }
+
+  if (
+    item.tipoCalculoRecurso === TipoCalculoRecurso.AUTOMATICO &&
+    item.unidadeEconomicaCusto === UnidadeEconomicaCusto.VIAGEM &&
+    Number(item.viagensTotais ?? 0) <= 0 &&
+    Number(item.viagensDia ?? 0) <= 0
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["viagensTotais"],
+      message: "Informe a quantidade total de viagens."
+    });
+  }
+
+  if (
+    item.tipoCalculoRecurso === TipoCalculoRecurso.AUTOMATICO &&
+    item.unidadeEconomicaCusto === UnidadeEconomicaCusto.KM &&
+    Number(item.quilometrosTotais ?? 0) <= 0 &&
+    (Number(item.distanciaViagemKm ?? 0) <= 0 || Number(item.viagensDia ?? 0) <= 0)
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["quilometrosTotais"],
+      message: "Informe a quantidade total de quilometros."
+    });
+  }
+
+  if (
+    item.tipoCalculoRecurso === TipoCalculoRecurso.AUTOMATICO &&
+    item.unidadeEconomicaCusto === UnidadeEconomicaCusto.CARGA &&
+    Number(item.cargasTotais ?? 0) <= 0
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["cargasTotais"],
+      message: "Informe a quantidade total de cargas."
+    });
   }
 
   if (item.categoriaRecurso === CategoriaRecursoOrcamento.EQUIPAMENTO && !item.classeOperacional?.trim()) {

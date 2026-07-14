@@ -43,6 +43,10 @@ const errorMap: Record<string, { message: string; status: number }> = {
     message: "Orcamento nao encontrado.",
     status: 404
   },
+  CODIGO_ORCAMENTO_DUPLICADO: {
+    message: "Ja existe outro orcamento com este codigo.",
+    status: 409
+  },
   ORCAMENTO_ARQUIVADO: {
     message: "Orcamento arquivado nao pode ser evoluido.",
     status: 409
@@ -99,8 +103,19 @@ export function handleOrcamentoApiError(error: unknown) {
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2002") {
+      const target = error.meta?.target;
+      const fields = Array.isArray(target) ? target.map(String) : [String(target ?? "")];
+      const isCodigoOrcamento = fields.some((field) =>
+        field.toLocaleLowerCase("pt-BR").includes("codigo")
+      );
+
       return NextResponse.json(
-        { message: "Ja existe um orcamento com este codigo. Tente novamente." },
+        {
+          message: isCodigoOrcamento
+            ? "Ja existe outro orcamento com este codigo."
+            : "Existe outro registro com os mesmos dados unicos neste orcamento.",
+          detail: String(error)
+        },
         { status: 409 }
       );
     }

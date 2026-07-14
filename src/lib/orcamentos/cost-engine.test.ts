@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  calcularPlanejamentoFrente,
   calcularMotorCustos,
   JORNADA_PADRAO_HORAS_DIA,
   resolveFrontCost
@@ -375,5 +376,205 @@ describe("Motor de custos do orcamento operacional", () => {
     expect(result.memoria[0]?.descricao).toBe("Escavadeira 15 ton");
     expect(result.memoria[0]?.quantidadeRecursos).toBe(2);
     expect(result.memoria[0]?.custoTotal).toBe(200);
+  });
+});
+
+describe("Evolucao do prazo e das unidades economicas", () => {
+  const frenteBase = {
+    ref: "frente-operacional",
+    nome: "Escavacao",
+    unidadeProducao: "m3",
+    quantidadePrevista: 1000,
+    produtividadeDia: 100
+  };
+
+  function calcularRecurso(
+    unidadeEconomicaCusto: "CUSTO_FIXO" | "DIA" | "HORA" | "KM" | "M3" | "M2" | "VIAGEM" | "CARGA" | "MES" | "UNIDADE_PRODUZIDA" | "UNIDADE" | "VALOR_TOTAL",
+    overrides: Record<string, unknown> = {},
+    frente: Record<string, unknown> = frenteBase
+  ) {
+    return calcularMotorCustos({
+      frentes: [frente as typeof frenteBase],
+      recursos: [{
+        ref: "recurso-1",
+        frenteRef: "frente-operacional",
+        descricao: "Recurso teste",
+        quantidade: 1,
+        valorCusto: 100,
+        unidadeEconomicaCusto,
+        tipoCalculo: "AUTOMATICO",
+        ...overrides
+      }]
+    });
+  }
+
+  it("calcula o prazo teorico pela quantidade e produtividade", () => {
+    const planejamento = calcularPlanejamentoFrente({
+      ref: "frente-1",
+      quantidadePrevista: 28000,
+      produtividadeDia: 500
+    });
+
+    expect(planejamento.prazoTeorico).toBe(56);
+    expect(planejamento.origemPrazo).toBe("AUTOMATICO");
+  });
+
+  it("recalcula a produtividade quando existe prazo adotado", () => {
+    const planejamento = calcularPlanejamentoFrente({
+      ref: "frente-1",
+      quantidadePrevista: 28000,
+      produtividadeDia: 500,
+      prazoTeoricoDias: 56,
+      prazoAdotadoDias: 40,
+      origemPrazo: "AJUSTADO"
+    });
+
+    expect(planejamento.produtividadeAjustada).toBe(700);
+    expect(planejamento.prazoTeorico).toBe(56);
+  });
+
+  it("usa o prazo adotado no custo diario", () => {
+    const result = calcularRecurso("DIA", { valorCusto: 900 }, {
+      ...frenteBase,
+      prazoAdotadoDias: 12,
+      origemPrazo: "AJUSTADO"
+    });
+
+    expect(result.custoDiretoTotal).toBe(10800);
+    expect(result.frentes[0]?.prazoDias).toBe(12);
+  });
+
+  it("calcula recurso em reais por dia", () => {
+    expect(calcularRecurso("DIA", { quantidade: 2, valorCusto: 900 }).custoDiretoTotal).toBe(18000);
+  });
+
+  it("calcula 1 recurso de R$ 900 por dia durante 11,03 dias", () => {
+    const result = calcularRecurso("DIA", { quantidade: 1, valorCusto: 900 }, {
+      ...frenteBase,
+      quantidadePrevista: 5560.66,
+      produtividadeDia: 504
+    });
+
+    expect(result.custoDiretoTotal).toBe(9927);
+    expect(result.memoria[0]?.formula).toContain("11,03 dias");
+    expect(result.memoria[0]?.unidadeCustoFormatada).toBe("R$/dia");
+  });
+
+  it("calcula recurso de custo fixo pela quantidade", () => {
+    expect(calcularRecurso("CUSTO_FIXO", { quantidade: 2, valorCusto: 450 }).custoDiretoTotal).toBe(900);
+  });
+
+  it("calcula recurso em reais por hora", () => {
+    expect(calcularRecurso("HORA", { quantidade: 2, valorCusto: 100, horasTotais: 80 }).custoDiretoTotal).toBe(16000);
+  });
+
+  it("calcula recurso em reais por metro cubico", () => {
+    expect(calcularRecurso("M3", { quantidade: 1, valorCusto: 7 }).custoDiretoTotal).toBe(7000);
+  });
+
+  it("calcula recurso em reais por quilometro", () => {
+    const result = calcularRecurso("KM", {
+      valorCusto: 8,
+      quilometrosTotais: 4320
+    });
+    expect(result.custoDiretoTotal).toBe(34560);
+  });
+
+  it("calcula recurso em reais por viagem", () => {
+    const result = calcularRecurso("VIAGEM", {
+      valorCusto: 100,
+      viagensTotais: 80
+    });
+    expect(result.custoDiretoTotal).toBe(8000);
+  });
+
+  it("calcula recurso por carga informada", () => {
+    expect(calcularRecurso("CARGA", { valorCusto: 250, cargasTotais: 12 }).custoDiretoTotal).toBe(3000);
+  });
+
+  it("calcula por m2 e por unidade produzida usando a quantidade da frente", () => {
+    expect(calcularRecurso("M2", { valorCusto: 3 }).custoDiretoTotal).toBe(3000);
+    expect(calcularRecurso("UNIDADE_PRODUZIDA", { valorCusto: 4 }).custoDiretoTotal).toBe(4000);
+  });
+
+  it("calcula recurso mensal pela quantidade de meses da frente", () => {
+    const result = calcularRecurso("MES", { valorCusto: 5000 }, {
+      ...frenteBase,
+      unidadeProducao: "mes",
+      quantidadePrevista: 3.2,
+      produtividadeDia: null
+    });
+    expect(result.custoDiretoTotal).toBe(16000);
+  });
+
+  it("prioriza o total de meses informado no recurso", () => {
+    expect(calcularRecurso("MES", { quantidade: 2, valorCusto: 5000, mesesTotais: 1.5 }).custoDiretoTotal).toBe(15000);
+  });
+
+  it("usa 22 dias por mes como padrao no recurso diario mensal", () => {
+    const result = calcularRecurso("DIA", { valorCusto: 900 }, {
+      ...frenteBase,
+      unidadeProducao: "mes",
+      quantidadePrevista: 3.2,
+      produtividadeDia: null
+    });
+    expect(result.custoDiretoTotal).toBe(63360);
+  });
+
+  it("permite ajustar os dias trabalhados por mes", () => {
+    const result = calcularRecurso("DIA", { valorCusto: 900, diasTrabalhadosMes: 24 }, {
+      ...frenteBase,
+      unidadeProducao: "mes",
+      quantidadePrevista: 3.2,
+      produtividadeDia: null
+    });
+    expect(result.custoDiretoTotal).toBe(69120);
+  });
+
+  it("mantem o modo manual por quantidade e custo informado", () => {
+    const result = calcularRecurso("UNIDADE", {
+      tipoCalculo: "VALOR_TOTAL_MANUAL",
+      quantidade: 2,
+      valorCusto: 450
+    });
+    expect(result.custoDiretoTotal).toBe(900);
+  });
+
+  it("usa diretamente a unidade economica valor total", () => {
+    expect(calcularRecurso("VALOR_TOTAL", { quantidade: 0, valorCusto: 1234.56 }).custoDiretoTotal).toBe(1234.56);
+  });
+
+  it("soma todos os recursos e todas as frentes", () => {
+    const result = calcularMotorCustos({
+      frentes: [
+        { ...frenteBase, ref: "f1" },
+        { ...frenteBase, ref: "f2", quantidadePrevista: 500, produtividadeDia: 100 }
+      ],
+      recursos: [
+        { ref: "r1", frenteRef: "f1", quantidade: 1, valorCusto: 100, unidadeEconomicaCusto: "DIA" },
+        { ref: "r2", frenteRef: "f1", quantidade: 2, valorCusto: 50, unidadeEconomicaCusto: "DIA" },
+        { ref: "r3", frenteRef: "f2", quantidade: 1, valorCusto: 200, unidadeEconomicaCusto: "DIA" }
+      ]
+    });
+    expect(result.frentes[0]?.custoDireto).toBe(2000);
+    expect(result.frentes[1]?.custoDireto).toBe(1000);
+    expect(result.custoDiretoTotal).toBe(3000);
+  });
+
+  it("recalcula imediatamente ao alterar produtividade ou prazo", () => {
+    const automatico = calcularRecurso("DIA", { valorCusto: 100 });
+    const produtividadeAlterada = calcularRecurso("DIA", { valorCusto: 100 }, {
+      ...frenteBase,
+      produtividadeDia: 200
+    });
+    const prazoAlterado = calcularRecurso("DIA", { valorCusto: 100 }, {
+      ...frenteBase,
+      prazoAdotadoDias: 4,
+      origemPrazo: "AJUSTADO"
+    });
+
+    expect(automatico.custoDiretoTotal).toBe(1000);
+    expect(produtividadeAlterada.custoDiretoTotal).toBe(500);
+    expect(prazoAlterado.custoDiretoTotal).toBe(400);
   });
 });

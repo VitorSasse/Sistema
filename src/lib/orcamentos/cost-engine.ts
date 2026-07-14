@@ -1,8 +1,24 @@
 export const JORNADA_PADRAO_HORAS_DIA = 8;
+export const DIAS_TRABALHADOS_MES_PADRAO = 22;
 
 export type CostEngineModoCustoFrente = "AUTO" | "MANUAL";
+export type CostEngineOrigemPrazo = "AUTOMATICO" | "AJUSTADO";
+export type CostEngineTipoCalculoRecurso = "AUTOMATICO" | "VALOR_TOTAL_MANUAL";
+export type CostEngineUnidadeEconomicaCusto =
+  | "CUSTO_FIXO"
+  | "DIA"
+  | "HORA"
+  | "KM"
+  | "M3"
+  | "M2"
+  | "VIAGEM"
+  | "CARGA"
+  | "MES"
+  | "UNIDADE_PRODUZIDA"
+  | "UNIDADE"
+  | "VALOR_TOTAL";
 
-type UnidadeEconomica =
+type UnidadeOperacional =
   | "HORA"
   | "DIA"
   | "KM"
@@ -23,20 +39,49 @@ export type CostEngineFrenteInput = {
   quantidadePrevista?: string | number | null;
   produtividadeDia?: string | number | null;
   prazoEstimadoDias?: string | number | null;
+  prazoTeoricoDias?: string | number | null;
+  prazoAdotadoDias?: string | number | null;
+  origemPrazo?: CostEngineOrigemPrazo | null;
   modoCusto?: CostEngineModoCustoFrente | null;
   custoManual?: string | number | null;
 };
 
 export type CostEngineRecursoInput = {
+  ref?: string | null;
   frenteRef?: string | null;
   categoria?: string | null;
   descricao?: string | null;
   quantidade?: string | number | null;
   custoOperacional?: string | number | null;
   unidadeCusto?: string | null;
+  tipoCalculo?: CostEngineTipoCalculoRecurso | null;
+  unidadeEconomicaCusto?: CostEngineUnidadeEconomicaCusto | null;
+  valorCusto?: string | number | null;
+  horasDia?: string | number | null;
+  horasTotais?: string | number | null;
+  viagensDia?: string | number | null;
+  viagensTotais?: string | number | null;
+  distanciaViagemKm?: string | number | null;
+  quilometrosTotais?: string | number | null;
+  cargasTotais?: string | number | null;
+  mesesTotais?: string | number | null;
+  diasTrabalhadosMes?: string | number | null;
+};
+
+export type CostEnginePlanejamentoFrente = {
+  quantidade: number;
+  produtividadeInformada: number;
+  produtividadeAjustada: number;
+  prazoTeorico: number;
+  prazoAdotado: number;
+  prazoUtilizado: number;
+  prazoCalculo: number;
+  origemPrazo: CostEngineOrigemPrazo;
+  prazoUnidade: string;
 };
 
 export type CostEngineMemoriaRecurso = {
+  recursoRef: string;
   frenteRef: string;
   frenteNome: string;
   categoria: string;
@@ -45,6 +90,17 @@ export type CostEngineMemoriaRecurso = {
   custoOperacional: number;
   unidadeCustoOriginal: string;
   unidadeCustoFormatada: string;
+  tipoCalculo: CostEngineTipoCalculoRecurso;
+  unidadeEconomicaCusto: CostEngineUnidadeEconomicaCusto;
+  horasDia: number;
+  horasTotais: number;
+  viagensDia: number;
+  viagensTotais: number;
+  distanciaViagemKm: number;
+  quilometrosTotais: number;
+  cargasTotais: number;
+  mesesTotais: number;
+  diasTrabalhadosMes: number;
   baseConversao: number;
   custoTotal: number;
   custoUnitarioFrente: number;
@@ -58,8 +114,12 @@ export type CostEngineFrenteResultado = {
   unidade: string;
   quantidade: number;
   produtividadeDia: number;
+  produtividadeAjustada: number;
+  prazoTeoricoDias: number;
+  prazoAdotadoDias: number;
   prazoDias: number;
   prazoUnidade: string;
+  origemPrazo: CostEngineOrigemPrazo;
   custoDireto: number;
   custoDiretoUnitario: number;
   modoCusto: CostEngineModoCustoFrente;
@@ -108,10 +168,7 @@ export type CostEngineResultado = {
 };
 
 function toNumber(value: string | number | null | undefined) {
-  if (value === null || value === undefined || value === "") {
-    return 0;
-  }
-
+  if (value === null || value === undefined || value === "") return 0;
   const parsed = Number(typeof value === "string" ? value.replace(",", ".") : value);
   return Number.isFinite(parsed) ? parsed : 0;
 }
@@ -130,7 +187,7 @@ function normalizeText(value?: string | null) {
     .replace(/²/g, "2");
 }
 
-function normalizeUnidade(value?: string | null): UnidadeEconomica {
+function normalizeUnidade(value?: string | null): UnidadeOperacional {
   const normalized = normalizeText(value)
     .replace("r$", "")
     .replace("por", "/")
@@ -148,13 +205,22 @@ function normalizeUnidade(value?: string | null): UnidadeEconomica {
   if (normalized === "t" || normalized.includes("ton")) return "TON";
   if (normalized.includes("carga")) return "CARGA";
   if (["un", "und", "unidade", "unidades", "item"].includes(normalized)) return "UN";
-
   return "DESCONHECIDA";
+}
+
+function unidadeEconomicaLegada(value?: string | null): CostEngineUnidadeEconomicaCusto {
+  const unidade = normalizeUnidade(value);
+  if (unidade === "DIA") return "DIA";
+  if (unidade === "HORA") return "HORA";
+  if (unidade === "KM") return "KM";
+  if (unidade === "M3") return "M3";
+  if (unidade === "VIAGEM" || unidade === "CARGA") return "VIAGEM";
+  if (unidade === "MES") return "MES";
+  return "UNIDADE";
 }
 
 export function formatarUnidadeCusto(value?: string | null) {
   const unidade = normalizeUnidade(value);
-
   if (unidade === "HORA") return "R$/h";
   if (unidade === "SEMANA") return "R$/semana";
   if (unidade === "MES") return "R$/mes";
@@ -166,13 +232,29 @@ export function formatarUnidadeCusto(value?: string | null) {
   if (unidade === "TON") return "R$/t";
   if (unidade === "CARGA") return "R$/carga";
   if (unidade === "UN") return "R$/un";
-
   return value?.trim() || "R$/un";
+}
+
+export function formatarUnidadeEconomica(value: CostEngineUnidadeEconomicaCusto) {
+  const labels: Record<CostEngineUnidadeEconomicaCusto, string> = {
+    CUSTO_FIXO: "R$/recurso",
+    DIA: "R$/dia",
+    HORA: "R$/hora",
+    KM: "R$/km",
+    M3: "R$/m3",
+    M2: "R$/m2",
+    VIAGEM: "R$/viagem",
+    CARGA: "R$/carga",
+    MES: "R$/mes",
+    UNIDADE_PRODUZIDA: "R$/unidade produzida",
+    UNIDADE: "R$/unidade",
+    VALOR_TOTAL: "Valor total"
+  };
+  return labels[value];
 }
 
 function formatarUnidadeFrente(value?: string | null) {
   const unidade = normalizeUnidade(value);
-
   if (unidade === "M3") return "m3";
   if (unidade === "M2") return "m2";
   if (unidade === "TON") return "t";
@@ -183,136 +265,291 @@ function formatarUnidadeFrente(value?: string | null) {
   if (unidade === "KM") return "km";
   if (unidade === "VIAGEM") return "viagem";
   if (unidade === "DIA") return "dia";
-
   return value?.trim() || "un";
 }
 
-function getPrazoUnidade(unidadeFrente: UnidadeEconomica) {
+function getPrazoUnidade(unidadeFrente: UnidadeOperacional) {
   if (unidadeFrente === "HORA") return "hora(s)";
   if (unidadeFrente === "SEMANA") return "semana(s)";
   if (unidadeFrente === "MES") return "mes(es)";
   return "dia(s)";
 }
 
-function calcularPrazoDias(frente: CostEngineFrenteInput) {
-  const quantidade = toNumber(frente.quantidadePrevista);
-  const produtividade = toNumber(frente.produtividadeDia);
-  const prazoManual = toNumber(frente.prazoEstimadoDias);
+export function calcularPlanejamentoFrente(frente: CostEngineFrenteInput): CostEnginePlanejamentoFrente {
+  const quantidade = Math.max(0, toNumber(frente.quantidadePrevista));
+  const produtividadeInformada = Math.max(0, toNumber(frente.produtividadeDia));
+  const prazoCalculado = quantidade > 0 && produtividadeInformada > 0
+    ? quantidade / produtividadeInformada
+    : 0;
+  const prazoTeoricoPersistido = Math.max(0, toNumber(frente.prazoTeoricoDias));
+  const prazoTeorico = prazoCalculado > 0 ? prazoCalculado : prazoTeoricoPersistido;
+  const prazoAdotadoExplicito = Math.max(0, toNumber(frente.prazoAdotadoDias));
+  const possuiNovosCampos =
+    frente.prazoTeoricoDias !== undefined ||
+    frente.prazoAdotadoDias !== undefined ||
+    frente.origemPrazo !== undefined;
+  const prazoLegado = Math.max(0, toNumber(frente.prazoEstimadoDias));
+  const prazoAdotado = prazoAdotadoExplicito > 0
+    ? prazoAdotadoExplicito
+    : !possuiNovosCampos && prazoLegado > 0
+      ? prazoLegado
+      : 0;
+  const unidadeFrente = normalizeUnidade(frente.unidadeProducao);
+  const prazoNatural =
+    prazoTeorico > 0
+      ? prazoTeorico
+      : ["MES", "DIA", "HORA", "SEMANA"].includes(unidadeFrente)
+        ? quantidade
+        : 0;
+  const prazoUtilizado = prazoAdotado > 0 ? prazoAdotado : prazoNatural;
+  const origemPrazo: CostEngineOrigemPrazo = prazoAdotado > 0 ? "AJUSTADO" : "AUTOMATICO";
+  const produtividadeAjustada =
+    prazoAdotado > 0 && quantidade > 0
+      ? quantidade / prazoAdotado
+      : produtividadeInformada;
 
-  if (prazoManual > 0) {
-    return prazoManual;
-  }
-
-  if (quantidade > 0 && produtividade > 0) {
-    return quantidade / produtividade;
-  }
-
-  return 0;
+  return {
+    quantidade: roundMoney(quantidade),
+    produtividadeInformada: roundMoney(produtividadeInformada),
+    produtividadeAjustada: roundMoney(produtividadeAjustada),
+    prazoTeorico: roundMoney(prazoTeorico),
+    prazoAdotado: roundMoney(prazoAdotado),
+    prazoUtilizado: roundMoney(prazoUtilizado),
+    prazoCalculo: prazoUtilizado,
+    origemPrazo,
+    prazoUnidade: getPrazoUnidade(unidadeFrente)
+  };
 }
 
-function unidadesCompativeis(unidadeCusto: UnidadeEconomica, unidadeFrente: UnidadeEconomica) {
+function formatNumber(value: number) {
+  return roundMoney(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+}
+
+function formatCurrency(value: number) {
+  return roundMoney(value).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  });
+}
+
+function unidadesCompativeis(unidadeCusto: UnidadeOperacional, unidadeFrente: UnidadeOperacional) {
   if (unidadeCusto === unidadeFrente) return true;
   if (unidadeCusto === "VIAGEM" && unidadeFrente === "CARGA") return true;
   if (unidadeCusto === "CARGA" && unidadeFrente === "VIAGEM") return true;
   return false;
 }
 
-function resolverBaseConversao(params: {
-  unidadeCusto: UnidadeEconomica;
-  unidadeFrente: UnidadeEconomica;
+function resolverLegado(params: {
+  unidadeCusto: UnidadeOperacional;
+  unidadeFrente: UnidadeOperacional;
   quantidadeFrente: number;
-  prazoDias: number;
+  prazoUtilizado: number;
   prazoUnidade: string;
 }) {
   const observacoes: string[] = [];
-  const { unidadeCusto, unidadeFrente, quantidadeFrente, prazoDias } = params;
-
-  if (unidadesCompativeis(unidadeCusto, unidadeFrente)) {
-    return {
-      baseConversao: 1,
-      formulaBase: "quantidade total informada do recurso",
-      observacoes
-    };
+  if (unidadesCompativeis(params.unidadeCusto, params.unidadeFrente)) {
+    return { base: 1, descricao: "quantidade total informada do recurso", observacoes };
   }
-
-  if (unidadeCusto === "UN" || unidadeCusto === "DESCONHECIDA") {
-    if (unidadeCusto === "DESCONHECIDA") {
-      observacoes.push("Unidade do custo nao reconhecida; tratada como custo unitario unico.");
-    }
-
-    return {
-      baseConversao: 1,
-      formulaBase: "1",
-      observacoes
-    };
+  if (params.unidadeCusto === "UN" || params.unidadeCusto === "DESCONHECIDA") {
+    return { base: 1, descricao: "1", observacoes };
   }
-
-  if (unidadeCusto === "DIA") {
+  if (params.unidadeCusto === "DIA") {
     if (params.prazoUnidade !== "dia(s)") {
-      observacoes.push(
-        `Recurso por dia nao convertido porque o prazo da frente esta em ${params.prazoUnidade}.`
-      );
-
-      return {
-        baseConversao: 0,
-        formulaBase: "prazo da frente",
-        observacoes
-      };
+      observacoes.push(`Recurso por dia nao convertido porque o prazo esta em ${params.prazoUnidade}.`);
+      return { base: 0, descricao: "prazo da frente", observacoes };
     }
-
-    if (prazoDias <= 0) {
-      observacoes.push("Prazo da frente ausente; recurso por dia nao entrou no custo.");
-    }
-
-    return {
-      baseConversao: prazoDias > 0 ? prazoDias : 0,
-      formulaBase: "prazo da frente em dias",
-      observacoes
-    };
+    return { base: params.prazoUtilizado, descricao: "prazo da frente em dias", observacoes };
   }
-
-  if (unidadeCusto === "HORA") {
-    if (unidadeFrente === "HORA") {
-      return {
-        baseConversao: quantidadeFrente,
-        formulaBase: "quantidade da frente em horas",
-        observacoes
-      };
+  if (params.unidadeCusto === "HORA") {
+    if (params.unidadeFrente === "HORA") {
+      return { base: params.quantidadeFrente, descricao: "quantidade da frente em horas", observacoes };
     }
-
     if (params.prazoUnidade !== "dia(s)") {
-      observacoes.push(
-        `Recurso por hora nao convertido porque o prazo da frente esta em ${params.prazoUnidade}.`
-      );
-
-      return {
-        baseConversao: 0,
-        formulaBase: "prazo x jornada padrao",
-        observacoes
-      };
+      observacoes.push(`Recurso por hora nao convertido porque o prazo esta em ${params.prazoUnidade}.`);
+      return { base: 0, descricao: "prazo x jornada padrao", observacoes };
     }
-
-    if (prazoDias <= 0) {
-      observacoes.push("Prazo da frente ausente; recurso por hora nao entrou no custo.");
-      return {
-        baseConversao: 0,
-        formulaBase: "prazo x jornada padrao",
-        observacoes
-      };
-    }
-
     observacoes.push(`Conversao R$/h usando jornada padrao de ${JORNADA_PADRAO_HORAS_DIA} h/dia.`);
     return {
-      baseConversao: prazoDias * JORNADA_PADRAO_HORAS_DIA,
-      formulaBase: `prazo da frente x ${JORNADA_PADRAO_HORAS_DIA} h/dia`,
+      base: params.prazoUtilizado * JORNADA_PADRAO_HORAS_DIA,
+      descricao: `prazo da frente x ${JORNADA_PADRAO_HORAS_DIA} h/dia`,
       observacoes
     };
   }
+  observacoes.push("Unidade do custo nao compativel; recurso tratado como custo unico.");
+  return { base: 1, descricao: "1", observacoes };
+}
 
-  observacoes.push("Unidade do custo nao compativel com a unidade da frente; recurso tratado como custo unico.");
+function calcularRecurso(params: {
+  frente: CostEngineFrenteInput;
+  recurso: CostEngineRecursoInput;
+  planejamento: CostEnginePlanejamentoFrente;
+}) {
+  const { frente, recurso, planejamento } = params;
+  const quantidadeRecursos = Math.max(0, toNumber(recurso.quantidade));
+  const valorCusto = Math.max(0, toNumber(recurso.valorCusto ?? recurso.custoOperacional));
+  const tipoCalculo = recurso.tipoCalculo ?? "AUTOMATICO";
+  const unidadeEconomica = recurso.unidadeEconomicaCusto ?? unidadeEconomicaLegada(recurso.unidadeCusto);
+  const unidadeFrente = normalizeUnidade(frente.unidadeProducao);
+  const unidadeFormatada = recurso.unidadeEconomicaCusto
+    ? formatarUnidadeEconomica(unidadeEconomica)
+    : formatarUnidadeCusto(recurso.unidadeCusto);
+  const horasDia = Math.max(0, toNumber(recurso.horasDia)) || JORNADA_PADRAO_HORAS_DIA;
+  const horasTotais = Math.max(0, toNumber(recurso.horasTotais));
+  const viagensDia = Math.max(0, toNumber(recurso.viagensDia));
+  const viagensTotais = Math.max(0, toNumber(recurso.viagensTotais));
+  const distanciaViagemKm = Math.max(0, toNumber(recurso.distanciaViagemKm));
+  const quilometrosTotais = Math.max(0, toNumber(recurso.quilometrosTotais));
+  const cargasTotais = Math.max(0, toNumber(recurso.cargasTotais));
+  const mesesTotais = Math.max(0, toNumber(recurso.mesesTotais));
+  const diasTrabalhadosMes =
+    Math.max(0, toNumber(recurso.diasTrabalhadosMes)) || DIAS_TRABALHADOS_MES_PADRAO;
+  const observacoes: string[] = [];
+  let baseConversao = 1;
+  let custoTotal = 0;
+  let formula = "";
+
+  if (tipoCalculo === "VALOR_TOTAL_MANUAL") {
+    custoTotal = quantidadeRecursos * valorCusto;
+    formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)} = ${formatCurrency(custoTotal)}`;
+  } else if (!recurso.unidadeEconomicaCusto) {
+    const legado = resolverLegado({
+      unidadeCusto: normalizeUnidade(recurso.unidadeCusto),
+      unidadeFrente,
+      quantidadeFrente: planejamento.quantidade,
+      prazoUtilizado: planejamento.prazoCalculo,
+      prazoUnidade: planejamento.prazoUnidade
+    });
+    baseConversao = legado.base;
+    observacoes.push(...legado.observacoes);
+    custoTotal = quantidadeRecursos * valorCusto * baseConversao;
+    formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)} x ${legado.descricao} = ${formatCurrency(custoTotal)}`;
+  } else {
+    switch (unidadeEconomica) {
+      case "CUSTO_FIXO": {
+        baseConversao = quantidadeRecursos;
+        custoTotal = quantidadeRecursos * valorCusto;
+        formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)} fixo = ${formatCurrency(custoTotal)}`;
+        break;
+      }
+      case "DIA": {
+        if (unidadeFrente === "MES") {
+          baseConversao = diasTrabalhadosMes * planejamento.quantidade;
+          custoTotal = quantidadeRecursos * valorCusto * baseConversao;
+          formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/dia x ${formatNumber(diasTrabalhadosMes)} dias/mes x ${formatNumber(planejamento.quantidade)} meses = ${formatCurrency(custoTotal)}`;
+        } else {
+          baseConversao = roundMoney(planejamento.prazoCalculo);
+          custoTotal = quantidadeRecursos * valorCusto * baseConversao;
+          formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/dia x ${formatNumber(baseConversao)} dias = ${formatCurrency(custoTotal)}`;
+        }
+        break;
+      }
+      case "HORA": {
+        if (horasTotais > 0) {
+          baseConversao = quantidadeRecursos * horasTotais;
+          custoTotal = valorCusto * baseConversao;
+          formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/hora x ${formatNumber(horasTotais)} horas = ${formatCurrency(custoTotal)}`;
+        } else if (unidadeFrente === "HORA" && planejamento.quantidade > 0) {
+          baseConversao = planejamento.quantidade;
+          custoTotal = quantidadeRecursos * valorCusto * baseConversao;
+          formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/hora x ${formatNumber(baseConversao)} horas = ${formatCurrency(custoTotal)}`;
+        } else {
+          baseConversao = horasDia * planejamento.prazoCalculo;
+          custoTotal = quantidadeRecursos * valorCusto * baseConversao;
+          formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/hora x ${formatNumber(horasDia)} h/dia x ${formatNumber(planejamento.prazoCalculo)} dias = ${formatCurrency(custoTotal)}`;
+          observacoes.push("Compatibilidade: horas totais calculadas pela jornada diaria e pelo prazo da frente.");
+        }
+        break;
+      }
+      case "M3":
+      case "M2":
+      case "UNIDADE_PRODUZIDA": {
+        const unidadeProducao = unidadeEconomica === "M3"
+          ? "m3"
+          : unidadeEconomica === "M2"
+            ? "m2"
+            : formatarUnidadeFrente(frente.unidadeProducao);
+        baseConversao = planejamento.quantidade;
+        custoTotal = valorCusto * baseConversao;
+        formula = `${formatNumber(baseConversao)} ${unidadeProducao} x ${formatCurrency(valorCusto)}/${unidadeProducao} = ${formatCurrency(custoTotal)}`;
+        break;
+      }
+      case "VIAGEM": {
+        baseConversao = viagensTotais > 0
+          ? viagensTotais
+          : quantidadeRecursos * viagensDia * planejamento.prazoCalculo;
+        custoTotal = valorCusto * baseConversao;
+        formula = `${formatNumber(baseConversao)} viagens x ${formatCurrency(valorCusto)}/viagem = ${formatCurrency(custoTotal)}`;
+        if (viagensTotais <= 0 && viagensDia <= 0) observacoes.push("Informe a quantidade total de viagens para calcular este recurso.");
+        if (viagensTotais <= 0 && viagensDia > 0) observacoes.push("Compatibilidade: total calculado por viagens/dia e prazo da frente.");
+        break;
+      }
+      case "KM": {
+        baseConversao = quilometrosTotais > 0
+          ? quilometrosTotais
+          : quantidadeRecursos * distanciaViagemKm * viagensDia * planejamento.prazoCalculo;
+        custoTotal = valorCusto * baseConversao;
+        formula = `${formatNumber(baseConversao)} km x ${formatCurrency(valorCusto)}/km = ${formatCurrency(custoTotal)}`;
+        if (quilometrosTotais <= 0 && (distanciaViagemKm <= 0 || viagensDia <= 0)) {
+          observacoes.push("Informe a quantidade total de quilometros para calcular este recurso.");
+        }
+        if (quilometrosTotais <= 0 && distanciaViagemKm > 0 && viagensDia > 0) {
+          observacoes.push("Compatibilidade: quilometragem calculada por distancia, viagens/dia e prazo.");
+        }
+        break;
+      }
+      case "CARGA": {
+        baseConversao = cargasTotais;
+        custoTotal = valorCusto * baseConversao;
+        formula = `${formatNumber(baseConversao)} cargas x ${formatCurrency(valorCusto)}/carga = ${formatCurrency(custoTotal)}`;
+        if (cargasTotais <= 0) observacoes.push("Informe a quantidade total de cargas para calcular este recurso.");
+        break;
+      }
+      case "MES": {
+        baseConversao = mesesTotais > 0
+          ? mesesTotais
+          : unidadeFrente === "MES"
+          ? planejamento.quantidade
+          : planejamento.prazoUnidade === "mes(es)"
+            ? planejamento.prazoCalculo
+            : 0;
+        custoTotal = quantidadeRecursos * valorCusto * baseConversao;
+        formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/mes x ${formatNumber(baseConversao)} meses = ${formatCurrency(custoTotal)}`;
+        if (baseConversao <= 0) observacoes.push("A frente nao possui duracao em meses para este recurso.");
+        break;
+      }
+      case "VALOR_TOTAL": {
+        baseConversao = 1;
+        custoTotal = valorCusto;
+        formula = `Valor total informado = ${formatCurrency(custoTotal)}`;
+        break;
+      }
+      case "UNIDADE":
+      default: {
+        baseConversao = quantidadeRecursos;
+        custoTotal = quantidadeRecursos * valorCusto;
+        formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/unidade = ${formatCurrency(custoTotal)}`;
+      }
+    }
+  }
+
   return {
-    baseConversao: 1,
-    formulaBase: "1",
+    quantidadeRecursos,
+    valorCusto,
+    tipoCalculo,
+    unidadeEconomica,
+    unidadeFormatada,
+    horasDia,
+    horasTotais,
+    viagensDia,
+    viagensTotais,
+    distanciaViagemKm,
+    quilometrosTotais,
+    cargasTotais,
+    mesesTotais,
+    diasTrabalhadosMes,
+    baseConversao: roundMoney(baseConversao),
+    custoTotal: roundMoney(Math.max(0, custoTotal)),
+    formula,
     observacoes
   };
 }
@@ -322,111 +559,93 @@ export function resolveFrontCost(
   recursosInput: CostEngineRecursoInput[]
 ): CostEngineResolucaoFrente {
   const avisos: string[] = [];
-  const memoriaByKey = new Map<string, CostEngineMemoriaRecurso>();
-  const quantidadeFrente = toNumber(frenteInput.quantidadePrevista);
-  const prazoDias = calcularPrazoDias(frenteInput);
-  const unidadeFrente = normalizeUnidade(frenteInput.unidadeProducao);
-  const prazoUnidade = getPrazoUnidade(unidadeFrente);
+  const memoria: CostEngineMemoriaRecurso[] = [];
+  const planejamento = calcularPlanejamentoFrente(frenteInput);
   const frenteNome = frenteInput.nome?.trim() || "Frente";
   let custoRecursos = 0;
 
   for (const recurso of recursosInput) {
-    if (recurso.frenteRef && recurso.frenteRef !== frenteInput.ref) {
+    if (recurso.frenteRef && recurso.frenteRef !== frenteInput.ref) continue;
+    const calculo = calcularRecurso({ frente: frenteInput, recurso, planejamento });
+    const descricao = recurso.descricao?.trim() || "Recurso sem descricao";
+
+    const usaValorTotalDireto =
+      calculo.tipoCalculo === "AUTOMATICO" && calculo.unidadeEconomica === "VALOR_TOTAL";
+    if ((!usaValorTotalDireto && calculo.quantidadeRecursos <= 0) || calculo.valorCusto <= 0) {
+      avisos.push(`Recurso "${descricao}" ignorado por quantidade ou custo zerado.`);
+      continue;
+    }
+    if (calculo.custoTotal <= 0) {
+      avisos.push(`Recurso "${descricao}" nao gerou custo calculavel.`);
+      avisos.push(...calculo.observacoes.map((item) => `${descricao}: ${item}`));
       continue;
     }
 
-    const quantidadeRecursos = toNumber(recurso.quantidade);
-    const custoOperacional = toNumber(recurso.custoOperacional);
-
-    if (quantidadeRecursos <= 0 || custoOperacional <= 0) {
-      avisos.push(`Recurso "${recurso.descricao || "sem descricao"}" ignorado por quantidade ou custo zerado.`);
-      continue;
-    }
-
-    const unidadeCusto = normalizeUnidade(recurso.unidadeCusto);
-    const unidadeCustoFormatada = formatarUnidadeCusto(recurso.unidadeCusto);
-    const conversao = resolverBaseConversao({
-      unidadeCusto,
-      unidadeFrente,
-      quantidadeFrente,
-      prazoDias,
-      prazoUnidade
-    });
-    const custoTotal = roundMoney(quantidadeRecursos * custoOperacional * conversao.baseConversao);
-
-    if (custoTotal <= 0) {
-      avisos.push(`Recurso "${recurso.descricao || "sem descricao"}" nao gerou custo calculavel.`);
-      avisos.push(...conversao.observacoes.map((observacao) => `${recurso.descricao || "Recurso"}: ${observacao}`));
-      continue;
-    }
-
-    const custoUnitarioFrente =
-      quantidadeFrente > 0 ? roundMoney(custoTotal / quantidadeFrente) : 0;
-    const memoriaKey = [
-      frenteInput.ref,
-      recurso.categoria?.trim() || "RECURSO",
-      recurso.descricao?.trim() || "Recurso sem descricao",
-      unidadeCustoFormatada,
-      custoOperacional,
-      conversao.baseConversao
-    ].join("|");
-    const memoria: CostEngineMemoriaRecurso = {
+    const custoUnitarioFrente = planejamento.quantidade > 0
+      ? roundMoney(calculo.custoTotal / planejamento.quantidade)
+      : 0;
+    const memoriaAtual: CostEngineMemoriaRecurso = {
+      recursoRef: recurso.ref?.trim() || `${frenteInput.ref}:${memoria.length + 1}`,
       frenteRef: frenteInput.ref,
       frenteNome,
       categoria: recurso.categoria?.trim() || "RECURSO",
-      descricao: recurso.descricao?.trim() || "Recurso sem descricao",
-      quantidadeRecursos,
-      custoOperacional,
-      unidadeCustoOriginal: recurso.unidadeCusto?.trim() || "UN",
-      unidadeCustoFormatada,
-      baseConversao: roundMoney(conversao.baseConversao),
-      custoTotal,
+      descricao,
+      quantidadeRecursos: roundMoney(calculo.quantidadeRecursos),
+      custoOperacional: roundMoney(calculo.valorCusto),
+      unidadeCustoOriginal: recurso.unidadeCusto?.trim() || calculo.unidadeFormatada,
+      unidadeCustoFormatada: calculo.unidadeFormatada,
+      tipoCalculo: calculo.tipoCalculo,
+      unidadeEconomicaCusto: calculo.unidadeEconomica,
+      horasDia: roundMoney(calculo.horasDia),
+      horasTotais: roundMoney(calculo.horasTotais),
+      viagensDia: roundMoney(calculo.viagensDia),
+      viagensTotais: roundMoney(calculo.viagensTotais),
+      distanciaViagemKm: roundMoney(calculo.distanciaViagemKm),
+      quilometrosTotais: roundMoney(calculo.quilometrosTotais),
+      cargasTotais: roundMoney(calculo.cargasTotais),
+      mesesTotais: roundMoney(calculo.mesesTotais),
+      diasTrabalhadosMes: roundMoney(calculo.diasTrabalhadosMes),
+      baseConversao: calculo.baseConversao,
+      custoTotal: calculo.custoTotal,
       custoUnitarioFrente,
-      formula: `${quantidadeRecursos} ${recurso.unidadeCusto?.trim() || "un"} x ${unidadeCustoFormatada} ${roundMoney(
-        custoOperacional
-      )} x ${conversao.formulaBase}`,
-      observacoes: conversao.observacoes
+      formula: calculo.formula,
+      observacoes: calculo.observacoes
     };
+    const duplicadoLegado = !recurso.ref
+      ? memoria.find((item) =>
+          item.descricao === memoriaAtual.descricao &&
+          item.categoria === memoriaAtual.categoria &&
+          item.custoOperacional === memoriaAtual.custoOperacional &&
+          item.unidadeCustoFormatada === memoriaAtual.unidadeCustoFormatada &&
+          item.tipoCalculo === memoriaAtual.tipoCalculo
+        )
+      : undefined;
 
-    custoRecursos = roundMoney(custoRecursos + custoTotal);
-    const memoriaExistente = memoriaByKey.get(memoriaKey);
-
-    if (memoriaExistente) {
-      memoriaExistente.quantidadeRecursos = roundMoney(
-        memoriaExistente.quantidadeRecursos + memoria.quantidadeRecursos
+    if (duplicadoLegado) {
+      duplicadoLegado.quantidadeRecursos = roundMoney(
+        duplicadoLegado.quantidadeRecursos + memoriaAtual.quantidadeRecursos
       );
-      memoriaExistente.custoTotal = roundMoney(memoriaExistente.custoTotal + memoria.custoTotal);
-      memoriaExistente.custoUnitarioFrente =
-        quantidadeFrente > 0 ? roundMoney(memoriaExistente.custoTotal / quantidadeFrente) : 0;
-      memoriaExistente.formula = `${memoriaExistente.quantidadeRecursos} ${
-        memoriaExistente.unidadeCustoOriginal
-      } x ${
-        memoriaExistente.unidadeCustoFormatada
-      } ${roundMoney(memoriaExistente.custoOperacional)} x ${conversao.formulaBase}`;
-      memoriaExistente.observacoes = Array.from(
-        new Set([...memoriaExistente.observacoes, ...memoria.observacoes])
-      );
+      duplicadoLegado.custoTotal = roundMoney(duplicadoLegado.custoTotal + memoriaAtual.custoTotal);
+      duplicadoLegado.custoUnitarioFrente = planejamento.quantidade > 0
+        ? roundMoney(duplicadoLegado.custoTotal / planejamento.quantidade)
+        : 0;
+      duplicadoLegado.formula = `${formatNumber(duplicadoLegado.quantidadeRecursos)} recursos equivalentes = ${formatCurrency(duplicadoLegado.custoTotal)}`;
     } else {
-      memoriaByKey.set(memoriaKey, memoria);
+      memoria.push(memoriaAtual);
     }
-
-    avisos.push(...conversao.observacoes.map((observacao) => `${memoria.descricao}: ${observacao}`));
+    custoRecursos = roundMoney(custoRecursos + calculo.custoTotal);
+    avisos.push(...calculo.observacoes.map((item) => `${descricao}: ${item}`));
   }
 
   const custoManual = roundMoney(Math.max(0, toNumber(frenteInput.custoManual)));
   const possuiCustoValidoPorRecursos = custoRecursos > 0;
-  const modoCusto: CostEngineModoCustoFrente = possuiCustoValidoPorRecursos
-    ? "AUTO"
-    : "MANUAL";
-  const origemCusto = possuiCustoValidoPorRecursos ? "RECURSOS" : "MANUAL";
-
   return {
     custoFrente: possuiCustoValidoPorRecursos ? custoRecursos : custoManual,
-    modoCusto,
+    modoCusto: possuiCustoValidoPorRecursos ? "AUTO" : "MANUAL",
     custoManual,
     custoCalculadoRecursos: custoRecursos,
-    origemCusto,
-    recursos: Array.from(memoriaByKey.values()),
+    origemCusto: possuiCustoValidoPorRecursos ? "RECURSOS" : "MANUAL",
+    recursos: memoria,
     avisos
   };
 }
@@ -441,35 +660,36 @@ export function calcularMotorCustos(input: {
 
   for (const recurso of input.recursos) {
     const frenteRef = recurso.frenteRef?.trim();
-
     if (!frenteRef || !frenteRefs.has(frenteRef)) {
       avisos.push(`Recurso "${recurso.descricao || "sem descricao"}" sem frente valida foi ignorado.`);
       continue;
     }
-
     const recursos = recursosPorFrente.get(frenteRef) ?? [];
     recursos.push(recurso);
     recursosPorFrente.set(frenteRef, recursos);
   }
 
-  const resultadosFrentes: CostEngineFrenteResultado[] = input.frentes.map((frente) => {
-    const quantidade = toNumber(frente.quantidadePrevista);
-    const produtividadeDia = toNumber(frente.produtividadeDia);
-    const prazoDias = calcularPrazoDias(frente);
+  const resultadosFrentes = input.frentes.map<CostEngineFrenteResultado>((frente) => {
+    const planejamento = calcularPlanejamentoFrente(frente);
     const unidadeNormalizada = normalizeUnidade(frente.unidadeProducao);
     const resolucao = resolveFrontCost(frente, recursosPorFrente.get(frente.ref) ?? []);
     avisos.push(...resolucao.avisos);
-
     return {
       ref: frente.ref,
       nome: frente.nome?.trim() || "Frente",
       unidade: formatarUnidadeFrente(frente.unidadeProducao),
-      quantidade: roundMoney(quantidade),
-      produtividadeDia: roundMoney(produtividadeDia),
-      prazoDias: roundMoney(prazoDias),
+      quantidade: planejamento.quantidade,
+      produtividadeDia: planejamento.produtividadeInformada,
+      produtividadeAjustada: planejamento.produtividadeAjustada,
+      prazoTeoricoDias: planejamento.prazoTeorico,
+      prazoAdotadoDias: planejamento.prazoAdotado,
+      prazoDias: planejamento.prazoUtilizado,
       prazoUnidade: getPrazoUnidade(unidadeNormalizada),
+      origemPrazo: planejamento.origemPrazo,
       custoDireto: resolucao.custoFrente,
-      custoDiretoUnitario: quantidade > 0 ? roundMoney(resolucao.custoFrente / quantidade) : 0,
+      custoDiretoUnitario: planejamento.quantidade > 0
+        ? roundMoney(resolucao.custoFrente / planejamento.quantidade)
+        : 0,
       modoCusto: resolucao.modoCusto,
       custoManual: resolucao.custoManual,
       custoCalculadoRecursos: resolucao.custoCalculadoRecursos,
@@ -478,9 +698,7 @@ export function calcularMotorCustos(input: {
     };
   });
   const memoria = resultadosFrentes.flatMap((frente) => frente.recursos);
-  const custoDiretoTotal = roundMoney(
-    resultadosFrentes.reduce((sum, frente) => sum + frente.custoDireto, 0)
-  );
+  const custoDiretoTotal = roundMoney(resultadosFrentes.reduce((sum, frente) => sum + frente.custoDireto, 0));
   const grupoByUnidade = new Map<string, CostEngineGrupoUnidade>();
 
   for (const frente of resultadosFrentes) {
@@ -494,13 +712,13 @@ export function calcularMotorCustos(input: {
       custoDiretoUnitario: 0,
       frentes: []
     };
-
     grupo.quantidadeTotal = roundMoney(grupo.quantidadeTotal + frente.quantidade);
-    grupo.producaoPrevistaDia = roundMoney(grupo.producaoPrevistaDia + frente.produtividadeDia);
+    grupo.producaoPrevistaDia = roundMoney(grupo.producaoPrevistaDia + frente.produtividadeAjustada);
     grupo.custoDireto = roundMoney(grupo.custoDireto + frente.custoDireto);
     grupo.prazoCritico = roundMoney(Math.max(grupo.prazoCritico, frente.prazoDias));
-    grupo.custoDiretoUnitario =
-      grupo.quantidadeTotal > 0 ? roundMoney(grupo.custoDireto / grupo.quantidadeTotal) : 0;
+    grupo.custoDiretoUnitario = grupo.quantidadeTotal > 0
+      ? roundMoney(grupo.custoDireto / grupo.quantidadeTotal)
+      : 0;
     grupo.frentes.push(frente.nome);
     grupoByUnidade.set(frente.unidade, grupo);
   }

@@ -336,7 +336,9 @@ async function validarIdsRelacionados(
 function buildFormacaoPrecoData(input: OrcamentoInput) {
   const pricing = buildPricingSnapshot(input);
   const hasFormacaoInput = Boolean(input.formacaoPreco);
-  const hasItemCost = input.itens.some((item) => Number(item.custoUnitario) > 0);
+  const hasItemCost = input.itens.some(
+    (item) => Number(item.valorCusto ?? item.custoUnitario) > 0
+  );
 
   if (!hasFormacaoInput && !hasItemCost) {
     return null;
@@ -564,7 +566,10 @@ export function buildPropostaSnapshot(
 async function criarEstruturaOrcamento(
   db: DbClient,
   orcamentoId: string,
-  input: OrcamentoInput
+  input: OrcamentoInput,
+  options: {
+    atualizarFormacaoPreco?: boolean;
+  } = {}
 ) {
   const propostasEmitidas = new Set(
     (
@@ -582,6 +587,10 @@ async function criarEstruturaOrcamento(
   const cenarioIdByRef = new Map<string, string>();
   const cenarioInputByRef = new Map<string, OrcamentoInput["cenarios"][number]>();
   const cenariosInput = buildCenariosInput(input);
+  const pricing = buildPricingSnapshot(input);
+  const memoriaRecursoByRef = new Map(
+    (pricing.motorCustos?.memoria ?? []).map((memoria) => [memoria.recursoRef, memoria])
+  );
 
   for (const cenario of cenariosInput) {
     const created = await db.orcamentoCenario.create({
@@ -633,6 +642,9 @@ async function criarEstruturaOrcamento(
         quantidadePrevista: frente.quantidadePrevista ?? null,
         produtividadeDia: frente.produtividadeDia ?? null,
         prazoEstimadoDias: frente.prazoEstimadoDias ?? null,
+        prazoTeoricoDias: frente.prazoTeoricoDias ?? null,
+        prazoAdotadoDias: frente.prazoAdotadoDias ?? null,
+        origemPrazo: frente.origemPrazo ?? "AUTOMATICO",
         modoCusto: frente.modoCusto,
         custoManual: frente.custoManual,
         observacao: clean(frente.observacao)
@@ -653,7 +665,22 @@ async function criarEstruturaOrcamento(
 
   const formacaoPreco = buildFormacaoPrecoData(input);
 
-  if (formacaoPreco) {
+  if (options.atualizarFormacaoPreco && formacaoPreco) {
+    await db.orcamentoFormacaoPreco.upsert({
+      where: {
+        orcamentoId
+      },
+      update: formacaoPreco,
+      create: {
+        orcamentoId,
+        ...formacaoPreco
+      }
+    });
+  } else if (options.atualizarFormacaoPreco) {
+    await db.orcamentoFormacaoPreco.deleteMany({
+      where: { orcamentoId }
+    });
+  } else if (formacaoPreco) {
     await db.orcamentoFormacaoPreco.create({
       data: {
         orcamentoId,
@@ -664,6 +691,8 @@ async function criarEstruturaOrcamento(
 
   for (const item of input.itens) {
     const frenteId = resolveFrenteId(frenteIdByRef, item);
+    const itemRef = item.tempId?.trim() || `${item.frenteTempId?.trim() || `ordem:${item.frenteOrdem ?? 0}`}:item:${item.ordem}`;
+    const memoriaRecurso = memoriaRecursoByRef.get(itemRef);
 
     await db.orcamentoItem.create({
       data: {
@@ -684,6 +713,20 @@ async function criarEstruturaOrcamento(
         quantidade: item.quantidade,
         produtividade: item.produtividade ?? null,
         custoUnitario: item.custoUnitario,
+        tipoCalculoRecurso: item.tipoCalculoRecurso ?? "AUTOMATICO",
+        unidadeEconomicaCusto: item.unidadeEconomicaCusto ?? null,
+        valorCusto: item.valorCusto ?? item.custoUnitario,
+        horasDia: item.horasDia ?? null,
+        horasTotais: item.horasTotais ?? null,
+        viagensDia: item.viagensDia ?? null,
+        viagensTotais: item.viagensTotais ?? null,
+        distanciaViagemKm: item.distanciaViagemKm ?? null,
+        quilometrosTotais: item.quilometrosTotais ?? null,
+        cargasTotais: item.cargasTotais ?? null,
+        mesesTotais: item.mesesTotais ?? null,
+        diasTrabalhadosMes: item.diasTrabalhadosMes ?? 22,
+        custoTotalCalculado: memoriaRecurso?.custoTotal ?? item.custoTotalCalculado ?? 0,
+        memoriaCalculo: memoriaRecurso ? JSON.stringify(memoriaRecurso) : clean(item.memoriaCalculo),
         valorUnitario: item.valorUnitario,
         valorTotal: calcularValorItem(item),
         observacao: clean(item.observacao)
@@ -816,6 +859,32 @@ function buildOrcamentoData(input: OrcamentoInput, userId: string) {
   };
 }
 
+export async function validarCodigoOrcamentoDisponivel(
+  db: DbClient,
+  codigo: string,
+  orcamentoIdAtual?: string
+) {
+  const existente = await db.orcamento.findFirst({
+    where: {
+      codigo,
+      ...(orcamentoIdAtual
+        ? {
+            id: {
+              not: orcamentoIdAtual
+            }
+          }
+        : {})
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (existente) {
+    throw new Error("CODIGO_ORCAMENTO_DUPLICADO");
+  }
+}
+
 export async function listarOrcamentos(
   db: DbClient,
   filters: {
@@ -932,13 +1001,17 @@ export async function criarOrcamento(
   params: {
     input: OrcamentoInput;
     userId: string;
+    codigo?: string;
   }
 ) {
   await validarReferenciasOrcamento(db, params.input);
+  const codigo = clean(params.codigo) ?? (await generateOrcamentoCode(db));
+
+  await validarCodigoOrcamentoDisponivel(db, codigo);
 
   const orcamento = await db.orcamento.create({
     data: {
-      codigo: await generateOrcamentoCode(db),
+      codigo,
       ...buildOrcamentoData(params.input, params.userId)
     },
     select: {
@@ -957,6 +1030,7 @@ export async function atualizarOrcamento(
     id: string;
     input: OrcamentoInput;
     userId: string;
+    codigo?: string;
   }
 ) {
   const atual = await db.orcamento.findFirst({
@@ -966,6 +1040,7 @@ export async function atualizarOrcamento(
     },
     select: {
       id: true,
+      codigo: true,
       criadoPorId: true,
       status: true
     }
@@ -977,6 +1052,9 @@ export async function atualizarOrcamento(
 
   await validarReferenciasOrcamento(db, params.input);
   validarTransicaoStatus(atual.status, params.input.status);
+  const codigo = clean(params.codigo) ?? atual.codigo;
+
+  await validarCodigoOrcamentoDisponivel(db, codigo, atual.id);
 
   await db.orcamentoPropostaComercial.deleteMany({
     where: {
@@ -990,9 +1068,6 @@ export async function atualizarOrcamento(
     where: { orcamentoId: params.id }
   });
   await db.orcamentoPremissa.deleteMany({
-    where: { orcamentoId: params.id }
-  });
-  await db.orcamentoFormacaoPreco.deleteMany({
     where: { orcamentoId: params.id }
   });
   await db.orcamentoFrente.deleteMany({
@@ -1012,12 +1087,15 @@ export async function atualizarOrcamento(
   await db.orcamento.update({
     where: { id: params.id },
     data: {
+      codigo,
       ...buildOrcamentoData(params.input, params.userId),
       criadoPorId: atual.criadoPorId
     }
   });
 
-  await criarEstruturaOrcamento(db, params.id, params.input);
+  await criarEstruturaOrcamento(db, params.id, params.input, {
+    atualizarFormacaoPreco: true
+  });
 
   return buscarOrcamento(db, params.id);
 }
@@ -1122,6 +1200,9 @@ export async function duplicarOrcamento(
         quantidadePrevista: frente.quantidadePrevista,
         produtividadeDia: frente.produtividadeDia,
         prazoEstimadoDias: frente.prazoEstimadoDias,
+        prazoTeoricoDias: frente.prazoTeoricoDias,
+        prazoAdotadoDias: frente.prazoAdotadoDias,
+        origemPrazo: frente.origemPrazo,
         modoCusto: frente.modoCusto,
         custoManual: frente.custoManual,
         observacao: frente.observacao
@@ -1173,6 +1254,20 @@ export async function duplicarOrcamento(
         quantidade: item.quantidade,
         produtividade: item.produtividade,
         custoUnitario: item.custoUnitario,
+        tipoCalculoRecurso: item.tipoCalculoRecurso,
+        unidadeEconomicaCusto: item.unidadeEconomicaCusto,
+        valorCusto: item.valorCusto,
+        horasDia: item.horasDia,
+        horasTotais: item.horasTotais,
+        viagensDia: item.viagensDia,
+        viagensTotais: item.viagensTotais,
+        distanciaViagemKm: item.distanciaViagemKm,
+        quilometrosTotais: item.quilometrosTotais,
+        cargasTotais: item.cargasTotais,
+        mesesTotais: item.mesesTotais,
+        diasTrabalhadosMes: item.diasTrabalhadosMes,
+        custoTotalCalculado: item.custoTotalCalculado,
+        memoriaCalculo: item.memoriaCalculo,
         valorUnitario: item.valorUnitario,
         valorTotal: item.valorTotal,
         observacao: item.observacao

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ModoCustoOrcamento,
   ModoCustoFrente,
   StatusCenarioOrcamento,
   StatusOrcamento,
@@ -10,6 +11,7 @@ import {
 } from "@prisma/client";
 import type { OrcamentoInput } from "@/lib/validators/orcamento";
 import {
+  atualizarOrcamento,
   buildPropostaSnapshot,
   buildPropostaTotals,
   criarOrcamento
@@ -122,8 +124,17 @@ function createFakeDb() {
     itens: [] as Array<Record<string, unknown>>,
     premissas: [] as Array<Record<string, unknown>>,
     propostas: [] as Array<Record<string, unknown>>,
-    opcionais: [] as Array<Record<string, unknown>>
+    opcionais: [] as Array<Record<string, unknown>>,
+    formacoes: [] as Array<Record<string, unknown>>
   };
+
+  function removeWhere(
+    collection: Array<Record<string, unknown>>,
+    predicate: (record: Record<string, unknown>) => boolean
+  ) {
+    const remaining = collection.filter((record) => !predicate(record));
+    collection.splice(0, collection.length, ...remaining);
+  }
 
   const db = {
     cliente: {
@@ -151,12 +162,58 @@ function createFakeDb() {
       count: async ({ where }: { where: { id: { in: string[] } } }) => where.id.in.length
     },
     orcamento: {
-      findMany: async () => [],
-      findFirst: async () => records.orcamentos[0] ?? null,
+      findMany: async () => records.orcamentos,
+      findFirst: async ({ where }: { where?: Record<string, unknown> } = {}) => {
+        const id = typeof where?.id === "string" ? where.id : null;
+        const codigo = typeof where?.codigo === "string" ? where.codigo : null;
+        const idFilter =
+          where?.id && typeof where.id === "object"
+            ? (where.id as { not?: string })
+            : null;
+
+        return (
+          records.orcamentos.find((record) => {
+            if (id && record.id !== id) {
+              return false;
+            }
+
+            if (codigo && record.codigo !== codigo) {
+              return false;
+            }
+
+            if (idFilter?.not && record.id === idFilter.not) {
+              return false;
+            }
+
+            return true;
+          }) ?? null
+        );
+      },
       create: async ({ data }: { data: Record<string, unknown> }) => {
-        const created = { ...data, id: "orcamento-1" };
+        const created = { ...data, id: `orcamento-${records.orcamentos.length + 1}` };
         records.orcamentos.push(created);
         return { id: created.id };
+      },
+      update: async ({
+        where,
+        data
+      }: {
+        where: { id: string };
+        data: Record<string, unknown>;
+      }) => {
+        const index = records.orcamentos.findIndex((record) => record.id === where.id);
+
+        if (index < 0) {
+          throw new Error("ORCAMENTO_NAO_ENCONTRADO");
+        }
+
+        records.orcamentos[index] = {
+          ...records.orcamentos[index],
+          ...data,
+          id: where.id
+        };
+
+        return records.orcamentos[index];
       }
     },
     orcamentoCenario: {
@@ -164,6 +221,9 @@ function createFakeDb() {
         const created = { ...data, id: `cenario-${records.cenarios.length + 1}` };
         records.cenarios.push(created);
         return { id: created.id };
+      },
+      deleteMany: async ({ where }: { where: { orcamentoId: string } }) => {
+        removeWhere(records.cenarios, (record) => record.orcamentoId === where.orcamentoId);
       }
     },
     orcamentoFrente: {
@@ -171,27 +231,74 @@ function createFakeDb() {
         const created = { ...data, id: `frente-${records.frentes.length + 1}` };
         records.frentes.push(created);
         return { id: created.id };
+      },
+      deleteMany: async ({ where }: { where: { orcamentoId: string } }) => {
+        removeWhere(records.frentes, (record) => record.orcamentoId === where.orcamentoId);
       }
     },
     orcamentoItem: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         records.itens.push({ ...data, id: `item-${records.itens.length + 1}` });
+      },
+      deleteMany: async ({ where }: { where: { orcamentoId: string } }) => {
+        removeWhere(records.itens, (record) => record.orcamentoId === where.orcamentoId);
       }
     },
     orcamentoPremissa: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         records.premissas.push({ ...data, id: `premissa-${records.premissas.length + 1}` });
+      },
+      deleteMany: async ({ where }: { where: { orcamentoId: string } }) => {
+        removeWhere(records.premissas, (record) => record.orcamentoId === where.orcamentoId);
       }
     },
     orcamentoFormacaoPreco: {
-      create: async () => undefined
+      create: async ({ data }: { data: Record<string, unknown> }) => {
+        records.formacoes.push({ ...data, id: `formacao-${records.formacoes.length + 1}` });
+      },
+      upsert: async ({
+        where,
+        update,
+        create
+      }: {
+        where: { orcamentoId: string };
+        update: Record<string, unknown>;
+        create: Record<string, unknown>;
+      }) => {
+        const index = records.formacoes.findIndex(
+          (record) => record.orcamentoId === where.orcamentoId
+        );
+
+        if (index >= 0) {
+          records.formacoes[index] = { ...records.formacoes[index], ...update };
+          return records.formacoes[index];
+        }
+
+        const created = { ...create, id: `formacao-${records.formacoes.length + 1}` };
+        records.formacoes.push(created);
+        return created;
+      },
+      deleteMany: async ({ where }: { where: { orcamentoId: string } }) => {
+        removeWhere(records.formacoes, (record) => record.orcamentoId === where.orcamentoId);
+      }
     },
     orcamentoPropostaComercial: {
-      findMany: async () => [],
+      findMany: async () =>
+        records.propostas
+          .filter((proposta) => proposta.status === StatusPropostaComercial.EMITIDA)
+          .map((proposta) => ({ id: proposta.id })),
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const created = { ...data, id: `proposta-${records.propostas.length + 1}` };
         records.propostas.push(created);
         return { id: created.id };
+      },
+      deleteMany: async ({ where }: { where: { orcamentoId: string } }) => {
+        removeWhere(
+          records.propostas,
+          (record) =>
+            record.orcamentoId === where.orcamentoId &&
+            record.status !== StatusPropostaComercial.EMITIDA
+        );
       }
     },
     orcamentoPropostaOpcional: {
@@ -239,6 +346,56 @@ describe("orcamentos sprint 4.1-4.3", () => {
     expect(records.frentes[0].custoManual).toBe(4321.9);
     expect(records.frentes[0].modoCusto).toBe(ModoCustoFrente.MANUAL);
     expect(records.orcamentos[0].valorTotal).toBe(4321.9);
+  });
+
+  it("preserva prazo, parametros e memoria calculada dos recursos na reabertura", async () => {
+    const { db, records } = createFakeDb();
+    const input = baseInput({
+      frentes: [{
+        ...baseInput().frentes[0],
+        prazoEstimadoDias: 12,
+        prazoTeoricoDias: 10,
+        prazoAdotadoDias: 12,
+        origemPrazo: "AJUSTADO"
+      }],
+      itens: [{
+        ...baseInput().itens[0],
+        tempId: "recurso-persistido",
+        tipoItem: TipoItemOrcamento.RECURSO,
+        categoriaRecurso: "EQUIPAMENTO",
+        classeOperacional: "ESCAVADEIRA_15T",
+        descricao: "Escavadeira 15 t",
+        quantidade: 1,
+        custoUnitario: 900,
+        tipoCalculoRecurso: "AUTOMATICO",
+        unidadeEconomicaCusto: "DIA",
+        valorCusto: 900,
+        horasDia: 8,
+        viagensDia: null,
+        distanciaViagemKm: null,
+        diasTrabalhadosMes: 22,
+        custoTotalCalculado: 0,
+        memoriaCalculo: ""
+      }]
+    });
+
+    await criarOrcamento(db as never, { input, userId: "usuario-1" });
+
+    expect(records.frentes[0]).toMatchObject({
+      prazoTeoricoDias: 10,
+      prazoAdotadoDias: 12,
+      origemPrazo: "AJUSTADO"
+    });
+    expect(records.itens[0]).toMatchObject({
+      unidadeEconomicaCusto: "DIA",
+      valorCusto: 900,
+      diasTrabalhadosMes: 22,
+      custoTotalCalculado: 10800
+    });
+    expect(JSON.parse(String(records.itens[0].memoriaCalculo))).toMatchObject({
+      recursoRef: "recurso-persistido",
+      custoTotal: 10800
+    });
   });
 
   it("mantem orcamento comercial sem cenario automatico", async () => {
@@ -497,5 +654,173 @@ describe("revisoes de propostas comerciais", () => {
     expect(propostaPersistida.status).toBe(StatusPropostaComercial.RASCUNHO);
     expect(propostaPersistida.valorTotal).toBe(253647.65);
     expect(snapshot.totals.valorTotal).toBe(253647.65);
+  });
+});
+
+describe("persistencia na edicao de orcamentos", () => {
+  function inputEditavel(titulo: string) {
+    return baseInput({
+      tipo: TipoOrcamento.COMERCIAL,
+      status: StatusOrcamento.RASCUNHO,
+      titulo,
+      cenarios: [],
+      frentes: [],
+      itens: [],
+      propostasComerciais: []
+    });
+  }
+
+  it("edita outro campo sem alterar o codigo", async () => {
+    const { db, records } = createFakeDb();
+    const criado = await criarOrcamento(db as never, {
+      input: inputEditavel("Titulo original"),
+      userId: "usuario-1",
+      codigo: "ORC-010"
+    });
+
+    await atualizarOrcamento(db as never, {
+      id: criado!.id,
+      input: inputEditavel("Titulo atualizado"),
+      userId: "usuario-1"
+    });
+
+    expect(records.orcamentos[0].codigo).toBe("ORC-010");
+    expect(records.orcamentos[0].titulo).toBe("Titulo atualizado");
+  });
+
+  it("permite informar exatamente o mesmo codigo do registro editado", async () => {
+    const { db, records } = createFakeDb();
+    const criado = await criarOrcamento(db as never, {
+      input: inputEditavel("Orcamento"),
+      userId: "usuario-1",
+      codigo: "ORC-011"
+    });
+
+    await expect(
+      atualizarOrcamento(db as never, {
+        id: criado!.id,
+        input: inputEditavel("Orcamento revisado"),
+        userId: "usuario-1",
+        codigo: "ORC-011"
+      })
+    ).resolves.toBeTruthy();
+
+    expect(records.orcamentos[0].codigo).toBe("ORC-011");
+  });
+
+  it("bloqueia alteracao para o codigo de outro orcamento", async () => {
+    const { db } = createFakeDb();
+    const primeiro = await criarOrcamento(db as never, {
+      input: inputEditavel("Primeiro"),
+      userId: "usuario-1",
+      codigo: "ORC-012"
+    });
+    await criarOrcamento(db as never, {
+      input: inputEditavel("Segundo"),
+      userId: "usuario-1",
+      codigo: "ORC-013"
+    });
+
+    await expect(
+      atualizarOrcamento(db as never, {
+        id: primeiro!.id,
+        input: inputEditavel("Primeiro alterado"),
+        userId: "usuario-1",
+        codigo: "ORC-013"
+      })
+    ).rejects.toThrow("CODIGO_ORCAMENTO_DUPLICADO");
+  });
+
+  it("bloqueia criacao com codigo existente", async () => {
+    const { db } = createFakeDb();
+    await criarOrcamento(db as never, {
+      input: inputEditavel("Primeiro"),
+      userId: "usuario-1",
+      codigo: "ORC-014"
+    });
+
+    await expect(
+      criarOrcamento(db as never, {
+        input: inputEditavel("Duplicado"),
+        userId: "usuario-1",
+        codigo: "ORC-014"
+      })
+    ).rejects.toThrow("CODIGO_ORCAMENTO_DUPLICADO");
+  });
+
+  it("mantem o ID e a quantidade de registros durante a edicao", async () => {
+    const { db, records } = createFakeDb();
+    const criado = await criarOrcamento(db as never, {
+      input: inputEditavel("Original"),
+      userId: "usuario-1",
+      codigo: "ORC-015"
+    });
+    const quantidadeAntes = records.orcamentos.length;
+
+    const atualizado = await atualizarOrcamento(db as never, {
+      id: criado!.id,
+      input: inputEditavel("Atualizado"),
+      userId: "usuario-1"
+    });
+
+    expect(records.orcamentos).toHaveLength(quantidadeAntes);
+    expect(atualizado!.id).toBe(criado!.id);
+    expect(records.orcamentos[0].id).toBe(criado!.id);
+  });
+
+  it("atualiza a formacao de preco sem criar outro registro unico", async () => {
+    const { db, records } = createFakeDb();
+    const formacaoBase = {
+      modoCusto: ModoCustoOrcamento.SIMPLIFICADO,
+      custoDireto: 1000,
+      custoIndireto: 100,
+      impostosPercentual: 0,
+      impostosValor: 0,
+      margemPercentual: 0,
+      margemValor: 0,
+      precoSugerido: 1100,
+      ajusteComercial: 0,
+      precoFinal: 1100,
+      observacao: ""
+    };
+    const criado = await criarOrcamento(db as never, {
+      input: {
+        ...inputEditavel("Com formacao de preco"),
+        formacaoPreco: formacaoBase
+      },
+      userId: "usuario-1",
+      codigo: "ORC-016"
+    });
+
+    await atualizarOrcamento(db as never, {
+      id: criado!.id,
+      input: {
+        ...inputEditavel("Primeira edicao"),
+        formacaoPreco: {
+          ...formacaoBase,
+          custoDireto: 1500,
+          precoSugerido: 1650,
+          precoFinal: 1650
+        }
+      },
+      userId: "usuario-1"
+    });
+    await atualizarOrcamento(db as never, {
+      id: criado!.id,
+      input: {
+        ...inputEditavel("Segunda edicao"),
+        formacaoPreco: {
+          ...formacaoBase,
+          custoDireto: 2000,
+          precoSugerido: 2200,
+          precoFinal: 2200
+        }
+      },
+      userId: "usuario-1"
+    });
+
+    expect(records.formacoes).toHaveLength(1);
+    expect(records.formacoes[0].orcamentoId).toBe(criado!.id);
+    expect(records.formacoes[0].custoDireto).toBe(2000);
   });
 });

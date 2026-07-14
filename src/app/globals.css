@@ -8283,6 +8283,78 @@ button {
   font-weight: 800;
 }
 
+.orcamentos-planning-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, #22c55e 30%, var(--screen-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, #22c55e 7%, transparent);
+}
+
+.orcamentos-planning-summary > span {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #22c55e 18%, transparent);
+  color: #86efac;
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.orcamentos-planning-summary > span.is-adjusted {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: #fdba74;
+}
+
+.orcamentos-planning-summary strong {
+  color: var(--screen-text);
+}
+
+.orcamentos-planning-summary small {
+  margin-left: auto;
+  color: var(--screen-muted);
+}
+
+.orcamentos-resource-memory {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, #38bdf8 28%, var(--screen-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, #38bdf8 6%, transparent);
+}
+
+.orcamentos-resource-memory > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.orcamentos-resource-memory span,
+.orcamentos-resource-memory small {
+  color: var(--screen-muted);
+}
+
+.orcamentos-resource-memory strong {
+  color: #7dd3fc;
+  font-size: 1.05rem;
+}
+
+.orcamentos-resource-memory code {
+  overflow-wrap: anywhere;
+  color: var(--screen-text);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
 .orcamentos-front-cost-panel {
   display: grid;
   grid-template-columns: minmax(210px, 0.8fr) repeat(2, minmax(220px, 1fr));
@@ -8341,6 +8413,15 @@ button {
 @media (max-width: 720px) {
   .orcamentos-front-cost-panel {
     grid-template-columns: 1fr;
+  }
+
+  .orcamentos-planning-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .orcamentos-planning-summary small {
+    margin-left: 0;
   }
 }
 
