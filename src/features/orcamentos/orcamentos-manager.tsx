@@ -2790,26 +2790,38 @@ function FrentesOperacionaisSection(props: {
   onUpdateItem: (localId: string, key: keyof ItemForm, value: string | number) => void;
 }) {
   type OperationalLevel = "principal" | "metodo" | "auxiliares" | "recursos";
-  const [openLevels, setOpenLevels] = useState<Record<string, OperationalLevel | null>>({});
+  const [openLevels, setOpenLevels] = useState<Record<string, OperationalLevel[]>>({});
+  const defaultOpenLevels: OperationalLevel[] = ["principal"];
 
-  function getOpenLevel(frenteLocalId: string) {
+  function getOpenLevels(frenteLocalId: string) {
     return Object.prototype.hasOwnProperty.call(openLevels, frenteLocalId)
       ? openLevels[frenteLocalId]
-      : "principal";
+      : defaultOpenLevels;
   }
 
   function toggleLevel(frenteLocalId: string, level: OperationalLevel) {
     setOpenLevels((current) => {
-      const active = Object.prototype.hasOwnProperty.call(current, frenteLocalId)
+      const activeLevels = Object.prototype.hasOwnProperty.call(current, frenteLocalId)
         ? current[frenteLocalId]
-        : "principal";
+        : defaultOpenLevels;
+      const nextLevels = activeLevels.includes(level)
+        ? activeLevels.filter((activeLevel) => activeLevel !== level)
+        : [...activeLevels, level];
 
-      return { ...current, [frenteLocalId]: active === level ? null : level };
+      return { ...current, [frenteLocalId]: nextLevels };
     });
   }
 
   function openLevel(frenteLocalId: string, level: OperationalLevel) {
-    setOpenLevels((current) => ({ ...current, [frenteLocalId]: level }));
+    setOpenLevels((current) => {
+      const activeLevels = Object.prototype.hasOwnProperty.call(current, frenteLocalId)
+        ? current[frenteLocalId]
+        : defaultOpenLevels;
+
+      return activeLevels.includes(level)
+        ? current
+        : { ...current, [frenteLocalId]: [...activeLevels, level] };
+    });
   }
 
   return (
@@ -2844,7 +2856,7 @@ function FrentesOperacionaisSection(props: {
           const custoCalculadoPorRecursos = custoFrente?.origemCusto === "RECURSOS";
           const unidadeProdutividadeLabel = getProdutividadeLabel(frente.unidadeProducao);
           const frenteCalculoMessage = getFrenteCalculoMessage(frente);
-          const openLevelId = getOpenLevel(frente.localId);
+          const openLevelIds = getOpenLevels(frente.localId);
 
           return (
             <article key={frente.localId} className="orcamentos-subcard orcamentos-front-card">
@@ -2987,7 +2999,7 @@ function FrentesOperacionaisSection(props: {
                   <button
                     type="button"
                     className="orcamentos-depth-toggle"
-                    aria-expanded={openLevelId === "principal"}
+                    aria-expanded={openLevelIds.includes("principal")}
                     onClick={() => toggleLevel(frente.localId, "principal")}
                   >
                     <div>
@@ -3000,7 +3012,7 @@ function FrentesOperacionaisSection(props: {
                     </small>
                     </div>
                     <span className="orcamentos-depth-chevron" aria-hidden="true">
-                      {openLevelId === "principal" ? "-" : "+"}
+                      {openLevelIds.includes("principal") ? "-" : "+"}
                     </span>
                   </button>
                   <button
@@ -3013,7 +3025,7 @@ function FrentesOperacionaisSection(props: {
                     Adicionar principal
                   </button>
                 </div>
-                {openLevelId === "principal" ? (
+                {openLevelIds.includes("principal") ? (
                   <div className="orcamentos-depth-content">
                     <OperationalItemList
                       emptyLabel="Nenhum servico principal informado nesta frente."
@@ -3036,7 +3048,7 @@ function FrentesOperacionaisSection(props: {
                   <button
                     type="button"
                     className="orcamentos-depth-toggle"
-                    aria-expanded={openLevelId === "metodo"}
+                    aria-expanded={openLevelIds.includes("metodo")}
                     onClick={() => toggleLevel(frente.localId, "metodo")}
                   >
                     <div>
@@ -3045,11 +3057,11 @@ function FrentesOperacionaisSection(props: {
                     <small>{frente.metodoExecutivo.trim() ? "Metodo executivo preenchido." : "Opcional. Registra como a frente sera executada."}</small>
                     </div>
                     <span className="orcamentos-depth-chevron" aria-hidden="true">
-                      {openLevelId === "metodo" ? "-" : "+"}
+                      {openLevelIds.includes("metodo") ? "-" : "+"}
                     </span>
                   </button>
                 </div>
-                {openLevelId === "metodo" ? (
+                {openLevelIds.includes("metodo") ? (
                   <div className="orcamentos-depth-content">
                     <textarea
                       className="field-control"
@@ -3069,7 +3081,7 @@ function FrentesOperacionaisSection(props: {
                   <button
                     type="button"
                     className="orcamentos-depth-toggle"
-                    aria-expanded={openLevelId === "auxiliares"}
+                    aria-expanded={openLevelIds.includes("auxiliares")}
                     onClick={() => toggleLevel(frente.localId, "auxiliares")}
                   >
                     <div>
@@ -3082,7 +3094,7 @@ function FrentesOperacionaisSection(props: {
                     </small>
                     </div>
                     <span className="orcamentos-depth-chevron" aria-hidden="true">
-                      {openLevelId === "auxiliares" ? "-" : "+"}
+                      {openLevelIds.includes("auxiliares") ? "-" : "+"}
                     </span>
                   </button>
                   <button
@@ -3095,7 +3107,7 @@ function FrentesOperacionaisSection(props: {
                     Adicionar auxiliar
                   </button>
                 </div>
-                {openLevelId === "auxiliares" ? (
+                {openLevelIds.includes("auxiliares") ? (
                   <div className="orcamentos-depth-content">
                     <OperationalItemList
                       emptyLabel="Nenhum servico auxiliar informado."
@@ -3118,7 +3130,7 @@ function FrentesOperacionaisSection(props: {
                   <button
                     type="button"
                     className="orcamentos-depth-toggle"
-                    aria-expanded={openLevelId === "recursos"}
+                    aria-expanded={openLevelIds.includes("recursos")}
                     onClick={() => toggleLevel(frente.localId, "recursos")}
                   >
                     <div>
@@ -3131,7 +3143,7 @@ function FrentesOperacionaisSection(props: {
                     </small>
                     </div>
                     <span className="orcamentos-depth-chevron" aria-hidden="true">
-                      {openLevelId === "recursos" ? "-" : "+"}
+                      {openLevelIds.includes("recursos") ? "-" : "+"}
                     </span>
                   </button>
                   <button type="button" onClick={() => {
@@ -3141,7 +3153,7 @@ function FrentesOperacionaisSection(props: {
                     Adicionar recurso
                   </button>
                 </div>
-                {openLevelId === "recursos" ? (
+                {openLevelIds.includes("recursos") ? (
                   <div className="orcamentos-depth-content">
                     <OperationalItemList
                       emptyLabel="Nenhum equipamento, equipe, material ou terceiro planejado."
