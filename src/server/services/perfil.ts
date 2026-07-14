@@ -18,6 +18,18 @@ export const perfilUsuarioSelect = Prisma.validator<Prisma.UsuarioSelect>()({
       nomeFantasia: true,
       razaoSocial: true
     }
+  },
+  roles: {
+    select: {
+      role: {
+        select: {
+          nome: true
+        }
+      }
+    },
+    orderBy: {
+      role: { nome: "asc" }
+    }
   }
 });
 
@@ -26,13 +38,14 @@ type PerfilUsuarioRecord = Prisma.UsuarioGetPayload<{
 }>;
 
 export function serializePerfilUsuario(usuario: PerfilUsuarioRecord): PerfilUsuario {
-  const { updatedAt, ...perfil } = usuario;
+  const { roles, updatedAt, ...perfil } = usuario;
 
   return {
     ...perfil,
     fotoPerfilUrl: usuario.fotoPerfilUrl ? `/api/perfil/foto?v=${updatedAt.getTime()}` : null,
     ultimoLoginEm: usuario.ultimoLoginEm?.toISOString() ?? null,
-    roleLabel: getRoleEmpresaLabel(usuario.roleEmpresa)
+    roleLabel: getRoleEmpresaLabel(usuario.roleEmpresa),
+    permissions: roles.map((item) => item.role.nome)
   };
 }
 

@@ -6,7 +6,6 @@ import { AdminNav } from "@/components/admin-nav";
 import { BaseproLogo } from "@/components/branding/basepro-logo";
 import { AppHeader } from "@/components/layout/app-header";
 import { SidebarScrollArea } from "@/components/layout/sidebar-scroll-area";
-import { SidebarUserMenu } from "@/components/layout/sidebar-user-menu";
 import { hasRoleAccess, requireSession } from "@/lib/auth-guards";
 import { getPerfilUsuario } from "@/server/services/perfil";
 
@@ -124,8 +123,6 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
               <BaseproLogo theme="dark" showTagline={false} className="admin-brand-logo" />
             </Link>
           </div>
-
-          <SidebarUserMenu profile={profile} />
 
           <AdminNav groups={navigation} />
         </SidebarScrollArea>

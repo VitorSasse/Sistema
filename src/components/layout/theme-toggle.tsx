@@ -23,14 +23,6 @@ export function ThemeToggle() {
       >
         Claro
       </button>
-      <button
-        type="button"
-        className={`theme-toggle-button${preference === "system" ? " is-active" : ""}`}
-        onClick={() => changePreference("system")}
-        aria-pressed={preference === "system"}
-      >
-        Sistema
-      </button>
     </div>
   );
 }

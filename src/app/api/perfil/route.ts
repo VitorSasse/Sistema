@@ -55,7 +55,6 @@ export async function PATCH(request: NextRequest) {
         nome: parsed.data.nome,
         email: parsed.data.email.toLowerCase(),
         telefone: parsed.data.telefone ? formatTelefone(parsed.data.telefone) : null,
-        cargo: parsed.data.cargo,
         ...(fotoPerfilUrl !== undefined ? { fotoPerfilUrl } : {})
       },
       select: perfilUsuarioSelect

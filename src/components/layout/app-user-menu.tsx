@@ -7,13 +7,15 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { logout } from "@/app/(protected)/actions";
 import { PasswordDialog } from "@/features/perfil/password-dialog";
-import { getUserInitials, type PerfilUsuario } from "@/lib/perfil";
+import { getUserInitials } from "@/lib/perfil";
 
-type SidebarUserMenuProps = {
-  profile: PerfilUsuario;
+type AppUserMenuProps = {
+  userName: string;
+  userEmail: string;
+  userAvatarUrl?: string | null;
 };
 
-export function SidebarUserMenu({ profile }: SidebarUserMenuProps) {
+export function AppUserMenu({ userName, userEmail, userAvatarUrl }: AppUserMenuProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
@@ -51,34 +53,35 @@ export function SidebarUserMenu({ profile }: SidebarUserMenuProps) {
 
   return (
     <>
-      <div ref={containerRef} className="admin-user-card sidebar-user-menu-shell">
+      <div ref={containerRef} className="app-user-menu-shell">
         <button
           type="button"
-          className="sidebar-user-trigger"
-          onClick={() => setIsOpen((current) => !current)}
+          className="app-user-chip app-user-menu-trigger"
+          title={`${userName} - ${userEmail}`}
+          aria-label="Abrir menu do usuario"
           aria-expanded={isOpen}
           aria-haspopup="menu"
-          title={`${profile.nome} - ${profile.email}`}
+          onClick={() => setIsOpen((current) => !current)}
         >
-          <span className="sidebar-user-avatar" aria-hidden="true">
-            {profile.fotoPerfilUrl ? <img src={profile.fotoPerfilUrl} alt="" /> : getUserInitials(profile.nome)}
+          <span className="app-user-avatar" aria-hidden="true">
+            {userAvatarUrl ? <img src={userAvatarUrl} alt="" /> : getUserInitials(userName)}
           </span>
-          <span className="sidebar-user-identity">
-            <strong>{profile.nome}</strong>
-            <small>{profile.email}</small>
+          <span className="app-user-menu-identity">
+            <strong>{userName}</strong>
+            <small>{userEmail}</small>
           </span>
-          <ChevronDown size={17} className={isOpen ? "is-open" : ""} aria-hidden="true" />
+          <ChevronDown className={isOpen ? "is-open" : ""} size={16} aria-hidden="true" />
         </button>
 
         {isOpen ? (
-          <div className="sidebar-user-dropdown" role="menu">
-            <Link href={"/perfil" as Route} className="sidebar-user-menu-item" role="menuitem">
+          <div className="app-user-dropdown" role="menu">
+            <Link href={"/perfil" as Route} className="app-user-menu-item" role="menuitem">
               <UserRound size={17} />
               <span>Meu perfil</span>
             </Link>
             <button
               type="button"
-              className="sidebar-user-menu-item"
+              className="app-user-menu-item"
               role="menuitem"
               onClick={() => {
                 setIsOpen(false);
@@ -90,7 +93,7 @@ export function SidebarUserMenu({ profile }: SidebarUserMenuProps) {
             </button>
             <button
               type="button"
-              className="sidebar-user-menu-item is-danger"
+              className="app-user-menu-item is-danger"
               role="menuitem"
               onClick={() => {
                 setIsOpen(false);

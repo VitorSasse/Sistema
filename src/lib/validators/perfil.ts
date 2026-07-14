@@ -50,7 +50,6 @@ export const perfilUpdateSchema = z
       .max(120, "O nome deve ter no maximo 120 caracteres."),
     email: z.string().trim().email("Informe um e-mail valido."),
     telefone: optionalText(20, "O telefone deve ter no maximo 20 caracteres."),
-    cargo: optionalText(100, "O cargo deve ter no maximo 100 caracteres."),
     fotoPerfilUrl: z
       .string()
       .nullable()

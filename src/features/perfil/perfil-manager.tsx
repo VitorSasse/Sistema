@@ -13,7 +13,7 @@ type PerfilManagerProps = {
   openPasswordInitially?: boolean;
 };
 
-type ProfileField = "nome" | "email" | "telefone" | "cargo" | "fotoPerfilUrl";
+type ProfileField = "nome" | "email" | "telefone" | "fotoPerfilUrl";
 type ProfileForm = Pick<PerfilUsuario, ProfileField>;
 type FieldErrors = Partial<Record<ProfileField, string>>;
 
@@ -58,7 +58,6 @@ export function PerfilManager({ initialProfile, openPasswordInitially = false }:
     nome: initialProfile.nome,
     email: initialProfile.email,
     telefone: initialProfile.telefone,
-    cargo: initialProfile.cargo,
     fotoPerfilUrl: initialProfile.fotoPerfilUrl
   });
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -145,7 +144,6 @@ export function PerfilManager({ initialProfile, openPasswordInitially = false }:
           nome: data.perfil.nome,
           email: data.perfil.email,
           telefone: data.perfil.telefone,
-          cargo: data.perfil.cargo,
           fotoPerfilUrl: data.perfil.fotoPerfilUrl
         });
         setSelectedFileName("");
@@ -183,7 +181,7 @@ export function PerfilManager({ initialProfile, openPasswordInitially = false }:
             <span className="profile-avatar-status" title="Usuario ativo" />
           </div>
           <h2>{form.nome || "Usuario BASEPRO"}</h2>
-          <p>{form.cargo || profile.roleLabel}</p>
+          <p>{profile.cargo || profile.roleLabel}</p>
           <div className="profile-summary-divider" />
           <dl className="profile-summary-list">
             <div>
@@ -191,8 +189,12 @@ export function PerfilManager({ initialProfile, openPasswordInitially = false }:
               <dd>{profile.empresa.nomeFantasia || profile.empresa.razaoSocial || "Empresa nao informada"}</dd>
             </div>
             <div>
-              <dt><ShieldCheck size={15} /> Permissao</dt>
-              <dd>{profile.roleLabel}</dd>
+              <dt><UserRound size={15} /> Funcao do usuario</dt>
+              <dd>{profile.cargo || profile.roleLabel}</dd>
+            </div>
+            <div>
+              <dt><ShieldCheck size={15} /> Permissao atual</dt>
+              <dd>{profile.permissions.length > 0 ? profile.permissions.join(", ") : profile.roleLabel}</dd>
             </div>
             <div>
               <dt><UserRound size={15} /> Ultimo acesso</dt>
@@ -230,11 +232,6 @@ export function PerfilManager({ initialProfile, openPasswordInitially = false }:
                   <span className="field-label">Telefone</span>
                   <input className="field-control" value={form.telefone ?? ""} onChange={(event) => updateField("telefone", formatTelefone(event.target.value))} placeholder="(47) 9 0000-0000" aria-invalid={Boolean(errors.telefone)} />
                   {errors.telefone ? <small className="profile-field-error">{errors.telefone}</small> : null}
-                </label>
-                <label className="field">
-                  <span className="field-label">Cargo ou funcao</span>
-                  <input className="field-control" value={form.cargo ?? ""} onChange={(event) => updateField("cargo", event.target.value)} placeholder="Ex.: Gestor de operacoes" aria-invalid={Boolean(errors.cargo)} />
-                  {errors.cargo ? <small className="profile-field-error">{errors.cargo}</small> : null}
                 </label>
               </div>
 

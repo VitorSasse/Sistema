@@ -14,6 +14,7 @@ export type PerfilUsuario = {
   };
   roleEmpresa: RoleUsuarioEmpresa;
   roleLabel: string;
+  permissions: string[];
   ultimoLoginEm: string | null;
 };
 

@@ -7,7 +7,6 @@ describe("perfilUpdateSchema", () => {
       nome: "Usuario de Teste",
       email: "usuario@basepro.com.br",
       telefone: "(47) 9 0000-0000",
-      cargo: "Gestor operacional",
       fotoPerfilUrl: null
     });
 
@@ -19,7 +18,6 @@ describe("perfilUpdateSchema", () => {
       nome: "Usuario de Teste",
       email: "usuario@basepro.com.br",
       telefone: "9999-0000",
-      cargo: "",
       fotoPerfilUrl: null
     });
 
@@ -33,7 +31,6 @@ describe("perfilUpdateSchema", () => {
       nome: "Usuario de Teste",
       email: "usuario@basepro.com.br",
       telefone: "",
-      cargo: "",
       fotoPerfilUrl: oversizedImage
     });
 
@@ -46,7 +43,6 @@ describe("perfilUpdateSchema", () => {
       nome: "Usuario de Teste",
       email: "usuario@basepro.com.br",
       telefone: "",
-      cargo: "",
       fotoPerfilUrl: "/api/perfil/foto?v=1720958400000"
     });
 

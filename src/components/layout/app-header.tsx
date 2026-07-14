@@ -14,9 +14,9 @@ import {
   Search,
   Sparkles
 } from "lucide-react";
+import { AppUserMenu } from "@/components/layout/app-user-menu";
 import { MasterCompanySelector } from "@/components/layout/master-company-selector";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { getUserInitials } from "@/lib/perfil";
 
 type AppHeaderProps = {
   userEmail: string;
@@ -225,19 +225,11 @@ export function AppHeader({ userEmail, userName, userAvatarUrl, isMaster = false
 
         <ThemeToggle />
 
-        <div className="app-user-chip" title={userEmail}>
-          <span className="app-user-avatar" aria-hidden="true">
-            {userAvatarUrl ? (
-              <img src={userAvatarUrl} alt="" />
-            ) : (
-              getUserInitials(userName?.trim() || "Usuario")
-            )}
-          </span>
-          <span>
-            <strong>{userName?.trim() || "Usuario"}</strong>
-            <small>{userEmail}</small>
-          </span>
-        </div>
+        <AppUserMenu
+          userName={userName?.trim() || "Usuario"}
+          userEmail={userEmail}
+          userAvatarUrl={userAvatarUrl}
+        />
       </div>
     </header>
   );
