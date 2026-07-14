@@ -2,7 +2,6 @@ import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireMasterApi } from "@/lib/master-api";
-import { prisma } from "@/lib/prisma";
 import { roleLegadaPorRoleEmpresa, usuarioEmpresaMasterCreateSchema } from "@/lib/validators/master";
 
 type RouteContext = {
@@ -18,8 +17,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params;
 
-  return access.run(async () => {
-    const usuarios = await prisma.usuario.findMany({
+  return access.run(async (db) => {
+    const usuarios = await db.usuario.findMany({
       where: { empresaId: id },
       orderBy: [{ status: "asc" }, { nome: "asc" }],
       select: {
@@ -52,9 +51,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ message: "Dados invalidos.", issues: parsed.error.flatten() }, { status: 400 });
   }
 
-  return access.run(async () => {
+  return access.run(async (db) => {
     try {
-      const empresa = await prisma.empresa.findFirst({
+      const empresa = await db.empresa.findFirst({
         where: { id, deletedAt: null },
         select: { id: true }
       });
@@ -67,7 +66,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const senhaHash = await bcrypt.hash(parsed.data.senha, 10);
       const email = parsed.data.email.trim().toLowerCase();
 
-      const usuario = await prisma.$transaction(async (tx) => {
+      const usuario = await db.$transaction(async (tx) => {
         const created = await tx.usuario.create({
           data: {
             nome: parsed.data.nome.trim(),

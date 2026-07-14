@@ -4,6 +4,8 @@ import { getTenantContext } from "@/lib/tenant-store";
 declare global {
   // eslint-disable-next-line no-var
   var prismaGlobal: PrismaClient | undefined;
+  // eslint-disable-next-line no-var
+  var prismaBaseGlobal: PrismaClient | undefined;
 }
 
 export const TENANT_MODELS = new Set(
@@ -127,11 +129,7 @@ function applyTenantToWriteArgs(args: PrismaQueryArgs, empresaId: string) {
   applyTenantData(args.update, empresaId);
 }
 
-function createPrismaClient(): PrismaClient {
-  const client = new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["query", "warn", "error"] : ["error"]
-  });
-
+function createPrismaClient(client: PrismaClient): PrismaClient {
   return client.$extends({
     query: {
       $allModels: {
@@ -165,8 +163,21 @@ function createPrismaClient(): PrismaClient {
   }) as unknown as PrismaClient;
 }
 
-export const prisma = global.prismaGlobal ?? createPrismaClient();
+const prismaBase =
+  global.prismaBaseGlobal ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["query", "warn", "error"] : ["error"]
+  });
+
+export const prisma = global.prismaGlobal ?? createPrismaClient(prismaBase);
+
+// Exclusivo para consultas de identidade e administracao que precisam ocorrer
+// antes da definicao do tenant. Dados operacionais devem sempre usar `prisma`.
+export function withUnscopedPrisma<T>(callback: (client: PrismaClient) => T | Promise<T>) {
+  return callback(prismaBase);
+}
 
 if (process.env.NODE_ENV !== "production") {
+  global.prismaBaseGlobal = prismaBase;
   global.prismaGlobal = prisma;
 }

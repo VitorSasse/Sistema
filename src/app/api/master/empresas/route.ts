@@ -1,7 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireMasterApi } from "@/lib/master-api";
-import { prisma } from "@/lib/prisma";
 import { empresaMasterSchema } from "@/lib/validators/master";
 
 export async function GET() {
@@ -11,8 +10,8 @@ export async function GET() {
     return access.response;
   }
 
-  return access.run(async () => {
-    const empresas = await prisma.empresa.findMany({
+  return access.run(async (db) => {
+    const empresas = await db.empresa.findMany({
       where: { deletedAt: null },
       include: {
         _count: {
@@ -72,9 +71,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Dados invalidos.", issues: parsed.error.flatten() }, { status: 400 });
   }
 
-  return access.run(async () => {
+  return access.run(async (db) => {
     try {
-      const empresa = await prisma.empresa.create({
+      const empresa = await db.empresa.create({
         data: {
           nome: parsed.data.nomeFantasia,
           nomeFantasia: parsed.data.nomeFantasia,

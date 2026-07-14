@@ -1,7 +1,7 @@
 import { RoleUsuarioEmpresa } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { runWithoutTenantScope } from "@/lib/tenant-store";
+import { withUnscopedPrisma } from "@/lib/prisma";
 
 export async function requireMasterApi() {
   const session = await auth();
@@ -23,6 +23,6 @@ export async function requireMasterApi() {
   return {
     ok: true as const,
     session,
-    run: runWithoutTenantScope
+    run: withUnscopedPrisma
   };
 }

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { MASTER_EMPRESA_COOKIE } from "@/lib/master-empresa-cookie";
 import { requireMasterApi } from "@/lib/master-api";
-import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const access = await requireMasterApi();
@@ -34,8 +33,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  return access.run(async () => {
-    const empresa = await prisma.empresa.findFirst({
+  return access.run(async (db) => {
+    const empresa = await db.empresa.findFirst({
       where: { id: empresaId, status: "ATIVO", deletedAt: null },
       select: { id: true }
     });

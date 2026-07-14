@@ -11,7 +11,16 @@ export type TenantContext = {
   initialized: boolean;
 };
 
-const tenantStorage = new AsyncLocalStorage<TenantContext>();
+declare global {
+  // O build de producao pode carregar este modulo em chunks diferentes. O
+  // singleton garante que autenticacao e Prisma consultem o mesmo contexto.
+  // eslint-disable-next-line no-var
+  var tenantStorageGlobal: AsyncLocalStorage<TenantContext> | undefined;
+}
+
+const tenantStorage = globalThis.tenantStorageGlobal ?? new AsyncLocalStorage<TenantContext>();
+
+globalThis.tenantStorageGlobal = tenantStorage;
 
 export function setTenantContext(context: TenantContext) {
   tenantStorage.enterWith(context);

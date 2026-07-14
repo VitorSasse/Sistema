@@ -5,11 +5,10 @@ import { cookies } from "next/headers";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { MASTER_EMPRESA_COOKIE } from "@/lib/master-empresa-cookie";
-import { prisma } from "@/lib/prisma";
+import { prisma, withUnscopedPrisma } from "@/lib/prisma";
 import {
   beginTenantContext,
-  resolveTenantContext,
-  runWithoutTenantScope
+  resolveTenantContext
 } from "@/lib/tenant-store";
 
 const signInSchema = z.object({
@@ -54,8 +53,8 @@ const nextAuth = NextAuth({
             return null;
           }
 
-          const user = await runWithoutTenantScope(() =>
-            prisma.usuario.findUnique({
+          const user = await withUnscopedPrisma((db) =>
+            db.usuario.findUnique({
               where: { email: parsed.data.email },
               include: {
                 empresa: {
@@ -90,8 +89,8 @@ const nextAuth = NextAuth({
             return null;
           }
 
-          await runWithoutTenantScope(() =>
-            prisma.usuario.update({
+          await withUnscopedPrisma((db) =>
+            db.usuario.update({
               where: { id: user.id },
               data: { ultimoLoginEm: new Date() }
             })
@@ -176,8 +175,8 @@ export async function auth() {
     return null;
   }
 
-  const usuario = await runWithoutTenantScope(() =>
-    prisma.usuario.findUnique({
+  const usuario = await withUnscopedPrisma((db) =>
+    db.usuario.findUnique({
       where: { id: session.user.id },
       select: {
         id: true,
@@ -215,8 +214,8 @@ export async function auth() {
 
   const empresaSelecionadaCookie = await getEmpresaSelecionadaMaster(isMaster);
   const empresaSelecionadaId = empresaSelecionadaCookie
-    ? await runWithoutTenantScope(async () => {
-        const empresa = await prisma.empresa.findFirst({
+    ? await withUnscopedPrisma(async (db) => {
+        const empresa = await db.empresa.findFirst({
           where: {
             id: empresaSelecionadaCookie,
             status: "ATIVO",

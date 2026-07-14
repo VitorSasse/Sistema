@@ -7,8 +7,7 @@ import { BaseproLogo } from "@/components/branding/basepro-logo";
 import { AppHeader } from "@/components/layout/app-header";
 import { SidebarScrollArea } from "@/components/layout/sidebar-scroll-area";
 import { hasRoleAccess, requireSession } from "@/lib/auth-guards";
-import { prisma } from "@/lib/prisma";
-import { runWithoutTenantScope } from "@/lib/tenant-store";
+import { withUnscopedPrisma } from "@/lib/prisma";
 import { getPerfilUsuario } from "@/server/services/perfil";
 
 const navigationGroups = [
@@ -94,8 +93,8 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
   const canReadAudit = hasRoleAccess(session.user.roles, "auditoria.read");
   const isMaster = session.user.isMaster;
   const selectedEmpresa = session.user.empresaSelecionadaId
-    ? await runWithoutTenantScope(() =>
-        prisma.empresa.findFirst({
+    ? await withUnscopedPrisma((db) =>
+        db.empresa.findFirst({
           where: { id: session.user.empresaSelecionadaId!, status: "ATIVO", deletedAt: null },
           select: { nome: true, nomeFantasia: true, razaoSocial: true }
         })

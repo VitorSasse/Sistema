@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import { prisma, TENANT_MODELS } from "@/lib/prisma";
+import { prisma, TENANT_MODELS, withUnscopedPrisma } from "@/lib/prisma";
 import {
   getActiveTenantEmpresaId,
   getTenantContext,
@@ -58,6 +58,10 @@ describe("isolamento do tenant", () => {
 
   it("falha fechado quando o contexto nao foi inicializado", async () => {
     await expect(prisma.cliente.count()).rejects.toThrow("Contexto de empresa ausente");
+  });
+
+  it("permite carregar a identidade antes da definicao do tenant", async () => {
+    await expect(withUnscopedPrisma((db) => db.usuario.count())).resolves.toBeGreaterThan(0);
   });
 
   it("exige selecao explicita de empresa para MASTER operacional", async () => {

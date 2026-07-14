@@ -2,8 +2,8 @@ import { RoleUsuarioEmpresa, StatusCadastro } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { getTenantContext, runWithoutTenantScope } from "@/lib/tenant-store";
+import { withUnscopedPrisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant-store";
 
 export type CurrentUserContext = {
   id: string;
@@ -42,8 +42,8 @@ export async function getCurrentUser(): Promise<CurrentUserContext | null> {
     return null;
   }
 
-  const usuario = await runWithoutTenantScope(() =>
-    prisma.usuario.findUnique({
+  const usuario = await withUnscopedPrisma((db) =>
+    db.usuario.findUnique({
       where: { id: session.user.id },
       select: {
         id: true,
@@ -85,8 +85,8 @@ export async function getCurrentUser(): Promise<CurrentUserContext | null> {
 
   const empresaContexto =
     isMaster && empresaSelecionadaId
-      ? await runWithoutTenantScope(() =>
-          prisma.empresa.findFirst({
+      ? await withUnscopedPrisma((db) =>
+          db.empresa.findFirst({
             where: { id: empresaSelecionadaId, deletedAt: null },
             select: {
               id: true,

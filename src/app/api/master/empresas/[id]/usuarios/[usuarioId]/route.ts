@@ -2,7 +2,6 @@ import bcrypt from "bcryptjs";
 import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { requireMasterApi } from "@/lib/master-api";
-import { prisma } from "@/lib/prisma";
 import { roleLegadaPorRoleEmpresa, usuarioEmpresaMasterUpdateSchema } from "@/lib/validators/master";
 
 type RouteContext = {
@@ -24,9 +23,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ message: "Dados invalidos.", issues: parsed.error.flatten() }, { status: 400 });
   }
 
-  return access.run(async () => {
+  return access.run(async (db) => {
     try {
-      const existing = await prisma.usuario.findFirst({
+      const existing = await db.usuario.findFirst({
         where: { id: usuarioId, empresaId: id },
         select: { id: true, roleEmpresa: true }
       });
@@ -38,7 +37,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const roleEmpresa = parsed.data.roleEmpresa ?? existing.roleEmpresa;
       const roleLegada = roleLegadaPorRoleEmpresa(roleEmpresa);
 
-      const usuario = await prisma.$transaction(async (tx) => {
+      const usuario = await db.$transaction(async (tx) => {
         const updated = await tx.usuario.update({
           where: { id: usuarioId },
           data: {

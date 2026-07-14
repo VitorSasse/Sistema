@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { runWithoutTenantScope } from "@/lib/tenant-store";
+import { withUnscopedPrisma } from "@/lib/prisma";
 
 const dataUrlPattern = /^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=]+)$/i;
 
@@ -12,8 +11,8 @@ export async function GET() {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
-  const usuario = await runWithoutTenantScope(() =>
-    prisma.usuario.findUnique({
+  const usuario = await withUnscopedPrisma((db) =>
+    db.usuario.findUnique({
       where: { id: session.user.id },
       select: { fotoPerfilUrl: true }
     })

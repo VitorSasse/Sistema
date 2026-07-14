@@ -1,8 +1,7 @@
 import bcrypt from "bcryptjs";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { runWithoutTenantScope } from "@/lib/tenant-store";
+import { withUnscopedPrisma } from "@/lib/prisma";
 import { alterarSenhaSchema } from "@/lib/validators/perfil";
 
 export async function PATCH(request: NextRequest) {
@@ -24,8 +23,8 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const usuario = await runWithoutTenantScope(() =>
-    prisma.usuario.findUnique({
+  const usuario = await withUnscopedPrisma((db) =>
+    db.usuario.findUnique({
       where: { id: session.user.id },
       select: { id: true, senhaHash: true }
     })
@@ -61,8 +60,8 @@ export async function PATCH(request: NextRequest) {
 
   const senhaHash = await bcrypt.hash(parsed.data.novaSenha, 10);
 
-  await runWithoutTenantScope(() =>
-    prisma.usuario.update({
+  await withUnscopedPrisma((db) =>
+    db.usuario.update({
       where: { id: usuario.id },
       data: { senhaHash }
     })
