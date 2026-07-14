@@ -12,15 +12,16 @@ import {
   Gauge,
   Home,
   Search,
-  Sparkles,
-  UserRound
+  Sparkles
 } from "lucide-react";
 import { MasterCompanySelector } from "@/components/layout/master-company-selector";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { getUserInitials } from "@/lib/perfil";
 
 type AppHeaderProps = {
   userEmail: string;
   userName?: string | null;
+  userAvatarUrl?: string | null;
   isMaster?: boolean;
 };
 
@@ -39,6 +40,7 @@ type QuickAction = {
 
 const routeMeta: Array<{ prefix: string; meta: RouteMeta }> = [
   { prefix: "/inicio", meta: { title: "Home operacional", group: "Inicio" } },
+  { prefix: "/perfil", meta: { title: "Meu perfil", group: "Conta" } },
   { prefix: "/master", meta: { title: "Painel Master", group: "Seguranca" } },
   { prefix: "/dashboard/custos", meta: { title: "Dashboard de custos", group: "Dashboards" } },
   { prefix: "/dashboard/km-horimetro", meta: { title: "KM e horimetro", group: "Dashboards" } },
@@ -114,7 +116,7 @@ function resolveRouteMeta(pathname: string): RouteMeta {
   return match?.meta ?? { title: "BASEPRO", group: "Sistema" };
 }
 
-export function AppHeader({ userEmail, userName, isMaster = false }: AppHeaderProps) {
+export function AppHeader({ userEmail, userName, userAvatarUrl, isMaster = false }: AppHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -225,7 +227,11 @@ export function AppHeader({ userEmail, userName, isMaster = false }: AppHeaderPr
 
         <div className="app-user-chip" title={userEmail}>
           <span className="app-user-avatar" aria-hidden="true">
-            <UserRound size={16} />
+            {userAvatarUrl ? (
+              <img src={userAvatarUrl} alt="" />
+            ) : (
+              getUserInitials(userName?.trim() || "Usuario")
+            )}
           </span>
           <span>
             <strong>{userName?.trim() || "Usuario"}</strong>

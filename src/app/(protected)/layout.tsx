@@ -1,12 +1,14 @@
 import type { Route } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ReactNode } from "react";
-import { logout } from "./actions";
 import { AdminNav } from "@/components/admin-nav";
 import { BaseproLogo } from "@/components/branding/basepro-logo";
 import { AppHeader } from "@/components/layout/app-header";
 import { SidebarScrollArea } from "@/components/layout/sidebar-scroll-area";
+import { SidebarUserMenu } from "@/components/layout/sidebar-user-menu";
 import { hasRoleAccess, requireSession } from "@/lib/auth-guards";
+import { getPerfilUsuario } from "@/server/services/perfil";
 
 const navigationGroups = [
   {
@@ -81,6 +83,12 @@ type ProtectedLayoutProps = {
 
 export default async function ProtectedLayout({ children }: ProtectedLayoutProps) {
   const session = await requireSession();
+  const profile = await getPerfilUsuario(session.user.id);
+
+  if (!profile) {
+    redirect("/login");
+  }
+
   const canManageUsers = hasRoleAccess(session.user.roles, "users.manage");
   const canReadAudit = hasRoleAccess(session.user.roles, "auditoria.read");
   const isMaster = session.user.isMaster;
@@ -117,23 +125,19 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
             </Link>
           </div>
 
-          <div className="admin-user-card">
-            <p className="admin-user-label">Sessao ativa</p>
-            <p className="admin-user-email">{session.user.email}</p>
-          </div>
+          <SidebarUserMenu profile={profile} />
 
           <AdminNav groups={navigation} />
-
-          <form action={logout}>
-            <button type="submit" className="admin-logout">
-              Encerrar sessao
-            </button>
-          </form>
         </SidebarScrollArea>
       </aside>
 
       <div className="admin-main">
-        <AppHeader userEmail={session.user.email ?? ""} userName={session.user.name} isMaster={isMaster} />
+        <AppHeader
+          userEmail={profile.email}
+          userName={profile.nome}
+          userAvatarUrl={profile.fotoPerfilUrl}
+          isMaster={isMaster}
+        />
         <div className="admin-content">{children}</div>
       </div>
     </div>

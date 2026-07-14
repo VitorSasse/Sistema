@@ -319,6 +319,9 @@ model Usuario {
   nome                          String
   email                         String                @unique
   senhaHash                     String
+  telefone                      String?
+  cargo                         String?
+  fotoPerfilUrl                 String?               @db.Text
   status                        StatusCadastro        @default(ATIVO)
   roleEmpresa                   RoleUsuarioEmpresa    @default(ADMIN_EMPRESA)
   ultimoLoginEm                 DateTime?

@@ -1,48 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-type ThemeMode = "dark" | "light";
-
-const storageKey = "basepro-theme";
-
-function applyTheme(theme: ThemeMode) {
-  document.body.dataset.theme = theme;
-}
+import { useThemePreference } from "@/hooks/use-theme-preference";
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<ThemeMode>("dark");
-
-  useEffect(() => {
-    const savedTheme = window.localStorage.getItem(storageKey);
-    const initialTheme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : "dark";
-    setTheme(initialTheme);
-    applyTheme(initialTheme);
-  }, []);
-
-  function handleChange(nextTheme: ThemeMode) {
-    setTheme(nextTheme);
-    applyTheme(nextTheme);
-    window.localStorage.setItem(storageKey, nextTheme);
-  }
+  const { preference, changePreference } = useThemePreference();
 
   return (
     <div className="theme-toggle" aria-label="Tema do sistema">
       <button
         type="button"
-        className={`theme-toggle-button${theme === "dark" ? " is-active" : ""}`}
-        onClick={() => handleChange("dark")}
-        aria-pressed={theme === "dark"}
+        className={`theme-toggle-button${preference === "dark" ? " is-active" : ""}`}
+        onClick={() => changePreference("dark")}
+        aria-pressed={preference === "dark"}
       >
         Escuro
       </button>
       <button
         type="button"
-        className={`theme-toggle-button${theme === "light" ? " is-active" : ""}`}
-        onClick={() => handleChange("light")}
-        aria-pressed={theme === "light"}
+        className={`theme-toggle-button${preference === "light" ? " is-active" : ""}`}
+        onClick={() => changePreference("light")}
+        aria-pressed={preference === "light"}
       >
         Claro
+      </button>
+      <button
+        type="button"
+        className={`theme-toggle-button${preference === "system" ? " is-active" : ""}`}
+        onClick={() => changePreference("system")}
+        aria-pressed={preference === "system"}
+      >
+        Sistema
       </button>
     </div>
   );
