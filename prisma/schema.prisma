@@ -891,6 +891,11 @@ model OrcamentoItem {
   viagensTotais         Decimal?                   @db.Decimal(12, 2)
   distanciaViagemKm     Decimal?                   @db.Decimal(12, 2)
   quilometrosTotais     Decimal?                   @db.Decimal(14, 2)
+  capacidadePorViagem   Decimal?                   @db.Decimal(14, 4)
+  unidadeCapacidade     String?
+  viagensTeoricas       Decimal?                   @db.Decimal(14, 4)
+  viagensOperacionais   Int?
+  custoPorViagem        Decimal?                   @db.Decimal(14, 2)
   cargasTotais          Decimal?                   @db.Decimal(12, 2)
   mesesTotais           Decimal?                   @db.Decimal(10, 2)
   diasTrabalhadosMes    Decimal?                   @default(22) @db.Decimal(8, 2)

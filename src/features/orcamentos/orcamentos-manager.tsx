@@ -213,6 +213,8 @@ type ItemForm = {
   viagensTotais: string;
   distanciaViagemKm: string;
   quilometrosTotais: string;
+  capacidadePorViagem: string;
+  unidadeCapacidade: string;
   cargasTotais: string;
   mesesTotais: string;
   diasTrabalhadosMes: string;
@@ -393,6 +395,11 @@ type OrcamentoApi = {
     viagensTotais: string | number | null;
     distanciaViagemKm: string | number | null;
     quilometrosTotais: string | number | null;
+    capacidadePorViagem: string | number | null;
+    unidadeCapacidade: string | null;
+    viagensTeoricas: string | number | null;
+    viagensOperacionais: number | null;
+    custoPorViagem: string | number | null;
     cargasTotais: string | number | null;
     mesesTotais: string | number | null;
     diasTrabalhadosMes: string | number | null;
@@ -652,6 +659,8 @@ function createEmptyItem(tipoItem: TipoItemOrcamento, ordem: number, frenteTempI
     viagensTotais: "",
     distanciaViagemKm: "",
     quilometrosTotais: "",
+    capacidadePorViagem: "",
+    unidadeCapacidade: "",
     cargasTotais: "",
     mesesTotais: "",
     diasTrabalhadosMes: "22",
@@ -829,6 +838,31 @@ function getProdutividadeLabel(unidade: string) {
   return `Produção média diária (${normalizeUnidadeProducao(unidade)}/dia)`;
 }
 
+function getProdutividadeComparisonMessage(
+  produtividadePlanejada: number | null,
+  produtividadeResultante?: number
+) {
+  if (
+    produtividadePlanejada === null ||
+    produtividadePlanejada <= 0 ||
+    produtividadeResultante === undefined ||
+    produtividadeResultante <= 0
+  ) {
+    return "";
+  }
+
+  const variacaoPercentual = (produtividadeResultante / produtividadePlanejada - 1) * 100;
+  if (Math.abs(variacaoPercentual) < 0.005) return "";
+
+  const percentualFormatado = Math.abs(variacaoPercentual).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+  const direcao = variacaoPercentual > 0 ? "superior" : "inferior";
+
+  return `Produtividade necessária ${percentualFormatado}% ${direcao} à planejada.`;
+}
+
 function getFrenteCalculoMessage(frente: FrenteForm) {
   const quantidade = parseFrenteNumber(frente.quantidadePrevista);
   const produtividade = parseFrenteNumber(frente.produtividadeDia);
@@ -951,6 +985,8 @@ function buildCostEngineInputFromForm(form: OrcamentoForm) {
         viagensTotais: item.viagensTotais,
         distanciaViagemKm: item.distanciaViagemKm,
         quilometrosTotais: item.quilometrosTotais,
+        capacidadePorViagem: item.capacidadePorViagem,
+        unidadeCapacidade: item.unidadeCapacidade,
         cargasTotais: item.cargasTotais,
         mesesTotais: item.mesesTotais,
         diasTrabalhadosMes: item.diasTrabalhadosMes
@@ -2856,6 +2892,10 @@ function FrentesOperacionaisSection(props: {
           const custoCalculadoPorRecursos = custoFrente?.origemCusto === "RECURSOS";
           const unidadeProdutividadeLabel = getProdutividadeLabel(frente.unidadeProducao);
           const frenteCalculoMessage = getFrenteCalculoMessage(frente);
+          const produtividadeComparisonMessage = getProdutividadeComparisonMessage(
+            parseFrenteNumber(frente.produtividadeDia),
+            custoFrente?.produtividadeResultante
+          );
           const openLevelIds = getOpenLevels(frente.localId);
 
           return (
@@ -2922,7 +2962,7 @@ function FrentesOperacionaisSection(props: {
                   />
                 </label>
                 <label className="manager-field">
-                  <span className="manager-field-label">Produtividade/dia</span>
+                  <span className="manager-field-label">Produtividade planejada/dia</span>
                   <input
                     className="field-control"
                     type="number"
@@ -2935,7 +2975,7 @@ function FrentesOperacionaisSection(props: {
                     }
                   />
                   <small className="manager-field-hint">{unidadeProdutividadeLabel}</small>
-                  <small className="manager-field-hint">Produção média diária prevista desta frente.</small>
+                  <small className="manager-field-hint">Premissa de produção média diária prevista desta frente.</small>
                 </label>
                 <label className="manager-field">
                   <span className="manager-field-label">Prazo teorico</span>
@@ -2971,14 +3011,15 @@ function FrentesOperacionaisSection(props: {
                 </label>
                 <div className="orcamentos-planning-summary orcamentos-span-3">
                   <span className={custoFrente?.origemPrazo === "AJUSTADO" ? "is-adjusted" : ""}>
-                    {custoFrente?.origemPrazo === "AJUSTADO" ? "Ajustado pelo engenheiro" : "Automatico"}
+                    {custoFrente?.origemPrazo === "AJUSTADO" ? "ADOTADO" : "AUTOMÁTICO"}
                   </span>
                   <strong>
                     Prazo utilizado: {custoFrente?.prazoDias?.toLocaleString("pt-BR") ?? "-"} {custoFrente?.prazoUnidade ?? "dia(s)"}
                   </strong>
                   <small>
-                    Produtividade resultante: {custoFrente?.produtividadeAjustada?.toLocaleString("pt-BR") ?? "-"} {normalizeUnidadeProducao(frente.unidadeProducao)}/dia
+                    Produtividade resultante: {custoFrente?.produtividadeResultante?.toLocaleString("pt-BR", { maximumFractionDigits: 3 }) ?? "-"} {normalizeUnidadeProducao(frente.unidadeProducao)}/dia
                   </small>
+                  {produtividadeComparisonMessage ? <small>{produtividadeComparisonMessage}</small> : null}
                 </div>
                 {frenteCalculoMessage ? (
                   <p className="orcamentos-front-validation orcamentos-span-3">{frenteCalculoMessage}</p>
@@ -3842,7 +3883,9 @@ function ResourceItemFields(props: {
         </small>
       </label>
       <label className="manager-field">
-        <span className="manager-field-label">Valor do custo</span>
+        <span className="manager-field-label">
+          {props.item.unidadeEconomicaCusto === "KM" ? "Custo por km" : "Valor do custo"}
+        </span>
         <input
           className="field-control"
           type="number"
@@ -3868,10 +3911,41 @@ function ResourceItemFields(props: {
         </label>
       ) : null}
       {props.item.tipoCalculoRecurso === "AUTOMATICO" && props.item.unidadeEconomicaCusto === "KM" ? (
-        <label className="manager-field">
-          <span className="manager-field-label">Quilometros totais</span>
-          <input className="field-control" type="number" min="0" step="0.01" value={props.item.quilometrosTotais} onChange={(event) => props.onUpdate(props.item.localId, "quilometrosTotais", event.target.value)} />
-        </label>
+        <>
+          <label className="manager-field">
+            <span className="manager-field-label">Capacidade por viagem</span>
+            <input
+              className="field-control"
+              type="number"
+              min="0"
+              step="0.01"
+              value={props.item.capacidadePorViagem}
+              placeholder="Ex.: 14"
+              onChange={(event) => props.onUpdate(props.item.localId, "capacidadePorViagem", event.target.value)}
+            />
+          </label>
+          <label className="manager-field">
+            <span className="manager-field-label">Unidade da capacidade</span>
+            <input
+              className="field-control"
+              value={props.item.unidadeCapacidade}
+              placeholder="Ex.: m3"
+              onChange={(event) => props.onUpdate(props.item.localId, "unidadeCapacidade", event.target.value)}
+            />
+          </label>
+          <label className="manager-field">
+            <span className="manager-field-label">Distancia por viagem (ida e volta)</span>
+            <input
+              className="field-control"
+              type="number"
+              min="0"
+              step="0.01"
+              value={props.item.distanciaViagemKm}
+              placeholder="Ex.: 12"
+              onChange={(event) => props.onUpdate(props.item.localId, "distanciaViagemKm", event.target.value)}
+            />
+          </label>
+        </>
       ) : null}
       {props.item.tipoCalculoRecurso === "AUTOMATICO" && props.item.unidadeEconomicaCusto === "CARGA" ? (
         <label className="manager-field">
@@ -3905,7 +3979,7 @@ function ResourceItemFields(props: {
       </label>
       <div className="orcamentos-resource-memory orcamentos-span-3">
         <div>
-          <span>Custo total calculado</span>
+          <span>{props.memoria?.statusCalculo === "PENDENTE" ? "Pendente de calculo" : "Custo total calculado"}</span>
           <strong>{formatCurrency(props.memoria?.custoTotal ?? 0)}</strong>
         </div>
         <code>{props.memoria?.formula || "Preencha os parametros para visualizar a memoria de calculo."}</code>
@@ -4317,6 +4391,8 @@ function mapItemPayload(item: ItemForm, tipoOrcamento: TipoOrcamento) {
     viagensTotais: recurso && item.viagensTotais ? Number(item.viagensTotais) : null,
     distanciaViagemKm: recurso && item.distanciaViagemKm ? Number(item.distanciaViagemKm) : null,
     quilometrosTotais: recurso && item.quilometrosTotais ? Number(item.quilometrosTotais) : null,
+    capacidadePorViagem: recurso && item.capacidadePorViagem ? Number(item.capacidadePorViagem) : null,
+    unidadeCapacidade: recurso ? item.unidadeCapacidade.trim() || null : null,
     cargasTotais: recurso && item.cargasTotais ? Number(item.cargasTotais) : null,
     mesesTotais: recurso && item.mesesTotais ? Number(item.mesesTotais) : null,
     diasTrabalhadosMes: recurso ? Number(item.diasTrabalhadosMes) || 22 : null,
@@ -4563,6 +4639,8 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
             viagensTotais: toStringValue(orcamentoItem.viagensTotais),
             distanciaViagemKm: toStringValue(orcamentoItem.distanciaViagemKm),
             quilometrosTotais: toStringValue(orcamentoItem.quilometrosTotais),
+            capacidadePorViagem: toStringValue(orcamentoItem.capacidadePorViagem),
+            unidadeCapacidade: orcamentoItem.unidadeCapacidade ?? "",
             cargasTotais: toStringValue(orcamentoItem.cargasTotais),
             mesesTotais: toStringValue(orcamentoItem.mesesTotais),
             diasTrabalhadosMes: toStringValue(orcamentoItem.diasTrabalhadosMes ?? 22),

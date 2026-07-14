@@ -8347,6 +8347,7 @@ button {
 }
 
 .orcamentos-resource-memory code {
+  white-space: pre-line;
   overflow-wrap: anywhere;
   color: var(--screen-text);
   font-family: inherit;

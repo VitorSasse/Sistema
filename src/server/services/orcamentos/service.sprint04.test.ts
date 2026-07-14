@@ -398,6 +398,51 @@ describe("orcamentos sprint 4.1-4.3", () => {
     });
   });
 
+  it("persiste o snapshot economico completo do transporte por km", async () => {
+    const { db, records } = createFakeDb();
+    const input = baseInput({
+      frentes: [{
+        ...baseInput().frentes[0],
+        quantidadePrevista: 5560.66,
+        unidadeProducao: "m3"
+      }],
+      itens: [{
+        ...baseInput().itens[0],
+        tempId: "caminhao-14m3",
+        tipoItem: TipoItemOrcamento.RECURSO,
+        categoriaRecurso: "EQUIPAMENTO",
+        descricao: "Caminhao Basculante 14 m3",
+        quantidade: 3,
+        custoUnitario: 8,
+        tipoCalculoRecurso: "AUTOMATICO",
+        unidadeEconomicaCusto: "KM",
+        valorCusto: 8,
+        capacidadePorViagem: 14,
+        unidadeCapacidade: "m3",
+        distanciaViagemKm: 12
+      }]
+    });
+
+    await criarOrcamento(db as never, { input, userId: "usuario-1" });
+
+    expect(records.itens[0]).toMatchObject({
+      capacidadePorViagem: 14,
+      unidadeCapacidade: "m3",
+      viagensTeoricas: 397.19,
+      viagensOperacionais: 398,
+      custoPorViagem: 96,
+      custoTotalCalculado: 38208
+    });
+    expect(JSON.parse(String(records.itens[0].memoriaCalculo))).toMatchObject({
+      viagensTeoricas: 397.19,
+      viagensOperacionais: 398,
+      custoPorViagem: 96,
+      viagensMediasPorRecurso: 132.67,
+      custoTotal: 38208,
+      statusCalculo: "CALCULADO"
+    });
+  });
+
   it("mantem orcamento comercial sem cenario automatico", async () => {
     const { db, records } = createFakeDb();
 

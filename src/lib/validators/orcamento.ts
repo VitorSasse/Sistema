@@ -40,6 +40,28 @@ function numeroDecimal(max = 999999999) {
   );
 }
 
+function normalizarUnidadeOperacional(value?: string | null) {
+  const unidade = (value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/³/g, "3")
+    .replace(/²/g, "2")
+    .replace(/\s+/g, "");
+
+  if (unidade.includes("m3")) return "M3";
+  if (unidade.includes("m2")) return "M2";
+  if (unidade === "t" || unidade.includes("ton")) return "TON";
+  if (unidade.includes("carga")) return "CARGA";
+  if (unidade.includes("km")) return "KM";
+  if (unidade.includes("hora") || unidade === "h") return "HORA";
+  if (unidade.includes("mes")) return "MES";
+  if (unidade.includes("dia")) return "DIA";
+  if (["un", "und", "unidade", "unidades"].includes(unidade)) return "UN";
+  return unidade ? "DESCONHECIDA" : "";
+}
+
 const orcamentoFrenteSchema = z.object({
   cenarioTempId: z.string().trim().max(80).optional().or(z.literal("")),
   cenarioOrdem: z.number().int().positive().max(999).optional().nullable(),
@@ -124,6 +146,8 @@ const orcamentoItemSchema = z.object({
   viagensTotais: numeroDecimal(999999999).optional().nullable(),
   distanciaViagemKm: numeroDecimal(999999).optional().nullable(),
   quilometrosTotais: numeroDecimal(999999999).optional().nullable(),
+  capacidadePorViagem: numeroDecimal(999999999).optional().nullable(),
+  unidadeCapacidade: z.string().trim().max(40).optional().or(z.literal("")),
   cargasTotais: numeroDecimal(999999999).optional().nullable(),
   mesesTotais: numeroDecimal(999999).optional().nullable(),
   diasTrabalhadosMes: numeroDecimal(31).optional().nullable(),
@@ -153,7 +177,11 @@ const orcamentoItemSchema = z.object({
     return;
   }
 
-  if (item.unidadeEconomicaCusto && Number(item.valorCusto ?? 0) <= 0) {
+  if (
+    item.unidadeEconomicaCusto &&
+    item.unidadeEconomicaCusto !== UnidadeEconomicaCusto.KM &&
+    Number(item.valorCusto ?? 0) <= 0
+  ) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["valorCusto"],
@@ -189,15 +217,36 @@ const orcamentoItemSchema = z.object({
 
   if (
     item.tipoCalculoRecurso === TipoCalculoRecurso.AUTOMATICO &&
-    item.unidadeEconomicaCusto === UnidadeEconomicaCusto.KM &&
-    Number(item.quilometrosTotais ?? 0) <= 0 &&
-    (Number(item.distanciaViagemKm ?? 0) <= 0 || Number(item.viagensDia ?? 0) <= 0)
+    item.unidadeEconomicaCusto === UnidadeEconomicaCusto.KM
   ) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["quilometrosTotais"],
-      message: "Informe a quantidade total de quilometros."
-    });
+    if (Number(item.quantidade ?? 0) <= 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["quantidade"],
+        message: "Informe a quantidade de caminhoes mobilizados."
+      });
+    }
+    if (Number(item.capacidadePorViagem ?? 0) <= 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["capacidadePorViagem"],
+        message: "Informe uma capacidade por viagem maior que zero."
+      });
+    }
+    if (!item.unidadeCapacidade?.trim()) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["unidadeCapacidade"],
+        message: "Informe a unidade da capacidade por viagem."
+      });
+    }
+    if (Number(item.distanciaViagemKm ?? 0) <= 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["distanciaViagemKm"],
+        message: "Informe uma distancia por viagem maior que zero."
+      });
+    }
   }
 
   if (
@@ -346,6 +395,40 @@ export const orcamentoSchema = z
           message: "Defina pelo menos um servico principal vinculado a uma frente."
         });
       }
+
+      data.itens.forEach((item, itemIndex) => {
+        if (
+          item.tipoItem !== TipoItemOrcamento.RECURSO ||
+          item.tipoCalculoRecurso !== TipoCalculoRecurso.AUTOMATICO ||
+          item.unidadeEconomicaCusto !== UnidadeEconomicaCusto.KM
+        ) {
+          return;
+        }
+
+        const frente = data.frentes.find((candidate) =>
+          (item.frenteTempId?.trim() && candidate.tempId?.trim() === item.frenteTempId.trim()) ||
+          (item.frenteOrdem && candidate.ordem === item.frenteOrdem)
+        );
+        if (!frente) return;
+
+        if (Number(frente.quantidadePrevista ?? 0) <= 0) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["itens", itemIndex, "capacidadePorViagem"],
+            message: "A frente deve possuir quantidade prevista maior que zero para calcular o transporte."
+          });
+        }
+
+        const unidadeFrente = normalizarUnidadeOperacional(frente.unidadeProducao);
+        const unidadeCapacidade = normalizarUnidadeOperacional(item.unidadeCapacidade);
+        if (unidadeFrente && unidadeCapacidade && unidadeFrente !== unidadeCapacidade) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["itens", itemIndex, "unidadeCapacidade"],
+            message: "A unidade da capacidade deve ser compativel com a unidade de producao da frente."
+          });
+        }
+      });
 
       const cenarioRefs = new Set<string>();
 

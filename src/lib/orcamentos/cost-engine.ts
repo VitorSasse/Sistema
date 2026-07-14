@@ -63,6 +63,8 @@ export type CostEngineRecursoInput = {
   viagensTotais?: string | number | null;
   distanciaViagemKm?: string | number | null;
   quilometrosTotais?: string | number | null;
+  capacidadePorViagem?: string | number | null;
+  unidadeCapacidade?: string | null;
   cargasTotais?: string | number | null;
   mesesTotais?: string | number | null;
   diasTrabalhadosMes?: string | number | null;
@@ -71,6 +73,7 @@ export type CostEngineRecursoInput = {
 export type CostEnginePlanejamentoFrente = {
   quantidade: number;
   produtividadeInformada: number;
+  produtividadeResultante: number;
   produtividadeAjustada: number;
   prazoTeorico: number;
   prazoAdotado: number;
@@ -98,12 +101,19 @@ export type CostEngineMemoriaRecurso = {
   viagensTotais: number;
   distanciaViagemKm: number;
   quilometrosTotais: number;
+  capacidadePorViagem: number;
+  unidadeCapacidade: string;
+  viagensTeoricas: number;
+  viagensOperacionais: number;
+  custoPorViagem: number;
+  viagensMediasPorRecurso: number;
   cargasTotais: number;
   mesesTotais: number;
   diasTrabalhadosMes: number;
   baseConversao: number;
   custoTotal: number;
   custoUnitarioFrente: number;
+  statusCalculo: "CALCULADO" | "PENDENTE";
   formula: string;
   observacoes: string[];
 };
@@ -114,6 +124,7 @@ export type CostEngineFrenteResultado = {
   unidade: string;
   quantidade: number;
   produtividadeDia: number;
+  produtividadeResultante: number;
   produtividadeAjustada: number;
   prazoTeoricoDias: number;
   prazoAdotadoDias: number;
@@ -177,6 +188,11 @@ export function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+function roundOperational(value: number, decimals = 3) {
+  const factor = 10 ** decimals;
+  return Math.round((value + Number.EPSILON) * factor) / factor;
+}
+
 function normalizeText(value?: string | null) {
   return (value ?? "")
     .trim()
@@ -206,6 +222,15 @@ function normalizeUnidade(value?: string | null): UnidadeOperacional {
   if (normalized.includes("carga")) return "CARGA";
   if (["un", "und", "unidade", "unidades", "item"].includes(normalized)) return "UN";
   return "DESCONHECIDA";
+}
+
+function unidadesOperacionaisCompativeis(
+  unidadeFrente: UnidadeOperacional,
+  unidadeCapacidade: UnidadeOperacional
+) {
+  return unidadeFrente !== "DESCONHECIDA" &&
+    unidadeCapacidade !== "DESCONHECIDA" &&
+    unidadeFrente === unidadeCapacidade;
 }
 
 function unidadeEconomicaLegada(value?: string | null): CostEngineUnidadeEconomicaCusto {
@@ -303,15 +328,16 @@ export function calcularPlanejamentoFrente(frente: CostEngineFrenteInput): CostE
         : 0;
   const prazoUtilizado = prazoAdotado > 0 ? prazoAdotado : prazoNatural;
   const origemPrazo: CostEngineOrigemPrazo = prazoAdotado > 0 ? "AJUSTADO" : "AUTOMATICO";
-  const produtividadeAjustada =
-    prazoAdotado > 0 && quantidade > 0
-      ? quantidade / prazoAdotado
-      : produtividadeInformada;
+  const produtividadeResultante = prazoUtilizado > 0 && quantidade > 0
+    ? quantidade / prazoUtilizado
+    : produtividadeInformada;
+  const produtividadeResultanteArredondada = roundOperational(produtividadeResultante);
 
   return {
     quantidade: roundMoney(quantidade),
     produtividadeInformada: roundMoney(produtividadeInformada),
-    produtividadeAjustada: roundMoney(produtividadeAjustada),
+    produtividadeResultante: produtividadeResultanteArredondada,
+    produtividadeAjustada: produtividadeResultanteArredondada,
     prazoTeorico: roundMoney(prazoTeorico),
     prazoAdotado: roundMoney(prazoAdotado),
     prazoUtilizado: roundMoney(prazoUtilizado),
@@ -399,6 +425,8 @@ function calcularRecurso(params: {
   const viagensTotais = Math.max(0, toNumber(recurso.viagensTotais));
   const distanciaViagemKm = Math.max(0, toNumber(recurso.distanciaViagemKm));
   const quilometrosTotais = Math.max(0, toNumber(recurso.quilometrosTotais));
+  const capacidadePorViagem = Math.max(0, toNumber(recurso.capacidadePorViagem));
+  const unidadeCapacidade = recurso.unidadeCapacidade?.trim() || "";
   const cargasTotais = Math.max(0, toNumber(recurso.cargasTotais));
   const mesesTotais = Math.max(0, toNumber(recurso.mesesTotais));
   const diasTrabalhadosMes =
@@ -406,6 +434,11 @@ function calcularRecurso(params: {
   const observacoes: string[] = [];
   let baseConversao = 1;
   let custoTotal = 0;
+  let viagensTeoricas = 0;
+  let viagensOperacionais = 0;
+  let custoPorViagem = 0;
+  let viagensMediasPorRecurso = 0;
+  let calculavel = true;
   let formula = "";
 
   if (tipoCalculo === "VALOR_TOTAL_MANUAL") {
@@ -484,16 +517,56 @@ function calcularRecurso(params: {
         break;
       }
       case "KM": {
-        baseConversao = quilometrosTotais > 0
-          ? quilometrosTotais
-          : quantidadeRecursos * distanciaViagemKm * viagensDia * planejamento.prazoCalculo;
-        custoTotal = valorCusto * baseConversao;
-        formula = `${formatNumber(baseConversao)} km x ${formatCurrency(valorCusto)}/km = ${formatCurrency(custoTotal)}`;
-        if (quilometrosTotais <= 0 && (distanciaViagemKm <= 0 || viagensDia <= 0)) {
-          observacoes.push("Informe a quantidade total de quilometros para calcular este recurso.");
-        }
-        if (quilometrosTotais <= 0 && distanciaViagemKm > 0 && viagensDia > 0) {
-          observacoes.push("Compatibilidade: quilometragem calculada por distancia, viagens/dia e prazo.");
+        const unidadeCapacidadeNormalizada = normalizeUnidade(unidadeCapacidade);
+        const unidadeCompativel = unidadesOperacionaisCompativeis(
+          unidadeFrente,
+          unidadeCapacidadeNormalizada
+        );
+
+        if (recurso.unidadeEconomicaCusto === "KM") {
+          if (planejamento.quantidade <= 0) observacoes.push("Informe uma quantidade prevista maior que zero na frente.");
+          if (capacidadePorViagem <= 0) observacoes.push("Informe uma capacidade por viagem maior que zero.");
+          if (!unidadeCapacidade) observacoes.push("Informe a unidade da capacidade por viagem.");
+          if (unidadeCapacidade && !unidadeCompativel) {
+            observacoes.push("A unidade da capacidade deve ser compativel com a unidade de producao da frente.");
+          }
+          if (distanciaViagemKm <= 0) observacoes.push("Informe uma distancia por viagem maior que zero.");
+          if (quantidadeRecursos <= 0) observacoes.push("Informe a quantidade de caminhoes mobilizados.");
+
+          calculavel = observacoes.length === 0;
+          if (calculavel) {
+            viagensTeoricas = planejamento.quantidade / capacidadePorViagem;
+            viagensOperacionais = Math.ceil(viagensTeoricas - 1e-9);
+            custoPorViagem = roundMoney(distanciaViagemKm * valorCusto);
+            viagensMediasPorRecurso = viagensOperacionais / quantidadeRecursos;
+            baseConversao = viagensOperacionais * distanciaViagemKm;
+            custoTotal = viagensOperacionais * custoPorViagem;
+            const unidadeFormatada = formatarUnidadeFrente(frente.unidadeProducao);
+            formula = [
+              `${formatNumber(planejamento.quantidade)} ${unidadeFormatada} / ${formatNumber(capacidadePorViagem)} ${unidadeFormatada}/viagem = ${formatNumber(viagensTeoricas)} viagens teoricas`,
+              `Arredondamento operacional: ${viagensOperacionais.toLocaleString("pt-BR")} viagens`,
+              `${formatNumber(distanciaViagemKm)} km/viagem x ${formatCurrency(valorCusto)}/km = ${formatCurrency(custoPorViagem)}/viagem`,
+              `${viagensOperacionais.toLocaleString("pt-BR")} viagens x ${formatCurrency(custoPorViagem)}/viagem = ${formatCurrency(custoTotal)}`
+            ].join("\n");
+            observacoes.push(
+              `${viagensOperacionais.toLocaleString("pt-BR")} viagens / ${formatNumber(quantidadeRecursos)} caminhoes = ${formatNumber(viagensMediasPorRecurso)} viagens medias por caminhao.`
+            );
+          } else {
+            baseConversao = 0;
+            formula = "Pendente de calculo: complete os parametros do transporte por km.";
+          }
+        } else {
+          baseConversao = quilometrosTotais > 0
+            ? quilometrosTotais
+            : quantidadeRecursos * distanciaViagemKm * viagensDia * planejamento.prazoCalculo;
+          custoTotal = valorCusto * baseConversao;
+          formula = `${formatNumber(baseConversao)} km x ${formatCurrency(valorCusto)}/km = ${formatCurrency(custoTotal)}`;
+          if (quilometrosTotais <= 0 && (distanciaViagemKm <= 0 || viagensDia <= 0)) {
+            observacoes.push("Informe a quantidade total de quilometros para calcular este recurso.");
+          }
+          if (quilometrosTotais <= 0 && distanciaViagemKm > 0 && viagensDia > 0) {
+            observacoes.push("Compatibilidade: quilometragem calculada por distancia, viagens/dia e prazo.");
+          }
         }
         break;
       }
@@ -544,11 +617,18 @@ function calcularRecurso(params: {
     viagensTotais,
     distanciaViagemKm,
     quilometrosTotais,
+    capacidadePorViagem,
+    unidadeCapacidade,
+    viagensTeoricas,
+    viagensOperacionais,
+    custoPorViagem,
+    viagensMediasPorRecurso,
     cargasTotais,
     mesesTotais,
     diasTrabalhadosMes,
     baseConversao: roundMoney(baseConversao),
     custoTotal: roundMoney(Math.max(0, custoTotal)),
+    calculavel,
     formula,
     observacoes
   };
@@ -563,19 +643,26 @@ export function resolveFrontCost(
   const planejamento = calcularPlanejamentoFrente(frenteInput);
   const frenteNome = frenteInput.nome?.trim() || "Frente";
   let custoRecursos = 0;
+  let possuiRecursoCalculavel = false;
 
   for (const recurso of recursosInput) {
     if (recurso.frenteRef && recurso.frenteRef !== frenteInput.ref) continue;
     const calculo = calcularRecurso({ frente: frenteInput, recurso, planejamento });
     const descricao = recurso.descricao?.trim() || "Recurso sem descricao";
+    const transporteKmExplicito =
+      calculo.tipoCalculo === "AUTOMATICO" &&
+      recurso.unidadeEconomicaCusto === "KM";
 
     const usaValorTotalDireto =
       calculo.tipoCalculo === "AUTOMATICO" && calculo.unidadeEconomica === "VALOR_TOTAL";
-    if ((!usaValorTotalDireto && calculo.quantidadeRecursos <= 0) || calculo.valorCusto <= 0) {
+    if (
+      !transporteKmExplicito &&
+      ((!usaValorTotalDireto && calculo.quantidadeRecursos <= 0) || calculo.valorCusto <= 0)
+    ) {
       avisos.push(`Recurso "${descricao}" ignorado por quantidade ou custo zerado.`);
       continue;
     }
-    if (calculo.custoTotal <= 0) {
+    if (!transporteKmExplicito && calculo.custoTotal <= 0) {
       avisos.push(`Recurso "${descricao}" nao gerou custo calculavel.`);
       avisos.push(...calculo.observacoes.map((item) => `${descricao}: ${item}`));
       continue;
@@ -602,15 +689,30 @@ export function resolveFrontCost(
       viagensTotais: roundMoney(calculo.viagensTotais),
       distanciaViagemKm: roundMoney(calculo.distanciaViagemKm),
       quilometrosTotais: roundMoney(calculo.quilometrosTotais),
+      capacidadePorViagem: roundOperational(calculo.capacidadePorViagem, 4),
+      unidadeCapacidade: calculo.unidadeCapacidade,
+      viagensTeoricas: roundOperational(calculo.viagensTeoricas, 4),
+      viagensOperacionais: calculo.viagensOperacionais,
+      custoPorViagem: roundMoney(calculo.custoPorViagem),
+      viagensMediasPorRecurso: roundMoney(calculo.viagensMediasPorRecurso),
       cargasTotais: roundMoney(calculo.cargasTotais),
       mesesTotais: roundMoney(calculo.mesesTotais),
       diasTrabalhadosMes: roundMoney(calculo.diasTrabalhadosMes),
       baseConversao: calculo.baseConversao,
       custoTotal: calculo.custoTotal,
       custoUnitarioFrente,
+      statusCalculo: calculo.calculavel ? "CALCULADO" : "PENDENTE",
       formula: calculo.formula,
       observacoes: calculo.observacoes
     };
+
+    if (!calculo.calculavel) {
+      memoria.push(memoriaAtual);
+      avisos.push(`Recurso "${descricao}" pendente de calculo.`);
+      avisos.push(...calculo.observacoes.map((item) => `${descricao}: ${item}`));
+      continue;
+    }
+
     const duplicadoLegado = !recurso.ref
       ? memoria.find((item) =>
           item.descricao === memoriaAtual.descricao &&
@@ -633,12 +735,13 @@ export function resolveFrontCost(
     } else {
       memoria.push(memoriaAtual);
     }
+    possuiRecursoCalculavel = true;
     custoRecursos = roundMoney(custoRecursos + calculo.custoTotal);
     avisos.push(...calculo.observacoes.map((item) => `${descricao}: ${item}`));
   }
 
   const custoManual = roundMoney(Math.max(0, toNumber(frenteInput.custoManual)));
-  const possuiCustoValidoPorRecursos = custoRecursos > 0;
+  const possuiCustoValidoPorRecursos = possuiRecursoCalculavel;
   return {
     custoFrente: possuiCustoValidoPorRecursos ? custoRecursos : custoManual,
     modoCusto: possuiCustoValidoPorRecursos ? "AUTO" : "MANUAL",
@@ -680,6 +783,7 @@ export function calcularMotorCustos(input: {
       unidade: formatarUnidadeFrente(frente.unidadeProducao),
       quantidade: planejamento.quantidade,
       produtividadeDia: planejamento.produtividadeInformada,
+      produtividadeResultante: planejamento.produtividadeResultante,
       produtividadeAjustada: planejamento.produtividadeAjustada,
       prazoTeoricoDias: planejamento.prazoTeorico,
       prazoAdotadoDias: planejamento.prazoAdotado,

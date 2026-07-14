@@ -93,6 +93,8 @@ function buildCostEngineInput(
         viagensTotais: item.viagensTotais,
         distanciaViagemKm: item.distanciaViagemKm,
         quilometrosTotais: item.quilometrosTotais,
+        capacidadePorViagem: item.capacidadePorViagem,
+        unidadeCapacidade: item.unidadeCapacidade,
         cargasTotais: item.cargasTotais,
         mesesTotais: item.mesesTotais,
         diasTrabalhadosMes: item.diasTrabalhadosMes

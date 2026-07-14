@@ -1,0 +1,6 @@
+ALTER TABLE "OrcamentoItem"
+ADD COLUMN IF NOT EXISTS "capacidadePorViagem" DECIMAL(14, 4),
+ADD COLUMN IF NOT EXISTS "unidadeCapacidade" TEXT,
+ADD COLUMN IF NOT EXISTS "viagensTeoricas" DECIMAL(14, 4),
+ADD COLUMN IF NOT EXISTS "viagensOperacionais" INTEGER,
+ADD COLUMN IF NOT EXISTS "custoPorViagem" DECIMAL(14, 2);

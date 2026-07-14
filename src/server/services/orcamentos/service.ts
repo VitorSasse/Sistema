@@ -693,6 +693,7 @@ async function criarEstruturaOrcamento(
     const frenteId = resolveFrenteId(frenteIdByRef, item);
     const itemRef = item.tempId?.trim() || `${item.frenteTempId?.trim() || `ordem:${item.frenteOrdem ?? 0}`}:item:${item.ordem}`;
     const memoriaRecurso = memoriaRecursoByRef.get(itemRef);
+    const transportePorKm = item.unidadeEconomicaCusto === "KM";
 
     await db.orcamentoItem.create({
       data: {
@@ -722,6 +723,11 @@ async function criarEstruturaOrcamento(
         viagensTotais: item.viagensTotais ?? null,
         distanciaViagemKm: item.distanciaViagemKm ?? null,
         quilometrosTotais: item.quilometrosTotais ?? null,
+        capacidadePorViagem: item.capacidadePorViagem ?? null,
+        unidadeCapacidade: clean(item.unidadeCapacidade),
+        viagensTeoricas: transportePorKm ? memoriaRecurso?.viagensTeoricas ?? 0 : null,
+        viagensOperacionais: transportePorKm ? memoriaRecurso?.viagensOperacionais ?? 0 : null,
+        custoPorViagem: transportePorKm ? memoriaRecurso?.custoPorViagem ?? 0 : null,
         cargasTotais: item.cargasTotais ?? null,
         mesesTotais: item.mesesTotais ?? null,
         diasTrabalhadosMes: item.diasTrabalhadosMes ?? 22,
@@ -1263,6 +1269,11 @@ export async function duplicarOrcamento(
         viagensTotais: item.viagensTotais,
         distanciaViagemKm: item.distanciaViagemKm,
         quilometrosTotais: item.quilometrosTotais,
+        capacidadePorViagem: item.capacidadePorViagem,
+        unidadeCapacidade: item.unidadeCapacidade,
+        viagensTeoricas: item.viagensTeoricas,
+        viagensOperacionais: item.viagensOperacionais,
+        custoPorViagem: item.custoPorViagem,
         cargasTotais: item.cargasTotais,
         mesesTotais: item.mesesTotais,
         diasTrabalhadosMes: item.diasTrabalhadosMes,

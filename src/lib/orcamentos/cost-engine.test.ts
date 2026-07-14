@@ -430,7 +430,41 @@ describe("Evolucao do prazo e das unidades economicas", () => {
     });
 
     expect(planejamento.produtividadeAjustada).toBe(700);
+    expect(planejamento.produtividadeResultante).toBe(700);
+    expect(planejamento.produtividadeInformada).toBe(500);
     expect(planejamento.prazoTeorico).toBe(56);
+  });
+
+  it("preserva a produtividade planejada e calcula prazo adotado e produtividade resultante", () => {
+    const planejamentoAutomatico = calcularPlanejamentoFrente({
+      ref: "frente-escavacao",
+      quantidadePrevista: 5560.66,
+      produtividadeDia: 504
+    });
+    const planejamentoAdotado = calcularPlanejamentoFrente({
+      ref: "frente-escavacao",
+      quantidadePrevista: 5560.66,
+      produtividadeDia: 504,
+      prazoAdotadoDias: 10,
+      origemPrazo: "AJUSTADO"
+    });
+    const custoComPrazoAdotado = calcularRecurso("DIA", {
+      quantidade: 1,
+      valorCusto: 900
+    }, {
+      ...frenteBase,
+      quantidadePrevista: 5560.66,
+      produtividadeDia: 504,
+      prazoAdotadoDias: 10,
+      origemPrazo: "AJUSTADO"
+    });
+
+    expect(planejamentoAutomatico.prazoTeorico).toBe(11.03);
+    expect(planejamentoAutomatico.prazoUtilizado).toBe(11.03);
+    expect(planejamentoAdotado.produtividadeInformada).toBe(504);
+    expect(planejamentoAdotado.produtividadeResultante).toBe(556.066);
+    expect(planejamentoAdotado.prazoUtilizado).toBe(10);
+    expect(custoComPrazoAdotado.custoDiretoTotal).toBe(9000);
   });
 
   it("usa o prazo adotado no custo diario", () => {
@@ -472,12 +506,104 @@ describe("Evolucao do prazo e das unidades economicas", () => {
     expect(calcularRecurso("M3", { quantidade: 1, valorCusto: 7 }).custoDiretoTotal).toBe(7000);
   });
 
-  it("calcula recurso em reais por quilometro", () => {
+  it("calcula transporte por km a partir do volume e da capacidade por viagem", () => {
     const result = calcularRecurso("KM", {
+      descricao: "Caminhao Basculante 14 m3",
+      quantidade: 3,
       valorCusto: 8,
-      quilometrosTotais: 4320
+      capacidadePorViagem: 14,
+      unidadeCapacidade: "m3",
+      distanciaViagemKm: 12
+    }, {
+      ...frenteBase,
+      quantidadePrevista: 5560.66,
+      unidadeProducao: "m3"
     });
-    expect(result.custoDiretoTotal).toBe(34560);
+
+    expect(result.custoDiretoTotal).toBe(38208);
+    expect(result.memoria[0]).toMatchObject({
+      viagensTeoricas: 397.19,
+      viagensOperacionais: 398,
+      custoPorViagem: 96,
+      viagensMediasPorRecurso: 132.67,
+      custoTotal: 38208,
+      statusCalculo: "CALCULADO"
+    });
+    expect(result.memoria[0]?.formula.replace(/\u00a0/g, " ")).toContain(
+      "398 viagens x R$ 96,00/viagem = R$ 38.208,00"
+    );
+  });
+
+  it("nao multiplica o custo total do transporte pela quantidade de caminhoes", () => {
+    const transporte = {
+      valorCusto: 8,
+      capacidadePorViagem: 14,
+      unidadeCapacidade: "m3",
+      distanciaViagemKm: 12
+    };
+    const frente = {
+      ...frenteBase,
+      quantidadePrevista: 5560.66,
+      unidadeProducao: "m3"
+    };
+    const umCaminhao = calcularRecurso("KM", { ...transporte, quantidade: 1 }, frente);
+    const tresCaminhoes = calcularRecurso("KM", { ...transporte, quantidade: 3 }, frente);
+
+    expect(umCaminhao.custoDiretoTotal).toBe(38208);
+    expect(tresCaminhoes.custoDiretoTotal).toBe(38208);
+    expect(umCaminhao.memoria[0]?.viagensMediasPorRecurso).toBe(398);
+    expect(tresCaminhoes.memoria[0]?.viagensMediasPorRecurso).toBe(132.67);
+  });
+
+  it("mantem transporte incompleto como pendente sem gerar custo incorreto", () => {
+    const result = calcularMotorCustos({
+      frentes: [{
+        ...frenteBase,
+        custoManual: 2500,
+        quantidadePrevista: 5560.66,
+        unidadeProducao: "m3"
+      }],
+      recursos: [{
+        ref: "caminhao-pendente",
+        frenteRef: "frente-operacional",
+        descricao: "Caminhao sem capacidade",
+        quantidade: 3,
+        valorCusto: 8,
+        unidadeEconomicaCusto: "KM",
+        tipoCalculo: "AUTOMATICO",
+        distanciaViagemKm: 12
+      }]
+    });
+
+    expect(result.custoDiretoTotal).toBe(2500);
+    expect(result.memoria[0]).toMatchObject({
+      statusCalculo: "PENDENTE",
+      custoTotal: 0,
+      viagensOperacionais: 0
+    });
+    expect(result.avisos).toEqual(expect.arrayContaining([
+      expect.stringContaining("capacidade por viagem")
+    ]));
+  });
+
+  it("rejeita o calculo quando a unidade da capacidade nao corresponde a frente", () => {
+    const result = calcularRecurso("KM", {
+      quantidade: 3,
+      valorCusto: 8,
+      capacidadePorViagem: 14,
+      unidadeCapacidade: "m2",
+      distanciaViagemKm: 12
+    }, {
+      ...frenteBase,
+      quantidadePrevista: 5560.66,
+      unidadeProducao: "m3"
+    });
+
+    expect(result.custoDiretoTotal).toBe(0);
+    expect(result.memoria[0]?.statusCalculo).toBe("PENDENTE");
+    expect(result.memoria[0]?.observacoes).toEqual(expect.arrayContaining([
+      expect.stringContaining("compativel")
+    ]));
   });
 
   it("calcula recurso em reais por viagem", () => {
