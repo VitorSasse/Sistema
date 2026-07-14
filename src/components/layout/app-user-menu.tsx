@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { logout } from "@/app/(protected)/actions";
 import { PasswordDialog } from "@/features/perfil/password-dialog";
-import { getUserInitials } from "@/lib/perfil";
+import { Avatar } from "@/components/ui/avatar";
 
 type AppUserMenuProps = {
   userName: string;
@@ -63,9 +63,13 @@ export function AppUserMenu({ userName, userEmail, userAvatarUrl }: AppUserMenuP
           aria-haspopup="menu"
           onClick={() => setIsOpen((current) => !current)}
         >
-          <span className="app-user-avatar" aria-hidden="true">
-            {userAvatarUrl ? <img src={userAvatarUrl} alt="" /> : getUserInitials(userName)}
-          </span>
+          <Avatar
+            className="app-user-avatar"
+            name={userName}
+            src={userAvatarUrl}
+            alt={`Foto de ${userName}`}
+            size="sm"
+          />
           <span className="app-user-menu-identity">
             <strong>{userName}</strong>
             <small>{userEmail}</small>

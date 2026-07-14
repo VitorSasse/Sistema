@@ -23,19 +23,6 @@ const navigationGroups = [
     ]
   },
   {
-    label: "Cadastros",
-    icon: "cadastros",
-    description: "Base mestre para cliente, obra, recurso e equipe.",
-    items: [
-      { href: "/clientes", label: "Cadastro de clientes" },
-      { href: "/obras", label: "Cadastro de obras" },
-      { href: "/equipamentos", label: "Cadastro de equipamentos" },
-      { href: "/materiais", label: "Cadastro de materiais" },
-      { href: "/servicos", label: "Cadastro de servicos" },
-      { href: "/colaboradores", label: "Cadastro de colaboradores" }
-    ]
-  },
-  {
     label: "Operacao",
     icon: "operacao",
     description: "Lancamento diario, consulta e medicao operacional.",
@@ -67,6 +54,19 @@ const navigationGroups = [
       { href: "/frota/manutencao", label: "Painel de manutencao" },
       { href: "/frota/leituras", label: "Leituras de horimetro/KM" },
       { href: "/frota/planos", label: "Plano preventivo" }
+    ]
+  },
+  {
+    label: "Cadastros",
+    icon: "cadastros",
+    description: "Base mestre para cliente, obra, recurso e equipe.",
+    items: [
+      { href: "/clientes", label: "Cadastro de clientes" },
+      { href: "/obras", label: "Cadastro de obras" },
+      { href: "/equipamentos", label: "Cadastro de equipamentos" },
+      { href: "/materiais", label: "Cadastro de materiais" },
+      { href: "/servicos", label: "Cadastro de servicos" },
+      { href: "/colaboradores", label: "Cadastro de colaboradores" }
     ]
   }
 ] satisfies {
@@ -124,6 +124,11 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
             </Link>
           </div>
 
+          <div className="admin-company-context">
+            <span>Empresa atual</span>
+            <strong>{profile.empresa?.nomeFantasia || profile.empresa?.razaoSocial || "Visao global"}</strong>
+          </div>
+
           <AdminNav groups={navigation} />
         </SidebarScrollArea>
       </aside>
@@ -133,6 +138,7 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
           userEmail={profile.email}
           userName={profile.nome}
           userAvatarUrl={profile.fotoPerfilUrl}
+          companyName={profile.empresa?.nomeFantasia || profile.empresa?.razaoSocial}
           isMaster={isMaster}
         />
         <div className="admin-content">{children}</div>

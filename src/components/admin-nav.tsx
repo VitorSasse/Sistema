@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
+  ChevronDown,
   ClipboardList,
   Crown,
   Database,
@@ -103,9 +104,11 @@ export function AdminNav({ groups }: AdminNavProps) {
               </span>
               <span className="admin-nav-group-trigger-label">{group.label}</span>
             </span>
-            <span className={`admin-nav-group-trigger-icon${openGroups[group.label] ? " is-open" : ""}`}>
-              &lsaquo;
-            </span>
+            <ChevronDown
+              className={`admin-nav-group-trigger-icon${openGroups[group.label] ? " is-open" : ""}`}
+              size={16}
+              aria-hidden="true"
+            />
           </button>
 
           <div className={`admin-nav-group-links${openGroups[group.label] ? " is-open" : ""}`}>

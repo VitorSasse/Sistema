@@ -3,7 +3,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   Calculator,
@@ -11,8 +11,7 @@ import {
   FileText,
   Gauge,
   Home,
-  Search,
-  Sparkles
+  Search
 } from "lucide-react";
 import { AppUserMenu } from "@/components/layout/app-user-menu";
 import { MasterCompanySelector } from "@/components/layout/master-company-selector";
@@ -22,6 +21,7 @@ type AppHeaderProps = {
   userEmail: string;
   userName?: string | null;
   userAvatarUrl?: string | null;
+  companyName?: string | null;
   isMaster?: boolean;
 };
 
@@ -116,12 +116,31 @@ function resolveRouteMeta(pathname: string): RouteMeta {
   return match?.meta ?? { title: "BASEPRO", group: "Sistema" };
 }
 
-export function AppHeader({ userEmail, userName, userAvatarUrl, isMaster = false }: AppHeaderProps) {
+export function AppHeader({
+  userEmail,
+  userName,
+  userAvatarUrl,
+  companyName,
+  isMaster = false
+}: AppHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const meta = resolveRouteMeta(pathname);
+
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
 
   const filteredActions = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -156,13 +175,7 @@ export function AppHeader({ userEmail, userName, userAvatarUrl, isMaster = false
           </Link>
           <span>BASEPRO</span>
           <span>{meta.group}</span>
-        </div>
-        <div className="app-header-title-row">
-          <h1>{meta.title}</h1>
-          <span className="app-header-pill">
-            <Sparkles size={14} />
-            Operacao sob controle
-          </span>
+          <strong>{meta.title}</strong>
         </div>
       </div>
 
@@ -170,13 +183,15 @@ export function AppHeader({ userEmail, userName, userAvatarUrl, isMaster = false
         <form className="app-search" onSubmit={handleSearchSubmit}>
           <Search size={16} aria-hidden="true" />
           <input
+            ref={searchRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onFocus={() => setIsSearchOpen(true)}
             onBlur={() => window.setTimeout(() => setIsSearchOpen(false), 120)}
-            placeholder="Buscar atalho ou modulo"
+            placeholder="Buscar clientes, obras, equipamentos ou modulos..."
             aria-label="Buscar atalhos do sistema"
           />
+          <kbd>Ctrl K</kbd>
           {isSearchOpen ? (
             <div className="app-search-menu">
               {filteredActions.length > 0 ? (
@@ -208,20 +223,14 @@ export function AppHeader({ userEmail, userName, userAvatarUrl, isMaster = false
           ) : null}
         </form>
 
-        <nav className="app-quick-actions" aria-label="Acoes rapidas">
-          {quickActions.slice(0, 3).map((action) => {
-            const Icon = action.icon;
-
-            return (
-              <Link key={action.href} href={action.href} className="app-quick-action">
-                <Icon size={16} />
-                <span>{action.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        {isMaster ? <MasterCompanySelector /> : null}
+        {isMaster ? (
+          <MasterCompanySelector />
+        ) : companyName ? (
+          <div className="app-company-readonly">
+            <span>Empresa atual</span>
+            <strong>{companyName}</strong>
+          </div>
+        ) : null}
 
         <ThemeToggle />
 

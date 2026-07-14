@@ -1,4 +1,5 @@
 import "./globals.css";
+import "../styles/design-system.css";
 import type { Metadata } from "next";
 import { Montserrat, Orbitron } from "next/font/google";
 import { ReactNode } from "react";
