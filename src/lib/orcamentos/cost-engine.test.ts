@@ -534,6 +534,79 @@ describe("Evolucao do prazo e das unidades economicas", () => {
     );
   });
 
+  it("mantem quantidade operacional personalizada independente da quantidade da frente", () => {
+    const recursos = [
+      {
+        ref: "caminhao-herdado",
+        frenteRef: "frente-operacional",
+        descricao: "Caminhao herdado",
+        quantidade: 1,
+        valorCusto: 8,
+        unidadeEconomicaCusto: "KM" as const,
+        tipoCalculo: "AUTOMATICO" as const,
+        capacidadePorViagem: 14,
+        unidadeCapacidade: "m3",
+        distanciaViagemKm: 12,
+        origemQuantidadeOperacional: "FRENTE" as const
+      },
+      {
+        ref: "caminhao-personalizado",
+        frenteRef: "frente-operacional",
+        descricao: "Caminhao personalizado",
+        quantidade: 1,
+        valorCusto: 8,
+        unidadeEconomicaCusto: "KM" as const,
+        tipoCalculo: "AUTOMATICO" as const,
+        capacidadePorViagem: 14,
+        unidadeCapacidade: "m3",
+        distanciaViagemKm: 12,
+        quantidadeOperacional: 936,
+        origemQuantidadeOperacional: "PERSONALIZADA" as const
+      }
+    ];
+
+    const calcular = (quantidadePrevista: number) => calcularMotorCustos({
+      frentes: [{
+        ...frenteBase,
+        quantidadePrevista,
+        unidadeProducao: "m3"
+      }],
+      recursos
+    });
+    const inicial = calcular(650);
+    const atualizado = calcular(700);
+    const herdadoInicial = inicial.memoria.find((item) => item.recursoRef === "caminhao-herdado");
+    const personalizadoInicial = inicial.memoria.find(
+      (item) => item.recursoRef === "caminhao-personalizado"
+    );
+    const herdadoAtualizado = atualizado.memoria.find(
+      (item) => item.recursoRef === "caminhao-herdado"
+    );
+    const personalizadoAtualizado = atualizado.memoria.find(
+      (item) => item.recursoRef === "caminhao-personalizado"
+    );
+
+    expect(herdadoInicial).toMatchObject({
+      quantidadeOperacional: 650,
+      origemQuantidadeOperacional: "FRENTE",
+      viagensOperacionais: 47
+    });
+    expect(personalizadoInicial).toMatchObject({
+      quantidadeOperacional: 936,
+      origemQuantidadeOperacional: "PERSONALIZADA",
+      viagensOperacionais: 67
+    });
+    expect(personalizadoInicial?.viagensTeoricas).toBeCloseTo(66.8571, 4);
+    expect(herdadoAtualizado).toMatchObject({
+      quantidadeOperacional: 700,
+      viagensOperacionais: 50
+    });
+    expect(personalizadoAtualizado).toMatchObject({
+      quantidadeOperacional: 936,
+      viagensOperacionais: 67
+    });
+  });
+
   it("calcula a demanda diaria do transporte sem alterar o custo total", () => {
     const result = calcularRecurso("KM", {
       descricao: "Caminhao Basculante 14 m3",

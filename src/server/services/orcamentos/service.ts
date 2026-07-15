@@ -750,6 +750,11 @@ async function criarEstruturaOrcamento(
         descricao: item.descricao,
         unidade: item.unidade,
         quantidade: item.quantidade,
+        quantidadeOperacional:
+          item.tipoItem === TipoItemOrcamento.RECURSO
+            ? memoriaRecurso?.quantidadeOperacional ?? item.quantidadeOperacional ?? null
+            : null,
+        origemQuantidadeOperacional: item.origemQuantidadeOperacional ?? "FRENTE",
         produtividade: item.produtividade ?? null,
         custoUnitario: item.custoUnitario,
         tipoCalculoRecurso: item.tipoCalculoRecurso ?? "AUTOMATICO",
@@ -1309,6 +1314,8 @@ export async function duplicarOrcamento(
         descricao: item.descricao,
         unidade: item.unidade,
         quantidade: item.quantidade,
+        quantidadeOperacional: item.quantidadeOperacional,
+        origemQuantidadeOperacional: item.origemQuantidadeOperacional,
         produtividade: item.produtividade,
         custoUnitario: item.custoUnitario,
         tipoCalculoRecurso: item.tipoCalculoRecurso,

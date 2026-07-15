@@ -43,6 +43,7 @@ type TipoPremissaOrcamento = "PREMISSA" | "CONDICAO" | "EXCLUSAO" | "OBSERVACAO"
 type ModoCustoOrcamento = "SIMPLIFICADO" | "COMPLETO";
 type ModoCustoFrente = "AUTO" | "MANUAL";
 type OrigemPrazoFrente = "AUTOMATICO" | "AJUSTADO";
+type OrigemQuantidadeOperacional = "FRENTE" | "PERSONALIZADA";
 type TipoCalculoRecurso = "AUTOMATICO" | "VALOR_TOTAL_MANUAL";
 type UnidadeEconomicaCusto =
   | "CUSTO_FIXO"
@@ -225,6 +226,8 @@ type ItemForm = {
   descricao: string;
   unidade: string;
   quantidade: string;
+  quantidadeOperacional: string;
+  origemQuantidadeOperacional: OrigemQuantidadeOperacional;
   produtividade: string;
   custoUnitario: string;
   tipoCalculoRecurso: TipoCalculoRecurso;
@@ -409,6 +412,8 @@ type OrcamentoApi = {
     descricao: string;
     unidade: string;
     quantidade: string | number;
+    quantidadeOperacional: string | number | null;
+    origemQuantidadeOperacional: OrigemQuantidadeOperacional;
     produtividade: string | number | null;
     custoUnitario: string | number;
     tipoCalculoRecurso: TipoCalculoRecurso;
@@ -675,6 +680,8 @@ function createEmptyItem(tipoItem: TipoItemOrcamento, ordem: number, frenteTempI
     descricao: "",
     unidade: "UN",
     quantidade: "1",
+    quantidadeOperacional: "",
+    origemQuantidadeOperacional: "FRENTE",
     produtividade: "",
     custoUnitario: "0",
     tipoCalculoRecurso: "AUTOMATICO",
@@ -1013,6 +1020,8 @@ function buildCostEngineInputFromForm(form: OrcamentoForm) {
         categoria: item.categoriaRecurso,
         descricao: item.descricao,
         quantidade: item.quantidade,
+        quantidadeOperacional: item.quantidadeOperacional,
+        origemQuantidadeOperacional: item.origemQuantidadeOperacional,
         custoOperacional: item.custoUnitario,
         unidadeCusto: item.unidade,
         tipoCalculo: item.tipoCalculoRecurso,
@@ -3318,6 +3327,8 @@ function FrentesOperacionaisSection(props: {
                       emptyLabel="Nenhum equipamento, equipe, material ou terceiro planejado."
                       itens={recursosPlanejamento}
                       memoriasRecursos={custoFrente?.recursos ?? []}
+                      quantidadeFrente={frente.quantidadePrevista}
+                      unidadeFrente={frente.unidadeProducao}
                       servicoOptions={props.servicoOptions}
                       materialOptions={props.materialOptions}
                       equipamentoOptions={props.equipamentoOptions}
@@ -3738,6 +3749,8 @@ function OperationalItemList(props: {
   emptyLabel: string;
   itens: ItemForm[];
   memoriasRecursos?: CostEngineMemoriaRecurso[];
+  quantidadeFrente?: string;
+  unidadeFrente?: string;
   servicoOptions: ServicoSelectOption[];
   materialOptions: MaterialSelectOption[];
   equipamentoOptions: EquipamentoResourceOption[];
@@ -3792,6 +3805,8 @@ function OperationalItemList(props: {
                 colaboradorOptions={props.colaboradorOptions}
                 fornecedorOptions={props.fornecedorOptions}
                 memoria={memoriaRecurso}
+                quantidadeFrente={props.quantidadeFrente}
+                unidadeFrente={props.unidadeFrente}
                 onUpdate={props.onUpdate}
                 onSelectEquipment={props.onSelectEquipment}
                 onPersonalizeResourceField={props.onPersonalizeResourceField}
@@ -3903,12 +3918,38 @@ function ResourceItemFields(props: {
   colaboradorOptions: NamedSelectOption[];
   fornecedorOptions: NamedSelectOption[];
   memoria?: CostEngineMemoriaRecurso;
+  quantidadeFrente?: string;
+  unidadeFrente?: string;
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
   onSelectEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
   onPersonalizeResourceField: (localId: string, campo: CampoTecnicoRecurso) => void;
 }) {
   const recursoOptions = getRecursoOptions(props.item.categoriaRecurso, props);
   const recursoValue = getRecursoValue(props.item);
+  const herdaQuantidadeDaFrente =
+    props.item.origemQuantidadeOperacional !== "PERSONALIZADA";
+  const quantidadeDaFrente =
+    props.quantidadeFrente ??
+    (props.memoria ? String(props.memoria.quantidadeOperacional) : "");
+  const quantidadeOperacionalExibida = herdaQuantidadeDaFrente
+    ? quantidadeDaFrente
+    : props.item.quantidadeOperacional;
+  const unidadeQuantidadeOperacional =
+    props.unidadeFrente || props.memoria?.unidadeQuantidadeOperacional || "unidade";
+
+  function personalizarQuantidadeOperacional() {
+    props.onUpdate(
+      props.item.localId,
+      "quantidadeOperacional",
+      quantidadeOperacionalExibida || "0"
+    );
+    props.onUpdate(props.item.localId, "origemQuantidadeOperacional", "PERSONALIZADA");
+  }
+
+  function herdarQuantidadeOperacional() {
+    props.onUpdate(props.item.localId, "quantidadeOperacional", quantidadeDaFrente || "0");
+    props.onUpdate(props.item.localId, "origemQuantidadeOperacional", "FRENTE");
+  }
 
   function isInherited(campo: CampoTecnicoRecurso) {
     return campoTecnicoHerdado(
@@ -4010,7 +4051,7 @@ function ResourceItemFields(props: {
         />
       </label>
       <label className="manager-field">
-        <span className="manager-field-label">Quantidade</span>
+        <span className="manager-field-label">Quantidade de recursos</span>
         <input
           className="field-control"
           type="number"
@@ -4022,6 +4063,49 @@ function ResourceItemFields(props: {
           }
         />
       </label>
+      <div className="manager-field orcamentos-span-3 orcamentos-operational-quantity">
+        <div className="orcamentos-operational-quantity-header">
+          <span className="manager-field-label">Quantidade operacional</span>
+          {herdaQuantidadeDaFrente ? (
+            <button type="button" onClick={personalizarQuantidadeOperacional}>
+              <Pencil size={13} />
+              Personalizar
+            </button>
+          ) : null}
+        </div>
+        <div className="orcamentos-operational-quantity-control">
+          <input
+            className="field-control"
+            type="number"
+            min="0"
+            step="0.01"
+            value={quantidadeOperacionalExibida}
+            disabled={herdaQuantidadeDaFrente}
+            onChange={(event) =>
+              props.onUpdate(props.item.localId, "quantidadeOperacional", event.target.value)
+            }
+          />
+          <span>{unidadeQuantidadeOperacional}</span>
+        </div>
+        <label className="orcamentos-operational-quantity-toggle">
+          <input
+            type="checkbox"
+            checked={herdaQuantidadeDaFrente}
+            onChange={(event) =>
+              event.target.checked
+                ? herdarQuantidadeOperacional()
+                : personalizarQuantidadeOperacional()
+            }
+          />
+          Herdar quantidade da Frente
+        </label>
+        <small className={herdaQuantidadeDaFrente ? "is-inherited" : "is-personalized"}>
+          {herdaQuantidadeDaFrente ? <LockKeyhole size={13} /> : <Pencil size={13} />}
+          {herdaQuantidadeDaFrente
+            ? "Herdado da Frente"
+            : "Quantidade operacional personalizada nesta Frente"}
+        </small>
+      </div>
       <label className="manager-field">
         <span className="manager-field-label">Tipo de calculo</span>
         <select
@@ -4696,6 +4780,9 @@ function mapItemPayload(item: ItemForm, tipoOrcamento: TipoOrcamento) {
     descricao: item.descricao,
     unidade: item.unidade,
     quantidade: Number(item.quantidade) || 0,
+    quantidadeOperacional:
+      recurso && item.quantidadeOperacional ? Number(item.quantidadeOperacional) : null,
+    origemQuantidadeOperacional: recurso ? item.origemQuantidadeOperacional : "FRENTE",
     produtividade: recurso ? null : item.produtividade ? Number(item.produtividade) : null,
     custoUnitario: recurso ? Number(item.custoUnitario) || 0 : Number(item.custoUnitario) || 0,
     tipoCalculoRecurso: item.tipoCalculoRecurso,
@@ -4946,6 +5033,9 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
             descricao: orcamentoItem.descricao,
             unidade: orcamentoItem.unidade,
             quantidade: toStringValue(orcamentoItem.quantidade),
+            quantidadeOperacional: toStringValue(orcamentoItem.quantidadeOperacional),
+            origemQuantidadeOperacional:
+              orcamentoItem.origemQuantidadeOperacional ?? "FRENTE",
             produtividade: toStringValue(orcamentoItem.produtividade),
             custoUnitario: toStringValue(orcamentoItem.custoUnitario),
             tipoCalculoRecurso: orcamentoItem.tipoCalculoRecurso ?? "AUTOMATICO",

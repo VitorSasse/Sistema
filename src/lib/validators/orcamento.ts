@@ -2,6 +2,7 @@ import {
   CategoriaRecursoOrcamento,
   ModoCustoFrente,
   ModoCustoOrcamento,
+  OrigemQuantidadeOperacional,
   OrigemPrazoFrente,
   StatusCenarioOrcamento,
   StatusOrcamento,
@@ -148,6 +149,8 @@ const orcamentoItemSchema = z.object({
   descricao: z.string().trim().min(2).max(240),
   unidade: z.string().trim().min(1).max(40),
   quantidade: numeroDecimal(999999999),
+  quantidadeOperacional: numeroDecimal(999999999).optional().nullable(),
+  origemQuantidadeOperacional: z.nativeEnum(OrigemQuantidadeOperacional).optional(),
   produtividade: numeroDecimal(999999999).optional().nullable(),
   custoUnitario: numeroDecimal(999999999).default(0),
   tipoCalculoRecurso: z.nativeEnum(TipoCalculoRecurso).optional(),
@@ -190,6 +193,17 @@ const orcamentoItemSchema = z.object({
       message: "Informe a categoria do recurso."
     });
     return;
+  }
+
+  if (
+    item.origemQuantidadeOperacional === OrigemQuantidadeOperacional.PERSONALIZADA &&
+    Number(item.quantidadeOperacional ?? 0) <= 0
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["quantidadeOperacional"],
+      message: "Informe uma quantidade operacional maior que zero."
+    });
   }
 
   if (
@@ -426,11 +440,16 @@ export const orcamentoSchema = z
         );
         if (!frente) return;
 
-        if (Number(frente.quantidadePrevista ?? 0) <= 0) {
+        const quantidadeOperacional =
+          item.origemQuantidadeOperacional === OrigemQuantidadeOperacional.PERSONALIZADA
+            ? Number(item.quantidadeOperacional ?? 0)
+            : Number(frente.quantidadePrevista ?? 0);
+
+        if (quantidadeOperacional <= 0) {
           context.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ["itens", itemIndex, "capacidadePorViagem"],
-            message: "A frente deve possuir quantidade prevista maior que zero para calcular o transporte."
+            path: ["itens", itemIndex, "quantidadeOperacional"],
+            message: "Informe uma quantidade operacional maior que zero para calcular o transporte."
           });
         }
 

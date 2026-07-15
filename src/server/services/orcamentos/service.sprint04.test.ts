@@ -428,6 +428,8 @@ describe("orcamentos sprint 4.1-4.3", () => {
     });
     expect(records.itens[0]).toMatchObject({
       unidadeEconomicaCusto: "DIA",
+      quantidadeOperacional: 100,
+      origemQuantidadeOperacional: "FRENTE",
       valorCusto: 900,
       diasTrabalhadosMes: 22,
       custoTotalCalculado: 10800
@@ -480,6 +482,50 @@ describe("orcamentos sprint 4.1-4.3", () => {
       viagensMediasPorRecurso: 132.67,
       custoTotal: 38208,
       statusCalculo: "CALCULADO"
+    });
+  });
+
+  it("persiste a quantidade operacional personalizada no snapshot do recurso", async () => {
+    const { db, records } = createFakeDb();
+    const input = baseInput({
+      frentes: [{
+        ...baseInput().frentes[0],
+        quantidadePrevista: 650,
+        unidadeProducao: "m3"
+      }],
+      itens: [{
+        ...baseInput().itens[0],
+        tempId: "caminhao-quantidade-personalizada",
+        tipoItem: TipoItemOrcamento.RECURSO,
+        categoriaRecurso: "EQUIPAMENTO",
+        descricao: "Caminhao Basculante 14 m3",
+        quantidade: 1,
+        quantidadeOperacional: 936,
+        origemQuantidadeOperacional: "PERSONALIZADA",
+        custoUnitario: 8,
+        tipoCalculoRecurso: "AUTOMATICO",
+        unidadeEconomicaCusto: "KM",
+        valorCusto: 8,
+        capacidadePorViagem: 14,
+        unidadeCapacidade: "m3",
+        distanciaViagemKm: 12
+      }]
+    });
+
+    await criarOrcamento(db as never, { input, userId: "usuario-1" });
+
+    expect(records.frentes[0].quantidadePrevista).toBe(650);
+    expect(records.itens[0]).toMatchObject({
+      quantidadeOperacional: 936,
+      origemQuantidadeOperacional: "PERSONALIZADA",
+      viagensOperacionais: 67,
+      custoTotalCalculado: 6432
+    });
+    expect(JSON.parse(String(records.itens[0].memoriaCalculo))).toMatchObject({
+      quantidadeOperacional: 936,
+      origemQuantidadeOperacional: "PERSONALIZADA",
+      viagensOperacionais: 67,
+      custoTotal: 6432
     });
   });
 

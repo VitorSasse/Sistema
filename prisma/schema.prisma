@@ -81,6 +81,11 @@ enum OrigemPrazoFrente {
   AJUSTADO
 }
 
+enum OrigemQuantidadeOperacional {
+  FRENTE
+  PERSONALIZADA
+}
+
 enum TipoCalculoRecurso {
   AUTOMATICO
   VALOR_TOTAL_MANUAL
@@ -877,11 +882,11 @@ model OrcamentoFrente {
 }
 
 model OrcamentoItem {
-  id                             String                     @id @default(uuid())
+  id                             String                      @id @default(uuid())
   empresaId                      String
   orcamentoId                    String
   frenteId                       String?
-  tipoItem                       TipoItemOrcamento          @default(COMERCIAL)
+  tipoItem                       TipoItemOrcamento           @default(COMERCIAL)
   servicoId                      String?
   materialId                     String?
   equipamentoId                  String?
@@ -889,45 +894,47 @@ model OrcamentoItem {
   classeOperacional              String?
   recursoReferenciaId            String?
   recursoNome                    String?
-  ordem                          Int                        @default(1)
+  ordem                          Int                         @default(1)
   codigo                         String?
   descricao                      String
   unidade                        String
-  quantidade                     Decimal                    @default(0) @db.Decimal(12, 2)
-  produtividade                  Decimal?                   @db.Decimal(12, 2)
-  custoUnitario                  Decimal                    @default(0) @db.Decimal(12, 2)
-  tipoCalculoRecurso             TipoCalculoRecurso         @default(AUTOMATICO)
+  quantidade                     Decimal                     @default(0) @db.Decimal(12, 2)
+  quantidadeOperacional          Decimal?                    @db.Decimal(14, 4)
+  origemQuantidadeOperacional    OrigemQuantidadeOperacional @default(FRENTE)
+  produtividade                  Decimal?                    @db.Decimal(12, 2)
+  custoUnitario                  Decimal                     @default(0) @db.Decimal(12, 2)
+  tipoCalculoRecurso             TipoCalculoRecurso          @default(AUTOMATICO)
   unidadeEconomicaCusto          UnidadeEconomicaCusto?
-  valorCusto                     Decimal?                   @db.Decimal(14, 4)
-  horasDia                       Decimal?                   @db.Decimal(8, 2)
-  horasTotais                    Decimal?                   @db.Decimal(12, 2)
-  viagensDia                     Decimal?                   @db.Decimal(10, 2)
-  viagensTotais                  Decimal?                   @db.Decimal(12, 2)
-  distanciaViagemKm              Decimal?                   @db.Decimal(12, 2)
-  quilometrosTotais              Decimal?                   @db.Decimal(14, 2)
-  capacidadePorViagem            Decimal?                   @db.Decimal(14, 4)
+  valorCusto                     Decimal?                    @db.Decimal(14, 4)
+  horasDia                       Decimal?                    @db.Decimal(8, 2)
+  horasTotais                    Decimal?                    @db.Decimal(12, 2)
+  viagensDia                     Decimal?                    @db.Decimal(10, 2)
+  viagensTotais                  Decimal?                    @db.Decimal(12, 2)
+  distanciaViagemKm              Decimal?                    @db.Decimal(12, 2)
+  quilometrosTotais              Decimal?                    @db.Decimal(14, 2)
+  capacidadePorViagem            Decimal?                    @db.Decimal(14, 4)
   unidadeCapacidade              String?
   caracteristicasRecursoSnapshot Json?
-  camposTecnicosPersonalizados   String[]                   @default([])
-  viagensTeoricas                Decimal?                   @db.Decimal(14, 4)
+  camposTecnicosPersonalizados   String[]                    @default([])
+  viagensTeoricas                Decimal?                    @db.Decimal(14, 4)
   viagensOperacionais            Int?
-  custoPorViagem                 Decimal?                   @db.Decimal(14, 2)
-  cargasTotais                   Decimal?                   @db.Decimal(12, 2)
-  mesesTotais                    Decimal?                   @db.Decimal(10, 2)
-  diasTrabalhadosMes             Decimal?                   @default(22) @db.Decimal(8, 2)
-  custoTotalCalculado            Decimal                    @default(0) @db.Decimal(14, 2)
+  custoPorViagem                 Decimal?                    @db.Decimal(14, 2)
+  cargasTotais                   Decimal?                    @db.Decimal(12, 2)
+  mesesTotais                    Decimal?                    @db.Decimal(10, 2)
+  diasTrabalhadosMes             Decimal?                    @default(22) @db.Decimal(8, 2)
+  custoTotalCalculado            Decimal                     @default(0) @db.Decimal(14, 2)
   memoriaCalculo                 String?
-  valorUnitario                  Decimal                    @default(0) @db.Decimal(12, 2)
-  valorTotal                     Decimal                    @default(0) @db.Decimal(14, 2)
+  valorUnitario                  Decimal                     @default(0) @db.Decimal(12, 2)
+  valorTotal                     Decimal                     @default(0) @db.Decimal(14, 2)
   observacao                     String?
-  createdAt                      DateTime                   @default(now())
-  updatedAt                      DateTime                   @updatedAt
-  empresa                        Empresa                    @relation(fields: [empresaId], references: [id])
-  orcamento                      Orcamento                  @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
-  frente                         OrcamentoFrente?           @relation(fields: [frenteId], references: [id], onDelete: Cascade)
-  servico                        Servico?                   @relation(fields: [servicoId], references: [id])
-  material                       Material?                  @relation(fields: [materialId], references: [id])
-  equipamento                    Equipamento?               @relation(fields: [equipamentoId], references: [id])
+  createdAt                      DateTime                    @default(now())
+  updatedAt                      DateTime                    @updatedAt
+  empresa                        Empresa                     @relation(fields: [empresaId], references: [id])
+  orcamento                      Orcamento                   @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
+  frente                         OrcamentoFrente?            @relation(fields: [frenteId], references: [id], onDelete: Cascade)
+  servico                        Servico?                    @relation(fields: [servicoId], references: [id])
+  material                       Material?                   @relation(fields: [materialId], references: [id])
+  equipamento                    Equipamento?                @relation(fields: [equipamentoId], references: [id])
 
   @@index([empresaId])
   @@index([orcamentoId, ordem])

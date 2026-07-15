@@ -4,6 +4,7 @@ export const DIAS_TRABALHADOS_MES_PADRAO = 22;
 export type CostEngineModoCustoFrente = "AUTO" | "MANUAL";
 export type CostEngineOrigemPrazo = "AUTOMATICO" | "AJUSTADO";
 export type CostEngineTipoCalculoRecurso = "AUTOMATICO" | "VALOR_TOTAL_MANUAL";
+export type CostEngineOrigemQuantidadeOperacional = "FRENTE" | "PERSONALIZADA";
 export type CostEngineUnidadeEconomicaCusto =
   | "CUSTO_FIXO"
   | "DIA"
@@ -52,6 +53,8 @@ export type CostEngineRecursoInput = {
   categoria?: string | null;
   descricao?: string | null;
   quantidade?: string | number | null;
+  quantidadeOperacional?: string | number | null;
+  origemQuantidadeOperacional?: CostEngineOrigemQuantidadeOperacional | null;
   custoOperacional?: string | number | null;
   unidadeCusto?: string | null;
   tipoCalculo?: CostEngineTipoCalculoRecurso | null;
@@ -90,6 +93,9 @@ export type CostEngineMemoriaRecurso = {
   categoria: string;
   descricao: string;
   quantidadeRecursos: number;
+  quantidadeOperacional: number;
+  origemQuantidadeOperacional: CostEngineOrigemQuantidadeOperacional;
+  unidadeQuantidadeOperacional: string;
   custoOperacional: number;
   unidadeCustoOriginal: string;
   unidadeCustoFormatada: string;
@@ -418,6 +424,11 @@ function calcularRecurso(params: {
 }) {
   const { frente, recurso, planejamento } = params;
   const quantidadeRecursos = Math.max(0, toNumber(recurso.quantidade));
+  const origemQuantidadeOperacional: CostEngineOrigemQuantidadeOperacional =
+    recurso.origemQuantidadeOperacional === "PERSONALIZADA" ? "PERSONALIZADA" : "FRENTE";
+  const quantidadeOperacional = origemQuantidadeOperacional === "PERSONALIZADA"
+    ? Math.max(0, toNumber(recurso.quantidadeOperacional))
+    : planejamento.quantidade;
   const valorCusto = Math.max(0, toNumber(recurso.valorCusto ?? recurso.custoOperacional));
   const tipoCalculo = recurso.tipoCalculo ?? "AUTOMATICO";
   const unidadeEconomica = recurso.unidadeEconomicaCusto ?? unidadeEconomicaLegada(recurso.unidadeCusto);
@@ -460,7 +471,7 @@ function calcularRecurso(params: {
     const legado = resolverLegado({
       unidadeCusto: normalizeUnidade(recurso.unidadeCusto),
       unidadeFrente,
-      quantidadeFrente: planejamento.quantidade,
+      quantidadeFrente: quantidadeOperacional,
       prazoUtilizado: planejamento.prazoCalculo,
       prazoUnidade: planejamento.prazoUnidade
     });
@@ -478,9 +489,9 @@ function calcularRecurso(params: {
       }
       case "DIA": {
         if (unidadeFrente === "MES") {
-          baseConversao = diasTrabalhadosMes * planejamento.quantidade;
+          baseConversao = diasTrabalhadosMes * quantidadeOperacional;
           custoTotal = quantidadeRecursos * valorCusto * baseConversao;
-          formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/dia x ${formatNumber(diasTrabalhadosMes)} dias/mes x ${formatNumber(planejamento.quantidade)} meses = ${formatCurrency(custoTotal)}`;
+          formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/dia x ${formatNumber(diasTrabalhadosMes)} dias/mes x ${formatNumber(quantidadeOperacional)} meses = ${formatCurrency(custoTotal)}`;
         } else {
           baseConversao = roundMoney(planejamento.prazoCalculo);
           custoTotal = quantidadeRecursos * valorCusto * baseConversao;
@@ -493,8 +504,8 @@ function calcularRecurso(params: {
           baseConversao = quantidadeRecursos * horasTotais;
           custoTotal = valorCusto * baseConversao;
           formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/hora x ${formatNumber(horasTotais)} horas = ${formatCurrency(custoTotal)}`;
-        } else if (unidadeFrente === "HORA" && planejamento.quantidade > 0) {
-          baseConversao = planejamento.quantidade;
+        } else if (unidadeFrente === "HORA" && quantidadeOperacional > 0) {
+          baseConversao = quantidadeOperacional;
           custoTotal = quantidadeRecursos * valorCusto * baseConversao;
           formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/hora x ${formatNumber(baseConversao)} horas = ${formatCurrency(custoTotal)}`;
         } else {
@@ -513,7 +524,7 @@ function calcularRecurso(params: {
           : unidadeEconomica === "M2"
             ? "m2"
             : formatarUnidadeFrente(frente.unidadeProducao);
-        baseConversao = planejamento.quantidade;
+        baseConversao = quantidadeOperacional;
         custoTotal = valorCusto * baseConversao;
         formula = `${formatNumber(baseConversao)} ${unidadeProducao} x ${formatCurrency(valorCusto)}/${unidadeProducao} = ${formatCurrency(custoTotal)}`;
         break;
@@ -536,7 +547,7 @@ function calcularRecurso(params: {
         );
 
         if (recurso.unidadeEconomicaCusto === "KM") {
-          if (planejamento.quantidade <= 0) observacoes.push("Informe uma quantidade prevista maior que zero na frente.");
+          if (quantidadeOperacional <= 0) observacoes.push("Informe uma quantidade operacional maior que zero.");
           if (capacidadePorViagem <= 0) observacoes.push("Informe uma capacidade por viagem maior que zero.");
           if (!unidadeCapacidade) observacoes.push("Informe a unidade da capacidade por viagem.");
           if (unidadeCapacidade && !unidadeCompativel) {
@@ -547,7 +558,7 @@ function calcularRecurso(params: {
 
           calculavel = observacoes.length === 0;
           if (calculavel) {
-            viagensTeoricas = planejamento.quantidade / capacidadePorViagem;
+            viagensTeoricas = quantidadeOperacional / capacidadePorViagem;
             viagensOperacionais = Math.ceil(viagensTeoricas - 1e-9);
             custoPorViagem = roundMoney(distanciaViagemKm * valorCusto);
             viagensMediasPorRecurso = viagensOperacionais / quantidadeRecursos;
@@ -559,7 +570,7 @@ function calcularRecurso(params: {
             if (prazoDiarioValido) {
               demandaLogisticaCalculavel = true;
               prazoUtilizadoDemanda = planejamento.prazoCalculo;
-              volumeDiarioExigidoFrota = planejamento.quantidade / prazoUtilizadoDemanda;
+              volumeDiarioExigidoFrota = quantidadeOperacional / prazoUtilizadoDemanda;
               volumeDiarioExigidoPorCaminhao = volumeDiarioExigidoFrota / quantidadeRecursos;
               viagensPorDiaFrota = viagensOperacionais / prazoUtilizadoDemanda;
               viagensPorCaminhaoPorDia = viagensPorDiaFrota / quantidadeRecursos;
@@ -570,7 +581,7 @@ function calcularRecurso(params: {
             }
             const unidadeFormatada = formatarUnidadeFrente(frente.unidadeProducao);
             formula = [
-              `${formatNumber(planejamento.quantidade)} ${unidadeFormatada} / ${formatNumber(capacidadePorViagem)} ${unidadeFormatada}/viagem = ${formatNumber(viagensTeoricas)} viagens teoricas`,
+              `${formatNumber(quantidadeOperacional)} ${unidadeFormatada} / ${formatNumber(capacidadePorViagem)} ${unidadeFormatada}/viagem = ${formatNumber(viagensTeoricas)} viagens teoricas`,
               `Arredondamento operacional: ${viagensOperacionais.toLocaleString("pt-BR")} viagens`,
               `${formatNumber(distanciaViagemKm)} km/viagem x ${formatCurrency(valorCusto)}/km = ${formatCurrency(custoPorViagem)}/viagem`,
               `${viagensOperacionais.toLocaleString("pt-BR")} viagens x ${formatCurrency(custoPorViagem)}/viagem = ${formatCurrency(custoTotal)}`
@@ -608,7 +619,7 @@ function calcularRecurso(params: {
         baseConversao = mesesTotais > 0
           ? mesesTotais
           : unidadeFrente === "MES"
-          ? planejamento.quantidade
+          ? quantidadeOperacional
           : planejamento.prazoUnidade === "mes(es)"
             ? planejamento.prazoCalculo
             : 0;
@@ -634,6 +645,8 @@ function calcularRecurso(params: {
 
   return {
     quantidadeRecursos,
+    quantidadeOperacional,
+    origemQuantidadeOperacional,
     valorCusto,
     tipoCalculo,
     unidadeEconomica,
@@ -711,6 +724,9 @@ export function resolveFrontCost(
       categoria: recurso.categoria?.trim() || "RECURSO",
       descricao,
       quantidadeRecursos: roundMoney(calculo.quantidadeRecursos),
+      quantidadeOperacional: roundOperational(calculo.quantidadeOperacional, 4),
+      origemQuantidadeOperacional: calculo.origemQuantidadeOperacional,
+      unidadeQuantidadeOperacional: formatarUnidadeFrente(frenteInput.unidadeProducao),
       custoOperacional: roundMoney(calculo.valorCusto),
       unidadeCustoOriginal: recurso.unidadeCusto?.trim() || calculo.unidadeFormatada,
       unidadeCustoFormatada: calculo.unidadeFormatada,
@@ -760,7 +776,9 @@ export function resolveFrontCost(
           item.categoria === memoriaAtual.categoria &&
           item.custoOperacional === memoriaAtual.custoOperacional &&
           item.unidadeCustoFormatada === memoriaAtual.unidadeCustoFormatada &&
-          item.tipoCalculo === memoriaAtual.tipoCalculo
+          item.tipoCalculo === memoriaAtual.tipoCalculo &&
+          item.quantidadeOperacional === memoriaAtual.quantidadeOperacional &&
+          item.origemQuantidadeOperacional === memoriaAtual.origemQuantidadeOperacional
         )
       : undefined;
 

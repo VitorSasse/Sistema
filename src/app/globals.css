@@ -8395,6 +8395,87 @@ button {
   color: var(--screen-muted);
 }
 
+.orcamentos-operational-quantity {
+  display: grid;
+  gap: 9px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--screen-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--primary) 5%, var(--screen-panel));
+}
+
+.orcamentos-operational-quantity-header,
+.orcamentos-operational-quantity-control,
+.orcamentos-operational-quantity-toggle,
+.orcamentos-operational-quantity > small {
+  display: flex;
+  align-items: center;
+}
+
+.orcamentos-operational-quantity-header {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.orcamentos-operational-quantity-header button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--screen-border));
+  border-radius: 999px;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.orcamentos-operational-quantity-control {
+  gap: 8px;
+}
+
+.orcamentos-operational-quantity-control .field-control {
+  flex: 1 1 auto;
+}
+
+.orcamentos-operational-quantity-control > span {
+  flex: 0 0 auto;
+  min-width: 58px;
+  padding: 9px 10px;
+  border: 1px solid var(--screen-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--screen-panel) 88%, transparent);
+  color: var(--screen-text);
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.orcamentos-operational-quantity-toggle {
+  width: fit-content;
+  gap: 8px;
+  color: var(--screen-text);
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.orcamentos-operational-quantity-toggle input {
+  accent-color: var(--primary);
+}
+
+.orcamentos-operational-quantity > small {
+  gap: 6px;
+  color: var(--screen-muted);
+}
+
+.orcamentos-operational-quantity > small.is-personalized {
+  color: var(--primary);
+  font-weight: 800;
+}
+
 .orcamentos-resource-memory {
   display: grid;
   gap: 8px;
