@@ -13375,7 +13375,7 @@ button {
 /* Collapsible application navigation */
 
 .admin-shell {
-  --admin-sidebar-width: 290px;
+  --admin-sidebar-width: 260px;
   position: relative;
   transition: grid-template-columns 220ms ease;
 }
