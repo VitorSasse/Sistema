@@ -5,6 +5,7 @@ import { ReactNode } from "react";
 import { AdminNav } from "@/components/admin-nav";
 import { BaseproLogo } from "@/components/branding/basepro-logo";
 import { AppHeader } from "@/components/layout/app-header";
+import { CollapsibleAdminShell } from "@/components/layout/collapsible-admin-shell";
 import { SidebarScrollArea } from "@/components/layout/sidebar-scroll-area";
 import { hasRoleAccess, requireSession } from "@/lib/auth-guards";
 import { withUnscopedPrisma } from "@/lib/prisma";
@@ -129,8 +130,8 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
   ];
 
   return (
-    <div className="admin-shell">
-      <aside className="admin-sidebar">
+    <CollapsibleAdminShell
+      sidebar={
         <SidebarScrollArea>
           <div className="admin-brand">
             <Link href="/inicio" className="admin-brand-link" aria-label="Ir para a home operacional">
@@ -145,18 +146,16 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
 
           <AdminNav groups={navigation} />
         </SidebarScrollArea>
-      </aside>
-
-      <div className="admin-main">
-        <AppHeader
-          userEmail={profile.email}
-          userName={profile.nome}
-          userAvatarUrl={profile.fotoPerfilUrl}
-          companyName={companyName}
-          isMaster={isMaster}
-        />
-        <div className="admin-content">{children}</div>
-      </div>
-    </div>
+      }
+    >
+      <AppHeader
+        userEmail={profile.email}
+        userName={profile.nome}
+        userAvatarUrl={profile.fotoPerfilUrl}
+        companyName={companyName}
+        isMaster={isMaster}
+      />
+      <div className="admin-content">{children}</div>
+    </CollapsibleAdminShell>
   );
 }
