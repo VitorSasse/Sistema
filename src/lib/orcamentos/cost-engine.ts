@@ -107,6 +107,12 @@ export type CostEngineMemoriaRecurso = {
   viagensOperacionais: number;
   custoPorViagem: number;
   viagensMediasPorRecurso: number;
+  demandaLogisticaCalculavel: boolean;
+  prazoUtilizadoDemanda: number;
+  volumeDiarioExigidoFrota: number;
+  volumeDiarioExigidoPorCaminhao: number;
+  viagensPorDiaFrota: number;
+  viagensPorCaminhaoPorDia: number;
   cargasTotais: number;
   mesesTotais: number;
   diasTrabalhadosMes: number;
@@ -438,6 +444,12 @@ function calcularRecurso(params: {
   let viagensOperacionais = 0;
   let custoPorViagem = 0;
   let viagensMediasPorRecurso = 0;
+  let demandaLogisticaCalculavel = false;
+  let prazoUtilizadoDemanda = 0;
+  let volumeDiarioExigidoFrota = 0;
+  let volumeDiarioExigidoPorCaminhao = 0;
+  let viagensPorDiaFrota = 0;
+  let viagensPorCaminhaoPorDia = 0;
   let calculavel = true;
   let formula = "";
 
@@ -541,6 +553,21 @@ function calcularRecurso(params: {
             viagensMediasPorRecurso = viagensOperacionais / quantidadeRecursos;
             baseConversao = viagensOperacionais * distanciaViagemKm;
             custoTotal = viagensOperacionais * custoPorViagem;
+            const prazoDiarioValido =
+              planejamento.prazoCalculo > 0 && planejamento.prazoUnidade === "dia(s)";
+
+            if (prazoDiarioValido) {
+              demandaLogisticaCalculavel = true;
+              prazoUtilizadoDemanda = planejamento.prazoCalculo;
+              volumeDiarioExigidoFrota = planejamento.quantidade / prazoUtilizadoDemanda;
+              volumeDiarioExigidoPorCaminhao = volumeDiarioExigidoFrota / quantidadeRecursos;
+              viagensPorDiaFrota = viagensOperacionais / prazoUtilizadoDemanda;
+              viagensPorCaminhaoPorDia = viagensPorDiaFrota / quantidadeRecursos;
+            } else {
+              observacoes.push(
+                "Informe a produtividade ou o prazo da frente para calcular a demanda diaria de transporte."
+              );
+            }
             const unidadeFormatada = formatarUnidadeFrente(frente.unidadeProducao);
             formula = [
               `${formatNumber(planejamento.quantidade)} ${unidadeFormatada} / ${formatNumber(capacidadePorViagem)} ${unidadeFormatada}/viagem = ${formatNumber(viagensTeoricas)} viagens teoricas`,
@@ -623,6 +650,12 @@ function calcularRecurso(params: {
     viagensOperacionais,
     custoPorViagem,
     viagensMediasPorRecurso,
+    demandaLogisticaCalculavel,
+    prazoUtilizadoDemanda,
+    volumeDiarioExigidoFrota,
+    volumeDiarioExigidoPorCaminhao,
+    viagensPorDiaFrota,
+    viagensPorCaminhaoPorDia,
     cargasTotais,
     mesesTotais,
     diasTrabalhadosMes,
@@ -695,6 +728,14 @@ export function resolveFrontCost(
       viagensOperacionais: calculo.viagensOperacionais,
       custoPorViagem: roundMoney(calculo.custoPorViagem),
       viagensMediasPorRecurso: roundMoney(calculo.viagensMediasPorRecurso),
+      demandaLogisticaCalculavel: calculo.demandaLogisticaCalculavel,
+      prazoUtilizadoDemanda: roundOperational(calculo.prazoUtilizadoDemanda),
+      volumeDiarioExigidoFrota: roundOperational(calculo.volumeDiarioExigidoFrota),
+      volumeDiarioExigidoPorCaminhao: roundOperational(
+        calculo.volumeDiarioExigidoPorCaminhao
+      ),
+      viagensPorDiaFrota: roundOperational(calculo.viagensPorDiaFrota),
+      viagensPorCaminhaoPorDia: roundOperational(calculo.viagensPorCaminhaoPorDia),
       cargasTotais: roundMoney(calculo.cargasTotais),
       mesesTotais: roundMoney(calculo.mesesTotais),
       diasTrabalhadosMes: roundMoney(calculo.diasTrabalhadosMes),

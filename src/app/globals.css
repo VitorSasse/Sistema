@@ -8404,6 +8404,130 @@ button {
   line-height: 1.5;
 }
 
+.orcamentos-transport-demand {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, var(--screen-border));
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent 56%),
+    color-mix(in srgb, var(--screen-panel) 94%, transparent);
+}
+
+.orcamentos-transport-demand-header,
+.orcamentos-transport-demand-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.orcamentos-transport-demand-header {
+  justify-content: space-between;
+}
+
+.orcamentos-transport-demand-title > div {
+  display: grid;
+  gap: 2px;
+}
+
+.orcamentos-transport-demand-title small {
+  color: var(--primary);
+  font-size: 0.64rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.orcamentos-transport-demand-title strong {
+  color: var(--screen-text);
+  font-size: 0.93rem;
+}
+
+.orcamentos-transport-demand-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--primary) 45%, var(--screen-border));
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary);
+}
+
+.orcamentos-transport-demand-status {
+  padding: 5px 9px;
+  border: 1px solid var(--screen-border);
+  border-radius: 999px;
+  color: var(--screen-muted);
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.orcamentos-transport-demand-status.is-ready {
+  border-color: color-mix(in srgb, var(--success) 45%, var(--screen-border));
+  background: color-mix(in srgb, var(--success) 11%, transparent);
+  color: var(--success);
+}
+
+.orcamentos-transport-demand-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 8px;
+}
+
+.orcamentos-transport-demand-grid > div {
+  display: grid;
+  gap: 4px;
+  min-height: 68px;
+  align-content: center;
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--screen-border) 82%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--screen-input) 72%, transparent);
+}
+
+.orcamentos-transport-demand-grid span {
+  color: var(--screen-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.orcamentos-transport-demand-grid strong {
+  color: var(--screen-text);
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.orcamentos-transport-demand-guidance,
+.orcamentos-transport-demand-empty {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--primary);
+  border-radius: 4px 10px 10px 4px;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--screen-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.orcamentos-transport-demand-guidance strong {
+  color: var(--screen-text);
+}
+
+@media (max-width: 680px) {
+  .orcamentos-transport-demand-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .orcamentos-transport-demand-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .orcamentos-front-cost-panel {
   display: grid;
   grid-template-columns: minmax(210px, 0.8fr) repeat(2, minmax(220px, 1fr));

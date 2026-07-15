@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { LockKeyhole, Pencil } from "lucide-react";
+import { LockKeyhole, Pencil, Truck } from "lucide-react";
 import { SearchableSelect } from "@/components/form/searchable-select";
 import {
   calcularMotorCustos,
@@ -724,6 +724,12 @@ function formatCurrency(value: unknown) {
     style: "currency",
     currency: "BRL"
   }).format(Number.isFinite(number) ? number : 0);
+}
+
+function formatOperationalNumber(value: number, maximumFractionDigits = 3) {
+  return new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits
+  }).format(Number.isFinite(value) ? value : 0);
 }
 
 function formatDate(value?: string | null) {
@@ -4158,6 +4164,13 @@ function ResourceItemFields(props: {
           }
         />
       </label>
+      {props.item.tipoCalculoRecurso === "AUTOMATICO" &&
+      props.item.unidadeEconomicaCusto === "KM" ? (
+        <TransportDemandPanel
+          memoria={props.memoria}
+          unidade={props.memoria?.unidadeCapacidade || props.item.unidadeCapacidade}
+        />
+      ) : null}
       <div className="orcamentos-resource-memory orcamentos-span-3">
         <div>
           <span>{props.memoria?.statusCalculo === "PENDENTE" ? "Pendente de calculo" : "Custo total calculado"}</span>
@@ -4167,6 +4180,92 @@ function ResourceItemFields(props: {
         {props.memoria?.observacoes.map((observacao) => <small key={observacao}>{observacao}</small>)}
       </div>
     </>
+  );
+}
+
+function TransportDemandPanel(props: {
+  memoria?: CostEngineMemoriaRecurso;
+  unidade: string;
+}) {
+  const { memoria } = props;
+  const unidade = normalizeUnidadeProducao(props.unidade || "unidade");
+  const demandaCalculada = memoria?.demandaLogisticaCalculavel === true;
+  const quantidadeInvalida = memoria !== undefined && memoria.quantidadeRecursos <= 0;
+  const status = demandaCalculada
+    ? "Calculada"
+    : quantidadeInvalida || memoria?.statusCalculo === "PENDENTE"
+      ? "Pendente"
+      : "Aguardando prazo";
+  const mensagem = quantidadeInvalida
+    ? "Informe uma quantidade de caminhões maior que zero para distribuir a demanda da frota."
+    : memoria && !demandaCalculada
+      ? "Informe a produtividade ou o prazo da frente para calcular a demanda diária de transporte."
+      : "Preencha os parâmetros do transporte para calcular a demanda logística.";
+
+  return (
+    <section className="orcamentos-transport-demand orcamentos-span-3">
+      <header className="orcamentos-transport-demand-header">
+        <div className="orcamentos-transport-demand-title">
+          <span className="orcamentos-transport-demand-icon" aria-hidden="true">
+            <Truck size={18} />
+          </span>
+          <div>
+            <small>Planejamento de transporte</small>
+            <strong>Demanda logística para cumprir o prazo</strong>
+          </div>
+        </div>
+        <span className={`orcamentos-transport-demand-status ${demandaCalculada ? "is-ready" : ""}`}>
+          {status}
+        </span>
+      </header>
+
+      {demandaCalculada && memoria ? (
+        <>
+          <div className="orcamentos-transport-demand-grid">
+            <div>
+              <span>Prazo utilizado</span>
+              <strong>{formatOperationalNumber(memoria.prazoUtilizadoDemanda)} dias</strong>
+            </div>
+            <div>
+              <span>Produção exigida</span>
+              <strong>
+                {formatOperationalNumber(memoria.volumeDiarioExigidoFrota)} {unidade}/dia
+              </strong>
+            </div>
+            <div>
+              <span>Volume por caminhão</span>
+              <strong>
+                {formatOperationalNumber(memoria.volumeDiarioExigidoPorCaminhao)} {unidade}/dia
+              </strong>
+            </div>
+            <div>
+              <span>Frota informada</span>
+              <strong>{formatOperationalNumber(memoria.quantidadeRecursos)} caminhões</strong>
+            </div>
+            <div>
+              <span>Viagens totais</span>
+              <strong>{formatOperationalNumber(memoria.viagensOperacionais)} viagens</strong>
+            </div>
+            <div>
+              <span>Demanda da frota</span>
+              <strong>{formatOperationalNumber(memoria.viagensPorDiaFrota)} viagens/dia</strong>
+            </div>
+            <div>
+              <span>Demanda por caminhão</span>
+              <strong>
+                {formatOperationalNumber(memoria.viagensPorCaminhaoPorDia)} viagens/dia
+              </strong>
+            </div>
+          </div>
+          <p className="orcamentos-transport-demand-guidance">
+            Para cumprir o prazo utilizado, cada caminhão deverá realizar em média{" "}
+            <strong>{formatOperationalNumber(memoria.viagensPorCaminhaoPorDia)} viagens por dia.</strong>
+          </p>
+        </>
+      ) : (
+        <p className="orcamentos-transport-demand-empty">{mensagem}</p>
+      )}
+    </section>
   );
 }
 

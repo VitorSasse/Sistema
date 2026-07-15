@@ -534,6 +534,80 @@ describe("Evolucao do prazo e das unidades economicas", () => {
     );
   });
 
+  it("calcula a demanda diaria do transporte sem alterar o custo total", () => {
+    const result = calcularRecurso("KM", {
+      descricao: "Caminhao Basculante 14 m3",
+      quantidade: 2,
+      valorCusto: 8,
+      capacidadePorViagem: 14,
+      unidadeCapacidade: "m3",
+      distanciaViagemKm: 12
+    }, {
+      ...frenteBase,
+      quantidadePrevista: 529.62,
+      produtividadeDia: 265,
+      prazoAdotadoDias: 2,
+      origemPrazo: "AJUSTADO",
+      unidadeProducao: "m3"
+    });
+
+    expect(result.custoDiretoTotal).toBe(3648);
+    expect(result.memoria[0]).toMatchObject({
+      demandaLogisticaCalculavel: true,
+      prazoUtilizadoDemanda: 2,
+      viagensOperacionais: 38,
+      volumeDiarioExigidoFrota: 264.81,
+      volumeDiarioExigidoPorCaminhao: 132.405,
+      viagensPorDiaFrota: 19,
+      viagensPorCaminhaoPorDia: 9.5,
+      custoTotal: 3648
+    });
+  });
+
+  it("mantem o custo do transporte e orienta quando nao existe prazo valido", () => {
+    const result = calcularRecurso("KM", {
+      quantidade: 2,
+      valorCusto: 8,
+      capacidadePorViagem: 14,
+      unidadeCapacidade: "m3",
+      distanciaViagemKm: 12
+    }, {
+      ...frenteBase,
+      quantidadePrevista: 529.62,
+      produtividadeDia: null,
+      unidadeProducao: "m3"
+    });
+
+    expect(result.custoDiretoTotal).toBe(3648);
+    expect(result.memoria[0]?.demandaLogisticaCalculavel).toBe(false);
+    expect(result.memoria[0]?.statusCalculo).toBe("CALCULADO");
+    expect(result.memoria[0]?.observacoes).toEqual(expect.arrayContaining([
+      expect.stringContaining("produtividade ou o prazo")
+    ]));
+  });
+
+  it("marca o transporte como pendente quando a frota informada e invalida", () => {
+    const result = calcularRecurso("KM", {
+      quantidade: 0,
+      valorCusto: 8,
+      capacidadePorViagem: 14,
+      unidadeCapacidade: "m3",
+      distanciaViagemKm: 12
+    }, {
+      ...frenteBase,
+      quantidadePrevista: 529.62,
+      prazoAdotadoDias: 2,
+      unidadeProducao: "m3"
+    });
+
+    expect(result.custoDiretoTotal).toBe(0);
+    expect(result.memoria[0]).toMatchObject({
+      statusCalculo: "PENDENTE",
+      demandaLogisticaCalculavel: false,
+      viagensPorCaminhaoPorDia: 0
+    });
+  });
+
   it("nao multiplica o custo total do transporte pela quantidade de caminhoes", () => {
     const transporte = {
       valorCusto: 8,
