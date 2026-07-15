@@ -226,13 +226,44 @@ function createFakeDb() {
       }
     },
     orcamentoCenario: {
+      updateMany: async ({
+        where,
+        data
+      }: {
+        where: { id?: string; orcamentoId: string; isPadrao?: boolean };
+        data: Record<string, unknown>;
+      }) => {
+        let count = 0;
+
+        records.cenarios = records.cenarios.map((record) => {
+          const matches =
+            record.orcamentoId === where.orcamentoId &&
+            (!where.id || record.id === where.id) &&
+            (where.isPadrao === undefined || record.isPadrao === where.isPadrao);
+
+          if (!matches) return record;
+          count += 1;
+          return { ...record, ...data };
+        });
+
+        return { count };
+      },
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const created = { ...data, id: `cenario-${records.cenarios.length + 1}` };
         records.cenarios.push(created);
         return { id: created.id };
       },
       deleteMany: async ({ where }: { where: { orcamentoId: string } }) => {
-        removeWhere(records.cenarios, (record) => record.orcamentoId === where.orcamentoId);
+        removeWhere(
+          records.cenarios,
+          (record) =>
+            record.orcamentoId === where.orcamentoId &&
+            !records.propostas.some(
+              (proposta) =>
+                proposta.cenarioId === record.id &&
+                proposta.status === StatusPropostaComercial.EMITIDA
+            )
+        );
       }
     },
     orcamentoFrente: {
@@ -876,5 +907,87 @@ describe("persistencia na edicao de orcamentos", () => {
     expect(records.formacoes).toHaveLength(1);
     expect(records.formacoes[0].orcamentoId).toBe(criado!.id);
     expect(records.formacoes[0].custoDireto).toBe(2000);
+  });
+
+  it("reutiliza o cenario preservado por proposta emitida ao editar o orcamento", async () => {
+    const { db, records } = createFakeDb();
+    const inputInicial = baseInput({
+      cenarios: [
+        {
+          tempId: "cenario-local",
+          ordem: 1,
+          nome: "Cenario principal",
+          descricao: "",
+          metodoExecutivo: "",
+          observacao: "",
+          isPadrao: true,
+          status: StatusCenarioOrcamento.EM_ESTUDO
+        }
+      ],
+      frentes: [
+        {
+          ...baseInput().frentes[0],
+          cenarioTempId: "cenario-local"
+        }
+      ],
+      propostasComerciais: [
+        {
+          ...propostaInput(0),
+          cenarioTempId: "cenario-local"
+        }
+      ]
+    });
+    const criado = await criarOrcamento(db as never, {
+      input: inputInicial,
+      userId: "usuario-1",
+      codigo: "ORC-017"
+    });
+    const cenarioId = String(records.cenarios[0].id);
+    const propostaId = String(records.propostas[0].id);
+    const snapshotEmitido = records.propostas[0].snapshotJson;
+
+    await atualizarOrcamento(db as never, {
+      id: criado!.id,
+      input: {
+        ...inputInicial,
+        titulo: "Orcamento atualizado",
+        cenarios: [
+          {
+            ...inputInicial.cenarios[0],
+            tempId: cenarioId,
+            nome: "Cenario principal atualizado"
+          }
+        ],
+        frentes: [
+          {
+            ...inputInicial.frentes[0],
+            tempId: "frente-atualizada",
+            cenarioTempId: cenarioId
+          }
+        ],
+        itens: [
+          {
+            ...inputInicial.itens[0],
+            frenteTempId: "frente-atualizada"
+          }
+        ],
+        propostasComerciais: [
+          {
+            ...inputInicial.propostasComerciais[0],
+            tempId: propostaId,
+            cenarioTempId: cenarioId
+          }
+        ]
+      },
+      userId: "usuario-1"
+    });
+
+    expect(records.cenarios).toHaveLength(1);
+    expect(records.cenarios[0].id).toBe(cenarioId);
+    expect(records.cenarios[0].nome).toBe("Cenario principal atualizado");
+    expect(records.cenarios[0].isPadrao).toBe(true);
+    expect(records.propostas).toHaveLength(1);
+    expect(records.propostas[0].id).toBe(propostaId);
+    expect(records.propostas[0].snapshotJson).toEqual(snapshotEmitido);
   });
 });

@@ -597,36 +597,64 @@ async function criarEstruturaOrcamento(
     (pricing.motorCustos?.memoria ?? []).map((memoria) => [memoria.recursoRef, memoria])
   );
 
+  // Uma proposta emitida preserva o cenário ao qual foi vinculada. Na edição,
+  // esse cenário pode ser reutilizado; desmarcá-lo antes evita conflito com o
+  // índice que permite apenas um cenário padrão por orçamento.
+  await db.orcamentoCenario.updateMany({
+    where: {
+      orcamentoId,
+      isPadrao: true
+    },
+    data: {
+      isPadrao: false
+    }
+  });
+
   for (const cenario of cenariosInput) {
-    const created = await db.orcamentoCenario.create({
-      data: {
-        empresaId: requireActiveTenantEmpresaId(),
-        orcamentoId,
-        ordem: cenario.ordem,
-        nome: cenario.nome,
-        descricao: clean(cenario.descricao),
-        metodoExecutivo: clean(cenario.metodoExecutivo),
-        observacao: clean(cenario.observacao),
-        isPadrao: cenario.isPadrao,
-        status: cenario.status
-      },
-      select: {
-        id: true
-      }
-    });
+    const cenarioData = {
+      ordem: cenario.ordem,
+      nome: cenario.nome,
+      descricao: clean(cenario.descricao),
+      metodoExecutivo: clean(cenario.metodoExecutivo),
+      observacao: clean(cenario.observacao),
+      isPadrao: cenario.isPadrao,
+      status: cenario.status
+    };
+    const tempId = cenario.tempId?.trim();
+    const updated = tempId
+      ? await db.orcamentoCenario.updateMany({
+          where: {
+            id: tempId,
+            orcamentoId
+          },
+          data: cenarioData
+        })
+      : { count: 0 };
+    const saved = updated.count > 0
+      ? { id: tempId! }
+      : await db.orcamentoCenario.create({
+          data: {
+            empresaId: requireActiveTenantEmpresaId(),
+            orcamentoId,
+            ...cenarioData
+          },
+          select: {
+            id: true
+          }
+        });
 
     if (cenario.tempId?.trim()) {
-      cenarioIdByRef.set(`temp:${cenario.tempId.trim()}`, created.id);
+      cenarioIdByRef.set(`temp:${cenario.tempId.trim()}`, saved.id);
       cenarioInputByRef.set(`temp:${cenario.tempId.trim()}`, cenario);
     }
 
     if (!cenarioIdByRef.has(`ordem:${cenario.ordem}`)) {
-      cenarioIdByRef.set(`ordem:${cenario.ordem}`, created.id);
+      cenarioIdByRef.set(`ordem:${cenario.ordem}`, saved.id);
       cenarioInputByRef.set(`ordem:${cenario.ordem}`, cenario);
     }
 
     if (cenario.isPadrao || !cenarioIdByRef.has("padrao")) {
-      cenarioIdByRef.set("padrao", created.id);
+      cenarioIdByRef.set("padrao", saved.id);
       cenarioInputByRef.set("padrao", cenario);
     }
   }
