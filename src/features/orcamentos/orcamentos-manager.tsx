@@ -4708,7 +4708,7 @@ function mapItemPayload(item: ItemForm, tipoOrcamento: TipoOrcamento) {
     distanciaViagemKm: recurso && item.distanciaViagemKm ? Number(item.distanciaViagemKm) : null,
     quilometrosTotais: recurso && item.quilometrosTotais ? Number(item.quilometrosTotais) : null,
     capacidadePorViagem: recurso && item.capacidadePorViagem ? Number(item.capacidadePorViagem) : null,
-    unidadeCapacidade: recurso ? item.unidadeCapacidade.trim() || null : null,
+    unidadeCapacidade: recurso ? item.unidadeCapacidade.trim() : "",
     caracteristicasRecursoSnapshot: recurso ? item.caracteristicasRecursoSnapshot : null,
     camposTecnicosPersonalizados: recurso ? item.camposTecnicosPersonalizados : [],
     cargasTotais: recurso && item.cargasTotais ? Number(item.cargasTotais) : null,

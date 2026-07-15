@@ -160,7 +160,7 @@ const orcamentoItemSchema = z.object({
   distanciaViagemKm: numeroDecimal(999999).optional().nullable(),
   quilometrosTotais: numeroDecimal(999999999).optional().nullable(),
   capacidadePorViagem: numeroDecimal(999999999).optional().nullable(),
-  unidadeCapacidade: z.string().trim().max(40).optional().or(z.literal("")),
+  unidadeCapacidade: z.string().trim().max(40).nullable().optional(),
   caracteristicasRecursoSnapshot: caracteristicasRecursoSnapshotSchema.optional().nullable(),
   camposTecnicosPersonalizados: z.array(z.enum(CAMPOS_TECNICOS_RECURSO)).optional(),
   cargasTotais: numeroDecimal(999999999).optional().nullable(),
