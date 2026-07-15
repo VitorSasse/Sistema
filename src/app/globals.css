@@ -4730,6 +4730,33 @@ button {
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--screen-text) 6%, transparent);
 }
 
+.billing-client-chart-content {
+  min-width: 0;
+}
+
+.billing-client-chart-content.is-expanded {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.billing-client-expanded-legend {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0 2px 4px;
+  scrollbar-color: color-mix(in srgb, var(--primary) 48%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.billing-client-expanded-legend .billing-chart-legend-item {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .billing-client-chart-scroll {
   width: 100%;
   height: 100%;
