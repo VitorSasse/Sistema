@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
@@ -18,6 +19,7 @@ function normalizePayload(payload: Record<string, unknown>) {
     ...payload,
     anoFabricacao: parseNullableNumber(payload.anoFabricacao),
     capacidadeM3: parseNullableNumber(payload.capacidadeM3),
+    custoPadrao: parseNullableNumber(payload.custoPadrao),
     horimetroAtual: parseNullableNumber(payload.horimetroAtual),
     kmAtual: parseNullableNumber(payload.kmAtual),
     periodicidadeManutencaoHoras: parseNullableNumber(payload.periodicidadeManutencaoHoras),
@@ -57,14 +59,17 @@ export async function POST(request: NextRequest) {
   }
 
   const data = parsed.data as any;
+  const placaOuTag = data.placaOuTag || `REC-${randomUUID().slice(0, 8).toUpperCase()}`;
 
   try {
     const equipamento = await prisma.equipamento.create({
       data: {
+        naturezaRecurso: data.naturezaRecurso as any,
         tipoRecurso: data.tipoRecurso as any,
         tipoControle: data.tipoControle as any,
         descricao: data.descricao,
-        placaOuTag: data.placaOuTag,
+        descricaoOperacional: data.descricaoOperacional || null,
+        placaOuTag,
         classeOperacional: data.classeOperacional || null,
         complementar: Boolean(data.complementar),
         fabricante: data.fabricante || null,
@@ -75,6 +80,8 @@ export async function POST(request: NextRequest) {
         capacidadeM3: data.capacidadeM3 ?? null,
         unidadeCapacidade: data.unidadeCapacidade || null,
         unidadeEconomicaPadrao: data.unidadeEconomicaPadrao || null,
+        custoPadrao: data.custoPadrao ?? null,
+        permitirEdicaoOrcamento: Boolean(data.permitirEdicaoOrcamento),
         caracteristicasTecnicas: data.caracteristicasTecnicas ?? undefined,
         apelido: data.apelido || null,
         observacao: data.observacao || null,

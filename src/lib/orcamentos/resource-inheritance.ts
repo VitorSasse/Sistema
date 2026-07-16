@@ -1,7 +1,8 @@
 export const CAMPOS_TECNICOS_RECURSO = [
   "capacidadePorViagem",
   "unidadeCapacidade",
-  "unidadeEconomicaCusto"
+  "unidadeEconomicaCusto",
+  "valorCusto"
 ] as const;
 
 export type CampoTecnicoRecurso = (typeof CAMPOS_TECNICOS_RECURSO)[number];
@@ -11,6 +12,12 @@ export type CaracteristicasRecursoMestre = {
   capacidadeM3?: string | number | null;
   unidadeCapacidade?: string | null;
   unidadeEconomicaPadrao?: string | null;
+  custoPadrao?: string | number | null;
+  permitirEdicaoOrcamento?: boolean;
+  naturezaRecurso?: string | null;
+  tipoRecurso?: string | null;
+  classeOperacional?: string | null;
+  descricaoOperacional?: string | null;
   caracteristicasTecnicas?: Record<string, unknown> | null;
 };
 
@@ -22,6 +29,12 @@ export type SnapshotCaracteristicasRecurso = {
     capacidadePorViagem: number | null;
     unidadeCapacidade: string | null;
     unidadeEconomicaCusto: string | null;
+    valorCusto: number | null;
+    permitirEdicaoOrcamento: boolean;
+    naturezaRecurso: string | null;
+    tipoRecurso: string | null;
+    classeOperacional: string | null;
+    descricaoOperacional: string | null;
     caracteristicasTecnicas: Record<string, unknown> | null;
   };
 };
@@ -55,6 +68,12 @@ export function criarSnapshotCaracteristicasRecurso(
       capacidadePorViagem: numberOrNull(recurso.capacidadeM3),
       unidadeCapacidade: textOrNull(recurso.unidadeCapacidade),
       unidadeEconomicaCusto: textOrNull(recurso.unidadeEconomicaPadrao),
+      valorCusto: numberOrNull(recurso.custoPadrao),
+      permitirEdicaoOrcamento: recurso.permitirEdicaoOrcamento !== false,
+      naturezaRecurso: textOrNull(recurso.naturezaRecurso),
+      tipoRecurso: textOrNull(recurso.tipoRecurso),
+      classeOperacional: textOrNull(recurso.classeOperacional),
+      descricaoOperacional: textOrNull(recurso.descricaoOperacional),
       caracteristicasTecnicas: cloneTechnicalCharacteristics(recurso.caracteristicasTecnicas)
     }
   };
@@ -67,7 +86,11 @@ export function valoresEfetivosDaHeranca(snapshot: SnapshotCaracteristicasRecurs
         ? ""
         : String(snapshot.herdados.capacidadePorViagem),
     unidadeCapacidade: snapshot.herdados.unidadeCapacidade ?? "",
-    unidadeEconomicaCusto: snapshot.herdados.unidadeEconomicaCusto ?? ""
+    unidadeEconomicaCusto: snapshot.herdados.unidadeEconomicaCusto ?? "",
+    valorCusto: snapshot.herdados.valorCusto === null || snapshot.herdados.valorCusto === undefined
+      ? ""
+      : String(snapshot.herdados.valorCusto),
+    permitirEdicaoOrcamento: snapshot.herdados.permitirEdicaoOrcamento !== false
   };
 }
 
@@ -108,5 +131,5 @@ export function campoTecnicoHerdado(
     return false;
   }
 
-  return snapshot.herdados[campo] !== null;
+  return snapshot.herdados[campo] !== null && snapshot.herdados[campo] !== undefined;
 }

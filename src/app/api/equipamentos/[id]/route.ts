@@ -22,6 +22,7 @@ function normalizePayload(payload: Record<string, unknown>) {
     ...payload,
     anoFabricacao: parseNullableNumber(payload.anoFabricacao),
     capacidadeM3: parseNullableNumber(payload.capacidadeM3),
+    custoPadrao: parseNullableNumber(payload.custoPadrao),
     horimetroAtual: parseNullableNumber(payload.horimetroAtual),
     kmAtual: parseNullableNumber(payload.kmAtual),
     periodicidadeManutencaoHoras: parseNullableNumber(payload.periodicidadeManutencaoHoras),
@@ -50,13 +51,24 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const data = parsed.data as any;
 
   try {
+    const atual = await prisma.equipamento.findUnique({
+      where: { id },
+      select: { placaOuTag: true }
+    });
+
+    if (!atual) {
+      return NextResponse.json({ message: "Equipamento nao encontrado." }, { status: 404 });
+    }
+
     const equipamento = await prisma.equipamento.update({
       where: { id },
       data: {
+        naturezaRecurso: data.naturezaRecurso as any,
         tipoRecurso: data.tipoRecurso as any,
         tipoControle: data.tipoControle as any,
         descricao: data.descricao,
-        placaOuTag: data.placaOuTag,
+        descricaoOperacional: data.descricaoOperacional || null,
+        placaOuTag: data.placaOuTag || atual.placaOuTag,
         classeOperacional: data.classeOperacional || null,
         complementar: Boolean(data.complementar),
         fabricante: data.fabricante || null,
@@ -67,6 +79,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         capacidadeM3: data.capacidadeM3 ?? null,
         unidadeCapacidade: data.unidadeCapacidade || null,
         unidadeEconomicaPadrao: data.unidadeEconomicaPadrao || null,
+        custoPadrao: data.custoPadrao ?? null,
+        permitirEdicaoOrcamento: Boolean(data.permitirEdicaoOrcamento),
         caracteristicasTecnicas: data.caracteristicasTecnicas ?? undefined,
         apelido: data.apelido || null,
         observacao: data.observacao || null,

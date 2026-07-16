@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import {
+  NaturezaRecursoEquipamento,
   StatusEquipamentoOperacional,
   TipoControleEquipamento,
   TipoRecurso,
@@ -12,9 +13,11 @@ import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
 type Equipamento = {
   id: string;
+  naturezaRecurso: NaturezaRecursoEquipamento;
   tipoRecurso: TipoRecurso;
   tipoControle: TipoControleEquipamento;
   descricao: string;
+  descricaoOperacional: string | null;
   placaOuTag: string;
   classeOperacional: string | null;
   complementar: boolean;
@@ -26,6 +29,8 @@ type Equipamento = {
   capacidadeM3: string | null;
   unidadeCapacidade: string | null;
   unidadeEconomicaPadrao: UnidadeEconomicaCusto | null;
+  custoPadrao: string | null;
+  permitirEdicaoOrcamento: boolean;
   caracteristicasTecnicas: Record<string, unknown> | null;
   apelido: string | null;
   observacao: string | null;
@@ -39,9 +44,11 @@ type Equipamento = {
 
 type FormState = {
   id?: string;
+  naturezaRecurso: NaturezaRecursoEquipamento;
   tipoRecurso: TipoRecurso;
   tipoControle: TipoControleEquipamento;
   descricao: string;
+  descricaoOperacional: string;
   placaOuTag: string;
   classeOperacional: string;
   complementar: boolean;
@@ -53,6 +60,8 @@ type FormState = {
   capacidadeM3: string;
   unidadeCapacidade: string;
   unidadeEconomicaPadrao: UnidadeEconomicaCusto | "";
+  custoPadrao: string;
+  permitirEdicaoOrcamento: boolean;
   caracteristicasTecnicas: Record<string, unknown> | null;
   apelido: string;
   observacao: string;
@@ -65,9 +74,11 @@ type FormState = {
 };
 
 const initialForm: FormState = {
+  naturezaRecurso: "PROPRIO",
   tipoRecurso: "CAMINHAO",
   tipoControle: "HORIMETRO",
   descricao: "",
+  descricaoOperacional: "",
   placaOuTag: "",
   classeOperacional: "",
   complementar: false,
@@ -79,6 +90,8 @@ const initialForm: FormState = {
   capacidadeM3: "",
   unidadeCapacidade: "m3",
   unidadeEconomicaPadrao: "",
+  custoPadrao: "",
+  permitirEdicaoOrcamento: true,
   caracteristicasTecnicas: null,
   apelido: "",
   observacao: "",
@@ -96,6 +109,17 @@ const tipoRecursoOptions: TipoRecurso[] = [
   "CARRETA",
   "EQUIPAMENTO_APOIO",
   "OUTRO"
+];
+
+const naturezaRecursoOptions: Array<{
+  value: NaturezaRecursoEquipamento;
+  label: string;
+}> = [
+  { value: "PROPRIO", label: "Proprio" },
+  { value: "TERCEIRIZADO", label: "Terceirizado" },
+  { value: "LOCADO", label: "Locado" },
+  { value: "SUBCONTRATADO", label: "Subcontratado" },
+  { value: "BIBLIOTECA_TECNICA", label: "Biblioteca Tecnica (futuro)" }
 ];
 
 const unidadeEconomicaOptions: Array<{ value: UnidadeEconomicaCusto; label: string }> = [
@@ -127,12 +151,52 @@ function isRecursoApoio(tipoRecurso: TipoRecurso) {
   return tipoRecurso === "EQUIPAMENTO_APOIO";
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function isRecursoPatrimonial(natureza: NaturezaRecursoEquipamento) {
+  return natureza === "PROPRIO";
+}
+
+function getUnidadeEconomica(unidade: UnidadeEconomicaCusto | "") {
+  const unidades: Partial<Record<UnidadeEconomicaCusto, string>> = {
+    CUSTO_FIXO: "R$ fixo",
+    DIA: "R$/dia",
+    HORA: "R$/hora",
+    KM: "R$/km",
+    M3: "R$/m3",
+    M2: "R$/m2",
+    VIAGEM: "R$/viagem",
+    CARGA: "R$/carga",
+    MES: "R$/mes",
+    UNIDADE_PRODUZIDA: "R$/unidade produzida",
+    UNIDADE: "R$/unidade",
+    VALOR_TOTAL: "R$ total"
+  };
+
+  return unidade ? unidades[unidade] ?? "R$" : "Selecione a forma de contratacao";
+}
+
+function Field({ label, help, children }: { label: string; help: string; children: ReactNode }) {
   return (
     <label className="field">
       <span className="field-label">{label}</span>
       {children}
+      <small className="manager-field-hint">{help}</small>
     </label>
+  );
+}
+
+function FormBlock(props: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="equipment-library-block">
+      <header className="equipment-library-block-header">
+        <span>{props.title}</span>
+        <p>{props.description}</p>
+      </header>
+      <div className="form-grid-4">{props.children}</div>
+    </section>
   );
 }
 
@@ -163,6 +227,7 @@ export function EquipamentosManager() {
   >("TODOS");
   const [isPending, startTransition] = useTransition();
   const recursoApoioSelecionado = isRecursoApoio(form.tipoRecurso);
+  const recursoPatrimonial = isRecursoPatrimonial(form.naturezaRecurso);
 
   async function loadEquipamentos() {
     const response = await fetch("/api/equipamentos", { cache: "no-store" });
@@ -219,11 +284,7 @@ export function EquipamentosManager() {
         kmAtual: "",
         statusOperacional: "ATIVO",
         periodicidadeManutencaoHoras: "",
-        periodicidadeManutencaoKm: "",
-        capacidadeM3: "",
-        unidadeCapacidade: "",
-        unidadeEconomicaPadrao: "",
-        caracteristicasTecnicas: null
+        periodicidadeManutencaoKm: ""
       };
     });
   }
@@ -261,9 +322,11 @@ export function EquipamentosManager() {
   function handleEdit(equipamento: Equipamento) {
     setForm({
       id: equipamento.id,
+      naturezaRecurso: equipamento.naturezaRecurso,
       tipoRecurso: equipamento.tipoRecurso,
       tipoControle: equipamento.tipoControle,
       descricao: equipamento.descricao,
+      descricaoOperacional: equipamento.descricaoOperacional ?? "",
       placaOuTag: equipamento.placaOuTag,
       classeOperacional: equipamento.classeOperacional ?? "",
       complementar: equipamento.complementar,
@@ -275,6 +338,8 @@ export function EquipamentosManager() {
       capacidadeM3: equipamento.capacidadeM3 ?? "",
       unidadeCapacidade: equipamento.unidadeCapacidade ?? "",
       unidadeEconomicaPadrao: equipamento.unidadeEconomicaPadrao ?? "",
+      custoPadrao: equipamento.custoPadrao ?? "",
+      permitirEdicaoOrcamento: equipamento.permitirEdicaoOrcamento,
       caracteristicasTecnicas: equipamento.caracteristicasTecnicas ?? null,
       apelido: equipamento.apelido ?? "",
       observacao: equipamento.observacao ?? "",
@@ -372,55 +437,46 @@ export function EquipamentosManager() {
               ficam disponiveis apenas para lancamentos tecnicos e medicoes.
             </p>
           ) : null}
-          <div className="form-grid-4">
-            <Field label="Tipo de recurso">
+          <FormBlock
+            title="IDENTIFICACAO"
+            description="Define o recurso e como ele pertence a operacao da empresa."
+          >
+            <Field
+              label="Natureza do recurso"
+              help="Define como este recurso pertence a empresa e quais informacoes serao necessarias."
+            >
+              <select
+                className="field-control"
+                value={form.naturezaRecurso}
+                onChange={(event) =>
+                  updateField("naturezaRecurso", event.target.value as NaturezaRecursoEquipamento)
+                }
+              >
+                {naturezaRecursoOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Nome do recurso" help="Nome utilizado para localizar o recurso em toda a BasePro.">
+              <input
+                className="field-control"
+                value={form.descricao}
+                onChange={(event) => updateField("descricao", event.target.value)}
+                placeholder="Ex.: Caminhao basculante 14 m3"
+              />
+            </Field>
+            <Field label="Categoria" help="Agrupa o recurso nas rotinas operacionais e de custos.">
               <select
                 className="field-control"
                 value={form.tipoRecurso}
                 onChange={(event) => updateTipoRecurso(event.target.value as TipoRecurso)}
               >
                 {tipoRecursoOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
+                  <option key={option} value={option}>{option}</option>
                 ))}
               </select>
             </Field>
-            <Field label="Tipo de controle">
-              <select
-                className="field-control"
-                value={form.tipoControle}
-                disabled={recursoApoioSelecionado}
-                onChange={(event) =>
-                  updateField("tipoControle", event.target.value as TipoControleEquipamento)
-                }
-              >
-                {tipoControleOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label={recursoApoioSelecionado ? "Nome do recurso" : "Descricao"}>
-              <input
-                className="field-control"
-                value={form.descricao}
-                onChange={(event) => updateField("descricao", event.target.value)}
-                placeholder={
-                  recursoApoioSelecionado ? "Ex.: ENGENHARIA / TOPOGRAFIA / APOIO TECNICO" : ""
-                }
-              />
-            </Field>
-            <Field label={recursoApoioSelecionado ? "Tag / identificador" : "Placa ou tag"}>
-              <input
-                className="field-control"
-                value={form.placaOuTag}
-                onChange={(event) => updateField("placaOuTag", event.target.value.toUpperCase())}
-                placeholder={recursoApoioSelecionado ? "Ex.: ENG / TOPO / APOIO01" : ""}
-              />
-            </Field>
-            <Field label="Classe operacional">
+            <Field label="Classe operacional" help="Identifica recursos tecnicamente equivalentes no planejamento.">
               <input
                 className="field-control"
                 value={form.classeOperacional}
@@ -428,153 +484,14 @@ export function EquipamentosManager() {
                 placeholder="Ex.: Caminhao basculante 14 m3"
               />
             </Field>
-            <Field label="Equipamento complementar">
-              <select
-                className="field-control"
-                value={form.complementar ? "SIM" : "NAO"}
-                disabled={recursoApoioSelecionado}
-                onChange={(event) => updateField("complementar", event.target.value === "SIM")}
-              >
-                <option value="NAO">NAO</option>
-                <option value="SIM">SIM</option>
-              </select>
-            </Field>
-            <Field label="Fabricante">
+            <Field label="Apelido" help="Nome curto opcional para facilitar a identificacao interna.">
               <input
                 className="field-control"
-                value={form.fabricante}
-                onChange={(event) => updateField("fabricante", event.target.value)}
+                value={form.apelido}
+                onChange={(event) => updateField("apelido", event.target.value)}
               />
             </Field>
-            <Field label="Modelo">
-              <input
-                className="field-control"
-                value={form.modelo}
-                onChange={(event) => updateField("modelo", event.target.value)}
-              />
-            </Field>
-            <Field label="Marca / modelo livre">
-              <input
-                className="field-control"
-                value={form.marcaModelo}
-                onChange={(event) => updateField("marcaModelo", event.target.value)}
-              />
-            </Field>
-            <Field label="Ano de fabricacao">
-              <input
-                className="field-control"
-                type="number"
-                value={form.anoFabricacao}
-                onChange={(event) => updateField("anoFabricacao", event.target.value)}
-              />
-            </Field>
-            <Field label="Data de entrada">
-              <input
-                className="field-control"
-                type="date"
-                value={form.dataEntrada}
-                onChange={(event) => updateField("dataEntrada", event.target.value)}
-              />
-            </Field>
-            <Field label="Horimetro atual">
-              <input
-                className="field-control"
-                type="number"
-                step="0.01"
-                value={form.horimetroAtual}
-                disabled={recursoApoioSelecionado}
-                onChange={(event) => updateField("horimetroAtual", event.target.value)}
-              />
-            </Field>
-            <Field label="KM atual">
-              <input
-                className="field-control"
-                type="number"
-                step="0.1"
-                value={form.kmAtual}
-                disabled={recursoApoioSelecionado}
-                onChange={(event) => updateField("kmAtual", event.target.value)}
-              />
-            </Field>
-            <Field label="Status operacional">
-              <select
-                className="field-control"
-                value={form.statusOperacional}
-                disabled={recursoApoioSelecionado}
-                onChange={(event) =>
-                  updateField(
-                    "statusOperacional",
-                    event.target.value as StatusEquipamentoOperacional
-                  )
-                }
-              >
-                {statusOperacionalOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Periodicidade em horas">
-              <input
-                className="field-control"
-                type="number"
-                value={form.periodicidadeManutencaoHoras}
-                disabled={recursoApoioSelecionado}
-                onChange={(event) => updateField("periodicidadeManutencaoHoras", event.target.value)}
-              />
-            </Field>
-            <Field label="Periodicidade em KM">
-              <input
-                className="field-control"
-                type="number"
-                value={form.periodicidadeManutencaoKm}
-                disabled={recursoApoioSelecionado}
-                onChange={(event) => updateField("periodicidadeManutencaoKm", event.target.value)}
-              />
-            </Field>
-            <Field label="Capacidade">
-              <input
-                className="field-control"
-                type="number"
-                step="0.01"
-                value={form.capacidadeM3}
-                disabled={recursoApoioSelecionado}
-                onChange={(event) => updateField("capacidadeM3", event.target.value)}
-              />
-            </Field>
-            <Field label="Unidade capacidade">
-              <input
-                className="field-control"
-                value={form.unidadeCapacidade}
-                disabled={recursoApoioSelecionado}
-                onChange={(event) => updateField("unidadeCapacidade", event.target.value)}
-              />
-            </Field>
-            <Field label="Forma de contratacao padrao">
-              <select
-                className="field-control"
-                value={form.unidadeEconomicaPadrao}
-                disabled={recursoApoioSelecionado}
-                onChange={(event) =>
-                  updateField(
-                    "unidadeEconomicaPadrao",
-                    event.target.value as FormState["unidadeEconomicaPadrao"]
-                  )
-                }
-              >
-                <option value="">Nao definida</option>
-                {unidadeEconomicaOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <small className="manager-field-hint">
-                Define a base economica herdada pelos novos recursos do orcamento.
-              </small>
-            </Field>
-            <Field label="Status do cadastro">
+            <Field label="Status do cadastro" help="Controla se o recurso pode ser selecionado em novos registros.">
               <select
                 className="field-control"
                 value={form.status}
@@ -584,15 +501,171 @@ export function EquipamentosManager() {
                 <option value="INATIVO">INATIVO</option>
               </select>
             </Field>
-          </div>
+          </FormBlock>
 
-          <Field label="Observacao">
-            <textarea
-              className="field-control textarea-lg"
-              value={form.observacao}
-              onChange={(event) => updateField("observacao", event.target.value)}
-            />
-          </Field>
+          <FormBlock
+            title="CARACTERISTICAS TECNICAS"
+            description="Conhecimento permanente usado pelo planejamento e pelo Motor Operacional."
+          >
+            <Field label="Descricao operacional" help="Explica como o recurso participa da execucao da obra.">
+              <textarea
+                className="field-control textarea-lg"
+                value={form.descricaoOperacional}
+                onChange={(event) => updateField("descricaoOperacional", event.target.value)}
+              />
+            </Field>
+            <Field label="Fabricante" help="Referencia tecnica opcional do fabricante do recurso.">
+              <input className="field-control" value={form.fabricante} onChange={(event) => updateField("fabricante", event.target.value)} />
+            </Field>
+            <Field label="Modelo" help="Modelo tecnico usado para diferenciar capacidades e configuracoes.">
+              <input className="field-control" value={form.modelo} onChange={(event) => updateField("modelo", event.target.value)} />
+            </Field>
+            <Field label="Capacidade" help="Capacidade operacional utilizada para calculos do recurso.">
+              <input
+                className="field-control"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.capacidadeM3}
+                onChange={(event) => updateField("capacidadeM3", event.target.value)}
+                placeholder="Ex.: 14"
+              />
+            </Field>
+            <Field label="Unidade da capacidade" help="Unidade que representa a capacidade, como m3, t, litros ou kg.">
+              <input
+                className="field-control"
+                value={form.unidadeCapacidade}
+                onChange={(event) => updateField("unidadeCapacidade", event.target.value)}
+                placeholder="Ex.: m3"
+              />
+            </Field>
+          </FormBlock>
+
+          <FormBlock
+            title="CONFIGURACAO ECONOMICA"
+            description="Padroes herdados automaticamente pelos novos recursos dos orcamentos."
+          >
+            <Field label="Forma de contratacao padrao" help="Utilizada automaticamente nos orcamentos.">
+              <select
+                className="field-control"
+                value={form.unidadeEconomicaPadrao}
+                onChange={(event) =>
+                  updateField("unidadeEconomicaPadrao", event.target.value as FormState["unidadeEconomicaPadrao"])
+                }
+              >
+                <option value="">Nao definida</option>
+                {unidadeEconomicaOptions
+                  .filter((option) => !["UNIDADE", "VALOR_TOTAL", "UNIDADE_PRODUZIDA"].includes(option.value))
+                  .map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+              </select>
+            </Field>
+            <Field label="Custo padrao (opcional)" help="Valor de referencia que pode ser personalizado no orcamento.">
+              <input
+                className="field-control"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.custoPadrao}
+                onChange={(event) => updateField("custoPadrao", event.target.value)}
+                placeholder="0,00"
+              />
+            </Field>
+            <Field label="Unidade economica" help="Unidade economica utilizada pelo Motor Operacional.">
+              <input className="field-control" value={getUnidadeEconomica(form.unidadeEconomicaPadrao)} readOnly />
+            </Field>
+            <label className="field equipment-library-check">
+              <span className="field-label">Permitir edicao no orcamento</span>
+              <span className="equipment-library-check-control">
+                <input
+                  type="checkbox"
+                  checked={form.permitirEdicaoOrcamento}
+                  onChange={(event) => updateField("permitirEdicaoOrcamento", event.target.checked)}
+                />
+                Sim
+              </span>
+              <small className="manager-field-hint">Permite personalizar forma e custo apenas naquele orcamento.</small>
+            </label>
+          </FormBlock>
+
+          <FormBlock
+            title="CONFIGURACAO OPERACIONAL"
+            description={recursoPatrimonial ? "Controle atual do equipamento dentro da frota." : "Configuracao minima para uso do recurso no planejamento."}
+          >
+            {recursoPatrimonial ? (
+              <>
+                <Field label="Tipo de controle" help="Define controle por horimetro ou quilometragem.">
+                  <select
+                    className="field-control"
+                    value={form.tipoControle}
+                    disabled={recursoApoioSelecionado}
+                    onChange={(event) => updateField("tipoControle", event.target.value as TipoControleEquipamento)}
+                  >
+                    {tipoControleOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                  </select>
+                </Field>
+                <Field label="Status operacional" help="Situacao atual usada na agenda e nos indicadores da frota.">
+                  <select
+                    className="field-control"
+                    value={form.statusOperacional}
+                    disabled={recursoApoioSelecionado}
+                    onChange={(event) => updateField("statusOperacional", event.target.value as StatusEquipamentoOperacional)}
+                  >
+                    {statusOperacionalOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+                  </select>
+                </Field>
+                <Field label="Horimetro atual" help="Leitura usada no acompanhamento de producao e manutencao.">
+                  <input className="field-control" type="number" min="0" step="0.01" value={form.horimetroAtual} disabled={recursoApoioSelecionado} onChange={(event) => updateField("horimetroAtual", event.target.value)} />
+                </Field>
+                <Field label="KM atual" help="Leitura usada no acompanhamento de rodagem e manutencao.">
+                  <input className="field-control" type="number" min="0" step="0.1" value={form.kmAtual} disabled={recursoApoioSelecionado} onChange={(event) => updateField("kmAtual", event.target.value)} />
+                </Field>
+                <Field label="Periodicidade em horas" help="Intervalo padrao entre manutencoes controladas por horimetro.">
+                  <input className="field-control" type="number" min="1" value={form.periodicidadeManutencaoHoras} disabled={recursoApoioSelecionado} onChange={(event) => updateField("periodicidadeManutencaoHoras", event.target.value)} />
+                </Field>
+                <Field label="Periodicidade em KM" help="Intervalo padrao entre manutencoes controladas por quilometragem.">
+                  <input className="field-control" type="number" min="1" value={form.periodicidadeManutencaoKm} disabled={recursoApoioSelecionado} onChange={(event) => updateField("periodicidadeManutencaoKm", event.target.value)} />
+                </Field>
+                <Field label="Equipamento complementar" help="Indica participacao de apoio na operacao principal.">
+                  <select className="field-control" value={form.complementar ? "SIM" : "NAO"} disabled={recursoApoioSelecionado} onChange={(event) => updateField("complementar", event.target.value === "SIM")}>
+                    <option value="NAO">NAO</option>
+                    <option value="SIM">SIM</option>
+                  </select>
+                </Field>
+              </>
+            ) : (
+              <div className="equipment-library-adaptive-note">
+                Informacoes de frota e manutencao foram ocultadas porque nao sao necessarias para esta natureza de recurso.
+              </div>
+            )}
+          </FormBlock>
+
+          {recursoPatrimonial ? (
+            <FormBlock
+              title="GESTAO PATRIMONIAL"
+              description="Dados de identificacao e entrada dos recursos pertencentes a empresa."
+            >
+              <Field label={recursoApoioSelecionado ? "TAG / identificador" : "Placa ou TAG"} help="Identificador unico do equipamento dentro da empresa.">
+                <input className="field-control" value={form.placaOuTag} onChange={(event) => updateField("placaOuTag", event.target.value.toUpperCase())} />
+              </Field>
+              <Field label="Ano de fabricacao" help="Ano usado para referencia patrimonial e manutencao.">
+                <input className="field-control" type="number" min="1950" max="2100" value={form.anoFabricacao} onChange={(event) => updateField("anoFabricacao", event.target.value)} />
+              </Field>
+              <Field label="Data de entrada" help="Data em que o equipamento passou a integrar a operacao.">
+                <input className="field-control" type="date" value={form.dataEntrada} onChange={(event) => updateField("dataEntrada", event.target.value)} />
+              </Field>
+              <Field label="Marca / modelo livre" help="Descricao patrimonial complementar para registros legados.">
+                <input className="field-control" value={form.marcaModelo} onChange={(event) => updateField("marcaModelo", event.target.value)} />
+              </Field>
+            </FormBlock>
+          ) : null}
+
+          <FormBlock title="OBSERVACOES" description="Informacoes adicionais relevantes para o uso deste recurso.">
+            <Field label="Observacoes" help="Registre particularidades tecnicas ou comerciais que precisem ser conhecidas.">
+              <textarea className="field-control textarea-lg" value={form.observacao} onChange={(event) => updateField("observacao", event.target.value)} />
+            </Field>
+          </FormBlock>
 
           <div className="toolbar-actions">
             <button type="submit" disabled={isPending} className="button-primary">
@@ -691,6 +764,12 @@ export function EquipamentosManager() {
                   <td>
                     <div>{equipamento.tipoControle}</div>
                     <div className="subtle">{equipamento.tipoRecurso}</div>
+                    <div className="subtle">{equipamento.naturezaRecurso}</div>
+                    <div className="subtle">
+                      {equipamento.unidadeEconomicaPadrao
+                        ? getUnidadeEconomica(equipamento.unidadeEconomicaPadrao)
+                        : "Sem base economica"}
+                    </div>
                   </td>
                   <td>
                     <span className={equipamento.complementar ? "badge badge-warn" : "badge badge-neutral"}>

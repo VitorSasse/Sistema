@@ -94,10 +94,14 @@ type EquipamentoOption = {
   placaOuTag: string;
   descricao: string;
   tipoRecurso: string;
+  naturezaRecurso?: string | null;
   classeOperacional?: string | null;
+  descricaoOperacional?: string | null;
   capacidadeM3?: string | number | null;
   unidadeCapacidade?: string | null;
   unidadeEconomicaPadrao?: UnidadeEconomicaCusto | null;
+  custoPadrao?: string | number | null;
+  permitirEdicaoOrcamento?: boolean;
   caracteristicasTecnicas?: Record<string, unknown> | null;
 };
 
@@ -146,6 +150,11 @@ type EquipamentoResourceOption = BasicSelectOption & {
   capacidadeM3: string | number | null;
   unidadeCapacidade: string | null;
   unidadeEconomicaPadrao: UnidadeEconomicaCusto | null;
+  custoPadrao: string | number | null;
+  permitirEdicaoOrcamento: boolean;
+  naturezaRecurso: string | null;
+  tipoRecurso: string | null;
+  descricaoOperacional: string | null;
   caracteristicasTecnicas: Record<string, unknown> | null;
   legado?: boolean;
 };
@@ -1313,6 +1322,11 @@ export function OrcamentosManager() {
         capacidadeM3: equipamento.capacidadeM3 ?? null,
         unidadeCapacidade: equipamento.unidadeCapacidade ?? null,
         unidadeEconomicaPadrao: equipamento.unidadeEconomicaPadrao ?? null,
+        custoPadrao: equipamento.custoPadrao ?? null,
+        permitirEdicaoOrcamento: equipamento.permitirEdicaoOrcamento !== false,
+        naturezaRecurso: equipamento.naturezaRecurso ?? null,
+        tipoRecurso: equipamento.tipoRecurso ?? null,
+        descricaoOperacional: equipamento.descricaoOperacional ?? null,
         caracteristicasTecnicas: equipamento.caracteristicasTecnicas ?? null
       })),
     [options.equipamentos]
@@ -1630,6 +1644,12 @@ export function OrcamentosManager() {
           capacidadeM3: equipamento.capacidadeM3,
           unidadeCapacidade: equipamento.unidadeCapacidade,
           unidadeEconomicaPadrao: equipamento.unidadeEconomicaPadrao,
+          custoPadrao: equipamento.custoPadrao,
+          permitirEdicaoOrcamento: equipamento.permitirEdicaoOrcamento,
+          naturezaRecurso: equipamento.naturezaRecurso,
+          tipoRecurso: equipamento.tipoRecurso,
+          classeOperacional: equipamento.classeOperacional,
+          descricaoOperacional: equipamento.descricaoOperacional,
           caracteristicasTecnicas: equipamento.caracteristicasTecnicas
         });
         const herdados = valoresEfetivosDaHeranca(snapshot);
@@ -1644,6 +1664,8 @@ export function OrcamentosManager() {
           unidadeCapacidade: herdados.unidadeCapacidade,
           unidadeEconomicaCusto:
             (herdados.unidadeEconomicaCusto as UnidadeEconomicaCusto | "") || "CUSTO_FIXO",
+          valorCusto: herdados.valorCusto || "0",
+          custoUnitario: herdados.valorCusto || "0",
           caracteristicasRecursoSnapshot: snapshot,
           camposTecnicosPersonalizados: []
         };
@@ -3936,6 +3958,8 @@ function ResourceItemFields(props: {
     : props.item.quantidadeOperacional;
   const unidadeQuantidadeOperacional =
     props.unidadeFrente || props.memoria?.unidadeQuantidadeOperacional || "unidade";
+  const permitePersonalizacaoMestre =
+    props.item.caracteristicasRecursoSnapshot?.herdados.permitirEdicaoOrcamento !== false;
 
   function personalizarQuantidadeOperacional() {
     props.onUpdate(
@@ -3967,6 +3991,10 @@ function ResourceItemFields(props: {
     campo: CampoTecnicoRecurso,
     value: string
   ) {
+    if (!permitePersonalizacaoMestre && isInherited(campo)) {
+      return;
+    }
+
     if (props.item.caracteristicasRecursoSnapshot && !isPersonalized(campo)) {
       props.onPersonalizeResourceField(props.item.localId, campo);
     }
@@ -3997,6 +4025,11 @@ function ResourceItemFields(props: {
           capacidadeM3: null,
           unidadeCapacidade: null,
           unidadeEconomicaPadrao: null,
+          custoPadrao: null,
+          permitirEdicaoOrcamento: true,
+          naturezaRecurso: null,
+          tipoRecurso: null,
+          descricaoOperacional: null,
           caracteristicasTecnicas: null,
           legado: true
         }
@@ -4123,6 +4156,7 @@ function ResourceItemFields(props: {
           label="Base de calculo do custo"
           inherited={isInherited("unidadeEconomicaCusto")}
           personalized={isPersonalized("unidadeEconomicaCusto")}
+          allowEdit={permitePersonalizacaoMestre}
           onEdit={() => props.onPersonalizeResourceField(props.item.localId, "unidadeEconomicaCusto")}
         />
         <select
@@ -4141,8 +4175,15 @@ function ResourceItemFields(props: {
           Unidade economica: {props.memoria?.unidadeCustoFormatada || "selecione uma base"}.
         </small>
       </div>
-      <label className="manager-field">
-        <span className="manager-field-label">
+      <div className="manager-field">
+        <ResourceTechnicalFieldHeader
+          label={props.item.unidadeEconomicaCusto === "KM" ? "Custo por km" : "Valor do custo"}
+          inherited={isInherited("valorCusto")}
+          personalized={isPersonalized("valorCusto")}
+          allowEdit={permitePersonalizacaoMestre}
+          onEdit={() => props.onPersonalizeResourceField(props.item.localId, "valorCusto")}
+        />
+        <span className="sr-only">
           {props.item.unidadeEconomicaCusto === "KM" ? "Custo por km" : "Valor do custo"}
         </span>
         <input
@@ -4151,12 +4192,13 @@ function ResourceItemFields(props: {
           min="0"
           step="0.01"
           value={props.item.valorCusto}
+          disabled={isInherited("valorCusto")}
           onChange={(event) => {
-            props.onUpdate(props.item.localId, "valorCusto", event.target.value);
+            updateTechnicalField("valorCusto", event.target.value);
             props.onUpdate(props.item.localId, "custoUnitario", event.target.value);
           }}
         />
-      </label>
+      </div>
       {props.item.tipoCalculoRecurso === "AUTOMATICO" && props.item.unidadeEconomicaCusto === "HORA" ? (
         <label className="manager-field">
           <span className="manager-field-label">Horas totais</span>
@@ -4176,6 +4218,7 @@ function ResourceItemFields(props: {
               label="Capacidade por viagem"
               inherited={isInherited("capacidadePorViagem")}
               personalized={isPersonalized("capacidadePorViagem")}
+              allowEdit={permitePersonalizacaoMestre}
               onEdit={() => props.onPersonalizeResourceField(props.item.localId, "capacidadePorViagem")}
             />
             <input
@@ -4194,6 +4237,7 @@ function ResourceItemFields(props: {
               label="Unidade da capacidade"
               inherited={isInherited("unidadeCapacidade")}
               personalized={isPersonalized("unidadeCapacidade")}
+              allowEdit={permitePersonalizacaoMestre}
               onEdit={() => props.onPersonalizeResourceField(props.item.localId, "unidadeCapacidade")}
             />
             <input
@@ -4357,6 +4401,7 @@ function ResourceTechnicalFieldHeader(props: {
   label: string;
   inherited: boolean;
   personalized: boolean;
+  allowEdit?: boolean;
   onEdit: () => void;
 }) {
   return (
@@ -4374,11 +4419,13 @@ function ResourceTechnicalFieldHeader(props: {
           </small>
         ) : null}
       </div>
-      {props.inherited ? (
+      {props.inherited && props.allowEdit !== false ? (
         <button type="button" className="orcamentos-resource-edit" onClick={props.onEdit}>
           <Pencil size={12} aria-hidden="true" />
           Editar
         </button>
+      ) : props.inherited && props.allowEdit === false ? (
+        <small className="orcamentos-resource-origin is-inherited">Edicao desabilitada no Cadastro Mestre</small>
       ) : null}
     </div>
   );

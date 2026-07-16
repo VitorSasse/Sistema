@@ -3223,6 +3223,69 @@ button {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.equipment-library-block {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-strong) 96%, var(--primary) 4%), var(--surface));
+}
+
+.equipment-library-block-header {
+  display: grid;
+  gap: 5px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.equipment-library-block-header span {
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.equipment-library-block-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.equipment-library-check {
+  align-content: start;
+}
+
+.equipment-library-check-control {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--surface-strong);
+  color: var(--text);
+  font-weight: 800;
+}
+
+.equipment-library-check-control input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--primary);
+}
+
+.equipment-library-adaptive-note {
+  grid-column: 1 / -1;
+  padding: 16px;
+  border: 1px dashed color-mix(in srgb, var(--primary) 45%, var(--line));
+  border-radius: 14px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--primary-soft) 35%, transparent);
+  font-size: 0.82rem;
+}
+
 .field {
   display: grid;
   gap: 8px;

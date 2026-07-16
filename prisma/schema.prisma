@@ -146,6 +146,14 @@ enum TipoRecurso {
   OUTRO
 }
 
+enum NaturezaRecursoEquipamento {
+  PROPRIO
+  TERCEIRIZADO
+  LOCADO
+  SUBCONTRATADO
+  BIBLIOTECA_TECNICA
+}
+
 enum FuncaoColaborador {
   MOTORISTA
   OPERADOR
@@ -625,9 +633,11 @@ model PlanoConta {
 model Equipamento {
   id                           String                       @id @default(uuid())
   empresaId                    String
+  naturezaRecurso              NaturezaRecursoEquipamento  @default(PROPRIO)
   tipoRecurso                  TipoRecurso
   tipoControle                 TipoControleEquipamento      @default(HORIMETRO)
   descricao                    String
+  descricaoOperacional         String?
   placaOuTag                   String
   classeOperacional            String?
   complementar                 Boolean                      @default(false)
@@ -639,6 +649,8 @@ model Equipamento {
   capacidadeM3                 Decimal?                     @db.Decimal(10, 2)
   unidadeCapacidade            String?
   unidadeEconomicaPadrao       UnidadeEconomicaCusto?
+  custoPadrao                   Decimal?                     @db.Decimal(14, 4)
+  permitirEdicaoOrcamento      Boolean                      @default(true)
   caracteristicasTecnicas      Json?
   apelido                      String?
   observacao                   String?
@@ -664,6 +676,7 @@ model Equipamento {
 
   @@unique([empresaId, placaOuTag])
   @@index([empresaId])
+  @@index([naturezaRecurso, status])
   @@index([descricao])
   @@index([tipoRecurso, status])
   @@index([classeOperacional])

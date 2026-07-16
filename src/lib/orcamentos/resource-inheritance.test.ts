@@ -13,6 +13,12 @@ describe("heranca de caracteristicas do recurso mestre", () => {
     capacidadeM3: "14.00",
     unidadeCapacidade: "m3",
     unidadeEconomicaPadrao: "KM",
+    custoPadrao: "8.50",
+    permitirEdicaoOrcamento: true,
+    naturezaRecurso: "TERCEIRIZADO",
+    tipoRecurso: "CAMINHAO",
+    classeOperacional: "Caminhao basculante 14 m3",
+    descricaoOperacional: "Transporte de material",
     caracteristicasTecnicas: { tipoCarroceria: "basculante" }
   };
 
@@ -22,9 +28,14 @@ describe("heranca de caracteristicas do recurso mestre", () => {
     expect(valoresEfetivosDaHeranca(snapshot)).toEqual({
       capacidadePorViagem: "14",
       unidadeCapacidade: "m3",
-      unidadeEconomicaCusto: "KM"
+      unidadeEconomicaCusto: "KM",
+      valorCusto: "8.5",
+      permitirEdicaoOrcamento: true
     });
     expect(snapshot.herdados.caracteristicasTecnicas).toEqual({ tipoCarroceria: "basculante" });
+    expect(snapshot.herdados.naturezaRecurso).toBe("TERCEIRIZADO");
+    expect(snapshot.herdados.tipoRecurso).toBe("CAMINHAO");
+    expect(snapshot.herdados.classeOperacional).toBe("Caminhao basculante 14 m3");
 
     mestre.capacidadeM3 = "18";
     mestre.caracteristicasTecnicas.tipoCarroceria = "cacamba";
@@ -57,10 +68,25 @@ describe("heranca de caracteristicas do recurso mestre", () => {
       id: "equipamento-2",
       capacidadeM3: null,
       unidadeCapacidade: null,
-      unidadeEconomicaPadrao: null
+      unidadeEconomicaPadrao: null,
+      custoPadrao: null
     });
 
     expect(campoTecnicoHerdado(snapshot, [], "capacidadePorViagem")).toBe(false);
     expect(campoTecnicoHerdado(snapshot, [], "unidadeEconomicaCusto")).toBe(false);
+    expect(campoTecnicoHerdado(snapshot, [], "valorCusto")).toBe(false);
+  });
+
+  it("preserva custo padrao e permissao de edicao no snapshot do orcamento", () => {
+    const snapshot = criarSnapshotCaracteristicasRecurso({
+      ...mestre,
+      custoPadrao: 900,
+      permitirEdicaoOrcamento: false
+    });
+    const herdados = valoresEfetivosDaHeranca(snapshot);
+
+    expect(herdados.valorCusto).toBe("900");
+    expect(herdados.permitirEdicaoOrcamento).toBe(false);
+    expect(snapshot.herdados.valorCusto).toBe(900);
   });
 });

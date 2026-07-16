@@ -8,11 +8,15 @@ export type OperationalOption = {
   nomeFantasia?: string | null;
   tipoServico?: string;
   placaOuTag?: string;
+  naturezaRecurso?: string;
   tipoRecurso?: string;
   classeOperacional?: string | null;
+  descricaoOperacional?: string | null;
   capacidadeM3?: string | number | null;
   unidadeCapacidade?: string | null;
   unidadeEconomicaPadrao?: string | null;
+  custoPadrao?: string | number | null;
+  permitirEdicaoOrcamento?: boolean;
   caracteristicasTecnicas?: Record<string, unknown> | null;
   status: "ATIVO" | "INATIVO";
   clienteId?: string;
