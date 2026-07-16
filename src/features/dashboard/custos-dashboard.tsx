@@ -611,27 +611,31 @@ export function CustosDashboard() {
                 </div>
               </div>
               <ExpandableChart title="Custo por categoria" height={320}>
-                {({ height, width }) => (
-                  <ResponsiveContainer width={width} height={height}>
-                    <PieChart>
-                      <Pie data={data?.charts.categorias ?? []} dataKey="total" nameKey="label" innerRadius={72} outerRadius={120} paddingAngle={3}>
-                        {(data?.charts.categorias ?? []).map((item) => (
-                          <Cell key={item.categoria} fill={categoryColors[item.categoria]} />
-                        ))}
-                      </Pie>
-                      <Tooltip content={<MoneyTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
+                {({ height, width, expanded }) => {
+                  const categorias = data?.charts.categorias ?? [];
+                  const chartHeight = expanded ? Math.max(260, height - 64) : height;
+
+                  return (
+                    <div
+                      className={`cost-category-chart-content${expanded ? " is-expanded" : ""}`}
+                      style={{ height }}
+                    >
+                      {expanded ? <CostCategoryLegend rows={categorias} expanded /> : null}
+                      <ResponsiveContainer width={width} height={chartHeight}>
+                        <PieChart>
+                          <Pie data={categorias} dataKey="total" nameKey="label" innerRadius={72} outerRadius={120} paddingAngle={3}>
+                            {categorias.map((item) => (
+                              <Cell key={item.categoria} fill={categoryColors[item.categoria]} />
+                            ))}
+                          </Pie>
+                          <Tooltip content={<MoneyTooltip />} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  );
+                }}
               </ExpandableChart>
-              <div className="cost-category-list">
-                {(data?.charts.categorias ?? []).map((item) => (
-                  <span key={item.categoria}>
-                    <i style={{ background: categoryColors[item.categoria] }} />
-                    {item.label}: {formatCurrency(item.total)} ({formatPercent(item.sharePercent)})
-                  </span>
-                ))}
-              </div>
+              <CostCategoryLegend rows={data?.charts.categorias ?? []} />
             </article>
 
             <article className="surface section-card cost-chart-card">
@@ -781,59 +785,96 @@ function EquipmentCostChartPanel({ rows }: { rows: CentroCustoRow[] }) {
         </div>
       ) : (
         <div className="cost-center-chart cost-center-chart-vertical">
-          <div className="cost-center-chart-legend">
-            <span><i style={{ background: categoryColors.COMBUSTIVEL }} /> Combustivel</span>
-            <span><i style={{ background: categoryColors.MANUTENCAO }} /> Manutencao</span>
-          </div>
+          <CostCenterChartLegend />
           <ExpandableChart title="Ranking de custo por centro de custo" height={380}>
-            {({ height, width }) => (
-              <div className="cost-chart-scroll">
+            {({ height, width, expanded }) => {
+              const availableWidth = typeof width === "number" ? width : chartMinWidth;
+              const renderedWidth = Math.max(availableWidth, chartMinWidth);
+              const chartHeight = expanded ? Math.max(320, height - 58) : height;
+
+              return (
                 <div
-                  className="cost-chart-scroll-inner"
-                  style={{
-                    minWidth: chartMinWidth,
-                    width: typeof width === "number" ? Math.max(width, chartMinWidth) : width,
-                    height
-                  }}
+                  className={`cost-center-chart-content${expanded ? " is-expanded" : ""}`}
+                  style={{ height }}
                 >
-                  <ResponsiveContainer width={typeof width === "number" ? Math.max(width, chartMinWidth) : width} height={height}>
-                    <BarChart data={chartRows} margin={{ top: 36, right: 24, left: 12, bottom: 76 }} barCategoryGap={14}>
-                      <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
-                      <XAxis
-                        dataKey="nome"
-                        interval={0}
-                        height={68}
-                        tick={(props) => <CenterCostAxisTick {...props} rows={chartRows} />}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
-                        tick={{ fill: "var(--screen-chart-tick)", fontSize: 14, fontWeight: 800 }}
-                        tickLine={false}
-                        axisLine={false}
-                        width={112}
-                      />
-                      <Tooltip content={<EquipmentCostTooltip />} />
-                      <Bar dataKey="combustivel" name="Combustivel" stackId="centro" fill={categoryColors.COMBUSTIVEL} radius={[0, 0, 0, 0]} maxBarSize={34} />
-                      <Bar dataKey="manutencao" name="Manutencao" stackId="centro" fill={categoryColors.MANUTENCAO} radius={[10, 10, 0, 0]} maxBarSize={34}>
-                        <LabelList
-                          dataKey="totalRanking"
-                          position="top"
-                          formatter={(value) => formatCurrency(Number(value))}
-                          fill="var(--screen-chart-tick)"
-                          fontSize={13}
-                          fontWeight={850}
-                        />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  {expanded ? <CostCenterChartLegend expanded /> : null}
+                  <div className="cost-chart-scroll" tabIndex={expanded ? 0 : undefined}>
+                    <div
+                      className="cost-chart-scroll-inner"
+                      style={{
+                        minWidth: chartMinWidth,
+                        width: renderedWidth,
+                        height: chartHeight
+                      }}
+                    >
+                      <ResponsiveContainer width={renderedWidth} height={chartHeight}>
+                        <BarChart data={chartRows} margin={{ top: 36, right: 24, left: 12, bottom: 76 }} barCategoryGap={14}>
+                          <CartesianGrid stroke="var(--dashboard-chart-grid)" vertical={false} />
+                          <XAxis
+                            dataKey="nome"
+                            interval={0}
+                            height={68}
+                            tick={(props) => <CenterCostAxisTick {...props} rows={chartRows} />}
+                            tickLine={false}
+                          />
+                          <YAxis
+                            tickFormatter={(value) => formatCurrency(value).replace(",00", "")}
+                            tick={{ fill: "var(--screen-chart-tick)", fontSize: 14, fontWeight: 800 }}
+                            tickLine={false}
+                            axisLine={false}
+                            width={112}
+                          />
+                          <Tooltip content={<EquipmentCostTooltip />} />
+                          <Bar dataKey="combustivel" name="Combustivel" stackId="centro" fill={categoryColors.COMBUSTIVEL} radius={[0, 0, 0, 0]} maxBarSize={34} />
+                          <Bar dataKey="manutencao" name="Manutencao" stackId="centro" fill={categoryColors.MANUTENCAO} radius={[10, 10, 0, 0]} maxBarSize={34}>
+                            <LabelList
+                              dataKey="totalRanking"
+                              position="top"
+                              formatter={(value) => formatCurrency(Number(value))}
+                              fill="var(--screen-chart-tick)"
+                              fontSize={13}
+                              fontWeight={850}
+                            />
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            }}
           </ExpandableChart>
         </div>
       )}
     </article>
+  );
+}
+
+function CostCategoryLegend({
+  rows,
+  expanded = false
+}: {
+  rows: DashboardPayload["charts"]["categorias"];
+  expanded?: boolean;
+}) {
+  return (
+    <div className={`cost-category-list${expanded ? " is-expanded" : ""}`}>
+      {rows.map((item) => (
+        <span key={item.categoria}>
+          <i style={{ background: categoryColors[item.categoria] }} />
+          {item.label}: {formatCurrency(item.total)} ({formatPercent(item.sharePercent)})
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function CostCenterChartLegend({ expanded = false }: { expanded?: boolean }) {
+  return (
+    <div className={`cost-center-chart-legend${expanded ? " is-expanded" : ""}`}>
+      <span><i style={{ background: categoryColors.COMBUSTIVEL }} /> Combustivel</span>
+      <span><i style={{ background: categoryColors.MANUTENCAO }} /> Manutencao</span>
+    </div>
   );
 }
 

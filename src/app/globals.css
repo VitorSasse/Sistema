@@ -7082,6 +7082,34 @@ button {
   margin-top: 12px;
 }
 
+.cost-category-chart-content,
+.cost-center-chart-content {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cost-category-chart-content.is-expanded,
+.cost-center-chart-content.is-expanded {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.cost-category-list.is-expanded {
+  flex-wrap: nowrap;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 2px 8px;
+  overflow-x: auto;
+  scrollbar-color: color-mix(in srgb, var(--primary) 60%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.cost-category-list.is-expanded span {
+  flex: 0 0 auto;
+}
+
 .cost-category-list span {
   display: inline-flex;
   align-items: center;
@@ -7178,6 +7206,21 @@ button {
 
 .cost-chart-scroll-inner {
   height: 360px;
+}
+
+.cost-center-chart-content.is-expanded .cost-center-chart-legend {
+  margin-bottom: 0;
+}
+
+.cost-center-chart-content.is-expanded .cost-chart-scroll {
+  min-height: 0;
+  padding-bottom: 12px;
+  overflow-x: scroll;
+  scrollbar-width: auto;
+}
+
+.cost-center-chart-content.is-expanded .cost-chart-scroll::-webkit-scrollbar {
+  height: 12px;
 }
 
 .expandable-chart {
