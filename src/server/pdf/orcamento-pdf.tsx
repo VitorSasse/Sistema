@@ -523,7 +523,7 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
           </>
         ) : null}
 
-        {isOrcamentoComercial && props.itens.length > 0 ? (
+        {props.itens.length > 0 ? (
           <>
             <Text style={styles.sectionTitle}>ITENS DA PROPOSTA</Text>
             <View style={styles.table}>
@@ -532,11 +532,14 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
             {isOrcamentoComercial ? null : (
               <Text style={[styles.cell, styles.headCell, styles.frenteCol]}>Frente</Text>
             )}
+            {isOrcamentoComercial ? null : (
+              <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "10%" }]}>Natureza</Text>
+            )}
             <Text
               style={[
                 styles.cell,
                 styles.headCell,
-                isOrcamentoComercial ? { width: "44%" } : styles.descCol
+                isOrcamentoComercial ? { width: "44%" } : { width: "24%" }
               ]}
             >
               Descricao
@@ -579,7 +582,10 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
               {isOrcamentoComercial ? null : (
                 <Text style={[styles.cell, styles.frenteCol]}>{item.frenteNome || "-"}</Text>
               )}
-              <Text style={[styles.cell, isOrcamentoComercial ? { width: "44%" } : styles.descCol]}>
+              {isOrcamentoComercial ? null : (
+                <Text style={[styles.cell, styles.centerCell, { width: "10%" }]}>{item.tipoItem}</Text>
+              )}
+              <Text style={[styles.cell, isOrcamentoComercial ? { width: "44%" } : { width: "24%" }]}>
                 {item.descricao}
               </Text>
               <Text

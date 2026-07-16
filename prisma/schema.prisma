@@ -56,7 +56,16 @@ enum TipoItemOrcamento {
   SERVICO_AUXILIAR
   RECURSO
   MATERIAL
+  LOCACAO
+  TRANSPORTE
+  SUBEMPREITADA
+  VERBA
   OUTRO
+}
+
+enum ModoPrecificacaoItemOrcamento {
+  PRECO_DIRETO
+  COMPOSICAO
 }
 
 enum CategoriaRecursoOrcamento {
@@ -561,6 +570,7 @@ model Fornecedor {
   updatedAt         DateTime       @updatedAt
   empresa           Empresa        @relation(fields: [empresaId], references: [id])
   ordensCompra      OrdemCompra[]
+  orcamentoItensPreferenciais OrcamentoItem[]
 
   @@unique([empresaId, codigo])
   @@unique([empresaId, cnpj])
@@ -907,6 +917,13 @@ model OrcamentoItem {
   classeOperacional              String?
   recursoReferenciaId            String?
   recursoNome                    String?
+  modoPrecificacao               ModoPrecificacaoItemOrcamento @default(PRECO_DIRETO)
+  precoCompra                    Decimal?                    @db.Decimal(14, 4)
+  markupPercentual               Decimal?                    @db.Decimal(7, 4)
+  precoVendaSobrescrito          Boolean                     @default(false)
+  fornecedorPreferencialId       String?
+  exibirNoPdf                    Boolean                     @default(true)
+  observacaoComercial            String?
   ordem                          Int                         @default(1)
   codigo                         String?
   descricao                      String
@@ -948,6 +965,7 @@ model OrcamentoItem {
   servico                        Servico?                    @relation(fields: [servicoId], references: [id])
   material                       Material?                   @relation(fields: [materialId], references: [id])
   equipamento                    Equipamento?                @relation(fields: [equipamentoId], references: [id])
+  fornecedorPreferencial         Fornecedor?                 @relation(fields: [fornecedorPreferencialId], references: [id])
 
   @@index([empresaId])
   @@index([orcamentoId, ordem])
@@ -955,6 +973,7 @@ model OrcamentoItem {
   @@index([servicoId])
   @@index([materialId])
   @@index([equipamentoId])
+  @@index([fornecedorPreferencialId])
   @@index([categoriaRecurso])
   @@index([classeOperacional])
 }

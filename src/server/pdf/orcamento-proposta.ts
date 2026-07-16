@@ -15,7 +15,16 @@ export type PropostaPdfFrenteBase = {
   quantidadePrevista: number | null;
 };
 
-const tiposComerciais = new Set(["COMERCIAL", "SERVICO_PRINCIPAL"]);
+const tiposComerciais = new Set([
+  "COMERCIAL",
+  "SERVICO_PRINCIPAL",
+  "SERVICO_AUXILIAR",
+  "MATERIAL",
+  "LOCACAO",
+  "TRANSPORTE",
+  "SUBEMPREITADA",
+  "VERBA"
+]);
 
 export function formatarUnidadeComercial(value?: string | null, quantidade?: number | null) {
   if (!value?.trim()) {

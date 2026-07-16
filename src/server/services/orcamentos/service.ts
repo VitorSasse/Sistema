@@ -102,6 +102,13 @@ export const orcamentoInclude = {
           status: true
         }
       },
+      fornecedorPreferencial: {
+        select: {
+          id: true,
+          razaoSocial: true,
+          nomeFantasia: true
+        }
+      },
       equipamento: {
         select: {
           id: true,
@@ -266,6 +273,7 @@ async function validarReferenciasOrcamento(db: DbClient, input: OrcamentoInput) 
   await validarIdsRelacionados(db, "servico", input.itens.map((item) => item.servicoId));
   await validarIdsRelacionados(db, "material", input.itens.map((item) => item.materialId));
   await validarIdsRelacionados(db, "equipamento", input.itens.map((item) => item.equipamentoId));
+  await validarIdsRelacionados(db, "fornecedor", input.itens.map((item) => item.fornecedorPreferencialId));
   await validarIdsRelacionados(
     db,
     "colaborador",
@@ -517,8 +525,10 @@ export function buildPropostaSnapshot(
   const itensDoCenario = getItensDoCenario(input, cenario);
   const itensComerciais =
     input.tipo === TipoOrcamento.OPERACIONAL
-      ? itensDoCenario.filter((item) => item.tipoItem === TipoItemOrcamento.SERVICO_PRINCIPAL)
-      : itensDoCenario;
+      ? itensDoCenario.filter((item) =>
+          item.tipoItem !== TipoItemOrcamento.RECURSO && item.exibirNoPdf !== false
+        )
+      : itensDoCenario.filter((item) => item.exibirNoPdf !== false);
   const opcionais = proposta.opcionais.filter((opcional) => opcional.descricao?.trim());
   const totals = buildPropostaTotals(input, proposta, cenario);
 
@@ -540,6 +550,7 @@ export function buildPropostaSnapshot(
     valorAcrescimo: input.valorAcrescimo,
     totals,
     frentes: frentesDoCenario.map((frente) => ({
+      tempId: frente.tempId,
       ordem: frente.ordem,
       nome: frente.nome,
       descricao: frente.descricao,
@@ -553,12 +564,20 @@ export function buildPropostaSnapshot(
       tipoItem: item.tipoItem,
       ordem: item.ordem,
       codigo: item.codigo,
+      modoPrecificacao: item.modoPrecificacao ?? "PRECO_DIRETO",
+      precoCompra: item.precoCompra,
+      markupPercentual: item.markupPercentual,
+      precoVendaSobrescrito: item.precoVendaSobrescrito,
+      fornecedorPreferencialId: item.fornecedorPreferencialId,
+      exibirNoPdf: item.exibirNoPdf,
       descricao: item.descricao,
+      natureza: item.tipoItem,
       unidade: item.unidade,
       quantidade: item.quantidade,
       valorUnitario: item.valorUnitario,
       valorTotal: calcularValorItem(item),
-      observacao: item.observacao
+      observacao: item.observacao,
+      observacaoComercial: item.observacaoComercial
     })),
     opcionais,
     premissasGerais: input.premissas.filter((premissa) => premissa.descricao?.trim()),
@@ -745,6 +764,13 @@ async function criarEstruturaOrcamento(
         classeOperacional: clean(item.classeOperacional),
         recursoReferenciaId: clean(item.recursoReferenciaId),
         recursoNome: clean(item.recursoNome),
+        modoPrecificacao: item.modoPrecificacao ?? "PRECO_DIRETO",
+        precoCompra: item.precoCompra ?? null,
+        markupPercentual: item.markupPercentual ?? null,
+        precoVendaSobrescrito: Boolean(item.precoVendaSobrescrito),
+        fornecedorPreferencialId: item.fornecedorPreferencialId || null,
+        exibirNoPdf: item.exibirNoPdf !== false,
+        observacaoComercial: clean(item.observacaoComercial),
         ordem: item.ordem,
         codigo: clean(item.codigo),
         descricao: item.descricao,

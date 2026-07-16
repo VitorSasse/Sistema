@@ -71,6 +71,35 @@ function servicoPrincipal(
   };
 }
 
+function materialComercial(
+  frenteTempId: string,
+  quantidade: number,
+  valorUnitario: number,
+  ordem = 20
+): OrcamentoInput["itens"][number] {
+  return {
+    frenteTempId,
+    frenteOrdem: null,
+    tipoItem: TipoItemOrcamento.MATERIAL,
+    servicoId: null,
+    materialId: null,
+    equipamentoId: null,
+    categoriaRecurso: null,
+    classeOperacional: "",
+    recursoReferenciaId: "",
+    recursoNome: "",
+    ordem,
+    codigo: "MAT-001",
+    descricao: "BGS",
+    unidade: "m3",
+    quantidade,
+    produtividade: null,
+    custoUnitario: 0,
+    valorUnitario,
+    observacao: ""
+  };
+}
+
 function inputOperacional(ajusteComercial = 0): OrcamentoInput {
   return {
     tipo: TipoOrcamento.OPERACIONAL,
@@ -250,6 +279,20 @@ describe("Formacao do preco do orcamento operacional", () => {
     expect(snapshot.consolidacao?.valorComercialInformado).toBe(160000);
     expect(snapshot.formacaoPreco.precoSugerido).toBe(0);
     expect(snapshot.totals.valorTotal).toBe(160000);
+  });
+
+  it("inclui material comercial no valor da frente sem tratar como recurso interno", () => {
+    const input = inputOperacional();
+    input.itens.push(
+      servicoPrincipal("frente-1", 650, 120),
+      materialComercial("frente-1", 936, 85)
+    );
+
+    const snapshot = buildPricingSnapshot(input);
+
+    expect(snapshot.consolidacao?.valorComercialInformado).toBe(157560);
+    expect(snapshot.totals.valorTotal).toBe(157560);
+    expect(snapshot.formacaoPreco.custoDireto).toBe(96984.61);
   });
 
   it("forma preco apenas para a frente pendente em orcamento misto", () => {

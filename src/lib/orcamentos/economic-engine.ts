@@ -60,6 +60,17 @@ type EconomicEngineInput = {
   valorAcrescimo?: string | number | null;
 };
 
+const tiposComerciaisDaFrente = new Set([
+  "SERVICO_PRINCIPAL",
+  "SERVICO_AUXILIAR",
+  "MATERIAL",
+  "LOCACAO",
+  "TRANSPORTE",
+  "SUBEMPREITADA",
+  "VERBA",
+  "OUTRO"
+]);
+
 function toNumber(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === "") {
     return 0;
@@ -81,7 +92,7 @@ export function calcularConsolidacaoEconomica(
   for (const servico of input.servicos) {
     const frenteRef = servico.frenteRef?.trim();
 
-    if (!frenteRef || servico.tipoItem !== "SERVICO_PRINCIPAL") {
+    if (!frenteRef || !tiposComerciaisDaFrente.has((servico.tipoItem ?? "").toUpperCase())) {
       continue;
     }
 

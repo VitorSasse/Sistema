@@ -2,6 +2,7 @@ import {
   CategoriaRecursoOrcamento,
   ModoCustoFrente,
   ModoCustoOrcamento,
+  ModoPrecificacaoItemOrcamento,
   OrigemQuantidadeOperacional,
   OrigemPrazoFrente,
   StatusCenarioOrcamento,
@@ -72,6 +73,12 @@ const caracteristicasRecursoSnapshotSchema = z.object({
     capacidadePorViagem: z.number().finite().nonnegative().nullable(),
     unidadeCapacidade: z.string().trim().max(40).nullable(),
     unidadeEconomicaCusto: z.nativeEnum(UnidadeEconomicaCusto).nullable(),
+    valorCusto: z.number().finite().nonnegative().nullable().optional(),
+    permitirEdicaoOrcamento: z.boolean().optional(),
+    naturezaRecurso: z.string().trim().max(80).nullable().optional(),
+    tipoRecurso: z.string().trim().max(80).nullable().optional(),
+    classeOperacional: z.string().trim().max(160).nullable().optional(),
+    descricaoOperacional: z.string().trim().max(500).nullable().optional(),
     caracteristicasTecnicas: z.record(z.string(), z.unknown()).nullable()
   })
 });
@@ -144,6 +151,15 @@ const orcamentoItemSchema = z.object({
   classeOperacional: z.string().trim().max(160).optional().or(z.literal("")),
   recursoReferenciaId: z.string().trim().max(120).optional().or(z.literal("")),
   recursoNome: z.string().trim().max(180).optional().or(z.literal("")),
+  modoPrecificacao: z
+    .nativeEnum(ModoPrecificacaoItemOrcamento)
+    .optional(),
+  precoCompra: numeroDecimal(999999999).optional().nullable(),
+  markupPercentual: numeroDecimal(9999).optional().nullable(),
+  precoVendaSobrescrito: z.boolean().optional(),
+  fornecedorPreferencialId: optionalUuid(),
+  exibirNoPdf: z.boolean().optional(),
+  observacaoComercial: z.string().trim().max(700).optional().or(z.literal("")),
   ordem: z.number().int().positive().max(999).default(1),
   codigo: z.string().trim().max(80).optional().or(z.literal("")),
   descricao: z.string().trim().min(2).max(240),
@@ -174,6 +190,40 @@ const orcamentoItemSchema = z.object({
   valorUnitario: numeroDecimal(999999999).default(0),
   observacao: z.string().trim().max(500).optional().or(z.literal(""))
 }).superRefine((item, context) => {
+  if (item.tipoItem !== TipoItemOrcamento.RECURSO) {
+    if (!item.unidade?.trim()) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["unidade"],
+        message: "Informe a unidade do item."
+      });
+    }
+
+    if (Number(item.quantidade ?? 0) < 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["quantidade"],
+        message: "A quantidade do item nao pode ser negativa."
+      });
+    }
+
+    if (Number(item.valorUnitario ?? 0) < 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["valorUnitario"],
+        message: "O preco de venda do item nao pode ser negativo."
+      });
+    }
+
+    if (item.tipoItem === TipoItemOrcamento.MATERIAL && !item.materialId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["materialId"],
+        message: "Informe o material comercializado."
+      });
+    }
+  }
+
   if (item.tipoItem !== TipoItemOrcamento.RECURSO) {
     return;
   }

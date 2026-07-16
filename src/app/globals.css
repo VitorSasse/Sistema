@@ -3286,6 +3286,25 @@ button {
   font-size: 0.82rem;
 }
 
+.orcamentos-composition-note {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px dashed color-mix(in srgb, var(--accent-blue, #38bdf8) 42%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-strong) 92%, var(--accent-blue, #38bdf8) 8%);
+  color: var(--text);
+}
+
+.orcamentos-composition-note strong {
+  font-size: 0.82rem;
+}
+
+.orcamentos-composition-note span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .field {
   display: grid;
   gap: 8px;

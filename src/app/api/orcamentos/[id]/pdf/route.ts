@@ -80,6 +80,12 @@ function mapSnapshotItens(snapshot: Record<string, unknown>) {
       .map((frente) => [asString(frente.tempId), asString(frente.nome)] as const)
       .filter(([tempId]) => Boolean(tempId))
   );
+  const frenteNomeByOrdem = new Map(
+    frentes.map((frente, index) => [
+      asNumber(frente.ordem, index + 1),
+      asString(frente.nome)
+    ] as const)
+  );
   const itens = Array.isArray(snapshot.itens) ? snapshot.itens : [];
   const opcionais = Array.isArray(snapshot.opcionais) ? snapshot.opcionais : [];
   const itensBase = itens.filter(isRecord).map((item, index) => {
@@ -88,7 +94,10 @@ function mapSnapshotItens(snapshot: Record<string, unknown>) {
 
     return {
       ordem: asNumber(item.ordem, index + 1),
-      frenteNome: frenteNomeByTempId.get(asString(item.frenteTempId)) ?? null,
+      frenteNome:
+        frenteNomeByTempId.get(asString(item.frenteTempId)) ??
+        frenteNomeByOrdem.get(asNumber(item.frenteOrdem, 0)) ??
+        null,
       tipoItem: asString(item.tipoItem, "OUTRO"),
       codigo: asNullableString(item.codigo),
       descricao: asString(item.descricao, "Item sem descricao"),
@@ -248,7 +257,7 @@ export async function GET(request: Request, context: RouteContext) {
         }))
       ];
   const itensPdf = orcamento.tipo === "OPERACIONAL"
-    ? []
+    ? selecionarItensComerciais(itensFontePdf)
     : selecionarItensComerciais(itensFontePdf);
   const frentesComerciaisPdf = orcamento.tipo === "OPERACIONAL"
     ? montarFrentesComerciais(frentesPdf, itensFontePdf)

@@ -9,7 +9,7 @@ import {
 } from "@/server/pdf/orcamento-proposta";
 
 describe("conteudo comercial do PDF de orcamentos", () => {
-  it("remove recursos, materiais, terceiros e itens zerados da selecao comercial", () => {
+  it("remove recursos internos e itens zerados, mantendo servicos e materiais comerciais", () => {
     const selecionados = selecionarItensComerciais([
       { ordem: 1, tipoItem: "SERVICO_PRINCIPAL", descricao: "Escavacao", unidade: "m3", quantidade: 100, valorTotal: 15000 },
       { ordem: 2, tipoItem: "RECURSO", descricao: "Escavadeira", unidade: "UN", quantidade: 1, valorTotal: 0 },
@@ -19,7 +19,8 @@ describe("conteudo comercial do PDF de orcamentos", () => {
     ]);
 
     expect(selecionados).toEqual([
-      expect.objectContaining({ tipoItem: "SERVICO_PRINCIPAL", descricao: "Escavacao" })
+      expect.objectContaining({ tipoItem: "SERVICO_PRINCIPAL", descricao: "Escavacao" }),
+      expect.objectContaining({ tipoItem: "MATERIAL", descricao: "Material" })
     ]);
   });
 
