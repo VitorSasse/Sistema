@@ -682,6 +682,11 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
           </>
         ) : null}
 
+        <View style={styles.globalValueBox} wrap={false}>
+          <Text style={styles.globalValueLabel}>TOTAL DA PROPOSTA</Text>
+          <Text style={styles.globalValue}>{formatCurrency(props.valorTotal)}</Text>
+        </View>
+
         {premissasPorTipo.map(({ tipo, items }) =>
           items.length > 0 ? (
             <View key={tipo}>
@@ -697,11 +702,6 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
         )}
 
         {renderSection("OBSERVACOES AO CLIENTE", props.observacaoCliente)}
-
-        <View style={styles.globalValueBox} wrap={false}>
-          <Text style={styles.globalValueLabel}>TOTAL DA PROPOSTA</Text>
-          <Text style={styles.globalValue}>{formatCurrency(props.valorTotal)}</Text>
-        </View>
 
         <View wrap={false}>
           <Text style={styles.sectionTitle}>ACEITE DA PROPOSTA</Text>

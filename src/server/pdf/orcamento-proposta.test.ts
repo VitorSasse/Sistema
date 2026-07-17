@@ -1,4 +1,5 @@
 import { renderToBuffer } from "@react-pdf/renderer";
+import { isValidElement, type ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { OrcamentoPdfDocument } from "@/server/pdf/orcamento-pdf";
 import {
@@ -7,6 +8,26 @@ import {
   resolverValorGlobalProposta,
   selecionarItensComerciais
 } from "@/server/pdf/orcamento-proposta";
+
+function collectPdfText(node: ReactNode): string[] {
+  if (node === null || node === undefined || typeof node === "boolean") {
+    return [];
+  }
+
+  if (typeof node === "string" || typeof node === "number") {
+    return [String(node)];
+  }
+
+  if (Array.isArray(node)) {
+    return node.flatMap(collectPdfText);
+  }
+
+  if (isValidElement(node)) {
+    return collectPdfText((node.props as { children?: ReactNode }).children);
+  }
+
+  return [];
+}
 
 describe("conteudo comercial do PDF de orcamentos", () => {
   it("remove recursos internos e itens zerados, mantendo servicos e materiais comerciais", () => {
@@ -86,6 +107,41 @@ describe("conteudo comercial do PDF de orcamentos", () => {
     );
 
     expect(buffer.byteLength).toBeGreaterThan(1000);
+  });
+
+  it("posiciona o total da proposta logo apos as frentes e antes das premissas comerciais", () => {
+    const document = OrcamentoPdfDocument({
+      codigo: "PROP-001",
+      revisao: 0,
+      dataEmissao: new Date("2026-07-17T12:00:00.000Z"),
+      tipo: "OPERACIONAL",
+      status: "RASCUNHO",
+      dataOrcamento: new Date("2026-07-17T12:00:00.000Z"),
+      validadeAte: null,
+      titulo: "Proposta operacional global",
+      objeto: "Execucao dos servicos.",
+      observacaoCliente: null,
+      valorTotal: 12000,
+      cliente: { nome: "Cliente teste" },
+      obra: { nome: "Obra teste" },
+      responsavel: null,
+      frentes: [
+        { ordem: 1, nome: "Frente principal", descricao: "Servico principal", unidadeProducao: "m3", quantidadePrevista: 100 }
+      ],
+      itens: [],
+      premissas: [
+        { tipo: "PREMISSA", ordem: 1, titulo: "Premissa operacional", descricao: "Premissa apos o total." }
+      ]
+    });
+
+    const texto = collectPdfText(document).join("\n");
+    const posicaoFrentes = texto.indexOf("FRENTES DE SERVICO");
+    const posicaoTotal = texto.indexOf("TOTAL DA PROPOSTA");
+    const posicaoPremissas = texto.indexOf("PREMISSAS TECNICAS");
+
+    expect(posicaoFrentes).toBeGreaterThanOrEqual(0);
+    expect(posicaoTotal).toBeGreaterThan(posicaoFrentes);
+    expect(posicaoPremissas).toBeGreaterThan(posicaoTotal);
   });
 
   it("renderiza previa de proposta com modo de rascunho", async () => {
