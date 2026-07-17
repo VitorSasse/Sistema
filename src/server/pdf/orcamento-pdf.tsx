@@ -9,6 +9,7 @@ type OrcamentoPdfProps = {
   codigo: string;
   revisao: number;
   dataEmissao: Date;
+  modoDocumento?: "PREVIEW" | "OFICIAL";
   tipo: string;
   status: string;
   dataOrcamento: Date;
@@ -368,6 +369,18 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontSize: 7.8,
     textAlign: "right"
+  },
+  draftWatermark: {
+    position: "absolute",
+    top: "43%",
+    left: 44,
+    right: 44,
+    textAlign: "center",
+    color: "#b45309",
+    opacity: 0.16,
+    fontSize: 34,
+    fontWeight: "bold",
+    transform: "rotate(-24deg)"
   }
 });
 
@@ -439,6 +452,7 @@ function renderSection(title: string, content?: string | null) {
 
 export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
   const isOrcamentoComercial = props.tipo === "COMERCIAL";
+  const isPreview = props.modoDocumento === "PREVIEW";
   const empresaRelatorio = props.empresaRelatorio ?? empresaRelatorioPadrao;
   const dataHoraEmissao = new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
@@ -455,6 +469,11 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        {isPreview ? (
+          <Text style={styles.draftWatermark} fixed>
+            RASCUNHO - SEM VALIDADE COMERCIAL
+          </Text>
+        ) : null}
         <View style={styles.headerBox}>
           <View style={styles.headerRow}>
             <View style={styles.logoBox}>
@@ -661,7 +680,7 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>Documento emitido pelo BasePro OS</Text>
           <Text style={styles.footerCenter}>
-            Data e hora da emissão: {dataHoraEmissao} | Revisão: {props.revisao}
+            {isPreview ? "Data e hora da previa" : "Data e hora da emissão"}: {dataHoraEmissao} | Revisão: {props.revisao}
           </Text>
           <Text
             style={styles.footerRight}
@@ -672,3 +691,4 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
     </Document>
   );
 }
+

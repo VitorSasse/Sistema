@@ -991,6 +991,7 @@ describe("persistencia na edicao de orcamentos", () => {
     const cenarioId = String(records.cenarios[0].id);
     const propostaId = String(records.propostas[0].id);
     const snapshotEmitido = records.propostas[0].snapshotJson;
+    records.propostas[0].status = StatusPropostaComercial.EMITIDA;
 
     await atualizarOrcamento(db as never, {
       id: criado!.id,

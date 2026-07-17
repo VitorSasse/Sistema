@@ -390,6 +390,7 @@ model Usuario {
   ordensCompraCriadas           OrdemCompra[]         @relation("OrdemCompraCriadaPor")
   orcamentosCriados             Orcamento[]           @relation("OrcamentoCriadoPor")
   orcamentosResponsavel         Orcamento[]           @relation("OrcamentoResponsavel")
+  propostasEmitidas             OrcamentoPropostaComercial[] @relation("PropostaEmitidaPor")
 
   @@index([empresaId])
   @@index([roleEmpresa])
@@ -1015,16 +1016,24 @@ model OrcamentoPropostaComercial {
   valorTotal          Decimal                     @default(0) @db.Decimal(14, 2)
   snapshotJson        Json?
   emitidaEm           DateTime?
+  emitidaPorId        String?
+  pdfOficialUrl       String?                     @db.Text
+  pdfOficialNome      String?
+  pdfOficialHash      String?
+  pdfOficialMime      String?
+  pdfOficialTamanhoBytes Int?
   createdAt           DateTime                    @default(now())
   updatedAt           DateTime                    @updatedAt
   empresa             Empresa                     @relation(fields: [empresaId], references: [id])
   orcamento           Orcamento                   @relation(fields: [orcamentoId], references: [id], onDelete: Cascade)
   cenario             OrcamentoCenario?           @relation(fields: [cenarioId], references: [id], onDelete: SetNull)
+  emitidaPor          Usuario?                    @relation("PropostaEmitidaPor", fields: [emitidaPorId], references: [id], onDelete: SetNull)
   opcionais           OrcamentoPropostaOpcional[]
 
   @@index([empresaId])
   @@index([orcamentoId, revisao])
   @@index([cenarioId, status])
+  @@index([emitidaPorId])
   @@index([status])
 }
 

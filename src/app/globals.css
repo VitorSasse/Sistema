@@ -9252,6 +9252,13 @@ button {
   font-size: 1.08rem;
 }
 
+.orcamentos-proposta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
 .orcamentos-optional-row {
   display: grid;
   grid-template-columns: minmax(180px, 1.6fr) 80px 90px 110px minmax(180px, 1.2fr) auto auto;

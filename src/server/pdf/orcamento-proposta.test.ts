@@ -87,4 +87,33 @@ describe("conteudo comercial do PDF de orcamentos", () => {
 
     expect(buffer.byteLength).toBeGreaterThan(1000);
   });
+
+  it("renderiza previa de proposta com modo de rascunho", async () => {
+    const buffer = await renderToBuffer(
+      OrcamentoPdfDocument({
+        codigo: "PROP-001",
+        revisao: 1,
+        dataEmissao: new Date("2026-07-17T12:00:00.000Z"),
+        modoDocumento: "PREVIEW",
+        tipo: "OPERACIONAL",
+        status: "RASCUNHO",
+        dataOrcamento: new Date("2026-07-17T12:00:00.000Z"),
+        validadeAte: null,
+        titulo: "Previa de proposta",
+        objeto: "Execucao dos servicos.",
+        observacaoCliente: null,
+        valorTotal: 12000,
+        cliente: { nome: "Cliente teste" },
+        obra: { nome: "Obra teste" },
+        responsavel: null,
+        frentes: [
+          { ordem: 1, nome: "Frente principal", descricao: "Servico principal", unidadeProducao: "m3", quantidadePrevista: 100 }
+        ],
+        itens: [],
+        premissas: []
+      })
+    );
+
+    expect(buffer.byteLength).toBeGreaterThan(1000);
+  });
 });

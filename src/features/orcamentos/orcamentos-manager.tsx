@@ -221,6 +221,8 @@ type PropostaComercialForm = {
   status: StatusPropostaComercial;
   condicoesComerciais: string;
   observacao: string;
+  emitidaEm?: string | null;
+  pdfOficialUrl?: string | null;
   opcionais: PropostaOpcionalForm[];
 };
 
@@ -387,6 +389,8 @@ type OrcamentoApi = {
     status: StatusPropostaComercial;
     condicoesComerciais: string | null;
     observacao: string | null;
+    emitidaEm?: string | null;
+    pdfOficialUrl?: string | null;
     opcionais?: Array<{
       id: string;
       ordem: number;
@@ -682,6 +686,8 @@ function createEmptyProposta(
     status: "RASCUNHO",
     condicoesComerciais: "",
     observacao: "",
+    emitidaEm: null,
+    pdfOficialUrl: null,
     opcionais: []
   };
 }
@@ -2101,6 +2107,18 @@ export function OrcamentosManager() {
     setForm(mapApiToForm(data));
   }
 
+  async function recarregarOrcamentoAtual(orcamentoId: string) {
+    const response = await fetch(`/api/orcamentos/${orcamentoId}`);
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      applyApiError(data, "Nao foi possivel recarregar o orcamento.");
+      return;
+    }
+
+    setForm(mapApiToForm(data));
+  }
+
   async function salvarOrcamento() {
     setSaving(true);
     setMessage("");
@@ -2208,14 +2226,83 @@ export function OrcamentosManager() {
     setSaving(false);
   }
 
-  function gerarPdf() {
+  function ensurePropostaPersistida(propostaLocalId: string) {
     if (!selectedId) {
       setError("Salve ou selecione um orcamento antes de gerar o PDF.");
       setErrorDetails([]);
+      return false;
+    }
+
+    if (propostaLocalId.startsWith("proposta-")) {
+      setError("Salve o orcamento antes de visualizar ou emitir esta proposta.");
+      setErrorDetails([]);
+      return false;
+    }
+
+    return true;
+  }
+
+  function visualizarPreviaProposta(propostaLocalId: string) {
+    if (!ensurePropostaPersistida(propostaLocalId)) {
       return;
     }
 
-    window.open(`/api/orcamentos/${selectedId}/pdf`, "_blank", "noopener,noreferrer");
+    window.open(
+      `/api/orcamentos/${selectedId}/propostas/${propostaLocalId}/pdf/preview`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
+
+  function visualizarPdfOficialProposta(propostaLocalId: string) {
+    if (!ensurePropostaPersistida(propostaLocalId)) {
+      return;
+    }
+
+    window.open(
+      `/api/orcamentos/${selectedId}/propostas/${propostaLocalId}/pdf/oficial`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
+
+  async function emitirProposta(propostaLocalId: string) {
+    if (!ensurePropostaPersistida(propostaLocalId)) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Ao emitir esta proposta, os dados desta revisao serao bloqueados. Alteracoes futuras exigirao uma nova revisao. Deseja continuar?"
+      )
+    ) {
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+    clearError();
+
+    const response = await fetch(`/api/orcamentos/${selectedId}/propostas/${propostaLocalId}/emitir`, {
+      method: "POST"
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      applyApiError(data, "Nao foi possivel emitir a proposta.");
+      setSaving(false);
+      return;
+    }
+
+    if (data.orcamento) {
+      setForm(mapApiToForm(data.orcamento));
+    } else if (selectedId) {
+      await recarregarOrcamentoAtual(selectedId);
+    }
+
+    setMessage("Proposta emitida e PDF oficial armazenado.");
+    await loadOrcamentos();
+    setSaving(false);
   }
 
   async function arquivar(id: string) {
@@ -2522,9 +2609,13 @@ export function OrcamentosManager() {
                 onCreateRevision={createPropostaRevision}
                 onRemoveProposta={removePropostaComercial}
                 onUpdateProposta={updatePropostaComercial}
+                onPreviewProposta={visualizarPreviaProposta}
+                onEmitProposta={emitirProposta}
+                onOpenOfficialPdf={visualizarPdfOficialProposta}
                 onAddOpcional={addPropostaOpcional}
                 onUpdateOpcional={updatePropostaOpcional}
                 onRemoveOpcional={removePropostaOpcional}
+                saving={saving}
               />
             </>
           ) : (
@@ -3003,11 +3094,6 @@ export function OrcamentosManager() {
                 onClick={evoluirParaOperacional}
               >
                 Evoluir para operacional
-              </button>
-            ) : null}
-            {selectedId ? (
-              <button type="button" className="button-secondary" onClick={gerarPdf}>
-                PDF proposta
               </button>
             ) : null}
             <button type="button" className="button-primary" disabled={saving} onClick={salvarOrcamento}>
@@ -3560,6 +3646,9 @@ function CenariosPropostasSection(props: {
   onCreateRevision: (propostaLocalId: string) => void;
   onRemoveProposta: (localId: string) => void;
   onUpdateProposta: (localId: string, key: keyof PropostaComercialForm, value: string) => void;
+  onPreviewProposta: (propostaLocalId: string) => void;
+  onEmitProposta: (propostaLocalId: string) => void;
+  onOpenOfficialPdf: (propostaLocalId: string) => void;
   onAddOpcional: (propostaLocalId: string) => void;
   onUpdateOpcional: (
     propostaLocalId: string,
@@ -3568,6 +3657,7 @@ function CenariosPropostasSection(props: {
     value: string | number
   ) => void;
   onRemoveOpcional: (propostaLocalId: string, opcionalLocalId: string) => void;
+  saving: boolean;
 }) {
   return (
     <div className="orcamentos-form-section orcamentos-cenarios-section">
@@ -3756,7 +3846,6 @@ function CenariosPropostasSection(props: {
                     }
                   >
                     <option value="RASCUNHO">Rascunho</option>
-                    <option value="EMITIDA">Emitida</option>
                     <option value="REJEITADA">Rejeitada</option>
                     <option value="CANCELADA">Cancelada</option>
                   </select>
@@ -3866,23 +3955,63 @@ function CenariosPropostasSection(props: {
                 {isEmitida ? (
                   <p className="orcamentos-front-validation">Proposta emitida: snapshot preservado. Gere nova revisao para alterar.</p>
                 ) : null}
-                {isEmitida ? (
-                  <button
-                    type="button"
-                    className="button-secondary"
-                    onClick={() => props.onCreateRevision(proposta.localId)}
-                  >
-                    Criar nova revisao
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="button-secondary"
-                    onClick={() => props.onRemoveProposta(proposta.localId)}
-                  >
-                    Remover proposta
-                  </button>
-                )}
+                <div className="orcamentos-proposta-actions">
+                  {proposta.status === "RASCUNHO" ? (
+                    <>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        disabled={props.saving}
+                        onClick={() => props.onPreviewProposta(proposta.localId)}
+                      >
+                        Visualizar previa
+                      </button>
+                      <button
+                        type="button"
+                        className="button-primary"
+                        disabled={props.saving}
+                        onClick={() => props.onEmitProposta(proposta.localId)}
+                      >
+                        {props.saving ? "Emitindo..." : "Emitir proposta"}
+                      </button>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        disabled={props.saving}
+                        onClick={() => props.onRemoveProposta(proposta.localId)}
+                      >
+                        Remover proposta
+                      </button>
+                    </>
+                  ) : null}
+                  {proposta.status === "EMITIDA" ? (
+                    <>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={() => props.onOpenOfficialPdf(proposta.localId)}
+                      >
+                        Visualizar PDF oficial
+                      </button>
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={() => props.onCreateRevision(proposta.localId)}
+                      >
+                        Criar nova revisao
+                      </button>
+                    </>
+                  ) : null}
+                  {proposta.status === "REJEITADA" || proposta.status === "CANCELADA" ? (
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={() => props.onOpenOfficialPdf(proposta.localId)}
+                    >
+                      Visualizar PDF oficial
+                    </button>
+                  ) : null}
+                </div>
               </div>
               );
             })}
@@ -5254,6 +5383,8 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
     status: proposta.status,
     condicoesComerciais: proposta.condicoesComerciais ?? "",
     observacao: proposta.observacao ?? "",
+    emitidaEm: proposta.emitidaEm ?? null,
+    pdfOficialUrl: proposta.pdfOficialUrl ?? null,
     opcionais:
       proposta.opcionais?.map((opcional) => ({
         localId: opcional.id,

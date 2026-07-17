@@ -843,7 +843,10 @@ async function criarEstruturaOrcamento(
           : cenarioInputByRef.get("padrao");
     const codigo = clean(proposta.codigo) ?? `PROP-${String(proposta.revisao + 1).padStart(3, "0")}`;
     const totals = buildPropostaTotals(input, proposta, cenarioInput);
-    const shouldEmit = proposta.status === StatusPropostaComercial.EMITIDA;
+    const statusPersistido =
+      proposta.status === StatusPropostaComercial.EMITIDA
+        ? StatusPropostaComercial.RASCUNHO
+        : proposta.status;
 
     const created = await db.orcamentoPropostaComercial.create({
       data: {
@@ -853,7 +856,7 @@ async function criarEstruturaOrcamento(
         codigo,
         revisao: proposta.revisao,
         titulo: clean(proposta.titulo),
-        status: proposta.status,
+        status: statusPersistido,
         condicoesComerciais: clean(proposta.condicoesComerciais),
         observacao: clean(proposta.observacao),
         valorSubtotal: totals.valorSubtotal,
@@ -863,7 +866,7 @@ async function criarEstruturaOrcamento(
         // Rascunhos tambem registram a fotografia comercial vigente. Ao emitir,
         // esse snapshot deixa de ser recriado e passa a ser historico imutavel.
         snapshotJson: buildPropostaSnapshot(input, proposta, cenarioInput),
-        emitidaEm: shouldEmit ? new Date() : null
+        emitidaEm: null
       },
       select: {
         id: true

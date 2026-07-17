@@ -7,37 +7,27 @@ import { renderOrcamentoPropostaPdf } from "@/server/pdf/orcamento-proposta-rend
 export const runtime = "nodejs";
 
 type RouteContext = {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string; propostaId: string }>;
 };
 
-function handlePdfError(error: unknown) {
+function handleError(error: unknown) {
   if (error instanceof Error) {
     if (error.message === "ORCAMENTO_NAO_ENCONTRADO") {
       return NextResponse.json({ message: "Orcamento nao encontrado." }, { status: 404 });
     }
 
-    if (error.message === "PROPOSTA_NAO_PREPARADA") {
-      return NextResponse.json(
-        { message: "Prepare uma proposta comercial antes de gerar o PDF." },
-        { status: 400 }
-      );
-    }
-
-    if (error.message === "PROPOSTA_SEM_ESCOPO_COMERCIAL") {
-      return NextResponse.json(
-        { message: "Inclua pelo menos uma frente ou item comercial antes de gerar a proposta em PDF." },
-        { status: 400 }
-      );
+    if (error.message === "PROPOSTA_NAO_PREPARADA" || error.message === "PROPOSTA_SEM_ESCOPO_COMERCIAL") {
+      return NextResponse.json({ message: "A proposta ainda nao possui escopo comercial para pre-visualizacao." }, { status: 400 });
     }
   }
 
   return NextResponse.json(
-    { message: "Nao foi possivel gerar o PDF da proposta.", detail: String(error) },
+    { message: "Nao foi possivel gerar a previa da proposta.", detail: String(error) },
     { status: 500 }
   );
 }
 
-export async function GET(request: Request, context: RouteContext) {
+export async function GET(_: Request, context: RouteContext) {
   const session = await auth();
 
   if (!session?.user) {
@@ -47,12 +37,10 @@ export async function GET(request: Request, context: RouteContext) {
   const empresaId = getActiveTenantEmpresaId();
 
   if (!empresaId) {
-    return NextResponse.json({ message: "Selecione uma empresa para gerar o PDF." }, { status: 409 });
+    return NextResponse.json({ message: "Selecione uma empresa para gerar a previa." }, { status: 409 });
   }
 
-  const { id } = await context.params;
-  const url = new URL(request.url);
-  const propostaId = url.searchParams.get("propostaId");
+  const { id, propostaId } = await context.params;
 
   try {
     const { buffer, fileName } = await renderOrcamentoPropostaPdf({
@@ -67,11 +55,11 @@ export async function GET(request: Request, context: RouteContext) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+        "Content-Disposition": `inline; filename="PREVIA_${fileName}"; filename*=UTF-8''${encodeURIComponent(`PREVIA_${fileName}`)}`,
         "Cache-Control": "no-store"
       }
     });
   } catch (error) {
-    return handlePdfError(error);
+    return handleError(error);
   }
 }
