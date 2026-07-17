@@ -1,0 +1,8 @@
+CREATE TYPE "ModoExibicaoValoresPdf" AS ENUM (
+  'SOMENTE_TOTAL_GLOBAL',
+  'SUBTOTAL_POR_FRENTE',
+  'DETALHADO_POR_ITEM_E_FRENTE'
+);
+
+ALTER TABLE "OrcamentoPropostaComercial"
+ADD COLUMN "modoExibicaoValoresPdf" "ModoExibicaoValoresPdf" NOT NULL DEFAULT 'SOMENTE_TOTAL_GLOBAL';

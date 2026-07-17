@@ -129,6 +129,12 @@ enum StatusPropostaComercial {
   CANCELADA
 }
 
+enum ModoExibicaoValoresPdf {
+  SOMENTE_TOTAL_GLOBAL
+  SUBTOTAL_POR_FRENTE
+  DETALHADO_POR_ITEM_E_FRENTE
+}
+
 enum NaturezaServico {
   OPERACIONAL
   ORCAMENTARIO_COMPOSTO
@@ -1008,6 +1014,7 @@ model OrcamentoPropostaComercial {
   revisao             Int                         @default(0)
   titulo              String?
   status              StatusPropostaComercial     @default(RASCUNHO)
+  modoExibicaoValoresPdf ModoExibicaoValoresPdf   @default(SOMENTE_TOTAL_GLOBAL)
   condicoesComerciais String?
   observacao          String?
   valorSubtotal       Decimal                     @default(0) @db.Decimal(14, 2)

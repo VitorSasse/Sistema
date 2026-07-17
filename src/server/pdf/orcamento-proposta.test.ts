@@ -116,4 +116,45 @@ describe("conteudo comercial do PDF de orcamentos", () => {
 
     expect(buffer.byteLength).toBeGreaterThan(1000);
   });
+
+  it("renderiza proposta detalhada por item e frente", async () => {
+    const buffer = await renderToBuffer(
+      OrcamentoPdfDocument({
+        codigo: "PROP-002",
+        revisao: 0,
+        dataEmissao: new Date("2026-07-17T12:00:00.000Z"),
+        modoExibicaoValoresPdf: "DETALHADO_POR_ITEM_E_FRENTE",
+        tipo: "OPERACIONAL",
+        status: "RASCUNHO",
+        dataOrcamento: new Date("2026-07-17T12:00:00.000Z"),
+        validadeAte: null,
+        titulo: "Proposta detalhada",
+        objeto: "Execucao dos servicos.",
+        observacaoCliente: null,
+        valorTotal: 15000,
+        cliente: { nome: "Cliente teste" },
+        obra: { nome: "Obra teste" },
+        responsavel: null,
+        frentes: [
+          { ordem: 1, nome: "Escavacao", descricao: "Servico principal", unidadeProducao: "m3", quantidadePrevista: 100 }
+        ],
+        itens: [
+          {
+            ordem: 1,
+            frenteNome: "Escavacao",
+            tipoItem: "SERVICO_PRINCIPAL",
+            codigo: null,
+            descricao: "Escavacao mecanizada",
+            unidade: "m3",
+            quantidade: 100,
+            valorUnitario: 150,
+            valorTotal: 15000
+          }
+        ],
+        premissas: []
+      })
+    );
+
+    expect(buffer.byteLength).toBeGreaterThan(1000);
+  });
 });

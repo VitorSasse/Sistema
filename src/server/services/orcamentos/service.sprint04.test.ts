@@ -99,6 +99,7 @@ function propostaInput(revisao = 0) {
     revisao,
     titulo: "Proposta operacional",
     status: StatusPropostaComercial.EMITIDA,
+    modoExibicaoValoresPdf: "SOMENTE_TOTAL_GLOBAL",
     condicoesComerciais: "Pagamento em 30 dias.",
     observacao: "",
     opcionais: []
@@ -595,6 +596,7 @@ describe("orcamentos sprint 4.1-4.3", () => {
           revisao: 0,
           titulo: "Proposta B",
           status: StatusPropostaComercial.RASCUNHO,
+          modoExibicaoValoresPdf: "SOMENTE_TOTAL_GLOBAL",
           condicoesComerciais: "",
           observacao: "",
           opcionais: []
@@ -660,6 +662,7 @@ describe("orcamentos sprint 4.1-4.3", () => {
             revisao: 0,
             titulo: "Proposta",
             status: StatusPropostaComercial.RASCUNHO,
+            modoExibicaoValoresPdf: "SOMENTE_TOTAL_GLOBAL",
             condicoesComerciais: "",
             observacao: "",
             opcionais: [

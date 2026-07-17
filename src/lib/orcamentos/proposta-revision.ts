@@ -17,6 +17,7 @@ export type PropostaRevisionDraft = {
   revisao: string;
   titulo: string;
   status: string;
+  modoExibicaoValoresPdf: string;
   condicoesComerciais: string;
   observacao: string;
   opcionais: PropostaOpcionalRevisionDraft[];
@@ -55,6 +56,7 @@ export function criarNovaRevisaoProposta({
     revisao: String(maiorRevisao + 1),
     titulo: propostaEmitida.titulo,
     status: "RASCUNHO",
+    modoExibicaoValoresPdf: propostaEmitida.modoExibicaoValoresPdf,
     condicoesComerciais: propostaEmitida.condicoesComerciais,
     observacao: propostaEmitida.observacao,
     opcionais: propostaEmitida.opcionais.map((opcional) => ({

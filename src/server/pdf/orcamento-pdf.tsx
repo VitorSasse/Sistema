@@ -10,6 +10,7 @@ type OrcamentoPdfProps = {
   revisao: number;
   dataEmissao: Date;
   modoDocumento?: "PREVIEW" | "OFICIAL";
+  modoExibicaoValoresPdf?: "SOMENTE_TOTAL_GLOBAL" | "SUBTOTAL_POR_FRENTE" | "DETALHADO_POR_ITEM_E_FRENTE";
   tipo: string;
   status: string;
   dataOrcamento: Date;
@@ -39,6 +40,7 @@ type OrcamentoPdfProps = {
     email?: string | null;
   } | null;
   frentes: Array<{
+    tempId?: string | null;
     ordem: number;
     nome: string;
     descricao: string | null;
@@ -48,6 +50,7 @@ type OrcamentoPdfProps = {
   itens: Array<{
     ordem: number;
     frenteNome: string | null;
+    frenteTempId?: string | null;
     tipoItem: string;
     codigo: string | null;
     descricao: string;
@@ -257,6 +260,35 @@ const styles = StyleSheet.create({
   unCol: { width: "8%" },
   unitCol: { width: "13%" },
   totalCol: { width: "13%", borderRightWidth: 0 },
+  groupTitleRow: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    backgroundColor: "#f2f2f2",
+    borderBottomWidth: 1,
+    borderColor: colors.border
+  },
+  groupTitle: {
+    fontWeight: "bold",
+    fontSize: 8.8
+  },
+  groupDescription: {
+    color: colors.muted,
+    fontSize: 7.8,
+    marginTop: 2
+  },
+  subtotalRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+    backgroundColor: "#fafafa"
+  },
+  subtotalText: {
+    fontWeight: "bold",
+    fontSize: 8.2
+  },
   summaryGrid: {
     marginTop: 12,
     flexDirection: "row",
@@ -426,6 +458,42 @@ function premissaLabel(value: string) {
   return labels[value] ?? value;
 }
 
+function getModoExibicaoValoresPdf(props: OrcamentoPdfProps) {
+  return props.modoExibicaoValoresPdf ?? "SOMENTE_TOTAL_GLOBAL";
+}
+
+function buildItensPorFrente(props: OrcamentoPdfProps) {
+  const grupos = props.frentes.map((frente) => {
+    const itens = props.itens.filter((item) => item.frenteNome === frente.nome);
+    const subtotal = itens.reduce((sum, item) => sum + item.valorTotal, 0);
+
+    return {
+      frente,
+      itens,
+      subtotal
+    };
+  });
+  const itensSemFrente = props.itens.filter(
+    (item) => !props.frentes.some((frente) => frente.nome === item.frenteNome)
+  );
+
+  if (itensSemFrente.length > 0) {
+    grupos.push({
+      frente: {
+        ordem: 999,
+        nome: "Itens gerais",
+        descricao: null,
+        unidadeProducao: null,
+        quantidadePrevista: null
+      },
+      itens: itensSemFrente,
+      subtotal: itensSemFrente.reduce((sum, item) => sum + item.valorTotal, 0)
+    });
+  }
+
+  return grupos;
+}
+
 function renderMetaRow(firstLabel: string, firstValue: string, secondLabel: string, secondValue: string) {
   return (
     <View style={styles.infoRow}>
@@ -451,8 +519,11 @@ function renderSection(title: string, content?: string | null) {
 }
 
 export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
-  const isOrcamentoComercial = props.tipo === "COMERCIAL";
   const isPreview = props.modoDocumento === "PREVIEW";
+  const modoExibicaoValoresPdf = getModoExibicaoValoresPdf(props);
+  const exibirItensAgrupados = modoExibicaoValoresPdf !== "SOMENTE_TOTAL_GLOBAL" && props.itens.length > 0;
+  const exibirValoresDetalhados = modoExibicaoValoresPdf === "DETALHADO_POR_ITEM_E_FRENTE";
+  const itensPorFrente = buildItensPorFrente(props);
   const empresaRelatorio = props.empresaRelatorio ?? empresaRelatorioPadrao;
   const dataHoraEmissao = new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
@@ -542,101 +613,71 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
           </>
         ) : null}
 
-        {props.itens.length > 0 ? (
+        {exibirItensAgrupados ? (
           <>
             <Text style={styles.sectionTitle}>ITENS DA PROPOSTA</Text>
             <View style={styles.table}>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.cell, styles.headCell, styles.centerCell, styles.itemCol]}>Item</Text>
-            {isOrcamentoComercial ? null : (
-              <Text style={[styles.cell, styles.headCell, styles.frenteCol]}>Frente</Text>
-            )}
-            {isOrcamentoComercial ? null : (
-              <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "10%" }]}>Natureza</Text>
-            )}
-            <Text
-              style={[
-                styles.cell,
-                styles.headCell,
-                isOrcamentoComercial ? { width: "44%" } : { width: "24%" }
-              ]}
-            >
-              Descricao
-            </Text>
-            <Text
-              style={[
-                styles.cell,
-                styles.headCell,
-                styles.centerCell,
-                isOrcamentoComercial ? { width: "10%" } : styles.qtdCol
-              ]}
-            >
-              Qtd
-            </Text>
-            <Text style={[styles.cell, styles.headCell, styles.centerCell, styles.unCol]}>Un</Text>
-            <Text
-              style={[
-                styles.cell,
-                styles.headCell,
-                styles.moneyCell,
-                isOrcamentoComercial ? { width: "15%" } : styles.unitCol
-              ]}
-            >
-              Vlr unit.
-            </Text>
-            <Text
-              style={[
-                styles.cell,
-                styles.headCell,
-                styles.moneyCell,
-                isOrcamentoComercial ? { width: "15%", borderRightWidth: 0 } : styles.totalCol
-              ]}
-            >
-              Total
-            </Text>
-          </View>
-          {props.itens.map((item) => (
-            <View key={`${item.ordem}-${item.descricao}`} style={styles.tableRow} wrap={false}>
-              <Text style={[styles.cell, styles.centerCell, styles.itemCol]}>{item.ordem}</Text>
-              {isOrcamentoComercial ? null : (
-                <Text style={[styles.cell, styles.frenteCol]}>{item.frenteNome || "-"}</Text>
-              )}
-              {isOrcamentoComercial ? null : (
-                <Text style={[styles.cell, styles.centerCell, { width: "10%" }]}>{item.tipoItem}</Text>
-              )}
-              <Text style={[styles.cell, isOrcamentoComercial ? { width: "44%" } : { width: "24%" }]}>
-                {item.descricao}
-              </Text>
-              <Text
-                style={[
-                  styles.cell,
-                  styles.centerCell,
-                  isOrcamentoComercial ? { width: "10%" } : styles.qtdCol
-                ]}
-              >
-                {formatNumber(item.quantidade)}
-              </Text>
-              <Text style={[styles.cell, styles.centerCell, styles.unCol]}>{item.unidade}</Text>
-              <Text
-                style={[
-                  styles.cell,
-                  styles.moneyCell,
-                  isOrcamentoComercial ? { width: "15%" } : styles.unitCol
-                ]}
-              >
-                {formatCurrency(item.valorUnitario)}
-              </Text>
-              <Text
-                style={[
-                  styles.cell,
-                  styles.moneyCell,
-                  isOrcamentoComercial ? { width: "15%", borderRightWidth: 0 } : styles.totalCol
-                ]}
-              >
-                {formatCurrency(item.valorTotal)}
-              </Text>
-            </View>
-          ))}
+              {itensPorFrente
+                .filter((grupo) => grupo.itens.length > 0)
+                .map((grupo) => (
+                  <View key={`grupo-${grupo.frente.ordem}-${grupo.frente.nome}`} wrap={false}>
+                    <View style={styles.groupTitleRow}>
+                      <Text style={styles.groupTitle}>{grupo.frente.nome}</Text>
+                      {grupo.frente.descricao ? (
+                        <Text style={styles.groupDescription}>{grupo.frente.descricao}</Text>
+                      ) : null}
+                    </View>
+                    <View style={styles.tableHeader}>
+                      <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "8%" }]}>Item</Text>
+                      {exibirValoresDetalhados ? (
+                        <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "14%" }]}>Natureza</Text>
+                      ) : null}
+                      <Text style={[styles.cell, styles.headCell, { width: exibirValoresDetalhados ? "34%" : "54%" }]}>
+                        Descricao
+                      </Text>
+                      <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "10%" }]}>Qtd</Text>
+                      <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "10%" }]}>Un</Text>
+                      {exibirValoresDetalhados ? (
+                        <>
+                          <Text style={[styles.cell, styles.headCell, styles.moneyCell, { width: "12%" }]}>Vlr unit.</Text>
+                          <Text style={[styles.cell, styles.headCell, styles.moneyCell, { width: "12%", borderRightWidth: 0 }]}>Total</Text>
+                        </>
+                      ) : null}
+                    </View>
+                    {grupo.itens.map((item) => (
+                      <View key={`${grupo.frente.ordem}-${item.ordem}-${item.descricao}`} style={styles.tableRow} wrap={false}>
+                        <Text style={[styles.cell, styles.centerCell, { width: "8%" }]}>{item.ordem}</Text>
+                        {exibirValoresDetalhados ? (
+                          <Text style={[styles.cell, styles.centerCell, { width: "14%" }]}>{item.tipoItem}</Text>
+                        ) : null}
+                        <Text style={[styles.cell, { width: exibirValoresDetalhados ? "34%" : "54%" }]}>
+                          {item.descricao}
+                        </Text>
+                        <Text style={[styles.cell, styles.centerCell, { width: "10%" }]}>
+                          {formatNumber(item.quantidade)}
+                        </Text>
+                        <Text style={[styles.cell, styles.centerCell, { width: "10%", borderRightWidth: exibirValoresDetalhados ? 1 : 0 }]}>
+                          {item.unidade}
+                        </Text>
+                        {exibirValoresDetalhados ? (
+                          <>
+                            <Text style={[styles.cell, styles.moneyCell, { width: "12%" }]}>
+                              {formatCurrency(item.valorUnitario)}
+                            </Text>
+                            <Text style={[styles.cell, styles.moneyCell, { width: "12%", borderRightWidth: 0 }]}>
+                              {formatCurrency(item.valorTotal)}
+                            </Text>
+                          </>
+                        ) : null}
+                      </View>
+                    ))}
+                    <View style={styles.subtotalRow}>
+                      <Text style={styles.subtotalText}>
+                        Subtotal da frente: {formatCurrency(grupo.subtotal)}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
             </View>
           </>
         ) : null}

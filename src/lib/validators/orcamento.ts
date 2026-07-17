@@ -2,6 +2,7 @@ import {
   CategoriaRecursoOrcamento,
   ModoCustoFrente,
   ModoCustoOrcamento,
+  ModoExibicaoValoresPdf,
   ModoPrecificacaoItemOrcamento,
   OrigemQuantidadeOperacional,
   OrigemPrazoFrente,
@@ -134,6 +135,9 @@ const orcamentoPropostaComercialSchema = z.object({
   revisao: z.number().int().min(0).max(999).default(0),
   titulo: z.string().trim().max(180).optional().or(z.literal("")),
   status: z.nativeEnum(StatusPropostaComercial).default(StatusPropostaComercial.RASCUNHO),
+  modoExibicaoValoresPdf: z
+    .nativeEnum(ModoExibicaoValoresPdf)
+    .default(ModoExibicaoValoresPdf.SOMENTE_TOTAL_GLOBAL),
   condicoesComerciais: z.string().trim().max(1200).optional().or(z.literal("")),
   observacao: z.string().trim().max(700).optional().or(z.literal("")),
   opcionais: z.array(orcamentoPropostaOpcionalSchema).default([])

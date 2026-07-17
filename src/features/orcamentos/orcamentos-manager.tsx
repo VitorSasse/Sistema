@@ -65,6 +65,10 @@ type UnidadeEconomicaCusto =
   | "VALOR_TOTAL";
 type StatusCenarioOrcamento = "EM_ESTUDO" | "ACEITO" | "REJEITADO";
 type StatusPropostaComercial = "RASCUNHO" | "EMITIDA" | "ACEITA" | "REJEITADA" | "CANCELADA";
+type ModoExibicaoValoresPdf =
+  | "SOMENTE_TOTAL_GLOBAL"
+  | "SUBTOTAL_POR_FRENTE"
+  | "DETALHADO_POR_ITEM_E_FRENTE";
 
 type ClienteOption = {
   id: string;
@@ -219,6 +223,7 @@ type PropostaComercialForm = {
   revisao: string;
   titulo: string;
   status: StatusPropostaComercial;
+  modoExibicaoValoresPdf: ModoExibicaoValoresPdf;
   condicoesComerciais: string;
   observacao: string;
   emitidaEm?: string | null;
@@ -387,6 +392,7 @@ type OrcamentoApi = {
     revisao: number;
     titulo: string | null;
     status: StatusPropostaComercial;
+    modoExibicaoValoresPdf?: ModoExibicaoValoresPdf | null;
     condicoesComerciais: string | null;
     observacao: string | null;
     emitidaEm?: string | null;
@@ -684,6 +690,7 @@ function createEmptyProposta(
     revisao: "0",
     titulo,
     status: "RASCUNHO",
+    modoExibicaoValoresPdf: "SOMENTE_TOTAL_GLOBAL",
     condicoesComerciais: "",
     observacao: "",
     emitidaEm: null,
@@ -3883,6 +3890,28 @@ function CenariosPropostasSection(props: {
                     onChange={(event) => props.onUpdateProposta(proposta.localId, "titulo", event.target.value)}
                   />
                 </label>
+                <label className="manager-field orcamentos-span-2">
+                  <span className="manager-field-label">Apresentacao de valores no PDF</span>
+                  <select
+                    className="field-control"
+                    value={proposta.modoExibicaoValoresPdf}
+                    disabled={isEmitida}
+                    onChange={(event) =>
+                      props.onUpdateProposta(
+                        proposta.localId,
+                        "modoExibicaoValoresPdf",
+                        event.target.value
+                      )
+                    }
+                  >
+                    <option value="SOMENTE_TOTAL_GLOBAL">Somente total global</option>
+                    <option value="SUBTOTAL_POR_FRENTE">Subtotal por frente</option>
+                    <option value="DETALHADO_POR_ITEM_E_FRENTE">Detalhado por item e frente</option>
+                  </select>
+                  <small className="manager-field-hint">
+                    Controla apenas a apresentacao comercial do PDF desta revisao.
+                  </small>
+                </label>
                 <label className="manager-field orcamentos-span-3">
                   <span className="manager-field-label">Condicoes comerciais</span>
                   <textarea
@@ -5168,6 +5197,7 @@ function mapPropostaComercialPayload(proposta: PropostaComercialForm) {
     revisao: Number(proposta.revisao) || 0,
     titulo: proposta.titulo,
     status: proposta.status,
+    modoExibicaoValoresPdf: proposta.modoExibicaoValoresPdf,
     condicoesComerciais: proposta.condicoesComerciais,
     observacao: proposta.observacao,
     opcionais: proposta.opcionais
@@ -5405,6 +5435,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
     revisao: toStringValue(proposta.revisao),
     titulo: proposta.titulo ?? "",
     status: proposta.status,
+    modoExibicaoValoresPdf: proposta.modoExibicaoValoresPdf ?? "SOMENTE_TOTAL_GLOBAL",
     condicoesComerciais: proposta.condicoesComerciais ?? "",
     observacao: proposta.observacao ?? "",
     emitidaEm: proposta.emitidaEm ?? null,

@@ -12,6 +12,7 @@ function proposta(overrides: Partial<PropostaRevisionDraft> = {}): PropostaRevis
     revisao: "0",
     titulo: "Proposta de terraplenagem",
     status: "EMITIDA",
+    modoExibicaoValoresPdf: "SOMENTE_TOTAL_GLOBAL",
     condicoesComerciais: "Pagamento em 30 dias.",
     observacao: "Documento original.",
     opcionais: [

@@ -66,6 +66,7 @@ function mapSnapshotFrentes(snapshot: Record<string, unknown>) {
 
   return frentes.filter(isRecord).map((frente, index) => ({
     ordem: asNumber(frente.ordem, index + 1),
+    tempId: asNullableString(frente.tempId),
     nome: asString(frente.nome, `Frente ${index + 1}`),
     descricao: asNullableString(frente.descricao),
     metodoExecutivo: asNullableString(frente.metodoExecutivo),
@@ -102,6 +103,7 @@ function mapSnapshotItens(snapshot: Record<string, unknown>) {
         frenteNomeByTempId.get(asString(item.frenteTempId)) ??
         frenteNomeByOrdem.get(asNumber(item.frenteOrdem, 0)) ??
         null,
+      frenteTempId: asNullableString(item.frenteTempId),
       tipoItem: asString(item.tipoItem, "OUTRO"),
       codigo: asNullableString(item.codigo),
       descricao: asString(item.descricao, "Item sem descricao"),
@@ -118,6 +120,7 @@ function mapSnapshotItens(snapshot: Record<string, unknown>) {
     return {
       ordem: asNumber(opcional.ordem, index + 1),
       frenteNome: "Opcional",
+      frenteTempId: null,
       tipoItem: "OUTRO",
       codigo: asNullableString(opcional.codigo),
       descricao: asString(opcional.descricao, "Opcional sem descricao"),
@@ -166,6 +169,12 @@ function getSnapshotTotals(snapshot: Record<string, unknown>) {
     valorAcrescimo: asNumber(totals.valorAcrescimo),
     valorTotal: asNumber(totals.valorTotal)
   };
+}
+
+function asModoExibicaoValoresPdf(value: unknown) {
+  return value === "SUBTOTAL_POR_FRENTE" || value === "DETALHADO_POR_ITEM_E_FRENTE"
+    ? value
+    : "SOMENTE_TOTAL_GLOBAL";
 }
 
 export async function renderOrcamentoPropostaPdf({
@@ -231,6 +240,7 @@ export async function renderOrcamentoPropostaPdf({
         ...itensDaProposta.map((item) => ({
           ordem: item.ordem,
           frenteNome: item.frente?.nome ?? null,
+          frenteTempId: null,
           tipoItem: item.tipoItem,
           codigo: item.codigo,
           descricao: item.descricao,
@@ -242,6 +252,7 @@ export async function renderOrcamentoPropostaPdf({
         ...opcionaisDaProposta.map((opcional) => ({
           ordem: opcional.ordem,
           frenteNome: "Opcional",
+          frenteTempId: null,
           tipoItem: "OUTRO",
           codigo: opcional.codigo,
           descricao: opcional.descricao,
@@ -289,6 +300,9 @@ export async function renderOrcamentoPropostaPdf({
     propostaValorTotal: propostaOperacional ? Number(propostaOperacional.valorTotal) : null,
     orcamentoValorTotal: Number(orcamento.valorTotal)
   });
+  const modoExibicaoValoresPdf = snapshotOperacional
+    ? asModoExibicaoValoresPdf(snapshotOperacional.modoExibicaoValoresPdf)
+    : asModoExibicaoValoresPdf(propostaOperacional?.modoExibicaoValoresPdf);
   const possuiEscopoComercial =
     orcamento.tipo === "OPERACIONAL" ? frentesComerciaisPdf.length > 0 : itensPdf.length > 0;
 
@@ -306,6 +320,7 @@ export async function renderOrcamentoPropostaPdf({
       : propostaOperacional?.revisao ?? 0,
     dataEmissao: dataDocumento ?? propostaOperacional?.emitidaEm ?? new Date(),
     modoDocumento: modo,
+    modoExibicaoValoresPdf,
     tipo: orcamento.tipo,
     status: orcamento.status,
     dataOrcamento: orcamento.dataOrcamento,
