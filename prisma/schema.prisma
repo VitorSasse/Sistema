@@ -95,6 +95,11 @@ enum OrigemQuantidadeOperacional {
   PERSONALIZADA
 }
 
+enum OrigemValorAplicadoOrcamento {
+  CALCULADO_AUTOMATICAMENTE
+  PERSONALIZADO_PELO_USUARIO
+}
+
 enum TipoCalculoRecurso {
   AUTOMATICO
   VALOR_TOTAL_MANUAL
@@ -928,6 +933,16 @@ model OrcamentoItem {
   precoCompra                    Decimal?                    @db.Decimal(14, 4)
   markupPercentual               Decimal?                    @db.Decimal(7, 4)
   precoVendaSobrescrito          Boolean                     @default(false)
+  custoCalculadoOriginal         Decimal?                    @db.Decimal(14, 2)
+  custoBaseSobrescrito           Decimal?                    @db.Decimal(14, 2)
+  custoBaseAplicado              Decimal?                    @db.Decimal(14, 2)
+  origemCustoAplicado            OrigemValorAplicadoOrcamento @default(CALCULADO_AUTOMATICAMENTE)
+  precoCalculado                 Decimal?                    @db.Decimal(14, 4)
+  precoAplicado                  Decimal?                    @db.Decimal(14, 4)
+  origemValorAplicado            OrigemValorAplicadoOrcamento @default(CALCULADO_AUTOMATICAMENTE)
+  usuarioSobrescritaId           String?
+  dataHoraSobrescrita            DateTime?
+  motivoSobrescrita              String?
   fornecedorPreferencialId       String?
   exibirNoPdf                    Boolean                     @default(true)
   observacaoComercial            String?

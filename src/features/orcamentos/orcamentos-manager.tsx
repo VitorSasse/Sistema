@@ -49,6 +49,9 @@ type ModoCustoOrcamento = "SIMPLIFICADO" | "COMPLETO";
 type ModoCustoFrente = "AUTO" | "MANUAL";
 type OrigemPrazoFrente = "AUTOMATICO" | "AJUSTADO";
 type OrigemQuantidadeOperacional = "FRENTE" | "PERSONALIZADA";
+type OrigemValorAplicadoOrcamento =
+  | "CALCULADO_AUTOMATICAMENTE"
+  | "PERSONALIZADO_PELO_USUARIO";
 type TipoCalculoRecurso = "AUTOMATICO" | "VALOR_TOTAL_MANUAL";
 type UnidadeEconomicaCusto =
   | "CUSTO_FIXO"
@@ -246,6 +249,14 @@ type ItemForm = {
   precoCompra: string;
   markupPercentual: string;
   precoVendaSobrescrito: boolean;
+  custoCalculadoOriginal: string;
+  custoBaseSobrescrito: string;
+  custoBaseAplicado: string;
+  origemCustoAplicado: OrigemValorAplicadoOrcamento;
+  precoCalculado: string;
+  precoAplicado: string;
+  origemValorAplicado: OrigemValorAplicadoOrcamento;
+  motivoSobrescrita: string;
   fornecedorPreferencialId: string;
   exibirNoPdf: boolean;
   observacaoComercial: string;
@@ -442,6 +453,14 @@ type OrcamentoApi = {
     precoCompra?: string | number | null;
     markupPercentual?: string | number | null;
     precoVendaSobrescrito?: boolean | null;
+    custoCalculadoOriginal?: string | number | null;
+    custoBaseSobrescrito?: string | number | null;
+    custoBaseAplicado?: string | number | null;
+    origemCustoAplicado?: OrigemValorAplicadoOrcamento | null;
+    precoCalculado?: string | number | null;
+    precoAplicado?: string | number | null;
+    origemValorAplicado?: OrigemValorAplicadoOrcamento | null;
+    motivoSobrescrita?: string | null;
     fornecedorPreferencialId?: string | null;
     exibirNoPdf?: boolean | null;
     observacaoComercial?: string | null;
@@ -729,6 +748,14 @@ function createEmptyItem(tipoItem: TipoItemOrcamento, ordem: number, frenteTempI
     precoCompra: "",
     markupPercentual: "",
     precoVendaSobrescrito: false,
+    custoCalculadoOriginal: "",
+    custoBaseSobrescrito: "",
+    custoBaseAplicado: "",
+    origemCustoAplicado: "CALCULADO_AUTOMATICAMENTE",
+    precoCalculado: "",
+    precoAplicado: "",
+    origemValorAplicado: "CALCULADO_AUTOMATICAMENTE",
+    motivoSobrescrita: "",
     fornecedorPreferencialId: "",
     exibirNoPdf: true,
     observacaoComercial: "",
@@ -819,8 +846,25 @@ function getTipoLabel(value: TipoOrcamento) {
   return tipoOptions.find((option) => option.value === value)?.label ?? value;
 }
 
-function calcItemTotal(item: Pick<ItemForm, "quantidade" | "valorUnitario">) {
-  return (Number(item.quantidade) || 0) * (Number(item.valorUnitario) || 0);
+function calcItemTotal(
+  item: Pick<
+    ItemForm,
+    | "quantidade"
+    | "valorUnitario"
+    | "modoPrecificacao"
+    | "precoCompra"
+    | "markupPercentual"
+    | "precoVendaSobrescrito"
+    | "precoAplicado"
+  >
+) {
+  const precoCalculado =
+    item.modoPrecificacao === "COMPOSICAO" && !item.precoVendaSobrescrito && Number(item.precoCompra) > 0
+      ? roundMoney((Number(item.precoCompra) || 0) * (1 + (Number(item.markupPercentual) || 0) / 100))
+      : Number(item.valorUnitario) || 0;
+  const precoAplicado = Number(item.precoAplicado) || precoCalculado;
+
+  return (Number(item.quantidade) || 0) * precoAplicado;
 }
 
 function calcItemCost(item: Pick<ItemForm, "quantidade" | "custoUnitario">) {
@@ -833,6 +877,10 @@ function isRecursoItem(item: Pick<ItemForm, "tipoItem">) {
 
 function isMaterialItem(item: Pick<ItemForm, "tipoItem">) {
   return item.tipoItem === "MATERIAL";
+}
+
+function isServicoComercialItem(item: Pick<ItemForm, "tipoItem">) {
+  return item.tipoItem === "SERVICO_PRINCIPAL" || item.tipoItem === "SERVICO_AUXILIAR";
 }
 
 function isCommercialFrontItem(item: Pick<ItemForm, "tipoItem">) {
@@ -901,6 +949,13 @@ function normalizeItemUpdate(item: ItemForm, key: keyof ItemForm, value: string 
 
   if (key === "valorUnitario") {
     next.precoVendaSobrescrito = true;
+    next.origemValorAplicado = "PERSONALIZADO_PELO_USUARIO";
+  }
+
+  if (key === "custoBaseSobrescrito") {
+    next.origemCustoAplicado = Number(value) > 0
+      ? "PERSONALIZADO_PELO_USUARIO"
+      : "CALCULADO_AUTOMATICAMENTE";
   }
 
   if (key === "categoriaRecurso") {
@@ -1173,7 +1228,17 @@ function buildOperationalConsolidation(
       descricao: item.descricao,
       unidade: item.unidade,
       quantidade: item.quantidade,
-      valorUnitario: item.valorUnitario
+      valorUnitario: item.valorUnitario,
+      modoPrecificacao: item.modoPrecificacao,
+      precoCompra: item.precoCompra,
+      markupPercentual: item.markupPercentual,
+      precoVendaSobrescrito: item.precoVendaSobrescrito,
+      custoUnitario: item.custoUnitario,
+      custoCalculadoOriginal: item.custoCalculadoOriginal,
+      custoBaseSobrescrito: item.custoBaseSobrescrito,
+      custoBaseAplicado: item.custoBaseAplicado,
+      precoCalculado: item.precoCalculado,
+      precoAplicado: item.precoAplicado
     })),
     custoDiretoLegado: form.formacaoPreco.custoDireto,
     custoIndireto: form.formacaoPreco.custoIndireto,
@@ -4329,7 +4394,45 @@ function CommercialFrontItemFields(props: {
       {props.item.modoPrecificacao === "COMPOSICAO" ? (
         <div className="orcamentos-composition-note orcamentos-span-2">
           <strong>Composicao preparada</strong>
-          <span>Use os recursos operacionais da frente para formar a memoria de custo. O preco aplicado pode ser ajustado manualmente neste item.</span>
+          <span>
+            {isServicoComercialItem(props.item)
+              ? "O custo-base aplicado sera utilizado no motor de margem, impostos e acrescimos."
+              : "O markup pertence a este item e nao entra no motor de margem, impostos e acrescimos."}
+          </span>
+        </div>
+      ) : null}
+      {isServicoComercialItem(props.item) && props.item.modoPrecificacao === "COMPOSICAO" ? (
+        <>
+          <label className="manager-field">
+            <span className="manager-field-label">Custo-base personalizado</span>
+            <input
+              className="field-control"
+              type="number"
+              min="0"
+              step="0.01"
+              value={props.item.custoBaseSobrescrito}
+              onChange={(event) =>
+                props.onUpdate(props.item.localId, "custoBaseSobrescrito", event.target.value)
+              }
+            />
+            <small className="manager-field-hint">Opcional. Quando preenchido, substitui o custo calculado antes do motor.</small>
+          </label>
+          <label className="manager-field">
+            <span className="manager-field-label">Motivo da personalizacao</span>
+            <input
+              className="field-control"
+              value={props.item.motivoSobrescrita}
+              onChange={(event) =>
+                props.onUpdate(props.item.localId, "motivoSobrescrita", event.target.value)
+              }
+            />
+          </label>
+        </>
+      ) : null}
+      {props.item.modoPrecificacao === "PRECO_DIRETO" ? (
+        <div className="orcamentos-composition-note orcamentos-span-2">
+          <strong>Preco direto</strong>
+          <span>Preco direto e valor final de venda e nao recebe encargos do motor.</span>
         </div>
       ) : null}
       <label className="manager-field orcamentos-span-2">
@@ -5242,6 +5345,14 @@ function mapItemPayload(item: ItemForm, tipoOrcamento: TipoOrcamento) {
     precoCompra: !recurso && item.precoCompra ? Number(item.precoCompra) : null,
     markupPercentual: !recurso && item.markupPercentual ? Number(item.markupPercentual) : null,
     precoVendaSobrescrito: !recurso ? item.precoVendaSobrescrito : false,
+    custoCalculadoOriginal: !recurso && item.custoCalculadoOriginal ? Number(item.custoCalculadoOriginal) : null,
+    custoBaseSobrescrito: !recurso && item.custoBaseSobrescrito ? Number(item.custoBaseSobrescrito) : null,
+    custoBaseAplicado: !recurso && item.custoBaseAplicado ? Number(item.custoBaseAplicado) : null,
+    origemCustoAplicado: !recurso ? item.origemCustoAplicado : "CALCULADO_AUTOMATICAMENTE",
+    precoCalculado: !recurso && item.precoCalculado ? Number(item.precoCalculado) : null,
+    precoAplicado: !recurso && item.precoAplicado ? Number(item.precoAplicado) : null,
+    origemValorAplicado: !recurso ? item.origemValorAplicado : "CALCULADO_AUTOMATICAMENTE",
+    motivoSobrescrita: !recurso ? item.motivoSobrescrita : "",
     fornecedorPreferencialId: !recurso ? item.fornecedorPreferencialId || null : null,
     exibirNoPdf: !recurso ? item.exibirNoPdf : false,
     observacaoComercial: !recurso ? item.observacaoComercial : "",
@@ -5505,6 +5616,14 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
             precoCompra: toStringValue(orcamentoItem.precoCompra),
             markupPercentual: toStringValue(orcamentoItem.markupPercentual),
             precoVendaSobrescrito: Boolean(orcamentoItem.precoVendaSobrescrito),
+            custoCalculadoOriginal: toStringValue(orcamentoItem.custoCalculadoOriginal),
+            custoBaseSobrescrito: toStringValue(orcamentoItem.custoBaseSobrescrito),
+            custoBaseAplicado: toStringValue(orcamentoItem.custoBaseAplicado),
+            origemCustoAplicado: orcamentoItem.origemCustoAplicado ?? "CALCULADO_AUTOMATICAMENTE",
+            precoCalculado: toStringValue(orcamentoItem.precoCalculado),
+            precoAplicado: toStringValue(orcamentoItem.precoAplicado),
+            origemValorAplicado: orcamentoItem.origemValorAplicado ?? "CALCULADO_AUTOMATICAMENTE",
+            motivoSobrescrita: orcamentoItem.motivoSobrescrita ?? "",
             fornecedorPreferencialId: orcamentoItem.fornecedorPreferencialId ?? "",
             exibirNoPdf: orcamentoItem.exibirNoPdf !== false,
             observacaoComercial: orcamentoItem.observacaoComercial ?? "",

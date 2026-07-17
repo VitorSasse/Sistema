@@ -16,7 +16,19 @@ export function toMoney(value: number) {
 }
 
 export function calcularValorItem(input: OrcamentoItemInput) {
-  return toMoney(Number(input.quantidade) * Number(input.valorUnitario));
+  const quantidade = Math.max(0, Number(input.quantidade) || 0);
+  const precoAplicado = Math.max(
+    0,
+    Number(input.precoAplicado ?? 0) ||
+      (input.modoPrecificacao === "COMPOSICAO" &&
+      !input.precoVendaSobrescrito &&
+      Number(input.precoCompra ?? 0) > 0
+        ? Number(input.precoCompra ?? 0) *
+          (1 + Math.max(0, Number(input.markupPercentual ?? 0)) / 100)
+        : Number(input.valorUnitario ?? 0))
+  );
+
+  return toMoney(quantidade * precoAplicado);
 }
 
 export function calcularCustoItem(input: OrcamentoItemInput) {
@@ -123,7 +135,17 @@ function buildOperationalSnapshot(
       descricao: item.descricao,
       unidade: item.unidade,
       quantidade: item.quantidade,
-      valorUnitario: item.valorUnitario
+      valorUnitario: item.valorUnitario,
+      modoPrecificacao: item.modoPrecificacao,
+      precoCompra: item.precoCompra,
+      markupPercentual: item.markupPercentual,
+      precoVendaSobrescrito: item.precoVendaSobrescrito,
+      custoUnitario: item.custoUnitario,
+      custoCalculadoOriginal: item.custoCalculadoOriginal,
+      custoBaseSobrescrito: item.custoBaseSobrescrito,
+      custoBaseAplicado: item.custoBaseAplicado,
+      precoCalculado: item.precoCalculado,
+      precoAplicado: item.precoAplicado
     })),
     custoDiretoLegado: formacao?.custoDireto,
     custoIndireto: formacao?.custoIndireto,

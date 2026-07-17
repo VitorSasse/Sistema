@@ -18,6 +18,93 @@ function servico(frenteRef: string, quantidade: number, valorUnitario: number) {
 }
 
 describe("Consolidacao economica das frentes", () => {
+  it("trata material com preco direto como venda final sem motor", () => {
+    const result = calcularConsolidacaoEconomica({
+      frentes: [frente("1", 1000)],
+      servicos: [{
+        frenteRef: "1",
+        tipoItem: "MATERIAL",
+        modoPrecificacao: "PRECO_DIRETO",
+        descricao: "BGS",
+        unidade: "m3",
+        quantidade: 540,
+        valorUnitario: 180
+      }],
+      margemPercentual: 50,
+      impostosPercentual: 10
+    });
+
+    expect(result.frentes[0].vendaMateriais).toBe(97200);
+    expect(result.precoSugeridoPendentes).toBe(0);
+    expect(result.valorTotal).toBe(97200);
+  });
+
+  it("trata material por composicao com markup proprio sem enviar ao motor", () => {
+    const result = calcularConsolidacaoEconomica({
+      frentes: [frente("1", 1000)],
+      servicos: [{
+        frenteRef: "1",
+        tipoItem: "MATERIAL",
+        modoPrecificacao: "COMPOSICAO",
+        descricao: "Material composto",
+        unidade: "m3",
+        quantidade: 10,
+        precoCompra: 100,
+        markupPercentual: 25
+      }],
+      margemPercentual: 50
+    });
+
+    expect(result.frentes[0].memoriaVenda[0].precoCalculado).toBe(125);
+    expect(result.frentes[0].vendaMateriais).toBe(1250);
+    expect(result.precoSugeridoPendentes).toBe(0);
+    expect(result.valorTotal).toBe(1250);
+  });
+
+  it("trata servico com preco direto como venda final fora do motor", () => {
+    const result = calcularConsolidacaoEconomica({
+      frentes: [frente("1", 1000)],
+      servicos: [{
+        frenteRef: "1",
+        tipoItem: "SERVICO_PRINCIPAL",
+        modoPrecificacao: "PRECO_DIRETO",
+        descricao: "Escavacao",
+        unidade: "m3",
+        quantidade: 10,
+        valorUnitario: 50
+      }],
+      margemPercentual: 50
+    });
+
+    expect(result.frentes[0].vendaServicosDiretos).toBe(500);
+    expect(result.precoSugeridoPendentes).toBe(0);
+    expect(result.valorTotal).toBe(500);
+  });
+
+  it("usa apenas servico por composicao como base do motor e respeita custo sobrescrito", () => {
+    const result = calcularConsolidacaoEconomica({
+      frentes: [frente("1", 1000)],
+      servicos: [{
+        frenteRef: "1",
+        tipoItem: "SERVICO_PRINCIPAL",
+        modoPrecificacao: "COMPOSICAO",
+        descricao: "Servico composto",
+        unidade: "m3",
+        quantidade: 10,
+        custoBaseSobrescrito: 800
+      }],
+      custoIndireto: 100,
+      margemPercentual: 10,
+      impostosPercentual: 5
+    });
+
+    expect(result.frentes[0].custoCalculadoServicosCompostos).toBe(1000);
+    expect(result.frentes[0].custoBaseUtilizado).toBe(800);
+    expect(result.frentes[0].vendaServicosCompostos).toBe(1039.5);
+    expect(result.valorTotal).toBe(1039.5);
+    expect(result.frentes[0].memoriaVenda[0].origemValorAplicado).toBe("PERSONALIZADO_PELO_USUARIO");
+  });
+
   it("forma o preco por custo quando a frente possui apenas recursos", () => {
     const result = calcularConsolidacaoEconomica({
       frentes: [frente("1", 100)],

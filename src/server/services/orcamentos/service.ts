@@ -483,6 +483,26 @@ function getItensDoCenario(
   });
 }
 
+function getItemFrenteSnapshotRef(item: OrcamentoInput["itens"][number]) {
+  return item.frenteTempId?.trim() || (item.frenteOrdem ? `ordem:${item.frenteOrdem}` : "");
+}
+
+function buildMemoriaComercialKey(params: {
+  frenteRef?: string | null;
+  tipoItem?: string | null;
+  descricao?: string | null;
+  unidade?: string | null;
+  quantidade?: string | number | null;
+}) {
+  return [
+    params.frenteRef?.trim() ?? "",
+    params.tipoItem ?? "",
+    params.descricao?.trim().toLocaleUpperCase("pt-BR") ?? "",
+    params.unidade?.trim().toLocaleUpperCase("pt-BR") ?? "",
+    Number(params.quantidade ?? 0).toFixed(4)
+  ].join("|");
+}
+
 export function buildPropostaTotals(
   input: OrcamentoInput,
   proposta: OrcamentoInput["propostasComerciais"][number],
@@ -531,6 +551,21 @@ export function buildPropostaSnapshot(
       : itensDoCenario.filter((item) => item.exibirNoPdf !== false);
   const opcionais = proposta.opcionais.filter((opcional) => opcional.descricao?.trim());
   const totals = buildPropostaTotals(input, proposta, cenario);
+  const pricing = buildPricingSnapshot(input, { cenario });
+  const memoriaComercial = new Map(
+    (pricing.consolidacao?.frentes ?? []).flatMap((frente) =>
+      frente.memoriaVenda.map((item) => [
+        buildMemoriaComercialKey({
+          frenteRef: frente.ref,
+          tipoItem: item.tipoItem,
+          descricao: item.descricao,
+          unidade: item.unidade,
+          quantidade: item.quantidade
+        }),
+        item
+      ] as const)
+    )
+  );
 
   const snapshot = {
     tipoOrcamento: input.tipo,
@@ -559,27 +594,47 @@ export function buildPropostaSnapshot(
       quantidadePrevista: frente.quantidadePrevista,
       observacao: frente.observacao
     })),
-    itens: itensComerciais.map((item) => ({
-      frenteTempId: item.frenteTempId,
-      frenteOrdem: item.frenteOrdem,
-      tipoItem: item.tipoItem,
-      ordem: item.ordem,
-      codigo: item.codigo,
-      modoPrecificacao: item.modoPrecificacao ?? "PRECO_DIRETO",
-      precoCompra: item.precoCompra,
-      markupPercentual: item.markupPercentual,
-      precoVendaSobrescrito: item.precoVendaSobrescrito,
-      fornecedorPreferencialId: item.fornecedorPreferencialId,
-      exibirNoPdf: item.exibirNoPdf,
-      descricao: item.descricao,
-      natureza: item.tipoItem,
-      unidade: item.unidade,
-      quantidade: item.quantidade,
-      valorUnitario: item.valorUnitario,
-      valorTotal: calcularValorItem(item),
-      observacao: item.observacao,
-      observacaoComercial: item.observacaoComercial
-    })),
+    itens: itensComerciais.map((item) => {
+      const memoria = memoriaComercial.get(
+        buildMemoriaComercialKey({
+          frenteRef: getItemFrenteSnapshotRef(item),
+          tipoItem: item.tipoItem,
+          descricao: item.descricao,
+          unidade: item.unidade,
+          quantidade: item.quantidade
+        })
+      );
+
+      return {
+        frenteTempId: item.frenteTempId,
+        frenteOrdem: item.frenteOrdem,
+        tipoItem: item.tipoItem,
+        ordem: item.ordem,
+        codigo: item.codigo,
+        modoPrecificacao: item.modoPrecificacao ?? "PRECO_DIRETO",
+        precoCompra: item.precoCompra,
+        markupPercentual: item.markupPercentual,
+        precoVendaSobrescrito: item.precoVendaSobrescrito,
+        custoCalculadoOriginal: memoria?.custoCalculadoOriginal ?? item.custoCalculadoOriginal,
+        custoBaseSobrescrito: item.custoBaseSobrescrito,
+        custoBaseAplicado: memoria?.custoBaseAplicado ?? item.custoBaseAplicado,
+        origemCustoAplicado: item.origemCustoAplicado,
+        precoCalculado: memoria?.precoCalculado ?? item.precoCalculado,
+        precoAplicado: memoria?.precoAplicado ?? item.precoAplicado,
+        origemValorAplicado: memoria?.origemValorAplicado ?? item.origemValorAplicado,
+        motivoSobrescrita: item.motivoSobrescrita,
+        fornecedorPreferencialId: item.fornecedorPreferencialId,
+        exibirNoPdf: item.exibirNoPdf,
+        descricao: item.descricao,
+        natureza: item.tipoItem,
+        unidade: item.unidade,
+        quantidade: item.quantidade,
+        valorUnitario: memoria?.valorUnitario ?? item.valorUnitario,
+        valorTotal: memoria?.valorTotal ?? calcularValorItem(item),
+        observacao: item.observacao,
+        observacaoComercial: item.observacaoComercial
+      };
+    }),
     opcionais,
     premissasGerais: input.premissas.filter((premissa) => premissa.descricao?.trim()),
     criadoEm: new Date().toISOString()
@@ -615,6 +670,20 @@ async function criarEstruturaOrcamento(
   const pricing = buildPricingSnapshot(input);
   const memoriaRecursoByRef = new Map(
     (pricing.motorCustos?.memoria ?? []).map((memoria) => [memoria.recursoRef, memoria])
+  );
+  const memoriaComercialByKey = new Map(
+    (pricing.consolidacao?.frentes ?? []).flatMap((frente) =>
+      frente.memoriaVenda.map((item) => [
+        buildMemoriaComercialKey({
+          frenteRef: frente.ref,
+          tipoItem: item.tipoItem,
+          descricao: item.descricao,
+          unidade: item.unidade,
+          quantidade: item.quantidade
+        }),
+        item
+      ] as const)
+    )
   );
 
   // Uma proposta emitida preserva o cenário ao qual foi vinculada. Na edição,
@@ -750,6 +819,15 @@ async function criarEstruturaOrcamento(
     const frenteId = resolveFrenteId(frenteIdByRef, item);
     const itemRef = item.tempId?.trim() || `${item.frenteTempId?.trim() || `ordem:${item.frenteOrdem ?? 0}`}:item:${item.ordem}`;
     const memoriaRecurso = memoriaRecursoByRef.get(itemRef);
+    const memoriaComercial = memoriaComercialByKey.get(
+      buildMemoriaComercialKey({
+        frenteRef: getItemFrenteSnapshotRef(item),
+        tipoItem: item.tipoItem,
+        descricao: item.descricao,
+        unidade: item.unidade,
+        quantidade: item.quantidade
+      })
+    );
     const transportePorKm = item.unidadeEconomicaCusto === "KM";
 
     await db.orcamentoItem.create({
@@ -769,6 +847,14 @@ async function criarEstruturaOrcamento(
         precoCompra: item.precoCompra ?? null,
         markupPercentual: item.markupPercentual ?? null,
         precoVendaSobrescrito: Boolean(item.precoVendaSobrescrito),
+        custoCalculadoOriginal: memoriaComercial?.custoCalculadoOriginal ?? item.custoCalculadoOriginal ?? null,
+        custoBaseSobrescrito: item.custoBaseSobrescrito ?? null,
+        custoBaseAplicado: memoriaComercial?.custoBaseAplicado ?? item.custoBaseAplicado ?? null,
+        origemCustoAplicado: item.origemCustoAplicado ?? "CALCULADO_AUTOMATICAMENTE",
+        precoCalculado: memoriaComercial?.precoCalculado ?? item.precoCalculado ?? null,
+        precoAplicado: memoriaComercial?.precoAplicado ?? item.precoAplicado ?? null,
+        origemValorAplicado: memoriaComercial?.origemValorAplicado ?? item.origemValorAplicado ?? "CALCULADO_AUTOMATICAMENTE",
+        motivoSobrescrita: clean(item.motivoSobrescrita),
         fornecedorPreferencialId: item.fornecedorPreferencialId || null,
         exibirNoPdf: item.exibirNoPdf !== false,
         observacaoComercial: clean(item.observacaoComercial),
@@ -807,8 +893,8 @@ async function criarEstruturaOrcamento(
         diasTrabalhadosMes: item.diasTrabalhadosMes ?? 22,
         custoTotalCalculado: memoriaRecurso?.custoTotal ?? item.custoTotalCalculado ?? 0,
         memoriaCalculo: memoriaRecurso ? JSON.stringify(memoriaRecurso) : clean(item.memoriaCalculo),
-        valorUnitario: item.valorUnitario,
-        valorTotal: calcularValorItem(item),
+        valorUnitario: memoriaComercial?.valorUnitario ?? item.valorUnitario,
+        valorTotal: memoriaComercial?.valorTotal ?? calcularValorItem(item),
         observacao: clean(item.observacao)
       }
     });
@@ -1340,6 +1426,23 @@ export async function duplicarOrcamento(
         classeOperacional: item.classeOperacional,
         recursoReferenciaId: item.recursoReferenciaId,
         recursoNome: item.recursoNome,
+        modoPrecificacao: item.modoPrecificacao,
+        precoCompra: item.precoCompra,
+        markupPercentual: item.markupPercentual,
+        precoVendaSobrescrito: item.precoVendaSobrescrito,
+        custoCalculadoOriginal: item.custoCalculadoOriginal,
+        custoBaseSobrescrito: item.custoBaseSobrescrito,
+        custoBaseAplicado: item.custoBaseAplicado,
+        origemCustoAplicado: item.origemCustoAplicado,
+        precoCalculado: item.precoCalculado,
+        precoAplicado: item.precoAplicado,
+        origemValorAplicado: item.origemValorAplicado,
+        usuarioSobrescritaId: item.usuarioSobrescritaId,
+        dataHoraSobrescrita: item.dataHoraSobrescrita,
+        motivoSobrescrita: item.motivoSobrescrita,
+        fornecedorPreferencialId: item.fornecedorPreferencialId,
+        exibirNoPdf: item.exibirNoPdf,
+        observacaoComercial: item.observacaoComercial,
         ordem: item.ordem,
         codigo: item.codigo,
         descricao: item.descricao,
