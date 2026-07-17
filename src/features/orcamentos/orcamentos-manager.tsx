@@ -2242,15 +2242,40 @@ export function OrcamentosManager() {
     return true;
   }
 
+  async function abrirPdfEmNovaAba(url: string, fallback: string) {
+    const popup = window.open("", "_blank");
+
+    if (!popup) {
+      setError("O navegador bloqueou a abertura do PDF. Permita pop-ups para o BasePro e tente novamente.");
+      setErrorDetails([]);
+      return;
+    }
+
+    popup.document.write("<p style='font-family: sans-serif'>Gerando PDF...</p>");
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      popup.close();
+      applyApiError(data, fallback);
+      return;
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    popup.location.href = objectUrl;
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+  }
+
   function visualizarPreviaProposta(propostaLocalId: string) {
     if (!ensurePropostaPersistida(propostaLocalId)) {
       return;
     }
 
-    window.open(
+    void abrirPdfEmNovaAba(
       `/api/orcamentos/${selectedId}/propostas/${propostaLocalId}/pdf/preview`,
-      "_blank",
-      "noopener,noreferrer"
+      "Nao foi possivel gerar a previa da proposta."
     );
   }
 
@@ -2259,10 +2284,9 @@ export function OrcamentosManager() {
       return;
     }
 
-    window.open(
+    void abrirPdfEmNovaAba(
       `/api/orcamentos/${selectedId}/propostas/${propostaLocalId}/pdf/oficial`,
-      "_blank",
-      "noopener,noreferrer"
+      "Nao foi possivel abrir o PDF oficial da proposta."
     );
   }
 
