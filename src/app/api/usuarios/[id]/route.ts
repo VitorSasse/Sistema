@@ -3,6 +3,7 @@ import { Prisma, RoleCodigo } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateApiPermission } from "@/lib/auth-guards";
+import { accessModules, normalizeModulePermissions, type ModulePermissionMap } from "@/lib/permissions";
 import { usuarioUpdateSchema } from "@/lib/validators/usuario";
 
 type RouteContext = {
@@ -21,6 +22,26 @@ async function ensureAnotherAdmin(targetUserId: string) {
   });
 
   return adminUsers > 0;
+}
+
+function sanitizePermissions(input: unknown, readOnly: boolean): ModulePermissionMap {
+  const normalized = normalizeModulePermissions(input);
+  const result: ModulePermissionMap = {};
+
+  for (const module of accessModules) {
+    const permission = normalized[module.id];
+
+    if (!permission) {
+      continue;
+    }
+
+    result[module.id] = {
+      view: Boolean(permission.view || (!readOnly && permission.manage)),
+      manage: readOnly ? false : Boolean(module.allowManage && permission.manage)
+    };
+  }
+
+  return result;
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
@@ -61,6 +82,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const willRemainAdmin = parsed.data.roles.includes(RoleCodigo.ADMIN);
   const isCurrentlyAdmin = currentRoles.includes(RoleCodigo.ADMIN);
   const isDeactivating = parsed.data.status === "INATIVO";
+  const modoSomenteLeitura = parsed.data.modoSomenteLeitura || parsed.data.roleEmpresa === "VISUALIZADOR";
+  const permissoesAcesso = sanitizePermissions(parsed.data.permissoesAcesso, modoSomenteLeitura);
 
   if (isSelf && isDeactivating) {
     return NextResponse.json({ message: "Voce nao pode inativar a propria conta." }, { status: 400 });
@@ -92,6 +115,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           nome: parsed.data.nome.trim(),
           email,
           status: parsed.data.status,
+          roleEmpresa: parsed.data.roleEmpresa,
+          modoSomenteLeitura,
+          permissoesAcesso,
           ...(parsed.data.senha ? { senhaHash: await bcrypt.hash(parsed.data.senha, 10) } : {})
         }
       });
@@ -133,6 +159,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       nome: usuario.nome,
       email: usuario.email,
       status: usuario.status,
+      roleEmpresa: usuario.roleEmpresa,
+      modoSomenteLeitura: usuario.modoSomenteLeitura,
+      permissoesAcesso: normalizeModulePermissions(usuario.permissoesAcesso),
       ultimoLoginEm: usuario.ultimoLoginEm,
       createdAt: usuario.createdAt,
       roles: usuario.roles.map((role) => role.role.codigo)

@@ -379,10 +379,12 @@ model Usuario {
   senhaHash                     String
   telefone                      String?
   cargo                         String?
-  fotoPerfilUrl                 String?               @db.Text
-  status                        StatusCadastro        @default(ATIVO)
-  roleEmpresa                   RoleUsuarioEmpresa    @default(ADMIN_EMPRESA)
-  ultimoLoginEm                 DateTime?
+    fotoPerfilUrl                 String?               @db.Text
+    status                        StatusCadastro        @default(ATIVO)
+    roleEmpresa                   RoleUsuarioEmpresa    @default(ADMIN_EMPRESA)
+    modoSomenteLeitura            Boolean               @default(false)
+    permissoesAcesso              Json                  @default("{}")
+    ultimoLoginEm                 DateTime?
   createdAt                     DateTime              @default(now())
   updatedAt                     DateTime              @updatedAt
   empresa                       Empresa               @relation(fields: [empresaId], references: [id])
@@ -403,9 +405,10 @@ model Usuario {
   orcamentosResponsavel         Orcamento[]           @relation("OrcamentoResponsavel")
   propostasEmitidas             OrcamentoPropostaComercial[] @relation("PropostaEmitidaPor")
 
-  @@index([empresaId])
-  @@index([roleEmpresa])
-}
+    @@index([empresaId])
+    @@index([roleEmpresa])
+    @@index([modoSomenteLeitura])
+  }
 
 model Role {
   id        String        @id @default(uuid())

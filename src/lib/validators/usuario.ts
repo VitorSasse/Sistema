@@ -1,9 +1,27 @@
-import { RoleCodigo, StatusCadastro } from "@prisma/client";
+import { RoleCodigo, RoleUsuarioEmpresa, StatusCadastro } from "@prisma/client";
 import { z } from "zod";
+import { accessModules } from "@/lib/permissions";
 
 const rolesSchema = z
   .array(z.nativeEnum(RoleCodigo))
   .min(1, "Selecione ao menos um perfil de acesso.");
+
+const modulePermissionSchema = z.object({
+  view: z.boolean().default(false),
+  manage: z.boolean().default(false)
+});
+
+const permissoesAcessoSchema = z
+  .record(z.enum(accessModules.map((module) => module.id) as [string, ...string[]]), modulePermissionSchema)
+  .default({});
+
+const roleEmpresaSchema = z.enum([
+  RoleUsuarioEmpresa.ADMIN_EMPRESA,
+  RoleUsuarioEmpresa.GERENTE,
+  RoleUsuarioEmpresa.OPERADOR,
+  RoleUsuarioEmpresa.FINANCEIRO,
+  RoleUsuarioEmpresa.VISUALIZADOR
+]);
 
 export const usuarioCreateSchema = z.object({
   nome: z.string().trim().min(3, "Informe o nome do usuario."),
@@ -15,7 +33,10 @@ export const usuarioCreateSchema = z.object({
     .regex(/[a-z]/, "A senha deve conter ao menos uma letra minuscula.")
     .regex(/[0-9]/, "A senha deve conter ao menos um numero."),
   status: z.nativeEnum(StatusCadastro).default(StatusCadastro.ATIVO),
-  roles: rolesSchema
+  roleEmpresa: roleEmpresaSchema.default(RoleUsuarioEmpresa.OPERADOR),
+  roles: rolesSchema,
+  modoSomenteLeitura: z.boolean().default(false),
+  permissoesAcesso: permissoesAcessoSchema
 });
 
 export const usuarioUpdateSchema = z.object({
@@ -36,5 +57,8 @@ export const usuarioUpdateSchema = z.object({
       "A nova senha deve ter 8 caracteres, incluindo maiuscula, minuscula e numero."
     ),
   status: z.nativeEnum(StatusCadastro),
-  roles: rolesSchema
+  roleEmpresa: roleEmpresaSchema,
+  roles: rolesSchema,
+  modoSomenteLeitura: z.boolean().default(false),
+  permissoesAcesso: permissoesAcessoSchema
 });

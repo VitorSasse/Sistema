@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { accessModules, buildReadOnlyPermissions, mergeModulePermissions, normalizeModulePermissions, type AccessModule, type ModulePermissionMap } from "@/lib/permissions";
 
 type RoleCodigo = "ADMIN" | "GESTOR" | "OPERACIONAL" | "FINANCEIRO" | "CONSULTA";
+type RoleEmpresa = "ADMIN_EMPRESA" | "GERENTE" | "OPERADOR" | "FINANCEIRO" | "VISUALIZADOR";
 type StatusCadastro = "ATIVO" | "INATIVO";
 
 type UsuarioItem = {
@@ -10,6 +12,9 @@ type UsuarioItem = {
   nome: string;
   email: string;
   status: StatusCadastro;
+  roleEmpresa: RoleEmpresa;
+  modoSomenteLeitura: boolean;
+  permissoesAcesso: ModulePermissionMap;
   ultimoLoginEm: string | null;
   createdAt: string;
   roles: RoleCodigo[];
@@ -21,7 +26,10 @@ type FormState = {
   email: string;
   senha: string;
   status: StatusCadastro;
+  roleEmpresa: RoleEmpresa;
   roles: RoleCodigo[];
+  modoSomenteLeitura: boolean;
+  permissoesAcesso: ModulePermissionMap;
 };
 
 const roleOptions: { value: RoleCodigo; label: string }[] = [
@@ -32,13 +40,29 @@ const roleOptions: { value: RoleCodigo; label: string }[] = [
   { value: "CONSULTA", label: "Consulta" }
 ];
 
+const roleEmpresaOptions: { value: RoleEmpresa; label: string }[] = [
+  { value: "ADMIN_EMPRESA", label: "Administrador da empresa" },
+  { value: "GERENTE", label: "Gerente" },
+  { value: "OPERADOR", label: "Operador" },
+  { value: "FINANCEIRO", label: "Financeiro" },
+  { value: "VISUALIZADOR", label: "Visualizador" }
+];
+
 const initialForm: FormState = {
   nome: "",
   email: "",
   senha: "",
   status: "ATIVO",
-  roles: ["OPERACIONAL"]
+  roleEmpresa: "OPERADOR",
+  roles: ["OPERACIONAL"],
+  modoSomenteLeitura: false,
+  permissoesAcesso: mergeModulePermissions(["OPERACIONAL"])
 };
+
+const permissionGroups = accessModules.reduce<Record<string, typeof accessModules>>((groups, module) => {
+  groups[module.group] = [...(groups[module.group] ?? []), module];
+  return groups;
+}, {});
 
 function formatDateTime(value: string | null) {
   if (!value) {
@@ -83,7 +107,7 @@ export function UsuariosManager() {
     }
 
     return usuarios.filter((usuario) =>
-      [usuario.nome, usuario.email, usuario.roles.join(" "), usuario.status]
+      [usuario.nome, usuario.email, usuario.roleEmpresa, usuario.roles.join(" "), usuario.status]
         .join(" ")
         .toLowerCase()
         .includes(normalized)
@@ -92,6 +116,25 @@ export function UsuariosManager() {
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateReadOnly(value: boolean) {
+    setForm((current) => ({
+      ...current,
+      modoSomenteLeitura: value,
+      roleEmpresa: value ? "VISUALIZADOR" : current.roleEmpresa,
+      roles: value ? ["CONSULTA"] : current.roles,
+      permissoesAcesso: value
+        ? normalizeModulePermissions(
+            Object.fromEntries(
+              Object.entries(current.permissoesAcesso).map(([module, permission]) => [
+                module,
+                { view: permission?.view === true, manage: false }
+              ])
+            )
+          )
+        : current.permissoesAcesso
+    }));
   }
 
   function toggleRole(role: RoleCodigo) {
@@ -103,9 +146,81 @@ export function UsuariosManager() {
 
       return {
         ...current,
-        roles: nextRoles.length > 0 ? nextRoles : current.roles
+        roles: nextRoles.length > 0 ? nextRoles : current.roles,
+        permissoesAcesso: current.modoSomenteLeitura
+          ? current.permissoesAcesso
+          : mergeModulePermissions(nextRoles.length > 0 ? nextRoles : current.roles)
       };
     });
+  }
+
+  function toggleModulePermission(module: AccessModule, action: "view" | "manage") {
+    setForm((current) => {
+      const currentPermission = current.permissoesAcesso[module] ?? { view: false, manage: false };
+      const nextValue = !currentPermission[action];
+      const nextPermission = {
+        ...currentPermission,
+        [action]: nextValue
+      };
+
+      if (action === "manage" && nextValue) {
+        nextPermission.view = true;
+      }
+
+      if (action === "view" && !nextValue) {
+        nextPermission.manage = false;
+      }
+
+      if (current.modoSomenteLeitura) {
+        nextPermission.manage = false;
+      }
+
+      return {
+        ...current,
+        permissoesAcesso: {
+          ...current.permissoesAcesso,
+          [module]: nextPermission
+        }
+      };
+    });
+  }
+
+  function markAllViews() {
+    setForm((current) => ({
+      ...current,
+      permissoesAcesso: Object.fromEntries(
+        accessModules
+          .filter((module) => module.id !== "master")
+          .map((module) => [module.id, { view: true, manage: current.modoSomenteLeitura ? false : Boolean(current.permissoesAcesso[module.id]?.manage) }])
+      ) as ModulePermissionMap
+    }));
+  }
+
+  function clearAllPermissions() {
+    setForm((current) => ({
+      ...current,
+      permissoesAcesso: {}
+    }));
+  }
+
+  function applyReadOnlyProfile() {
+    setForm((current) => ({
+      ...current,
+      roleEmpresa: "VISUALIZADOR",
+      roles: ["CONSULTA"],
+      modoSomenteLeitura: true,
+      permissoesAcesso: buildReadOnlyPermissions(accessModules.filter((module) => module.id !== "master").map((module) => module.id))
+    }));
+  }
+
+  function applyRoleProfile(roles: RoleCodigo[], roleEmpresa: RoleEmpresa) {
+    setForm((current) => ({
+      ...current,
+      roleEmpresa,
+      roles,
+      modoSomenteLeitura: false,
+      permissoesAcesso: mergeModulePermissions(roles)
+    }));
   }
 
   function handleEdit(usuario: UsuarioItem) {
@@ -115,7 +230,10 @@ export function UsuariosManager() {
       email: usuario.email,
       senha: "",
       status: usuario.status,
-      roles: usuario.roles
+      roleEmpresa: usuario.roleEmpresa,
+      roles: usuario.roles,
+      modoSomenteLeitura: usuario.modoSomenteLeitura,
+      permissoesAcesso: normalizeModulePermissions(usuario.permissoesAcesso)
     });
     setSelectedUserId(usuario.id);
     setMessage(`Editando acesso de ${usuario.nome}.`);
@@ -143,7 +261,10 @@ export function UsuariosManager() {
           email: form.email,
           senha: form.senha,
           status: form.status,
-          roles: form.roles
+          roleEmpresa: form.roleEmpresa,
+          roles: form.roles,
+          modoSomenteLeitura: form.modoSomenteLeitura,
+          permissoesAcesso: form.permissoesAcesso
         })
       });
 
@@ -221,6 +342,27 @@ export function UsuariosManager() {
                 <option value="INATIVO">INATIVO</option>
               </select>
             </label>
+
+            <label className="field">
+              <span className="field-label">Funcao na empresa</span>
+              <select
+                className="field-control"
+                value={form.roleEmpresa}
+                onChange={(e) => {
+                  const value = e.target.value as RoleEmpresa;
+                  updateField("roleEmpresa", value);
+                  if (value === "VISUALIZADOR") {
+                    updateReadOnly(true);
+                  }
+                }}
+              >
+                {roleEmpresaOptions.map((role) => (
+                  <option key={role.value} value={role.value}>
+                    {role.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           <div className="field">
@@ -249,6 +391,104 @@ export function UsuariosManager() {
               })}
             </div>
           </div>
+
+          <section className="surface-subtle" style={{ display: "grid", gap: 16, padding: 16, borderRadius: 18 }}>
+            <div className="section-header" style={{ alignItems: "flex-start" }}>
+              <div>
+                <h3 className="section-title" style={{ fontSize: 18 }}>Permissoes de acesso</h3>
+                <p className="section-copy">
+                  Defina as telas liberadas. Visualizar permite consulta; gerenciar permite criar, editar, excluir e alterar status.
+                </p>
+              </div>
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 12px",
+                  borderRadius: 14,
+                  border: "1px solid var(--line-strong)",
+                  background: form.modoSomenteLeitura ? "rgba(34, 197, 94, 0.12)" : "var(--surface-strong)"
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={form.modoSomenteLeitura}
+                  onChange={(event) => updateReadOnly(event.target.checked)}
+                />
+                <span>Modo somente leitura</span>
+              </label>
+            </div>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              <button type="button" className="button-secondary button-compact" onClick={markAllViews}>
+                Marcar todas as visualizacoes
+              </button>
+              <button type="button" className="button-secondary button-compact" onClick={clearAllPermissions}>
+                Desmarcar todas
+              </button>
+              <button type="button" className="button-secondary button-compact" onClick={applyReadOnlyProfile}>
+                Aplicar perfil somente leitura
+              </button>
+              <button type="button" className="button-secondary button-compact" onClick={() => applyRoleProfile(["OPERACIONAL"], "OPERADOR")}>
+                Aplicar perfil operacional
+              </button>
+              <button type="button" className="button-secondary button-compact" onClick={() => applyRoleProfile(["FINANCEIRO"], "FINANCEIRO")}>
+                Aplicar perfil financeiro
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gap: 16 }}>
+              {Object.entries(permissionGroups).map(([group, modules]) => (
+                <div key={group} style={{ display: "grid", gap: 10 }}>
+                  <strong style={{ color: "var(--text)" }}>{group}</strong>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {modules.map((module) => {
+                      const permission = form.permissoesAcesso[module.id] ?? { view: false, manage: false };
+                      const isMasterModule = module.id === "master";
+                      const manageDisabled = form.modoSomenteLeitura || !module.allowManage || isMasterModule;
+
+                      return (
+                        <div
+                          key={module.id}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "minmax(180px, 1fr) 120px 120px",
+                            gap: 12,
+                            alignItems: "center",
+                            padding: "10px 12px",
+                            borderRadius: 14,
+                            border: "1px solid var(--line-strong)",
+                            background: "var(--surface)"
+                          }}
+                        >
+                          <span>{module.label}</span>
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                            <input
+                              type="checkbox"
+                              checked={permission.view === true}
+                              onChange={() => toggleModulePermission(module.id, "view")}
+                              disabled={isMasterModule}
+                            />
+                            Visualizar
+                          </label>
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, opacity: manageDisabled ? 0.55 : 1 }}>
+                            <input
+                              type="checkbox"
+                              checked={permission.manage === true}
+                              onChange={() => toggleModulePermission(module.id, "manage")}
+                              disabled={manageDisabled}
+                            />
+                            Gerenciar
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
 
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <button type="submit" disabled={isPending} className="button-primary">
@@ -289,7 +529,9 @@ export function UsuariosManager() {
               <tr>
                 <th>Nome</th>
                 <th>E-mail</th>
+                <th>Funcao</th>
                 <th>Perfis</th>
+                <th>Modo</th>
                 <th>Status</th>
                 <th>Ultimo login</th>
                 <th>Acoes</th>
@@ -300,7 +542,13 @@ export function UsuariosManager() {
                 <tr key={usuario.id} style={selectedUserId === usuario.id ? { background: "rgba(249, 115, 22, 0.08)" } : undefined}>
                   <td>{usuario.nome}</td>
                   <td>{usuario.email}</td>
+                  <td>{usuario.roleEmpresa}</td>
                   <td>{usuario.roles.join(", ")}</td>
+                  <td>
+                    <span className={usuario.modoSomenteLeitura ? "badge badge-success" : "badge"}>
+                      {usuario.modoSomenteLeitura ? "Somente leitura" : "Gerenciamento"}
+                    </span>
+                  </td>
                   <td>
                     <span className={usuario.status === "ATIVO" ? "badge badge-success" : "badge badge-danger"}>
                       {usuario.status}
@@ -316,7 +564,7 @@ export function UsuariosManager() {
               ))}
               {filteredUsuarios.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: "center", color: "var(--muted)" }}>
+                  <td colSpan={8} style={{ textAlign: "center", color: "var(--muted)" }}>
                     Nenhum usuario encontrado com os filtros atuais.
                   </td>
                 </tr>

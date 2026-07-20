@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { MASTER_EMPRESA_COOKIE } from "@/lib/master-empresa-cookie";
+import { normalizeModulePermissions, type ModulePermissionMap } from "@/lib/permissions";
 import { prisma, withUnscopedPrisma } from "@/lib/prisma";
 import {
   beginTenantContext,
@@ -25,6 +26,8 @@ declare module "next-auth" {
       isMaster: boolean;
       empresaSelecionadaId: string | null;
       roles: RoleCodigo[];
+      modoSomenteLeitura: boolean;
+      permissoesAcesso: ModulePermissionMap;
     };
   }
 }
@@ -103,7 +106,9 @@ const nextAuth = NextAuth({
             empresaId: user.empresaId,
             roleEmpresa: user.roleEmpresa,
             isMaster,
-            roles: user.roles.map((item) => item.role.codigo)
+            roles: user.roles.map((item) => item.role.codigo),
+            modoSomenteLeitura: user.modoSomenteLeitura,
+            permissoesAcesso: normalizeModulePermissions(user.permissoesAcesso)
           };
         } catch (error) {
           console.error("[auth] erro no authorize", error);
@@ -120,12 +125,16 @@ const nextAuth = NextAuth({
           roleEmpresa?: RoleUsuarioEmpresa;
           isMaster?: boolean;
           roles?: RoleCodigo[];
+          modoSomenteLeitura?: boolean;
+          permissoesAcesso?: ModulePermissionMap;
         };
 
         (token as { empresaId?: string }).empresaId = usuarioAutenticado.empresaId;
         (token as { roleEmpresa?: RoleUsuarioEmpresa }).roleEmpresa = usuarioAutenticado.roleEmpresa;
         (token as { isMaster?: boolean }).isMaster = usuarioAutenticado.isMaster ?? false;
         (token as { roles?: RoleCodigo[] }).roles = usuarioAutenticado.roles ?? [];
+        (token as { modoSomenteLeitura?: boolean }).modoSomenteLeitura = usuarioAutenticado.modoSomenteLeitura ?? false;
+        (token as { permissoesAcesso?: ModulePermissionMap }).permissoesAcesso = usuarioAutenticado.permissoesAcesso ?? {};
       }
 
       return token;
@@ -139,6 +148,8 @@ const nextAuth = NextAuth({
         session.user.isMaster = (token as { isMaster?: boolean }).isMaster ?? false;
         session.user.empresaSelecionadaId = null;
         session.user.roles = (token as { roles?: RoleCodigo[] }).roles ?? [];
+        session.user.modoSomenteLeitura = (token as { modoSomenteLeitura?: boolean }).modoSomenteLeitura ?? false;
+        session.user.permissoesAcesso = (token as { permissoesAcesso?: ModulePermissionMap }).permissoesAcesso ?? {};
       }
 
       return session;
@@ -183,6 +194,8 @@ export async function auth() {
         empresaId: true,
         roleEmpresa: true,
         status: true,
+        modoSomenteLeitura: true,
+        permissoesAcesso: true,
         empresa: {
           select: {
             status: true,
@@ -232,6 +245,8 @@ export async function auth() {
   session.user.isMaster = isMaster;
   session.user.empresaSelecionadaId = empresaSelecionadaId;
   session.user.roles = usuario.roles.map((item) => item.role.codigo);
+  session.user.modoSomenteLeitura = usuario.modoSomenteLeitura;
+  session.user.permissoesAcesso = normalizeModulePermissions(usuario.permissoesAcesso);
 
   resolveTenantContext(tenantContext, {
     usuarioId: usuario.id,
