@@ -27,7 +27,7 @@ function normalizeFileSegment(value: string, maxLength = 42) {
   const normalized = value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/[^a-zA-Z0-9-]+/g, "_")
     .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "")
     .toUpperCase();
@@ -36,22 +36,22 @@ function normalizeFileSegment(value: string, maxLength = 42) {
 }
 
 export function buildOrcamentoPropostaFileName({
-  codigo,
+  codigoOrcamento,
+  codigoProposta,
   revisao,
-  clienteNome,
-  obraNome
+  clienteNome
 }: {
-  codigo: string;
+  codigoOrcamento: string;
+  codigoProposta: string;
   revisao: number;
   clienteNome?: string | null;
-  obraNome?: string | null;
 }) {
-  const codigoSegment = normalizeFileSegment(codigo, 24);
+  const orcamentoSegment = normalizeFileSegment(codigoOrcamento, 24);
+  const propostaSegment = normalizeFileSegment(codigoProposta, 24);
   const revisaoSegment = String(Math.max(0, Math.trunc(revisao))).padStart(2, "0");
   const clienteSegment = normalizeFileSegment(clienteNome ?? "CLIENTE", 36);
-  const obraSegment = normalizeFileSegment(obraNome ?? "OBRA", 36);
 
-  return `PROPOSTA_COMERCIAL_${codigoSegment}_REV-${revisaoSegment}_${clienteSegment}_${obraSegment}.pdf`;
+  return `${orcamentoSegment}_${propostaSegment}_REV-${revisaoSegment}_${clienteSegment}.pdf`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -334,10 +334,10 @@ export async function renderOrcamentoPropostaPdf({
     ? asNumber(snapshotOperacional.revisao, propostaOperacional?.revisao ?? 0)
     : propostaOperacional?.revisao ?? 0;
   const fileName = buildOrcamentoPropostaFileName({
-    codigo: codigoDocumento,
+    codigoOrcamento: orcamento.codigo,
+    codigoProposta: codigoDocumento,
     revisao: revisaoDocumento,
-    clienteNome: orcamento.cliente?.nome ?? orcamento.titulo,
-    obraNome: orcamento.obra?.nome
+    clienteNome: orcamento.cliente?.nome ?? orcamento.titulo
   });
   const documento = OrcamentoPdfDocument({
     codigo: codigoDocumento,

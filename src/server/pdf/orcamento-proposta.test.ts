@@ -82,12 +82,12 @@ describe("conteudo comercial do PDF de orcamentos", () => {
   it("gera nome padronizado para download da proposta", () => {
     expect(
       buildOrcamentoPropostaFileName({
-        codigo: "PROP-002",
+        codigoOrcamento: "ORC-002",
+        codigoProposta: "PROP-002",
         revisao: 1,
-        clienteNome: "L. Flex Industria e Comercio LTDA",
-        obraNome: "Aterro Lot Business Park"
+        clienteNome: "L. Flex Industria e Comercio LTDA"
       })
-    ).toBe("PROPOSTA_COMERCIAL_PROP_002_REV-01_L_FLEX_INDUSTRIA_E_COMERCIO_LTDA_ATERRO_LOT_BUSINESS_PARK.pdf");
+    ).toBe("ORC-002_PROP-002_REV-01_L_FLEX_INDUSTRIA_E_COMERCIO_LTDA.pdf");
   });
 
   it("renderiza proposta operacional global com frentes em m3 e mes", async () => {
