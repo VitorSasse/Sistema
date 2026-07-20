@@ -35,6 +35,25 @@ function normalizeFileSegment(value: string, maxLength = 42) {
   return normalized.slice(0, maxLength) || "ORCAMENTO";
 }
 
+export function buildOrcamentoPropostaFileName({
+  codigo,
+  revisao,
+  clienteNome,
+  obraNome
+}: {
+  codigo: string;
+  revisao: number;
+  clienteNome?: string | null;
+  obraNome?: string | null;
+}) {
+  const codigoSegment = normalizeFileSegment(codigo, 24);
+  const revisaoSegment = String(Math.max(0, Math.trunc(revisao))).padStart(2, "0");
+  const clienteSegment = normalizeFileSegment(clienteNome ?? "CLIENTE", 36);
+  const obraSegment = normalizeFileSegment(obraNome ?? "OBRA", 36);
+
+  return `PROPOSTA_COMERCIAL_${codigoSegment}_REV-${revisaoSegment}_${clienteSegment}_${obraSegment}.pdf`;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -310,14 +329,19 @@ export async function renderOrcamentoPropostaPdf({
     throw new Error("PROPOSTA_SEM_ESCOPO_COMERCIAL");
   }
 
-  const fileName = `${propostaOperacional?.codigo ?? orcamento.codigo}_${normalizeFileSegment(
-    orcamento.cliente?.nome ?? orcamento.titulo ?? "PROPOSTA"
-  )}.pdf`;
+  const codigoDocumento = propostaOperacional?.codigo ?? orcamento.codigo;
+  const revisaoDocumento = snapshotOperacional
+    ? asNumber(snapshotOperacional.revisao, propostaOperacional?.revisao ?? 0)
+    : propostaOperacional?.revisao ?? 0;
+  const fileName = buildOrcamentoPropostaFileName({
+    codigo: codigoDocumento,
+    revisao: revisaoDocumento,
+    clienteNome: orcamento.cliente?.nome ?? orcamento.titulo,
+    obraNome: orcamento.obra?.nome
+  });
   const documento = OrcamentoPdfDocument({
-    codigo: propostaOperacional?.codigo ?? orcamento.codigo,
-    revisao: snapshotOperacional
-      ? asNumber(snapshotOperacional.revisao, propostaOperacional?.revisao ?? 0)
-      : propostaOperacional?.revisao ?? 0,
+    codigo: codigoDocumento,
+    revisao: revisaoDocumento,
     dataEmissao: dataDocumento ?? propostaOperacional?.emitidaEm ?? new Date(),
     modoDocumento: modo,
     modoExibicaoValoresPdf,

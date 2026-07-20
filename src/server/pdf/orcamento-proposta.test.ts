@@ -8,6 +8,7 @@ import {
   resolverValorGlobalProposta,
   selecionarItensComerciais
 } from "@/server/pdf/orcamento-proposta";
+import { buildOrcamentoPropostaFileName } from "@/server/pdf/orcamento-proposta-renderer";
 
 function collectPdfText(node: ReactNode): string[] {
   if (node === null || node === undefined || typeof node === "boolean") {
@@ -76,6 +77,17 @@ describe("conteudo comercial do PDF de orcamentos", () => {
         orcamentoValorTotal: 253647.65
       })
     ).toBe(166603.69);
+  });
+
+  it("gera nome padronizado para download da proposta", () => {
+    expect(
+      buildOrcamentoPropostaFileName({
+        codigo: "PROP-002",
+        revisao: 1,
+        clienteNome: "L. Flex Industria e Comercio LTDA",
+        obraNome: "Aterro Lot Business Park"
+      })
+    ).toBe("PROPOSTA_COMERCIAL_PROP_002_REV-01_L_FLEX_INDUSTRIA_E_COMERCIO_LTDA_ATERRO_LOT_BUSINESS_PARK.pdf");
   });
 
   it("renderiza proposta operacional global com frentes em m3 e mes", async () => {
