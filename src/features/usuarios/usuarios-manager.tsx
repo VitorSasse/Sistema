@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { accessModules, buildReadOnlyPermissions, mergeModulePermissions, normalizeModulePermissions, type AccessModule, type ModulePermissionMap } from "@/lib/permissions";
+import { accessModules, mergeModulePermissions, normalizeModulePermissions, type AccessModule, type ModulePermissionMap } from "@/lib/permissions";
 
 type RoleCodigo = "ADMIN" | "GESTOR" | "OPERACIONAL" | "FINANCEIRO" | "CONSULTA";
 type RoleEmpresa = "ADMIN_EMPRESA" | "GERENTE" | "OPERADOR" | "FINANCEIRO" | "VISUALIZADOR";
@@ -59,6 +59,14 @@ const initialForm: FormState = {
   permissoesAcesso: mergeModulePermissions(["OPERACIONAL"])
 };
 
+const roleEmpresaByRole: Record<RoleCodigo, RoleEmpresa> = {
+  ADMIN: "ADMIN_EMPRESA",
+  GESTOR: "GERENTE",
+  OPERACIONAL: "OPERADOR",
+  FINANCEIRO: "FINANCEIRO",
+  CONSULTA: "VISUALIZADOR"
+};
+
 const permissionGroups = accessModules.reduce<Record<string, typeof accessModules>>((groups, module) => {
   groups[module.group] = [...(groups[module.group] ?? []), module];
   return groups;
@@ -81,6 +89,9 @@ export function UsuariosManager() {
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [openPermissionGroups, setOpenPermissionGroups] = useState<Record<string, boolean>>({
+    Dashboard: true
+  });
   const [isPending, startTransition] = useTransition();
 
   async function loadUsuarios() {
@@ -118,40 +129,14 @@ export function UsuariosManager() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function updateReadOnly(value: boolean) {
+  function applyBaseProfile(role: RoleCodigo) {
     setForm((current) => ({
       ...current,
-      modoSomenteLeitura: value,
-      roleEmpresa: value ? "VISUALIZADOR" : current.roleEmpresa,
-      roles: value ? ["CONSULTA"] : current.roles,
-      permissoesAcesso: value
-        ? normalizeModulePermissions(
-            Object.fromEntries(
-              Object.entries(current.permissoesAcesso).map(([module, permission]) => [
-                module,
-                { view: permission?.view === true, manage: false }
-              ])
-            )
-          )
-        : current.permissoesAcesso
+      roleEmpresa: roleEmpresaByRole[role],
+      roles: [role],
+      modoSomenteLeitura: role === "CONSULTA",
+      permissoesAcesso: mergeModulePermissions([role])
     }));
-  }
-
-  function toggleRole(role: RoleCodigo) {
-    setForm((current) => {
-      const hasRole = current.roles.includes(role);
-      const nextRoles = hasRole
-        ? current.roles.filter((item) => item !== role)
-        : [...current.roles, role];
-
-      return {
-        ...current,
-        roles: nextRoles.length > 0 ? nextRoles : current.roles,
-        permissoesAcesso: current.modoSomenteLeitura
-          ? current.permissoesAcesso
-          : mergeModulePermissions(nextRoles.length > 0 ? nextRoles : current.roles)
-      };
-    });
   }
 
   function toggleModulePermission(module: AccessModule, action: "view" | "manage") {
@@ -171,7 +156,7 @@ export function UsuariosManager() {
         nextPermission.manage = false;
       }
 
-      if (current.modoSomenteLeitura) {
+      if (current.roles[0] === "CONSULTA") {
         nextPermission.manage = false;
       }
 
@@ -191,7 +176,7 @@ export function UsuariosManager() {
       permissoesAcesso: Object.fromEntries(
         accessModules
           .filter((module) => module.id !== "master")
-          .map((module) => [module.id, { view: true, manage: current.modoSomenteLeitura ? false : Boolean(current.permissoesAcesso[module.id]?.manage) }])
+          .map((module) => [module.id, { view: true, manage: current.roles[0] === "CONSULTA" ? false : Boolean(current.permissoesAcesso[module.id]?.manage) }])
       ) as ModulePermissionMap
     }));
   }
@@ -203,23 +188,17 @@ export function UsuariosManager() {
     }));
   }
 
-  function applyReadOnlyProfile() {
+  function restoreBaseProfile() {
     setForm((current) => ({
       ...current,
-      roleEmpresa: "VISUALIZADOR",
-      roles: ["CONSULTA"],
-      modoSomenteLeitura: true,
-      permissoesAcesso: buildReadOnlyPermissions(accessModules.filter((module) => module.id !== "master").map((module) => module.id))
+      permissoesAcesso: mergeModulePermissions(current.roles)
     }));
   }
 
-  function applyRoleProfile(roles: RoleCodigo[], roleEmpresa: RoleEmpresa) {
-    setForm((current) => ({
+  function togglePermissionGroup(group: string) {
+    setOpenPermissionGroups((current) => ({
       ...current,
-      roleEmpresa,
-      roles,
-      modoSomenteLeitura: false,
-      permissoesAcesso: mergeModulePermissions(roles)
+      [group]: !current[group]
     }));
   }
 
@@ -263,7 +242,7 @@ export function UsuariosManager() {
           status: form.status,
           roleEmpresa: form.roleEmpresa,
           roles: form.roles,
-          modoSomenteLeitura: form.modoSomenteLeitura,
+          modoSomenteLeitura: form.roles[0] === "CONSULTA",
           permissoesAcesso: form.permissoesAcesso
         })
       });
@@ -352,7 +331,7 @@ export function UsuariosManager() {
                   const value = e.target.value as RoleEmpresa;
                   updateField("roleEmpresa", value);
                   if (value === "VISUALIZADOR") {
-                    updateReadOnly(true);
+                    applyBaseProfile("CONSULTA");
                   }
                 }}
               >
@@ -365,59 +344,26 @@ export function UsuariosManager() {
             </label>
           </div>
 
-          <div className="field">
-            <span className="field-label">Perfis de acesso</span>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-              {roleOptions.map((role) => {
-                const checked = form.roles.includes(role.value);
-                return (
-                  <label
-                    key={role.value}
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "10px 14px",
-                      borderRadius: 14,
-                      border: checked ? "1px solid rgba(249, 115, 22, 0.35)" : "1px solid var(--line-strong)",
-                      background: checked ? "rgba(249, 115, 22, 0.14)" : "var(--surface-strong)",
-                      color: "var(--text)"
-                    }}
-                  >
-                    <input type="checkbox" checked={checked} onChange={() => toggleRole(role.value)} />
-                    <span>{role.label}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
           <section className="surface-subtle" style={{ display: "grid", gap: 16, padding: 16, borderRadius: 18 }}>
-            <div className="section-header" style={{ alignItems: "flex-start" }}>
-              <div>
-                <h3 className="section-title" style={{ fontSize: 18 }}>Permissoes de acesso</h3>
-                <p className="section-copy">
-                  Defina as telas liberadas. Visualizar permite consulta; gerenciar permite criar, editar, excluir e alterar status.
-                </p>
-              </div>
-              <label
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "10px 12px",
-                  borderRadius: 14,
-                  border: "1px solid var(--line-strong)",
-                  background: form.modoSomenteLeitura ? "rgba(34, 197, 94, 0.12)" : "var(--surface-strong)"
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={form.modoSomenteLeitura}
-                  onChange={(event) => updateReadOnly(event.target.checked)}
-                />
-                <span>Modo somente leitura</span>
+            <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(220px, 320px) 1fr" }}>
+              <label className="field">
+                <span className="field-label">Perfil base</span>
+                <select
+                  className="field-control"
+                  value={form.roles[0] ?? "CONSULTA"}
+                  onChange={(event) => applyBaseProfile(event.target.value as RoleCodigo)}
+                >
+                  {roleOptions.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
               </label>
+
+              <div className="message-inline" style={{ margin: 0, alignSelf: "end" }}>
+                As permissoes abaixo sobrescrevem o perfil base. Perfil Consulta permite apenas visualizacao.
+              </div>
             </div>
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -425,68 +371,85 @@ export function UsuariosManager() {
                 Marcar todas as visualizacoes
               </button>
               <button type="button" className="button-secondary button-compact" onClick={clearAllPermissions}>
-                Desmarcar todas
+                Limpar permissoes
               </button>
-              <button type="button" className="button-secondary button-compact" onClick={applyReadOnlyProfile}>
-                Aplicar perfil somente leitura
-              </button>
-              <button type="button" className="button-secondary button-compact" onClick={() => applyRoleProfile(["OPERACIONAL"], "OPERADOR")}>
-                Aplicar perfil operacional
-              </button>
-              <button type="button" className="button-secondary button-compact" onClick={() => applyRoleProfile(["FINANCEIRO"], "FINANCEIRO")}>
-                Aplicar perfil financeiro
+              <button type="button" className="button-secondary button-compact" onClick={restoreBaseProfile}>
+                Restaurar padrao do perfil
               </button>
             </div>
 
-            <div style={{ display: "grid", gap: 16 }}>
-              {Object.entries(permissionGroups).map(([group, modules]) => (
-                <div key={group} style={{ display: "grid", gap: 10 }}>
-                  <strong style={{ color: "var(--text)" }}>{group}</strong>
-                  <div style={{ display: "grid", gap: 8 }}>
-                    {modules.map((module) => {
-                      const permission = form.permissoesAcesso[module.id] ?? { view: false, manage: false };
-                      const isMasterModule = module.id === "master";
-                      const manageDisabled = form.modoSomenteLeitura || !module.allowManage || isMasterModule;
+            <div style={{ display: "grid", gap: 10 }}>
+              {Object.entries(permissionGroups).map(([group, modules]) => {
+                const isOpen = openPermissionGroups[group] ?? false;
 
-                      return (
-                        <div
-                          key={module.id}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "minmax(180px, 1fr) 120px 120px",
-                            gap: 12,
-                            alignItems: "center",
-                            padding: "10px 12px",
-                            borderRadius: 14,
-                            border: "1px solid var(--line-strong)",
-                            background: "var(--surface)"
-                          }}
-                        >
-                          <span>{module.label}</span>
-                          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                            <input
-                              type="checkbox"
-                              checked={permission.view === true}
-                              onChange={() => toggleModulePermission(module.id, "view")}
-                              disabled={isMasterModule}
-                            />
-                            Visualizar
-                          </label>
-                          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, opacity: manageDisabled ? 0.55 : 1 }}>
-                            <input
-                              type="checkbox"
-                              checked={permission.manage === true}
-                              onChange={() => toggleModulePermission(module.id, "manage")}
-                              disabled={manageDisabled}
-                            />
-                            Gerenciar
-                          </label>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+                return (
+                  <section
+                    key={group}
+                    style={{
+                      border: "1px solid var(--line-strong)",
+                      borderRadius: 16,
+                      overflow: "hidden",
+                      background: "var(--surface)"
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={() => togglePermissionGroup(group)}
+                      style={{ width: "100%", justifyContent: "space-between", borderRadius: 0 }}
+                    >
+                      <span>{group}</span>
+                      <span>{isOpen ? "Recolher" : "Expandir"}</span>
+                    </button>
+
+                    {isOpen ? (
+                      <div style={{ display: "grid", gap: 8, padding: 12 }}>
+                        {modules.map((module) => {
+                          const permission = form.permissoesAcesso[module.id] ?? { view: false, manage: false };
+                          const isMasterModule = module.id === "master";
+                          const manageDisabled = form.roles[0] === "CONSULTA" || !module.allowManage || isMasterModule;
+
+                          return (
+                            <div
+                              key={module.id}
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "minmax(180px, 1fr) 120px 120px",
+                                gap: 12,
+                                alignItems: "center",
+                                padding: "10px 12px",
+                                borderRadius: 14,
+                                border: "1px solid var(--line-soft)",
+                                background: "var(--surface-strong)"
+                              }}
+                            >
+                              <span>{module.label}</span>
+                              <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={permission.view === true}
+                                  onChange={() => toggleModulePermission(module.id, "view")}
+                                  disabled={isMasterModule}
+                                />
+                                Visualizar
+                              </label>
+                              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, opacity: manageDisabled ? 0.55 : 1 }}>
+                                <input
+                                  type="checkbox"
+                                  checked={permission.manage === true}
+                                  onChange={() => toggleModulePermission(module.id, "manage")}
+                                  disabled={manageDisabled}
+                                />
+                                Gerenciar
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </section>
+                );
+              })}
             </div>
           </section>
 
