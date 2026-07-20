@@ -2334,10 +2334,8 @@ export function OrcamentosManager() {
       return;
     }
 
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    popup.location.href = objectUrl;
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+    // Abrir a URL real preserva o Content-Disposition da API; blob: faz o Chrome baixar com UUID.
+    popup.location.href = url;
   }
 
   function visualizarPreviaProposta(propostaLocalId: string) {
