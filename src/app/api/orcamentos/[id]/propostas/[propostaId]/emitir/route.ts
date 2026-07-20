@@ -1,6 +1,4 @@
-import { createHash, randomUUID } from "crypto";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
+import { createHash } from "crypto";
 import { StatusPropostaComercial } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { validateApiPermission } from "@/lib/auth-guards";
@@ -60,23 +58,31 @@ export async function POST(_: Request, context: RouteContext) {
     );
   }
 
+  let buffer: Buffer;
+  let fileName: string;
   const emitidaEm = new Date();
-  const { buffer, fileName } = await renderOrcamentoPropostaPdf({
-    db: prisma,
-    orcamentoId: id,
-    empresaId,
-    propostaId,
-    modo: "OFICIAL",
-    dataDocumento: emitidaEm
-  });
-  const hash = createHash("sha256").update(buffer).digest("hex");
-  const safeName = `${Date.now()}-${randomUUID()}-${sanitizeFileName(fileName)}`;
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "orcamentos", "propostas", proposta.codigo);
-  const filePath = path.join(uploadDir, safeName);
-  const publicUrl = `/uploads/orcamentos/propostas/${proposta.codigo}/${safeName}`;
 
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(filePath, buffer);
+  try {
+    const rendered = await renderOrcamentoPropostaPdf({
+      db: prisma,
+      orcamentoId: id,
+      empresaId,
+      propostaId,
+      modo: "OFICIAL",
+      dataDocumento: emitidaEm
+    });
+
+    buffer = rendered.buffer;
+    fileName = rendered.fileName;
+  } catch (error) {
+    return NextResponse.json(
+      { message: "Nao foi possivel gerar o PDF oficial da proposta.", detail: String(error) },
+      { status: 500 }
+    );
+  }
+
+  const hash = createHash("sha256").update(buffer).digest("hex");
+  const publicUrl = `/api/orcamentos/${id}/propostas/${propostaId}/pdf/oficial`;
 
   const updated = await prisma.orcamentoPropostaComercial.updateMany({
     where: {
@@ -90,7 +96,7 @@ export async function POST(_: Request, context: RouteContext) {
       emitidaEm,
       emitidaPorId: permission.session.user.id,
       pdfOficialUrl: publicUrl,
-      pdfOficialNome: fileName,
+      pdfOficialNome: sanitizeFileName(fileName),
       pdfOficialHash: hash,
       pdfOficialMime: "application/pdf",
       pdfOficialTamanhoBytes: buffer.length

@@ -54,7 +54,7 @@ export async function GET(_: Request, context: RouteContext) {
     return NextResponse.json({ message: "Esta proposta ainda nao possui PDF oficial." }, { status: 409 });
   }
 
-  if (proposta.pdfOficialUrl) {
+  if (proposta.pdfOficialUrl?.startsWith("/uploads/")) {
     try {
       const file = await readFile(publicFilePathFromUrl(proposta.pdfOficialUrl));
       const fileName = proposta.pdfOficialNome ?? `${proposta.codigo}.pdf`;
