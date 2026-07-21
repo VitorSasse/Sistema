@@ -184,7 +184,9 @@ export function UsuariosManager() {
   function clearAllPermissions() {
     setForm((current) => ({
       ...current,
-      permissoesAcesso: {}
+      permissoesAcesso: Object.fromEntries(
+        accessModules.map((module) => [module.id, { view: false, manage: false }])
+      ) as ModulePermissionMap
     }));
   }
 

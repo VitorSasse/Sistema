@@ -246,6 +246,14 @@ export function mergeModulePermissions(roles: RoleCodigo[] | string[] = []): Mod
   return result;
 }
 
+function hasExplicitModulePermissions(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+
+  return accessModules.some((module) => Object.prototype.hasOwnProperty.call(value, module.id));
+}
+
 export function buildReadOnlyPermissions(modules: AccessModule[] = accessModules.map((module) => module.id)): ModulePermissionMap {
   return Object.fromEntries(modules.map((module) => [module, { view: true, manage: false }])) as ModulePermissionMap;
 }
@@ -261,9 +269,10 @@ export function canAccessModule(subject: PermissionSubject, module: AccessModule
     : roleEmpresa && roleEmpresaBaseRole[roleEmpresa]
       ? [roleEmpresaBaseRole[roleEmpresa] as RoleCodigo]
       : [];
-  const roleDefaults = mergeModulePermissions(roles);
+  const hasCustomPermissions = hasExplicitModulePermissions(subject.permissoesAcesso);
+  const roleDefaults = hasCustomPermissions ? {} : mergeModulePermissions(roles);
   const custom = normalizeModulePermissions(subject.permissoesAcesso);
-  const permission = custom[module] ?? roleDefaults[module];
+  const permission = hasCustomPermissions ? custom[module] : roleDefaults[module];
 
   if (action === "view") {
     return Boolean(permission?.view || permission?.manage);
