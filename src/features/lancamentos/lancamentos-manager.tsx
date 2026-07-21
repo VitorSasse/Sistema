@@ -26,7 +26,11 @@ function SectionField({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-export function LancamentosManager() {
+type LancamentosManagerProps = {
+  canManage?: boolean;
+};
+
+export function LancamentosManager({ canManage = true }: LancamentosManagerProps) {
   const quantidadeFaturadaRef = useRef<HTMLInputElement>(null);
   const [romaneioDraft, setRomaneioDraft] = useState("");
   const {
@@ -196,7 +200,14 @@ export function LancamentosManager() {
           </div>
         ) : null}
 
+        {!canManage ? (
+          <p className="message-inline" style={{ marginTop: 20 }}>
+            Seu perfil permite consultar lancamentos, mas nao criar, editar ou excluir registros.
+          </p>
+        ) : null}
+
         <form onSubmit={handleSubmit} style={{ display: "grid", gap: 24, marginTop: 20 }}>
+          <fieldset disabled={!canManage} style={{ border: 0, padding: 0, margin: 0, display: "grid", gap: 24 }}>
           <div className="form-grid-4">
             <SectionField label="Data">
               <input
@@ -543,6 +554,7 @@ export function LancamentosManager() {
           </div>
 
           {message ? <p className="message-inline">{message}</p> : null}
+          </fieldset>
         </form>
       </section>
 
@@ -615,20 +627,26 @@ export function LancamentosManager() {
                   </td>
                   <td>
                     <div className="toolbar-actions">
-                      <button
-                        type="button"
-                        onClick={() => startEdit(item)}
-                        className="button-secondary"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(item.id)}
-                        className="button-danger"
-                      >
-                        Excluir
-                      </button>
+                      {canManage ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => startEdit(item)}
+                            className="button-secondary"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(item.id)}
+                            className="button-danger"
+                          >
+                            Excluir
+                          </button>
+                        </>
+                      ) : (
+                        <span className="subtle">Somente consulta</span>
+                      )}
                     </div>
                   </td>
                 </tr>

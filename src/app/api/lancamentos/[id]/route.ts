@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { StatusCadastro, StatusLancamento, TipoAlteracao } from "@prisma/client";
-import { auth } from "@/lib/auth";
+import { validateApiPermission } from "@/lib/auth-guards";
 import { prisma } from "@/lib/prisma";
 import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
@@ -100,11 +100,13 @@ function validateRomaneiosPorCarga(data: {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const session = await auth();
+  const access = await validateApiPermission("lancamentos.update");
 
-  if (!session?.user) {
-    return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
+  if (!access.ok) {
+    return access.response;
   }
+
+  const session = access.session;
 
   const { id } = await context.params;
   const payload = (await request.json()) as Record<string, unknown>;
@@ -553,11 +555,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
-  const session = await auth();
+  const access = await validateApiPermission("lancamentos.update");
 
-  if (!session?.user) {
-    return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
+  if (!access.ok) {
+    return access.response;
   }
+
+  const session = access.session;
 
   const { id } = await context.params;
   const mode = request.nextUrl.searchParams.get("mode");

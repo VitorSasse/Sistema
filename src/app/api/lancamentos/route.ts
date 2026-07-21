@@ -1,6 +1,7 @@
 import { StatusCadastro, StatusLancamento } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { validateApiPermission } from "@/lib/auth-guards";
 import { prisma } from "@/lib/prisma";
 import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
@@ -201,11 +202,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
+  const access = await validateApiPermission("lancamentos.create");
 
-  if (!session?.user) {
-    return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
+  if (!access.ok) {
+    return access.response;
   }
+
+  const session = access.session;
 
   const payload = (await request.json()) as Record<string, unknown>;
   const romaneiosPayload = parseRomaneiosInput(payload.romaneios);
