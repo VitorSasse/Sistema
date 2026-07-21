@@ -531,6 +531,22 @@ const statusOptions: { value: StatusOrcamento; label: string }[] = [
   { value: "ARQUIVADO", label: "Arquivado" }
 ];
 
+const statusTransitions: Record<StatusOrcamento, StatusOrcamento[]> = {
+  RASCUNHO: ["EM_ELABORACAO", "ARQUIVADO"],
+  EM_ELABORACAO: ["RASCUNHO", "PROPOSTA_EMITIDA", "EM_REVISAO", "ARQUIVADO"],
+  EM_REVISAO: ["EM_ELABORACAO", "PRONTO_PARA_PROPOSTA", "ARQUIVADO"],
+  PRONTO_PARA_PROPOSTA: ["EM_REVISAO", "PROPOSTA_EMITIDA", "ARQUIVADO"],
+  PROPOSTA_EMITIDA: ["EM_NEGOCIACAO", "APROVADO", "REPROVADO", "ARQUIVADO"],
+  EM_NEGOCIACAO: ["EM_REVISAO", "APROVADO", "REPROVADO", "ARQUIVADO"],
+  APROVADO: ["ARQUIVADO"],
+  REPROVADO: ["EM_REVISAO", "ARQUIVADO"],
+  ARQUIVADO: []
+};
+
+function isStatusTransitionAllowed(current: StatusOrcamento, next: StatusOrcamento) {
+  return current === next || statusTransitions[current].includes(next);
+}
+
 const tipoOptions: { value: TipoOrcamento; label: string }[] = [
   { value: "COMERCIAL", label: "Comercial" },
   { value: "OPERACIONAL", label: "Operacional" }
@@ -1388,6 +1404,7 @@ export function OrcamentosManager() {
   const [options, setOptions] = useState<OptionsState>(emptyOptions);
   const [form, setForm] = useState<OrcamentoForm>(() => createEmptyForm());
   const [selectedId, setSelectedId] = useState<string>("");
+  const [persistedStatus, setPersistedStatus] = useState<StatusOrcamento | null>(null);
   const [filters, setFilters] = useState({
     search: "",
     tipo: "TODOS",
@@ -2158,6 +2175,7 @@ export function OrcamentosManager() {
 
   function novoOrcamento() {
     setSelectedId("");
+    setPersistedStatus(null);
     setForm(createEmptyForm());
     setMessage("");
     clearError();
@@ -2176,6 +2194,7 @@ export function OrcamentosManager() {
       return;
     }
 
+    setPersistedStatus(data.status);
     setForm(mapApiToForm(data));
   }
 
@@ -2188,6 +2207,7 @@ export function OrcamentosManager() {
       return;
     }
 
+    setPersistedStatus(data.status);
     setForm(mapApiToForm(data));
   }
 
@@ -2242,6 +2262,7 @@ export function OrcamentosManager() {
     }
 
     setSelectedId(data.id);
+    setPersistedStatus(data.status);
     setForm(mapApiToForm(data));
     setMessage(selectedId ? "Orcamento atualizado." : "Orcamento criado.");
     await loadOrcamentos();
@@ -2263,6 +2284,7 @@ export function OrcamentosManager() {
     }
 
     setSelectedId(data.id);
+    setPersistedStatus(data.status);
     setForm(mapApiToForm(data));
     setMessage("Orcamento duplicado como rascunho.");
     await loadOrcamentos();
@@ -2292,6 +2314,7 @@ export function OrcamentosManager() {
       return;
     }
 
+    setPersistedStatus(data.status);
     setForm(mapApiToForm(data));
     setMessage("Orcamento evoluido para operacional.");
     await loadOrcamentos();
@@ -2640,7 +2663,15 @@ export function OrcamentosManager() {
                   onChange={(event) => updateForm("status", event.target.value as StatusOrcamento)}
                 >
                   {statusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      disabled={
+                        selectedId
+                          ? !isStatusTransitionAllowed(persistedStatus ?? form.status, option.value)
+                          : false
+                      }
+                    >
                       {option.label}
                     </option>
                   ))}

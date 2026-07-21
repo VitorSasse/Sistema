@@ -804,6 +804,18 @@ describe("persistencia na edicao de orcamentos", () => {
     });
   }
 
+  function inputComStatus(status: StatusOrcamento) {
+    return baseInput({
+      tipo: TipoOrcamento.COMERCIAL,
+      status,
+      titulo: `Orcamento ${status}`,
+      cenarios: [],
+      frentes: [],
+      itens: [],
+      propostasComerciais: []
+    });
+  }
+
   it("edita outro campo sem alterar o codigo", async () => {
     const { db, records } = createFakeDb();
     const criado = await criarOrcamento(db as never, {
@@ -956,6 +968,59 @@ describe("persistencia na edicao de orcamentos", () => {
     expect(records.formacoes).toHaveLength(1);
     expect(records.formacoes[0].orcamentoId).toBe(criado!.id);
     expect(records.formacoes[0].custoDireto).toBe(2000);
+  });
+
+  it("permite avancar de em elaboracao para proposta emitida", async () => {
+    const { db, records } = createFakeDb();
+    const criado = await criarOrcamento(db as never, {
+      input: inputComStatus(StatusOrcamento.EM_ELABORACAO),
+      userId: "usuario-1",
+      codigo: "ORC-020"
+    });
+
+    await atualizarOrcamento(db as never, {
+      id: criado!.id,
+      input: inputComStatus(StatusOrcamento.PROPOSTA_EMITIDA),
+      userId: "usuario-1"
+    });
+
+    expect(records.orcamentos[0].status).toBe(StatusOrcamento.PROPOSTA_EMITIDA);
+  });
+
+  it("permite avancar de proposta emitida para aprovado", async () => {
+    const { db, records } = createFakeDb();
+    const criado = await criarOrcamento(db as never, {
+      input: inputComStatus(StatusOrcamento.PROPOSTA_EMITIDA),
+      userId: "usuario-1",
+      codigo: "ORC-021"
+    });
+
+    await atualizarOrcamento(db as never, {
+      id: criado!.id,
+      input: inputComStatus(StatusOrcamento.APROVADO),
+      userId: "usuario-1"
+    });
+
+    expect(records.orcamentos[0].status).toBe(StatusOrcamento.APROVADO);
+  });
+
+  it("bloqueia aprovacao direta de em elaboracao para aprovado", async () => {
+    const { db, records } = createFakeDb();
+    const criado = await criarOrcamento(db as never, {
+      input: inputComStatus(StatusOrcamento.EM_ELABORACAO),
+      userId: "usuario-1",
+      codigo: "ORC-022"
+    });
+
+    await expect(
+      atualizarOrcamento(db as never, {
+        id: criado!.id,
+        input: inputComStatus(StatusOrcamento.APROVADO),
+        userId: "usuario-1"
+      })
+    ).rejects.toThrow("TRANSICAO_STATUS_APROVACAO_EXIGE_EMISSAO");
+
+    expect(records.orcamentos[0].status).toBe(StatusOrcamento.EM_ELABORACAO);
   });
 
   it("reutiliza o cenario preservado por proposta emitida ao editar o orcamento", async () => {
