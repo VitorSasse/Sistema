@@ -54,10 +54,6 @@ const errorMap: Record<string, { message: string; status: number }> = {
   TRANSICAO_STATUS_INVALIDA: {
     message: "Transicao de status invalida para o fluxo do orcamento.",
     status: 409
-  },
-  TRANSICAO_STATUS_APROVACAO_EXIGE_EMISSAO: {
-    message: "Para aprovar este orcamento, altere primeiro o status para Emitida.",
-    status: 409
   }
 };
 

@@ -227,10 +227,6 @@ function validarTransicaoStatus(atual: StatusOrcamento, proximo: StatusOrcamento
     return;
   }
 
-  if (atual === StatusOrcamento.EM_ELABORACAO && proximo === StatusOrcamento.APROVADO) {
-    throw new Error("TRANSICAO_STATUS_APROVACAO_EXIGE_EMISSAO");
-  }
-
   if (!statusTransitions[atual].includes(proximo)) {
     throw new Error("TRANSICAO_STATUS_INVALIDA");
   }

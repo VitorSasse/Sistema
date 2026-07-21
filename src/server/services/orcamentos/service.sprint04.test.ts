@@ -1004,7 +1004,7 @@ describe("persistencia na edicao de orcamentos", () => {
     expect(records.orcamentos[0].status).toBe(StatusOrcamento.APROVADO);
   });
 
-  it("bloqueia aprovacao direta de em elaboracao para aprovado", async () => {
+  it("mantem bloqueada a aprovacao direta de em elaboracao para aprovado pela regra geral", async () => {
     const { db, records } = createFakeDb();
     const criado = await criarOrcamento(db as never, {
       input: inputComStatus(StatusOrcamento.EM_ELABORACAO),
@@ -1018,9 +1018,41 @@ describe("persistencia na edicao de orcamentos", () => {
         input: inputComStatus(StatusOrcamento.APROVADO),
         userId: "usuario-1"
       })
-    ).rejects.toThrow("TRANSICAO_STATUS_APROVACAO_EXIGE_EMISSAO");
+    ).rejects.toThrow("TRANSICAO_STATUS_INVALIDA");
 
     expect(records.orcamentos[0].status).toBe(StatusOrcamento.EM_ELABORACAO);
+  });
+
+  it("preserva transicoes anteriores de revisao, negociacao, reprovacao e arquivamento", async () => {
+    const transitions: Array<[StatusOrcamento, StatusOrcamento]> = [
+      [StatusOrcamento.EM_ELABORACAO, StatusOrcamento.EM_REVISAO],
+      [StatusOrcamento.EM_REVISAO, StatusOrcamento.PRONTO_PARA_PROPOSTA],
+      [StatusOrcamento.PRONTO_PARA_PROPOSTA, StatusOrcamento.PROPOSTA_EMITIDA],
+      [StatusOrcamento.PROPOSTA_EMITIDA, StatusOrcamento.EM_NEGOCIACAO],
+      [StatusOrcamento.PROPOSTA_EMITIDA, StatusOrcamento.REPROVADO],
+      [StatusOrcamento.EM_NEGOCIACAO, StatusOrcamento.APROVADO],
+      [StatusOrcamento.REPROVADO, StatusOrcamento.EM_REVISAO],
+      [StatusOrcamento.APROVADO, StatusOrcamento.ARQUIVADO]
+    ];
+
+    for (const [from, to] of transitions) {
+      const { db, records } = createFakeDb();
+      const criado = await criarOrcamento(db as never, {
+        input: inputComStatus(from),
+        userId: "usuario-1",
+        codigo: `ORC-${from}-${to}`.slice(0, 32)
+      });
+
+      await expect(
+        atualizarOrcamento(db as never, {
+          id: criado!.id,
+          input: inputComStatus(to),
+          userId: "usuario-1"
+        })
+      ).resolves.toBeTruthy();
+
+      expect(records.orcamentos[0].status).toBe(to);
+    }
   });
 
   it("reutiliza o cenario preservado por proposta emitida ao editar o orcamento", async () => {
