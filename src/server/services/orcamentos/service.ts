@@ -603,6 +603,17 @@ export function buildPropostaSnapshot(
       observacao: frente.observacao
     })),
     itens: itensComerciais.map((item) => {
+      const origemItemComercial =
+        item.origemItemComercial ??
+        (item.equipamentoId
+          ? OrigemItemComercialOrcamento.RESOURCE
+          : item.servicoId
+            ? OrigemItemComercialOrcamento.SERVICE
+            : OrigemItemComercialOrcamento.MANUAL);
+      const nomeManual =
+        origemItemComercial === OrigemItemComercialOrcamento.MANUAL
+          ? item.descricaoManualComercial?.trim() || item.descricao
+          : null;
       const memoria = memoriaComercial.get(
         buildMemoriaComercialKey({
           frenteRef: getItemFrenteSnapshotRef(item),
@@ -617,16 +628,12 @@ export function buildPropostaSnapshot(
         frenteTempId: item.frenteTempId,
         frenteOrdem: item.frenteOrdem,
         tipoItem: item.tipoItem,
-        origemItemComercial:
-          item.origemItemComercial ??
-          (item.equipamentoId
-            ? OrigemItemComercialOrcamento.RESOURCE
-            : item.servicoId
-              ? OrigemItemComercialOrcamento.SERVICE
-              : OrigemItemComercialOrcamento.MANUAL),
+        origemItemComercial,
         servicoId: item.servicoId,
         equipamentoId: item.equipamentoId,
         descricaoManualComercial: item.descricaoManualComercial,
+        descricaoComercial:
+          origemItemComercial === OrigemItemComercialOrcamento.MANUAL ? item.descricao : null,
         caracteristicasRecursoSnapshot: item.caracteristicasRecursoSnapshot,
         ordem: item.ordem,
         codigo: item.codigo,
@@ -644,7 +651,7 @@ export function buildPropostaSnapshot(
         motivoSobrescrita: item.motivoSobrescrita,
         fornecedorPreferencialId: item.fornecedorPreferencialId,
         exibirNoPdf: item.exibirNoPdf,
-        descricao: item.descricao,
+        descricao: nomeManual ?? item.descricao,
         natureza: item.tipoItem,
         unidade: item.unidade,
         quantidade: item.quantidade,

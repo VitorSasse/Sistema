@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { LockKeyhole, Pencil, Truck } from "lucide-react";
-import { SearchableSelect, type SearchableSelectOption } from "@/components/form/searchable-select";
+import { SearchableSelect } from "@/components/form/searchable-select";
 import {
   calcularMotorCustos,
   type CostEngineMemoriaRecurso
@@ -171,10 +171,6 @@ type EquipamentoResourceOption = BasicSelectOption & {
   descricaoOperacional: string | null;
   caracteristicasTecnicas: Record<string, unknown> | null;
   legado?: boolean;
-};
-type CommercialSearchOption = SearchableSelectOption & {
-  origem: OrigemItemComercialOrcamento;
-  sourceId: string;
 };
 type NamedSelectOption = { value: string; label: string; nome: string };
 type RecursoSelectOption = BasicSelectOption & {
@@ -1067,45 +1063,6 @@ function createResourceSnapshotFromOption(equipamento: EquipamentoResourceOption
   });
 }
 
-function buildCommercialSearchOptions(
-  servicoOptions: ServicoSelectOption[],
-  equipamentoOptions: EquipamentoResourceOption[]
-): CommercialSearchOption[] {
-  const veiculos = equipamentoOptions.filter(
-    (equipamento) => getEquipamentoOrigemComercialLabel(equipamento) === "Veiculo"
-  );
-  const equipamentos = equipamentoOptions.filter(
-    (equipamento) => getEquipamentoOrigemComercialLabel(equipamento) !== "Veiculo"
-  );
-
-  return [
-    {
-      value: "MANUAL:manual",
-      label: "ACAO | + Informar item manual",
-      origem: "MANUAL",
-      sourceId: "manual"
-    },
-    ...equipamentos.map((equipamento) => ({
-      value: `RESOURCE:${equipamento.value}`,
-      label: `EQUIPAMENTOS | ${equipamento.label}`,
-      origem: "RESOURCE" as const,
-      sourceId: equipamento.value
-    })),
-    ...veiculos.map((equipamento) => ({
-      value: `RESOURCE:${equipamento.value}`,
-      label: `VEICULOS | ${equipamento.label}`,
-      origem: "RESOURCE" as const,
-      sourceId: equipamento.value
-    })),
-    ...servicoOptions.map((servico) => ({
-      value: `SERVICE:${servico.value}`,
-      label: `SERVICOS | ${servico.label}`,
-      origem: "SERVICE" as const,
-      sourceId: servico.value
-    }))
-  ];
-}
-
 function isCostDebugEnabled() {
   if (typeof window === "undefined") {
     return false;
@@ -1356,7 +1313,10 @@ function buildOperationalConsolidation(
     servicos: itens.map((item) => ({
       frenteRef: item.frenteTempId,
       tipoItem: item.tipoItem,
-      descricao: item.descricao,
+      descricao:
+        item.origemItemComercial === "MANUAL"
+          ? item.descricaoManualComercial || item.descricao
+          : item.descricao,
       unidade: item.unidade,
       quantidade: item.quantidade,
       valorUnitario: item.valorUnitario,
@@ -4545,77 +4505,60 @@ function CommercialFrontItemFields(props: {
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
   onSelectEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
 }) {
-  const commercialItemOptions = useMemo<CommercialSearchOption[]>(
-    () => buildCommercialSearchOptions(props.servicoOptions, props.equipamentoOptions),
-    [props.equipamentoOptions, props.servicoOptions]
-  );
-
-  const selectedCommercialValue =
-    props.item.origemItemComercial === "SERVICE" && props.item.servicoId
-      ? `SERVICE:${props.item.servicoId}`
-      : props.item.origemItemComercial === "RESOURCE" && props.item.equipamentoId
-        ? `RESOURCE:${props.item.equipamentoId}`
-        : props.item.origemItemComercial === "MANUAL"
-          ? "MANUAL:manual"
-          : "";
-
   const selectedCommercialEquipment =
     props.item.origemItemComercial === "RESOURCE"
       ? props.equipamentoOptions.find((option) => option.value === props.item.equipamentoId)
       : null;
 
-  const origemLabel =
-    props.item.origemItemComercial === "SERVICE"
-      ? "Servico"
-      : props.item.origemItemComercial === "RESOURCE"
-        ? getEquipamentoOrigemComercialLabel(selectedCommercialEquipment)
-        : "Manual";
-
-  function handleCommercialItemChange(value: string) {
-    if (!value) {
-      props.onUpdate(props.item.localId, "origemItemComercial", "MANUAL");
-      props.onUpdate(props.item.localId, "descricaoManualComercial", props.item.descricao);
-      return;
-    }
-
-    const [origem, sourceId] = value.split(":") as [OrigemItemComercialOrcamento, string];
-
+  function handleOrigemChange(origem: OrigemItemComercialOrcamento) {
     if (origem === "MANUAL") {
       props.onUpdate(props.item.localId, "origemItemComercial", "MANUAL");
       props.onUpdate(props.item.localId, "servicoId", "");
       props.onUpdate(props.item.localId, "equipamentoId", "");
-      props.onUpdate(props.item.localId, "descricaoManualComercial", props.item.descricao);
+      props.onUpdate(
+        props.item.localId,
+        "descricaoManualComercial",
+        props.item.descricaoManualComercial || props.item.descricao
+      );
       return;
     }
 
     if (origem === "SERVICE") {
       props.onUpdate(props.item.localId, "origemItemComercial", "SERVICE");
-      props.onUpdate(props.item.localId, "servicoId", sourceId);
       props.onUpdate(props.item.localId, "equipamentoId", "");
       props.onUpdate(props.item.localId, "descricaoManualComercial", "");
-      const selected = props.servicoOptions.find((option) => option.value === sourceId);
-
-      if (!selected) {
-        return;
-      }
-
-      props.onUpdate(props.item.localId, "descricao", selected.label.replace(/^[^-]+ - /, ""));
-
-      if (selected.unidadeFaturamento) {
-        props.onUpdate(props.item.localId, "unidade", selected.unidadeFaturamento);
-      }
       return;
     }
 
-    if (origem === "RESOURCE") {
-      const selected = props.equipamentoOptions.find((option) => option.value === sourceId);
+    props.onUpdate(props.item.localId, "origemItemComercial", "RESOURCE");
+    props.onUpdate(props.item.localId, "servicoId", "");
+    props.onUpdate(props.item.localId, "descricaoManualComercial", "");
+  }
 
-      if (!selected) {
-        return;
-      }
+  function handleServicoChange(value: string) {
+    props.onUpdate(props.item.localId, "servicoId", value);
+    const selected = props.servicoOptions.find((option) => option.value === value);
 
-      props.onSelectEquipment(props.item.localId, selected);
+    if (!selected) {
+      return;
     }
+
+    props.onUpdate(props.item.localId, "descricao", selected.label.replace(/^[^-]+ - /, ""));
+
+    if (selected.unidadeFaturamento) {
+      props.onUpdate(props.item.localId, "unidade", selected.unidadeFaturamento);
+    }
+  }
+
+  function handleEquipmentChange(value: string) {
+    const selected = props.equipamentoOptions.find((option) => option.value === value);
+
+    if (!selected) {
+      props.onUpdate(props.item.localId, "equipamentoId", "");
+      return;
+    }
+
+    props.onSelectEquipment(props.item.localId, selected);
   }
 
   function handleMaterialChange(value: string) {
@@ -4647,20 +4590,86 @@ function CommercialFrontItemFields(props: {
           <small className="manager-field-hint">Material comercializado nesta frente.</small>
         </label>
       ) : (
-        <label className="manager-field">
-          <span className="manager-field-label">Item comercial</span>
-          <SearchableSelect
-            value={selectedCommercialValue}
-            options={commercialItemOptions}
-            placeholder="Buscar servico, equipamento ou veiculo"
-            emptyLabel="Nenhum servico, equipamento ou veiculo encontrado."
-            onChange={handleCommercialItemChange}
-          />
-          <small className="manager-field-hint">
-            Selecione um item cadastrado ou informe um item manual. Origem: {origemLabel}.
-          </small>
-        </label>
+        <>
+          <label className="manager-field">
+            <span className="manager-field-label">Origem do item</span>
+            <select
+              className="field-control"
+              value={props.item.origemItemComercial}
+              onChange={(event) =>
+                handleOrigemChange(event.target.value as OrigemItemComercialOrcamento)
+              }
+            >
+              <option value="SERVICE">Servico</option>
+              <option value="RESOURCE">Equipamento</option>
+              <option value="MANUAL">Manual</option>
+            </select>
+            <small className="manager-field-hint">
+              Define se o item sera vinculado a um cadastro existente ou informado livremente.
+            </small>
+          </label>
+
+          {props.item.origemItemComercial === "SERVICE" ? (
+            <label className="manager-field">
+              <span className="manager-field-label">Item comercial</span>
+              <SearchableSelect
+                value={props.item.servicoId}
+                options={props.servicoOptions}
+                placeholder="Buscar servico"
+                emptyLabel="Nenhum servico encontrado."
+                onChange={handleServicoChange}
+              />
+              <small className="manager-field-hint">Servico cadastrado para compor esta frente.</small>
+            </label>
+          ) : null}
+
+          {props.item.origemItemComercial === "RESOURCE" ? (
+            <label className="manager-field">
+              <span className="manager-field-label">Item comercial</span>
+              <SearchableSelect
+                value={props.item.equipamentoId}
+                options={props.equipamentoOptions}
+                placeholder="Buscar equipamento ou veiculo"
+                emptyLabel="Nenhum equipamento ou veiculo encontrado."
+                onChange={handleEquipmentChange}
+              />
+              <small className="manager-field-hint">
+                {selectedCommercialEquipment
+                  ? `Origem: ${getEquipamentoOrigemComercialLabel(selectedCommercialEquipment)}.`
+                  : "Equipamento ou veiculo do Cadastro Mestre."}
+              </small>
+            </label>
+          ) : null}
+        </>
       )}
+      {props.item.origemItemComercial === "MANUAL" && !isMaterialItem(props.item) ? (
+        <>
+          <label className="manager-field orcamentos-span-2">
+            <span className="manager-field-label">Nome do item comercial *</span>
+            <input
+              className="field-control"
+              value={props.item.descricaoManualComercial}
+              placeholder="Ex: Terra para aterro a granel"
+              onChange={(event) =>
+                props.onUpdate(props.item.localId, "descricaoManualComercial", event.target.value)
+              }
+            />
+            <small className="manager-field-hint">Nome que sera apresentado na proposta.</small>
+          </label>
+          <label className="manager-field">
+            <span className="manager-field-label">Codigo de referencia</span>
+            <input
+              className="field-control"
+              value={props.item.codigo}
+              placeholder="Ex: 10000161"
+              onChange={(event) => props.onUpdate(props.item.localId, "codigo", event.target.value)}
+            />
+            <small className="manager-field-hint">
+              Codigo do cliente, contrato, planilha ou referencia externa.
+            </small>
+          </label>
+        </>
+      ) : null}
       <label className="manager-field">
         <span className="manager-field-label">Precificacao</span>
         <select
@@ -4680,15 +4689,24 @@ function CommercialFrontItemFields(props: {
       </label>
       <label className="manager-field orcamentos-span-2">
         <span className="manager-field-label">
-          {props.item.origemItemComercial === "MANUAL" ? "Nome do item" : "Descricao"}
+          {props.item.origemItemComercial === "MANUAL" ? "Descricao comercial" : "Descricao"}
         </span>
-        <input
+        <textarea
           className="field-control"
+          rows={props.item.origemItemComercial === "MANUAL" ? 2 : undefined}
           value={props.item.descricao}
+          placeholder={
+            props.item.origemItemComercial === "MANUAL"
+              ? "Detalhamento complementar do item para apresentacao na proposta."
+              : undefined
+          }
           onChange={(event) =>
             props.onUpdate(props.item.localId, "descricao", event.target.value)
           }
         />
+        {props.item.origemItemComercial === "MANUAL" ? (
+          <small className="manager-field-hint">Detalhamento complementar opcional.</small>
+        ) : null}
       </label>
       <label className="manager-field">
         <span className="manager-field-label">Unidade</span>
@@ -4755,7 +4773,7 @@ function CommercialFrontItemFields(props: {
             props.onUpdate(props.item.localId, "valorUnitario", event.target.value)
           }
         />
-        <small className="manager-field-hint">Preco de venda deste servico.</small>
+        <small className="manager-field-hint">Preco de venda deste item.</small>
       </label>
       {isMaterialItem(props.item) ? (
         <label className="manager-field">
@@ -4814,7 +4832,7 @@ function CommercialFrontItemFields(props: {
         </div>
       ) : null}
       <label className="manager-field orcamentos-span-2">
-        <span className="manager-field-label">Observacao comercial</span>
+        <span className="manager-field-label">Condicoes especificas do item</span>
         <textarea
           className="field-control"
           rows={2}
@@ -5637,13 +5655,18 @@ function mapItemPayload(item: ItemForm, tipoOrcamento: TipoOrcamento) {
   const servicoOperacional =
     item.tipoItem === "SERVICO_PRINCIPAL" || item.tipoItem === "SERVICO_AUXILIAR";
   const origemComercial = recurso ? null : item.origemItemComercial;
+  const nomeManual = item.descricaoManualComercial.trim();
+  const descricaoComercial =
+    origemComercial === "MANUAL"
+      ? item.descricao.trim() || nomeManual
+      : item.descricao;
 
   return {
     tempId: item.localId,
     frenteTempId: item.frenteTempId,
     tipoItem: item.tipoItem,
     origemItemComercial: origemComercial,
-    descricaoManualComercial: origemComercial === "MANUAL" ? item.descricaoManualComercial || item.descricao : "",
+    descricaoManualComercial: origemComercial === "MANUAL" ? nomeManual : "",
     servicoId: recurso || origemComercial === "RESOURCE" || origemComercial === "MANUAL" ? null : item.servicoId || null,
     materialId:
       recurso && item.categoriaRecurso === "MATERIAL"
@@ -5677,7 +5700,7 @@ function mapItemPayload(item: ItemForm, tipoOrcamento: TipoOrcamento) {
     observacaoComercial: !recurso ? item.observacaoComercial : "",
     ordem: item.ordem,
     codigo: item.codigo,
-    descricao: item.descricao,
+    descricao: descricaoComercial,
     unidade: item.unidade,
     quantidade: Number(item.quantidade) || 0,
     quantidadeOperacional:
@@ -5757,7 +5780,9 @@ function buildFormacaoPayload(
 
 function isItemPreenchido(item: ItemForm) {
   return Boolean(
-    item.descricao.trim() ||
+    item.descricaoManualComercial.trim() ||
+      item.descricao.trim() ||
+      item.codigo.trim() ||
       item.servicoId ||
       item.materialId ||
       item.equipamentoId ||
@@ -5923,73 +5948,87 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
     frentes,
     itens:
       item.itens.length > 0
-        ? item.itens.map((orcamentoItem) => ({
-            localId: orcamentoItem.id,
-            frenteTempId: orcamentoItem.frenteId ?? "",
-            tipoItem: orcamentoItem.tipoItem,
-            origemItemComercial:
+        ? item.itens.map((orcamentoItem) => {
+            const origemItemComercial =
               orcamentoItem.origemItemComercial ??
               (orcamentoItem.equipamentoId
                 ? "RESOURCE"
                 : orcamentoItem.servicoId
                   ? "SERVICE"
-                  : "MANUAL"),
-            descricaoManualComercial: orcamentoItem.descricaoManualComercial ?? "",
-            servicoId: orcamentoItem.servicoId ?? "",
-            materialId: orcamentoItem.materialId ?? "",
-            equipamentoId: orcamentoItem.equipamentoId ?? "",
-            categoriaRecurso: orcamentoItem.categoriaRecurso ?? "EQUIPAMENTO",
-            classeOperacional: orcamentoItem.classeOperacional ?? "",
-            recursoReferenciaId: orcamentoItem.recursoReferenciaId ?? "",
-            recursoNome: orcamentoItem.recursoNome ?? "",
-            modoPrecificacao: orcamentoItem.modoPrecificacao ?? "PRECO_DIRETO",
-            precoCompra: toStringValue(orcamentoItem.precoCompra),
-            markupPercentual: toStringValue(orcamentoItem.markupPercentual),
-            precoVendaSobrescrito: Boolean(orcamentoItem.precoVendaSobrescrito),
-            custoCalculadoOriginal: toStringValue(orcamentoItem.custoCalculadoOriginal),
-            custoBaseSobrescrito: toStringValue(orcamentoItem.custoBaseSobrescrito),
-            custoBaseAplicado: toStringValue(orcamentoItem.custoBaseAplicado),
-            origemCustoAplicado: orcamentoItem.origemCustoAplicado ?? "CALCULADO_AUTOMATICAMENTE",
-            precoCalculado: toStringValue(orcamentoItem.precoCalculado),
-            precoAplicado: toStringValue(orcamentoItem.precoAplicado),
-            origemValorAplicado: orcamentoItem.origemValorAplicado ?? "CALCULADO_AUTOMATICAMENTE",
-            motivoSobrescrita: orcamentoItem.motivoSobrescrita ?? "",
-            fornecedorPreferencialId: orcamentoItem.fornecedorPreferencialId ?? "",
-            exibirNoPdf: orcamentoItem.exibirNoPdf !== false,
-            observacaoComercial: orcamentoItem.observacaoComercial ?? "",
-            ordem: orcamentoItem.ordem,
-            codigo: orcamentoItem.codigo ?? "",
-            descricao: orcamentoItem.descricao,
-            unidade: orcamentoItem.unidade,
-            quantidade: toStringValue(orcamentoItem.quantidade),
-            quantidadeOperacional: toStringValue(orcamentoItem.quantidadeOperacional),
-            origemQuantidadeOperacional:
-              orcamentoItem.origemQuantidadeOperacional ?? "FRENTE",
-            produtividade: toStringValue(orcamentoItem.produtividade),
-            custoUnitario: toStringValue(orcamentoItem.custoUnitario),
-            tipoCalculoRecurso: orcamentoItem.tipoCalculoRecurso ?? "AUTOMATICO",
-            unidadeEconomicaCusto: orcamentoItem.unidadeEconomicaCusto ?? "",
-            valorCusto: toStringValue(orcamentoItem.valorCusto ?? orcamentoItem.custoUnitario),
-            horasDia: toStringValue(orcamentoItem.horasDia ?? 8),
-            horasTotais: toStringValue(orcamentoItem.horasTotais),
-            viagensDia: toStringValue(orcamentoItem.viagensDia),
-            viagensTotais: toStringValue(orcamentoItem.viagensTotais),
-            distanciaViagemKm: toStringValue(orcamentoItem.distanciaViagemKm),
-            quilometrosTotais: toStringValue(orcamentoItem.quilometrosTotais),
-            capacidadePorViagem: toStringValue(orcamentoItem.capacidadePorViagem),
-            unidadeCapacidade: orcamentoItem.unidadeCapacidade ?? "",
-            caracteristicasRecursoSnapshot: normalizarSnapshotCaracteristicasRecurso(
-              orcamentoItem.caracteristicasRecursoSnapshot
-            ),
-            camposTecnicosPersonalizados: orcamentoItem.camposTecnicosPersonalizados ?? [],
-            cargasTotais: toStringValue(orcamentoItem.cargasTotais),
-            mesesTotais: toStringValue(orcamentoItem.mesesTotais),
-            diasTrabalhadosMes: toStringValue(orcamentoItem.diasTrabalhadosMes ?? 22),
-            custoTotalCalculado: toStringValue(orcamentoItem.custoTotalCalculado ?? 0),
-            memoriaCalculo: orcamentoItem.memoriaCalculo ?? "",
-            valorUnitario: toStringValue(orcamentoItem.valorUnitario),
-            observacao: orcamentoItem.observacao ?? ""
-          }))
+                  : "MANUAL");
+            const nomeManual =
+              origemItemComercial === "MANUAL"
+                ? orcamentoItem.descricaoManualComercial || orcamentoItem.descricao
+                : orcamentoItem.descricaoManualComercial ?? "";
+            const descricao =
+              origemItemComercial === "MANUAL" &&
+              nomeManual &&
+              orcamentoItem.descricao === nomeManual
+                ? ""
+                : orcamentoItem.descricao;
+
+            return {
+              localId: orcamentoItem.id,
+              frenteTempId: orcamentoItem.frenteId ?? "",
+              tipoItem: orcamentoItem.tipoItem,
+              origemItemComercial,
+              descricaoManualComercial: nomeManual,
+              servicoId: orcamentoItem.servicoId ?? "",
+              materialId: orcamentoItem.materialId ?? "",
+              equipamentoId: orcamentoItem.equipamentoId ?? "",
+              categoriaRecurso: orcamentoItem.categoriaRecurso ?? "EQUIPAMENTO",
+              classeOperacional: orcamentoItem.classeOperacional ?? "",
+              recursoReferenciaId: orcamentoItem.recursoReferenciaId ?? "",
+              recursoNome: orcamentoItem.recursoNome ?? "",
+              modoPrecificacao: orcamentoItem.modoPrecificacao ?? "PRECO_DIRETO",
+              precoCompra: toStringValue(orcamentoItem.precoCompra),
+              markupPercentual: toStringValue(orcamentoItem.markupPercentual),
+              precoVendaSobrescrito: Boolean(orcamentoItem.precoVendaSobrescrito),
+              custoCalculadoOriginal: toStringValue(orcamentoItem.custoCalculadoOriginal),
+              custoBaseSobrescrito: toStringValue(orcamentoItem.custoBaseSobrescrito),
+              custoBaseAplicado: toStringValue(orcamentoItem.custoBaseAplicado),
+              origemCustoAplicado: orcamentoItem.origemCustoAplicado ?? "CALCULADO_AUTOMATICAMENTE",
+              precoCalculado: toStringValue(orcamentoItem.precoCalculado),
+              precoAplicado: toStringValue(orcamentoItem.precoAplicado),
+              origemValorAplicado: orcamentoItem.origemValorAplicado ?? "CALCULADO_AUTOMATICAMENTE",
+              motivoSobrescrita: orcamentoItem.motivoSobrescrita ?? "",
+              fornecedorPreferencialId: orcamentoItem.fornecedorPreferencialId ?? "",
+              exibirNoPdf: orcamentoItem.exibirNoPdf !== false,
+              observacaoComercial: orcamentoItem.observacaoComercial ?? "",
+              ordem: orcamentoItem.ordem,
+              codigo: orcamentoItem.codigo ?? "",
+              descricao,
+              unidade: orcamentoItem.unidade,
+              quantidade: toStringValue(orcamentoItem.quantidade),
+              quantidadeOperacional: toStringValue(orcamentoItem.quantidadeOperacional),
+              origemQuantidadeOperacional:
+                orcamentoItem.origemQuantidadeOperacional ?? "FRENTE",
+              produtividade: toStringValue(orcamentoItem.produtividade),
+              custoUnitario: toStringValue(orcamentoItem.custoUnitario),
+              tipoCalculoRecurso: orcamentoItem.tipoCalculoRecurso ?? "AUTOMATICO",
+              unidadeEconomicaCusto: orcamentoItem.unidadeEconomicaCusto ?? "",
+              valorCusto: toStringValue(orcamentoItem.valorCusto ?? orcamentoItem.custoUnitario),
+              horasDia: toStringValue(orcamentoItem.horasDia ?? 8),
+              horasTotais: toStringValue(orcamentoItem.horasTotais),
+              viagensDia: toStringValue(orcamentoItem.viagensDia),
+              viagensTotais: toStringValue(orcamentoItem.viagensTotais),
+              distanciaViagemKm: toStringValue(orcamentoItem.distanciaViagemKm),
+              quilometrosTotais: toStringValue(orcamentoItem.quilometrosTotais),
+              capacidadePorViagem: toStringValue(orcamentoItem.capacidadePorViagem),
+              unidadeCapacidade: orcamentoItem.unidadeCapacidade ?? "",
+              caracteristicasRecursoSnapshot: normalizarSnapshotCaracteristicasRecurso(
+                orcamentoItem.caracteristicasRecursoSnapshot
+              ),
+              camposTecnicosPersonalizados: orcamentoItem.camposTecnicosPersonalizados ?? [],
+              cargasTotais: toStringValue(orcamentoItem.cargasTotais),
+              mesesTotais: toStringValue(orcamentoItem.mesesTotais),
+              diasTrabalhadosMes: toStringValue(orcamentoItem.diasTrabalhadosMes ?? 22),
+              custoTotalCalculado: toStringValue(orcamentoItem.custoTotalCalculado ?? 0),
+              memoriaCalculo: orcamentoItem.memoriaCalculo ?? "",
+              valorUnitario: toStringValue(orcamentoItem.valorUnitario),
+              observacao: orcamentoItem.observacao ?? ""
+            };
+          })
         : [
             createEmptyItem(
               item.tipo === "OPERACIONAL" ? "SERVICO_PRINCIPAL" : "COMERCIAL",

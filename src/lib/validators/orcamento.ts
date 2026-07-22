@@ -259,13 +259,12 @@ const orcamentoItemSchema = z.object({
 
     if (
       item.origemItemComercial === OrigemItemComercialOrcamento.MANUAL &&
-      !item.descricaoManualComercial?.trim() &&
-      !item.descricao?.trim()
+      !item.descricaoManualComercial?.trim()
     ) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["descricao"],
-        message: "Informe a descricao comercial do item."
+        path: ["descricaoManualComercial"],
+        message: "Informe o nome do item comercial."
       });
     }
 

@@ -116,6 +116,12 @@ function mapSnapshotItens(snapshot: Record<string, unknown>) {
   const itensBase = itens.filter(isRecord).map((item, index) => {
     const quantidade = asNumber(item.quantidade);
     const valorUnitario = asNumber(item.valorUnitario);
+    const origemItemComercial = asString(item.origemItemComercial);
+    const descricaoManual = asString(item.descricaoManualComercial);
+    const descricaoBase =
+      origemItemComercial === "MANUAL" && descricaoManual
+        ? descricaoManual
+        : asString(item.descricao, "Item sem descricao");
 
     return {
       ordem: asNumber(item.ordem, index + 1),
@@ -126,7 +132,10 @@ function mapSnapshotItens(snapshot: Record<string, unknown>) {
       frenteTempId: asNullableString(item.frenteTempId),
       tipoItem: asString(item.tipoItem, "OUTRO"),
       codigo: asNullableString(item.codigo),
-      descricao: asString(item.descricao, "Item sem descricao"),
+      descricao: getItemPdfDescription({
+        codigo: asNullableString(item.codigo),
+        descricao: descricaoBase
+      }),
       unidade: asString(item.unidade, "-"),
       quantidade,
       valorUnitario,
@@ -152,6 +161,11 @@ function mapSnapshotItens(snapshot: Record<string, unknown>) {
   });
 
   return [...itensBase, ...itensOpcionais];
+}
+
+function getItemPdfDescription(item: { codigo?: string | null; descricao: string }) {
+  const codigo = item.codigo?.trim();
+  return codigo ? `Codigo: ${codigo}\n${item.descricao}` : item.descricao;
 }
 
 function mapSnapshotPremissas(snapshot: Record<string, unknown>) {
@@ -264,7 +278,13 @@ export async function renderOrcamentoPropostaPdf({
           frenteTempId: null,
           tipoItem: item.tipoItem,
           codigo: item.codigo,
-          descricao: item.descricao,
+          descricao: getItemPdfDescription({
+            codigo: item.codigo,
+            descricao:
+              item.origemItemComercial === "MANUAL"
+                ? item.descricaoManualComercial || item.descricao
+                : item.descricao
+          }),
           unidade: item.unidade,
           quantidade: Number(item.quantidade),
           valorUnitario: Number(item.valorUnitario),

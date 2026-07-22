@@ -103,6 +103,34 @@ describe("orcamentoSchema", () => {
     expect(orcamentoSchema.safeParse(payload).success).toBe(true);
   });
 
+  it("bloqueia item comercial manual sem nome com mensagem especifica", () => {
+    const payload = baseOrcamento();
+    payload.itens.push({
+      tipoItem: "COMERCIAL",
+      origemItemComercial: "MANUAL",
+      descricaoManualComercial: "",
+      codigo: "10000161",
+      ordem: 1,
+      descricao: "Descricao complementar nao substitui o nome",
+      unidade: "m3",
+      quantidade: 3343.5,
+      custoUnitario: 0,
+      valorUnitario: 35
+    });
+
+    const result = orcamentoSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: ["itens", 0, "descricaoManualComercial"],
+          message: "Informe o nome do item comercial."
+        })
+      ])
+    );
+  });
+
   it("aceita unidade de capacidade nula em itens antigos que nao dependem dela", () => {
     const payload = baseOrcamento();
     payload.itens.push({
