@@ -382,7 +382,7 @@ function buildCenariosInput(input: OrcamentoInput) {
     });
   }
 
-  if (input.tipo !== TipoOrcamento.OPERACIONAL) {
+  if (input.frentes.length === 0 && input.propostasComerciais.length === 0) {
     return [];
   }
 
@@ -479,7 +479,7 @@ function getItensDoCenario(
 
   return input.itens.filter((item) => {
     if (!item.frenteTempId?.trim()) {
-      return input.tipo !== TipoOrcamento.OPERACIONAL;
+      return input.frentes.length === 0;
     }
 
     return frenteRefs.has(item.frenteTempId.trim());
@@ -514,7 +514,7 @@ export function buildPropostaTotals(
   const itensDoCenario = getItensDoCenario(input, cenario);
   const pricing = buildPricingSnapshot(input, { cenario });
   const subtotalCenario =
-    input.tipo === TipoOrcamento.OPERACIONAL || input.frentes.length > 0
+    input.frentes.length > 0
       ? pricing.totals.valorSubtotal
       : itensDoCenario.reduce((sum, item) => sum + calcularValorItem(item), 0);
   const subtotalOpcionais = proposta.opcionais.reduce(
@@ -523,11 +523,11 @@ export function buildPropostaTotals(
   );
   const valorSubtotal = Number((subtotalCenario + subtotalOpcionais).toFixed(2));
   const valorDesconto =
-    input.tipo === TipoOrcamento.OPERACIONAL || input.frentes.length > 0
+    input.frentes.length > 0
       ? pricing.totals.valorDesconto
       : Number(input.valorDesconto ?? 0);
   const valorAcrescimo =
-    input.tipo === TipoOrcamento.OPERACIONAL || input.frentes.length > 0
+    input.frentes.length > 0
       ? pricing.totals.valorAcrescimo
       : Number(input.valorAcrescimo ?? 0);
 
@@ -547,7 +547,7 @@ export function buildPropostaSnapshot(
   const frentesDoCenario = getFrentesDoCenario(input, cenario);
   const itensDoCenario = getItensDoCenario(input, cenario);
   const itensComerciais =
-    input.tipo === TipoOrcamento.OPERACIONAL || input.frentes.length > 0
+    input.frentes.length > 0
       ? itensDoCenario.filter((item) =>
           item.tipoItem !== TipoItemOrcamento.RECURSO && item.exibirNoPdf !== false
         )
@@ -591,11 +591,7 @@ export function buildPropostaSnapshot(
     frentes: frentesDoCenario.map((frente) => ({
       tempId: frente.tempId,
       ordem: frente.ordem,
-      natureza:
-        frente.natureza ??
-        (input.tipo === TipoOrcamento.COMERCIAL
-          ? NaturezaFrenteOrcamento.COMERCIAL
-          : NaturezaFrenteOrcamento.OPERACIONAL),
+      natureza: frente.natureza ?? NaturezaFrenteOrcamento.OPERACIONAL,
       nome: frente.nome,
       descricao: frente.descricao,
       unidadeProducao: frente.unidadeProducao,
@@ -785,11 +781,7 @@ async function criarEstruturaOrcamento(
         orcamentoId,
         cenarioId,
         ordem: frente.ordem,
-        natureza:
-          frente.natureza ??
-          (input.tipo === TipoOrcamento.COMERCIAL
-            ? NaturezaFrenteOrcamento.COMERCIAL
-            : NaturezaFrenteOrcamento.OPERACIONAL),
+        natureza: frente.natureza ?? NaturezaFrenteOrcamento.COMERCIAL,
         nome: frente.nome,
         descricao: clean(frente.descricao),
         metodoExecutivo: clean(frente.metodoExecutivo),

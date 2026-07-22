@@ -1,8 +1,7 @@
 import {
   ModoCustoOrcamento,
   NaturezaFrenteOrcamento,
-  TipoItemOrcamento,
-  TipoOrcamento
+  TipoItemOrcamento
 } from "@prisma/client";
 import { calcularMotorCustos } from "@/lib/orcamentos/cost-engine";
 import { calcularConsolidacaoEconomica } from "@/lib/orcamentos/economic-engine";
@@ -48,15 +47,8 @@ function getItemFrenteRef(item: OrcamentoItemInput) {
   return item.frenteTempId?.trim() || (item.frenteOrdem ? `ordem:${item.frenteOrdem}` : "");
 }
 
-function getNaturezaFrente(
-  tipoOrcamento: TipoOrcamento,
-  frente: OrcamentoInput["frentes"][number]
-) {
-  return frente.natureza ?? (
-    tipoOrcamento === TipoOrcamento.COMERCIAL
-      ? NaturezaFrenteOrcamento.COMERCIAL
-      : NaturezaFrenteOrcamento.OPERACIONAL
-  );
+function getNaturezaFrente(frente: OrcamentoInput["frentes"][number]) {
+  return frente.natureza ?? NaturezaFrenteOrcamento.OPERACIONAL;
 }
 
 function pertenceAoCenario(
@@ -85,12 +77,11 @@ function getEscopoOperacional(
 }
 
 function buildCostEngineInput(
-  tipoOrcamento: TipoOrcamento,
   frentes: OrcamentoInput["frentes"],
   itens: OrcamentoInput["itens"]
 ) {
   const frentesOperacionais = frentes.filter(
-    (frente) => getNaturezaFrente(tipoOrcamento, frente) !== NaturezaFrenteOrcamento.COMERCIAL
+    (frente) => getNaturezaFrente(frente) !== NaturezaFrenteOrcamento.COMERCIAL
   );
   const refsOperacionais = new Set(frentesOperacionais.map(getFrenteRef));
 
@@ -148,7 +139,7 @@ function buildOperationalSnapshot(
 ) {
   const formacao = input.formacaoPreco;
   const escopo = getEscopoOperacional(input, cenario);
-  const motorCustos = calcularMotorCustos(buildCostEngineInput(input.tipo, escopo.frentes, escopo.itens));
+  const motorCustos = calcularMotorCustos(buildCostEngineInput(escopo.frentes, escopo.itens));
   const resultadoMotorPorRef = new Map(
     motorCustos.frentes.map((frente) => [frente.ref, frente])
   );
@@ -157,7 +148,7 @@ function buildOperationalSnapshot(
       ref: getFrenteRef(frente),
       nome: frente.nome,
       custoDireto:
-        getNaturezaFrente(input.tipo, frente) === NaturezaFrenteOrcamento.COMERCIAL
+        getNaturezaFrente(frente) === NaturezaFrenteOrcamento.COMERCIAL
           ? 0
           : resultadoMotorPorRef.get(getFrenteRef(frente))?.custoDireto ?? 0
     })),
@@ -277,7 +268,7 @@ export function buildPricingSnapshot(
   input: OrcamentoInput,
   options?: { cenario?: OrcamentoCenarioInput | null }
 ) {
-  return input.tipo === TipoOrcamento.OPERACIONAL || input.frentes.length > 0
+  return input.frentes.length > 0
     ? buildOperationalSnapshot(input, options?.cenario)
     : buildCommercialSnapshot(input);
 }

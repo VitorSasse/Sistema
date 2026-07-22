@@ -540,11 +540,6 @@ const statusOptions: { value: StatusOrcamento; label: string }[] = [
   { value: "ARQUIVADO", label: "Arquivado" }
 ];
 
-const tipoOptions: { value: TipoOrcamento; label: string }[] = [
-  { value: "COMERCIAL", label: "Comercial" },
-  { value: "OPERACIONAL", label: "Operacional" }
-];
-
 const naturezaFrenteOptions: { value: NaturezaFrenteOrcamento; label: string }[] = [
   { value: "COMERCIAL", label: "Comercial" },
   { value: "OPERACIONAL", label: "Operacional" }
@@ -642,6 +637,12 @@ function uid(prefix: string) {
 }
 
 function createEmptyForm(): OrcamentoForm {
+  const cenarioPadrao = createEmptyCenario(1, true);
+  const frentePadrao = {
+    ...createEmptyFrente(1, "COMERCIAL"),
+    cenarioTempId: cenarioPadrao.localId
+  };
+
   return {
     tipo: "COMERCIAL",
     status: "RASCUNHO",
@@ -669,10 +670,10 @@ function createEmptyForm(): OrcamentoForm {
       precoFinal: "0",
       observacao: ""
     },
-    cenarios: [],
+    cenarios: [cenarioPadrao],
     propostasComerciais: [],
-    frentes: [],
-    itens: [createEmptyItem("COMERCIAL", 1)],
+    frentes: [frentePadrao],
+    itens: [createEmptyItem("COMERCIAL", 1, frentePadrao.localId)],
     premissas: createInitialPremissas()
   };
 }
@@ -690,7 +691,7 @@ function createEmptyCenario(ordem: number, isPadrao = false): CenarioForm {
   };
 }
 
-function createEmptyFrente(ordem: number, natureza: NaturezaFrenteOrcamento = "OPERACIONAL"): FrenteForm {
+function createEmptyFrente(ordem: number, natureza: NaturezaFrenteOrcamento = "COMERCIAL"): FrenteForm {
   return {
     localId: uid("frente"),
     cenarioTempId: "",
@@ -857,10 +858,6 @@ function toStringValue(value: unknown) {
 
 function getStatusLabel(value: StatusOrcamento) {
   return statusOptions.find((option) => option.value === value)?.label ?? value;
-}
-
-function getTipoLabel(value: TipoOrcamento) {
-  return tipoOptions.find((option) => option.value === value)?.label ?? value;
 }
 
 function calcItemTotal(
@@ -1344,7 +1341,7 @@ function buildOperationalConsolidation(
 }
 
 function buildEconomicPreview(form: OrcamentoForm) {
-  const isOperational = form.tipo === "OPERACIONAL" || form.frentes.length > 0;
+  const isOperational = form.frentes.length > 0;
   const modoCusto = isOperational ? form.formacaoPreco.modoCusto : "SIMPLIFICADO";
   const subtotalItens = roundMoney(form.itens.reduce((sum, item) => sum + calcItemTotal(item), 0));
   const itensParaCusto = isOperational
@@ -1499,7 +1496,6 @@ export function OrcamentosManager() {
   const [selectedId, setSelectedId] = useState<string>("");
   const [filters, setFilters] = useState({
     search: "",
-    tipo: "TODOS",
     status: "TODOS"
   });
   const [loading, setLoading] = useState(true);
@@ -1634,14 +1630,14 @@ export function OrcamentosManager() {
 
   const motorCustosForm = useMemo(
     () =>
-      form.tipo === "OPERACIONAL"
+      form.frentes.length > 0
         ? calcularMotorCustos(buildCostEngineInputFromForm(form))
         : null,
-    [form.tipo, form.frentes, form.itens]
+    [form.frentes, form.itens]
   );
   const vendasTodasFrentesForm = useMemo(
     () =>
-      form.tipo === "OPERACIONAL" && motorCustosForm
+      form.frentes.length > 0 && motorCustosForm
         ? calcularConsolidacaoEconomica({
             frentes: motorCustosForm.frentes.map((frente) => ({
               ref: frente.ref,
@@ -1658,7 +1654,7 @@ export function OrcamentosManager() {
             }))
           }).frentes
         : [],
-    [form.tipo, form.itens, motorCustosForm]
+    [form.frentes.length, form.itens, motorCustosForm]
   );
   const economicPreview = useMemo(
     () => buildEconomicPreview(form),
@@ -1707,7 +1703,7 @@ export function OrcamentosManager() {
       : 0;
 
   useEffect(() => {
-    if (!isCostDebugEnabled() || form.tipo !== "OPERACIONAL") {
+    if (!isCostDebugEnabled() || form.frentes.length === 0) {
       return;
     }
 
@@ -1809,7 +1805,6 @@ export function OrcamentosManager() {
 
     const params = new URLSearchParams();
     if (nextFilters.search.trim()) params.set("search", nextFilters.search.trim());
-    if (nextFilters.tipo !== "TODOS") params.set("tipo", nextFilters.tipo);
     if (nextFilters.status !== "TODOS") params.set("status", nextFilters.status);
 
     const response = await fetch(`/api/orcamentos?${params.toString()}`);
@@ -1982,59 +1977,10 @@ export function OrcamentosManager() {
     }));
   }
 
-  function handleTipoChange(tipo: TipoOrcamento) {
-    setForm((current) => {
-      if (tipo === "OPERACIONAL") {
-        const cenario = current.cenarios[0] ?? createEmptyCenario(1, true);
-        const frente = current.frentes[0] ?? createEmptyFrente(1, "OPERACIONAL");
-        const frenteComCenario = {
-          ...frente,
-          cenarioTempId: frente.cenarioTempId || cenario.localId
-        };
-        const itensPreenchidos = current.itens.filter(isItemPreenchido);
-        const itensOperacionais = itensPreenchidos.length
-          ? itensPreenchidos.map((item, index) => ({
-              ...item,
-              ordem: index + 1,
-              tipoItem:
-                index === 0
-                  ? "SERVICO_PRINCIPAL"
-                  : item.tipoItem === "COMERCIAL"
-                    ? "SERVICO_AUXILIAR"
-                    : item.tipoItem,
-              frenteTempId: item.frenteTempId || frenteComCenario.localId
-            }))
-          : [createEmptyItem("SERVICO_PRINCIPAL", 1, frenteComCenario.localId)];
-        return {
-          ...current,
-          tipo,
-          status: current.status === "RASCUNHO" ? "EM_ELABORACAO" : current.status,
-          cenarios: current.cenarios.length ? current.cenarios : [cenario],
-          frentes: current.frentes.length ? current.frentes : [frenteComCenario],
-          propostasComerciais: current.propostasComerciais,
-          itens: itensOperacionais
-        };
-      }
-
-      if (tipo === "COMERCIAL") {
-        return {
-          ...current,
-          tipo
-        };
-      }
-
-      return {
-        ...current,
-        tipo
-      };
-    });
-  }
-
   function addFrente() {
     setForm((current) => {
       const cenarioPadrao = current.cenarios.find((cenario) => cenario.isPadrao) ?? current.cenarios[0];
-      const naturezaPadrao: NaturezaFrenteOrcamento =
-        current.tipo === "COMERCIAL" ? "COMERCIAL" : "OPERACIONAL";
+      const naturezaPadrao: NaturezaFrenteOrcamento = "COMERCIAL";
       const frente = {
         ...createEmptyFrente(current.frentes.length + 1, naturezaPadrao),
         cenarioTempId: cenarioPadrao?.localId ?? ""
@@ -2046,7 +1992,7 @@ export function OrcamentosManager() {
         itens: [
           ...current.itens,
           createEmptyItem(
-            naturezaPadrao === "OPERACIONAL" ? "SERVICO_PRINCIPAL" : "COMERCIAL",
+            "COMERCIAL",
             current.itens.length + 1,
             frente.localId
           )
@@ -2066,8 +2012,9 @@ export function OrcamentosManager() {
   function addItem() {
     setForm((current) => {
       const firstFrente = current.frentes[0]?.localId ?? "";
+      const primeiraFrente = current.frentes.find((frente) => frente.localId === firstFrente);
       const tipoItem: TipoItemOrcamento =
-        current.tipo === "OPERACIONAL" ? "SERVICO_AUXILIAR" : "COMERCIAL";
+        primeiraFrente?.natureza === "OPERACIONAL" ? "SERVICO_AUXILIAR" : "COMERCIAL";
 
       return {
         ...current,
@@ -2406,36 +2353,6 @@ export function OrcamentosManager() {
     await loadOrcamentos();
   }
 
-  async function evoluirParaOperacional() {
-    if (!selectedId) {
-      return;
-    }
-
-    if (!window.confirm("Evoluir este orcamento comercial para operacional?")) {
-      return;
-    }
-
-    setSaving(true);
-    setMessage("");
-    clearError();
-
-    const response = await fetch(`/api/orcamentos/${selectedId}/evoluir`, {
-      method: "POST"
-    });
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      applyApiError(data, "Nao foi possivel evoluir o orcamento.");
-      setSaving(false);
-      return;
-    }
-
-    setForm(mapApiToForm(data));
-    setMessage("Orcamento evoluido para operacional.");
-    await loadOrcamentos();
-    setSaving(false);
-  }
-
   function ensurePropostaPersistida(propostaLocalId: string) {
     if (!selectedId) {
       setError("Salve ou selecione um orcamento antes de gerar o PDF.");
@@ -2586,7 +2503,7 @@ export function OrcamentosManager() {
           <div className="orcamentos-panel-header">
             <div>
               <span className="orcamentos-section-label">Lista</span>
-              <h2>Pipeline comercial</h2>
+              <h2>Orcamentos</h2>
             </div>
             <button type="button" className="button-primary" onClick={novoOrcamento}>
               Novo
@@ -2602,21 +2519,6 @@ export function OrcamentosManager() {
                 placeholder="Codigo, cliente, obra ou item"
                 onChange={(event) => updateFilter("search", event.target.value)}
               />
-            </label>
-            <label className="manager-field">
-              <span className="manager-field-label">Tipo</span>
-              <select
-                className="field-control"
-                value={filters.tipo}
-                onChange={(event) => updateFilter("tipo", event.target.value)}
-              >
-                <option value="TODOS">Todos</option>
-                {tipoOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
             </label>
             <label className="manager-field">
               <span className="manager-field-label">Status</span>
@@ -2656,8 +2558,7 @@ export function OrcamentosManager() {
                       {orcamento.obra?.nome ? ` / ${orcamento.obra.nome}` : ""}
                     </small>
                     <span className="orcamentos-list-meta">
-                      {getTipoLabel(orcamento.tipo)} | {getStatusLabel(orcamento.status)} |{" "}
-                      {formatCurrency(orcamento.valorTotal)}
+                      {getStatusLabel(orcamento.status)} | {formatCurrency(orcamento.valorTotal)}
                     </span>
                   </button>
                   <div className="orcamentos-list-actions">
@@ -2707,19 +2608,6 @@ export function OrcamentosManager() {
               ) : null}
             </div>
           ) : null}
-
-          <div className="orcamentos-mode-switch">
-            {tipoOptions.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={form.tipo === option.value ? "orcamentos-mode-active" : ""}
-                onClick={() => handleTipoChange(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
 
           <div className="orcamentos-form-section">
             <div className="orcamentos-form-heading">
@@ -2835,65 +2723,55 @@ export function OrcamentosManager() {
             onPersonalizeResourceField={personalizeResourceField}
           />
 
-          {form.tipo === "OPERACIONAL" ? (
-            <>
-              <CenariosPropostasSection
-                cenarios={form.cenarios}
-                propostas={form.propostasComerciais}
-                total={totalForm}
-                cenarioTotals={cenarioTotals}
-                onAddCenario={addCenario}
-                onRemoveCenario={removeCenario}
-                onUpdateCenario={updateCenario}
-                onAddProposta={addPropostaComercial}
-                onCreateRevision={createPropostaRevision}
-                onRemoveProposta={removePropostaComercial}
-                onUpdateProposta={updatePropostaComercial}
-                onPreviewProposta={visualizarPreviaProposta}
-                onEmitProposta={emitirProposta}
-                onOpenOfficialPdf={visualizarPdfOficialProposta}
-                onAddOpcional={addPropostaOpcional}
-                onUpdateOpcional={updatePropostaOpcional}
-                onRemoveOpcional={removePropostaOpcional}
-                saving={saving}
-              />
-            </>
-          ) : (
-            form.frentes.length === 0 ? (
-              <ItensSection
-                tipo={form.tipo}
-                itens={form.itens}
-                frentes={form.frentes}
-                servicoOptions={servicoOptions}
-                materialOptions={materialOptions}
-                equipamentoOptions={equipamentoOptions}
-                classeOperacionalOptions={classeOperacionalOptions}
-                colaboradorOptions={colaboradorOptions}
-                fornecedorOptions={fornecedorOptions}
-                onAdd={addItem}
-                onRemove={removeItem}
-                onUpdate={updateItem}
-                onSelectCommercialEquipment={selectCommercialEquipment}
-              />
-            ) : null
-          )}
+          <CenariosPropostasSection
+            cenarios={form.cenarios}
+            propostas={form.propostasComerciais}
+            total={totalForm}
+            cenarioTotals={cenarioTotals}
+            onAddCenario={addCenario}
+            onRemoveCenario={removeCenario}
+            onUpdateCenario={updateCenario}
+            onAddProposta={addPropostaComercial}
+            onCreateRevision={createPropostaRevision}
+            onRemoveProposta={removePropostaComercial}
+            onUpdateProposta={updatePropostaComercial}
+            onPreviewProposta={visualizarPreviaProposta}
+            onEmitProposta={emitirProposta}
+            onOpenOfficialPdf={visualizarPdfOficialProposta}
+            onAddOpcional={addPropostaOpcional}
+            onUpdateOpcional={updatePropostaOpcional}
+            onRemoveOpcional={removePropostaOpcional}
+            saving={saving}
+          />
+
+          {form.frentes.length === 0 ? (
+            <ItensSection
+              itens={form.itens}
+              servicoOptions={servicoOptions}
+              materialOptions={materialOptions}
+              equipamentoOptions={equipamentoOptions}
+              classeOperacionalOptions={classeOperacionalOptions}
+              colaboradorOptions={colaboradorOptions}
+              fornecedorOptions={fornecedorOptions}
+              onAdd={addItem}
+              onRemove={removeItem}
+              onUpdate={updateItem}
+              onSelectCommercialEquipment={selectCommercialEquipment}
+            />
+          ) : null}
 
           <div className="orcamentos-form-section orcamentos-economia-section">
             <div className="orcamentos-form-heading">
-              <span>{form.tipo === "OPERACIONAL" ? "04" : "04"}</span>
+              <span>04</span>
               <div>
-                <h3>
-                  {form.tipo === "OPERACIONAL"
-                    ? "Motor operacional, custos e preco"
-                    : "Formacao preliminar"}
-                </h3>
-                {form.tipo === "OPERACIONAL" ? (
-                  <small>O preco nasce do planejamento da execucao, nao de um chute comercial.</small>
-                ) : null}
+                <h3>Engenharia economica e formacao do preco</h3>
+                <small>
+                  Frentes comerciais usam preco direto; frentes operacionais usam planejamento e recursos.
+                </small>
               </div>
             </div>
 
-            {form.tipo === "OPERACIONAL" ? (
+            {form.frentes.length > 0 ? (
               <>
                 <div className="orcamentos-engine-flow" aria-label="Fluxo de formacao do preco">
                   {[
@@ -3245,7 +3123,7 @@ export function OrcamentosManager() {
             </label>
 
             <div className="orcamentos-summary-strip">
-              {form.tipo === "OPERACIONAL" ? (
+              {form.frentes.length > 0 ? (
                 <>
                   <span>Custo direto: {formatCurrency(custoDiretoForm)}</span>
                   <span>Indireto: {formatCurrency(custoIndiretoForm)}</span>
@@ -3268,7 +3146,7 @@ export function OrcamentosManager() {
                 <span>Custo direto</span>
                 <strong>{formatCurrency(custoDiretoForm)}</strong>
                 <small>
-                  {form.tipo === "OPERACIONAL"
+                  {form.frentes.length > 0
                     ? modoCustoForm === "COMPLETO"
                       ? "Calculado a partir dos recursos planejados."
                       : "Informado no modo simplificado."
@@ -3279,22 +3157,20 @@ export function OrcamentosManager() {
                 <span>Custo total</span>
                 <strong>{formatCurrency(baseCustosForm)}</strong>
                 <small>
-                  {form.tipo === "OPERACIONAL"
-                    ? "Custo direto + indireto."
-                    : "Custo direto + indireto."}
+                  Custo direto + indireto.
                 </small>
               </article>
               <article>
                 <span>Valor comercial informado</span>
                 <strong>
                   {formatCurrency(
-                    form.tipo === "OPERACIONAL"
+                    form.frentes.length > 0
                       ? consolidacaoEconomicaForm?.valorComercialInformado ?? 0
                       : subtotalForm
                   )}
                 </strong>
                 <small>
-                  {form.tipo === "OPERACIONAL"
+                  {form.frentes.length > 0
                     ? `${consolidacaoEconomicaForm?.frentesComVenda ?? 0} frente(s) com venda definida.`
                     : "Valor informado nos itens comerciais."}
                 </small>
@@ -3303,7 +3179,7 @@ export function OrcamentosManager() {
                 <span>Preco sugerido</span>
                 <strong>{formatCurrency(precoSugeridoForm)}</strong>
                 <small>
-                  {form.tipo === "OPERACIONAL"
+                  {form.frentes.length > 0
                     ? `Somente para ${consolidacaoEconomicaForm?.frentesPendentes ?? 0} frente(s) sem venda.`
                     : "Custo + margem + impostos."}
                 </small>
@@ -3312,7 +3188,7 @@ export function OrcamentosManager() {
                 <span>Preco final</span>
                 <strong>{formatCurrency(totalForm)}</strong>
                 <small>
-                  {form.tipo === "OPERACIONAL"
+                  {form.frentes.length > 0
                     ? "Ajuste comercial, desconto e acrescimo aplicados."
                     : "Total comercial apos ajustes."}
                 </small>
@@ -3321,7 +3197,7 @@ export function OrcamentosManager() {
           </div>
 
           <PremissasSection
-            stepLabel={form.tipo === "OPERACIONAL" ? "05" : "05"}
+            stepLabel="05"
             premissas={form.premissas}
             onAdd={addPremissa}
             onRemove={removePremissa}
@@ -3329,16 +3205,6 @@ export function OrcamentosManager() {
           />
 
           <div className="orcamentos-actions">
-            {selectedId && form.tipo === "COMERCIAL" ? (
-              <button
-                type="button"
-                className="button-secondary"
-                disabled={saving}
-                onClick={evoluirParaOperacional}
-              >
-                Evoluir para operacional
-              </button>
-            ) : null}
             <button type="button" className="button-primary" disabled={saving} onClick={salvarOrcamento}>
               {saving ? "Salvando..." : selectedId ? "Atualizar orcamento" : "Criar orcamento"}
             </button>
@@ -3457,7 +3323,7 @@ function FrentesOperacionaisSection(props: {
       <div className="orcamentos-card-stack">
         {props.frentes.length === 0 ? (
           <div className="orcamentos-empty orcamentos-operational-empty">
-            Nenhuma frente criada. Adicione uma frente para iniciar o orcamento operacional.
+            Nenhuma frente criada. Adicione uma frente para iniciar o orcamento.
           </div>
         ) : null}
 
@@ -5379,9 +5245,7 @@ function getRecursoPlaceholder(categoria: CategoriaRecursoOrcamento) {
 }
 
 function ItensSection(props: {
-  tipo: TipoOrcamento;
   itens: ItemForm[];
-  frentes: FrenteForm[];
   servicoOptions: ServicoSelectOption[];
   materialOptions: MaterialSelectOption[];
   equipamentoOptions: EquipamentoResourceOption[];
@@ -5396,8 +5260,8 @@ function ItensSection(props: {
   return (
     <div className="orcamentos-form-section">
       <div className="orcamentos-form-heading">
-        <span>{props.tipo === "OPERACIONAL" ? "03" : "02"}</span>
-        <h3>{props.tipo === "OPERACIONAL" ? "Itens da frente" : "Itens comerciais"}</h3>
+        <span>02</span>
+        <h3>Itens comerciais</h3>
         <button type="button" className="button-secondary" onClick={props.onAdd}>
           Adicionar item
         </button>
@@ -5414,26 +5278,6 @@ function ItensSection(props: {
               </button>
             </div>
             <div className="orcamentos-form-grid">
-              {props.tipo === "OPERACIONAL" ? (
-                <label className="manager-field">
-                  <span className="manager-field-label">Frente</span>
-                  <select
-                    className="field-control"
-                    value={item.frenteTempId}
-                    onChange={(event) =>
-                      props.onUpdate(item.localId, "frenteTempId", event.target.value)
-                    }
-                  >
-                    <option value="">Sem frente</option>
-                    {props.frentes.map((frente) => (
-                      <option key={frente.localId} value={frente.localId}>
-                        {frente.ordem} - {frente.nome}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-
               <label className="manager-field">
                 <span className="manager-field-label">Tipo de item</span>
                 <select
@@ -5443,7 +5287,7 @@ function ItensSection(props: {
                     props.onUpdate(item.localId, "tipoItem", event.target.value as TipoItemOrcamento)
                   }
                 >
-                  {(props.tipo === "OPERACIONAL" ? tipoItemOperacionalOptions : [tipoItemOptions[0]]).map((option) => (
+                  {[tipoItemOptions[0]].map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
@@ -5460,36 +5304,6 @@ function ItensSection(props: {
                 onUpdate={props.onUpdate}
                 onSelectEquipment={props.onSelectCommercialEquipment}
               />
-              {props.tipo === "OPERACIONAL" ? (
-                <>
-                  <label className="manager-field">
-                    <span className="manager-field-label">Custo unitario</span>
-                    <input
-                      className="field-control"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.custoUnitario}
-                      onChange={(event) =>
-                        props.onUpdate(item.localId, "custoUnitario", event.target.value)
-                      }
-                    />
-                  </label>
-                  <label className="manager-field">
-                    <span className="manager-field-label">Produtividade</span>
-                    <input
-                      className="field-control"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.produtividade}
-                      onChange={(event) =>
-                        props.onUpdate(item.localId, "produtividade", event.target.value)
-                      }
-                    />
-                  </label>
-                </>
-              ) : null}
             </div>
           </article>
         ))}
@@ -5573,14 +5387,17 @@ function buildPayload(
 ) {
   const itensPreenchidos = form.itens.filter(isItemPreenchido);
   const itensValidos =
-    form.tipo === "OPERACIONAL"
+    form.frentes.length > 0
       ? itensPreenchidos.filter((item) => Boolean(item.frenteTempId))
       : itensPreenchidos;
   const economicPreview = previewCalculado ?? buildEconomicPreview(form);
   const formacaoPreco = buildFormacaoPayload(form, economicPreview);
+  const tipoLegado: TipoOrcamento = form.frentes.some((frente) => frente.natureza === "OPERACIONAL")
+    ? "OPERACIONAL"
+    : "COMERCIAL";
 
   return {
-    tipo: form.tipo,
+    tipo: tipoLegado,
     status: form.status,
     clienteId: form.clienteId,
     obraId: form.obraId || null,
@@ -5594,13 +5411,10 @@ function buildPayload(
     valorDesconto: Number(form.valorDesconto) || 0,
     valorAcrescimo: Number(form.valorAcrescimo) || 0,
     formacaoPreco,
-    cenarios: form.tipo === "OPERACIONAL" ? form.cenarios.map(mapCenarioPayload) : [],
-    propostasComerciais:
-      form.tipo === "OPERACIONAL"
-        ? form.propostasComerciais.map(mapPropostaComercialPayload)
-        : [],
-    frentes: form.tipo === "OPERACIONAL" ? form.frentes.map(mapFrentePayload) : [],
-    itens: itensValidos.map((item) => mapItemPayload(item, form.tipo)),
+    cenarios: form.cenarios.map(mapCenarioPayload),
+    propostasComerciais: form.propostasComerciais.map(mapPropostaComercialPayload),
+    frentes: form.frentes.map(mapFrentePayload),
+    itens: itensValidos.map(mapItemPayload),
     premissas: form.premissas.filter(isPremissaPreenchida).map((premissa) => ({
       tipo: premissa.tipo,
       ordem: premissa.ordem,
@@ -5650,7 +5464,7 @@ function mapPropostaComercialPayload(proposta: PropostaComercialForm) {
   };
 }
 
-function mapItemPayload(item: ItemForm, tipoOrcamento: TipoOrcamento) {
+function mapItemPayload(item: ItemForm) {
   const recurso = isRecursoItem(item);
   const servicoOperacional =
     item.tipoItem === "SERVICO_PRINCIPAL" || item.tipoItem === "SERVICO_AUXILIAR";
@@ -5757,7 +5571,7 @@ function buildFormacaoPayload(
     precoSugerido: economicPreview.precoSugerido,
     ajusteComercial: toNumberOrZero(formacaoPreco.ajusteComercial),
     precoFinal:
-      form.tipo === "OPERACIONAL"
+      form.frentes.length > 0
         ? economicPreview.total
         : toNumberOrZero(formacaoPreco.precoFinal),
     observacao: formacaoPreco.observacao.trim()
@@ -5911,6 +5725,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
         observacao: opcional.observacao ?? ""
       })) ?? []
   }));
+  const hasFrontArchitecture = frentes.length > 0;
 
   return {
     id: item.id,
@@ -5938,7 +5753,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
       precoSugerido: toStringValue(item.formacaoPreco?.precoSugerido ?? 0),
       ajusteComercial: toStringValue(item.formacaoPreco?.ajusteComercial ?? 0),
       precoFinal:
-        item.tipo === "OPERACIONAL"
+        hasFrontArchitecture
           ? "0"
           : toStringValue(item.formacaoPreco?.precoFinal ?? 0),
       observacao: toStringValue(item.formacaoPreco?.observacao ?? "")
@@ -6031,9 +5846,9 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
           })
         : [
             createEmptyItem(
-              item.tipo === "OPERACIONAL" ? "SERVICO_PRINCIPAL" : "COMERCIAL",
+              frentes[0]?.natureza === "OPERACIONAL" ? "SERVICO_PRINCIPAL" : "COMERCIAL",
               1,
-              item.tipo === "OPERACIONAL" ? firstFrenteId : ""
+              firstFrenteId
             )
           ],
     premissas: buildPremissasForm(item)

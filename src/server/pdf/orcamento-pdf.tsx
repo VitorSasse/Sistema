@@ -572,7 +572,7 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
         <View style={styles.metaGrid}>
           {renderMetaRow("Cliente:", props.cliente.nome, "Documento:", props.cliente.cnpj || props.cliente.cpf || "-")}
           {renderMetaRow("Obra:", props.obra?.nome ?? "-", "Status:", statusLabel(props.status))}
-          {renderMetaRow("Tipo:", props.tipo, "Validade:", formatDate(props.validadeAte))}
+          {renderMetaRow("Validade:", formatDate(props.validadeAte), "Revisao:", String(props.revisao ?? 0))}
           {renderMetaRow("Responsavel:", props.responsavel?.nome ?? "-", "Titulo:", props.titulo ?? "-")}
         </View>
 

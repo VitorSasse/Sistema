@@ -228,14 +228,12 @@ export async function renderOrcamentoPropostaPdf({
     throw new Error("ORCAMENTO_NAO_ENCONTRADO");
   }
 
-  const propostaOperacional =
-    orcamento.tipo === "OPERACIONAL"
-      ? propostaId
-        ? orcamento.propostas.find((proposta) => proposta.id === propostaId)
-        : orcamento.propostas.find((proposta) => proposta.status === "EMITIDA") ?? orcamento.propostas[0]
-      : null;
+  const usaFrentes = orcamento.frentes.length > 0;
+  const propostaOperacional = propostaId
+    ? orcamento.propostas.find((proposta) => proposta.id === propostaId)
+    : orcamento.propostas.find((proposta) => proposta.status === "EMITIDA") ?? orcamento.propostas[0] ?? null;
 
-  if (orcamento.tipo === "OPERACIONAL" && !propostaOperacional) {
+  if (usaFrentes && !propostaOperacional) {
     throw new Error("PROPOSTA_NAO_PREPARADA");
   }
 
@@ -251,7 +249,7 @@ export async function renderOrcamentoPropostaPdf({
       : orcamento.frentes;
   const frenteIdsDaProposta = new Set(frentesDaProposta.map((frente) => frente.id));
   const itensDaProposta =
-    orcamento.tipo === "OPERACIONAL"
+    usaFrentes
       ? orcamento.itens.filter((item) => item.frenteId && frenteIdsDaProposta.has(item.frenteId))
       : orcamento.itens;
   const opcionaisDaProposta = propostaOperacional?.opcionais ?? [];
@@ -304,8 +302,7 @@ export async function renderOrcamentoPropostaPdf({
         }))
       ];
   const itensPdf = selecionarItensComerciais(itensFontePdf);
-  const frentesComerciaisPdf =
-    orcamento.tipo === "OPERACIONAL" ? montarFrentesComerciais(frentesPdf, itensFontePdf) : [];
+  const frentesComerciaisPdf = usaFrentes ? montarFrentesComerciais(frentesPdf, itensFontePdf) : [];
   const premissasBasePdf = snapshotOperacional
     ? mapSnapshotPremissas(snapshotOperacional)
     : [
@@ -345,7 +342,7 @@ export async function renderOrcamentoPropostaPdf({
     ? asModoExibicaoValoresPdf(snapshotOperacional.modoExibicaoValoresPdf)
     : asModoExibicaoValoresPdf(propostaOperacional?.modoExibicaoValoresPdf);
   const possuiEscopoComercial =
-    orcamento.tipo === "OPERACIONAL" ? frentesComerciaisPdf.length > 0 : itensPdf.length > 0;
+    usaFrentes ? frentesComerciaisPdf.length > 0 : itensPdf.length > 0;
 
   if (!possuiEscopoComercial) {
     throw new Error("PROPOSTA_SEM_ESCOPO_COMERCIAL");

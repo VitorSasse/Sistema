@@ -498,7 +498,9 @@ export const orcamentoSchema = z
       data.status !== StatusOrcamento.RASCUNHO &&
       data.status !== StatusOrcamento.EM_ELABORACAO;
 
-    if (data.tipo === TipoOrcamento.COMERCIAL && statusExigeItem && data.itens.length === 0) {
+    const possuiFrentes = data.frentes.length > 0;
+
+    if (!possuiFrentes && statusExigeItem && data.itens.length === 0) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["itens"],
@@ -506,7 +508,7 @@ export const orcamentoSchema = z
       });
     }
 
-    if (data.tipo === TipoOrcamento.OPERACIONAL) {
+    if (possuiFrentes) {
       const itensComFrente = data.itens.filter((item) => item.frenteTempId || item.frenteOrdem);
       const getFrenteRef = (frente: (typeof data.frentes)[number]) =>
         frente.tempId?.trim() || `ordem:${frente.ordem}`;
@@ -521,14 +523,6 @@ export const orcamentoSchema = z
           item.tipoItem === TipoItemOrcamento.SERVICO_PRINCIPAL &&
           refsOperacionais.has(getItemFrenteRef(item))
       );
-
-      if (statusExigeItem && data.frentes.length === 0) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ["frentes"],
-          message: "Inclua pelo menos uma frente para orcamentos operacionais."
-        });
-      }
 
       if (statusExigeItem && frentesOperacionais.length > 0 && !possuiServicoPrincipal) {
         context.addIssue({
