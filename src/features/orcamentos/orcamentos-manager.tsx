@@ -47,6 +47,7 @@ type CategoriaRecursoOrcamento = "EQUIPAMENTO" | "EQUIPE" | "MATERIAL" | "TERCEI
 type TipoPremissaOrcamento = "PREMISSA" | "CONDICAO" | "EXCLUSAO" | "OBSERVACAO";
 type ModoCustoOrcamento = "SIMPLIFICADO" | "COMPLETO";
 type ModoCustoFrente = "AUTO" | "MANUAL";
+type NaturezaFrenteOrcamento = "COMERCIAL" | "OPERACIONAL";
 type OrigemPrazoFrente = "AUTOMATICO" | "AJUSTADO";
 type OrigemQuantidadeOperacional = "FRENTE" | "PERSONALIZADA";
 type OrigemValorAplicadoOrcamento =
@@ -181,6 +182,7 @@ type FrenteForm = {
   localId: string;
   cenarioTempId: string;
   ordem: number;
+  natureza: NaturezaFrenteOrcamento;
   nome: string;
   descricao: string;
   metodoExecutivo: string;
@@ -389,6 +391,7 @@ type OrcamentoApi = {
   cenarios: Array<{
     id: string;
     ordem: number;
+    natureza?: NaturezaFrenteOrcamento | null;
     nome: string;
     descricao: string | null;
     metodoExecutivo: string | null;
@@ -424,6 +427,7 @@ type OrcamentoApi = {
     id: string;
     cenarioId: string | null;
     ordem: number;
+    natureza?: NaturezaFrenteOrcamento | null;
     nome: string;
     descricao: string | null;
     metodoExecutivo: string | null;
@@ -532,6 +536,11 @@ const statusOptions: { value: StatusOrcamento; label: string }[] = [
 ];
 
 const tipoOptions: { value: TipoOrcamento; label: string }[] = [
+  { value: "COMERCIAL", label: "Comercial" },
+  { value: "OPERACIONAL", label: "Operacional" }
+];
+
+const naturezaFrenteOptions: { value: NaturezaFrenteOrcamento; label: string }[] = [
   { value: "COMERCIAL", label: "Comercial" },
   { value: "OPERACIONAL", label: "Operacional" }
 ];
@@ -676,11 +685,12 @@ function createEmptyCenario(ordem: number, isPadrao = false): CenarioForm {
   };
 }
 
-function createEmptyFrente(ordem: number): FrenteForm {
+function createEmptyFrente(ordem: number, natureza: NaturezaFrenteOrcamento = "OPERACIONAL"): FrenteForm {
   return {
     localId: uid("frente"),
     cenarioTempId: "",
     ordem,
+    natureza,
     nome: `Frente ${ordem}`,
     descricao: "",
     metodoExecutivo: "",
@@ -1149,8 +1159,11 @@ function parseApiErrorPayload(payload: ApiErrorPayload, fallback: string) {
 }
 
 function buildCostEngineInputFromForm(form: OrcamentoForm) {
+  const frentesOperacionais = form.frentes.filter((frente) => frente.natureza === "OPERACIONAL");
+  const refsOperacionais = new Set(frentesOperacionais.map((frente) => frente.localId));
+
   return {
-    frentes: form.frentes.map((frente) => ({
+    frentes: frentesOperacionais.map((frente) => ({
       ref: frente.localId,
       nome: frente.nome,
       unidadeProducao: frente.unidadeProducao,
@@ -1164,7 +1177,7 @@ function buildCostEngineInputFromForm(form: OrcamentoForm) {
       custoManual: frente.custoManual
     })),
     recursos: form.itens
-      .filter((item) => isRecursoItem(item))
+      .filter((item) => isRecursoItem(item) && refsOperacionais.has(item.frenteTempId))
       .map((item) => ({
         ref: item.localId,
         frenteRef: item.frenteTempId,
@@ -1216,11 +1229,14 @@ function buildOperationalConsolidation(
   const motorCustos = calcularMotorCustos(
     buildCostEngineInputFromForm({ ...form, frentes, itens })
   );
+  const custosPorFrente = new Map(motorCustos.frentes.map((frente) => [frente.ref, frente]));
   const consolidacao = calcularConsolidacaoEconomica({
-    frentes: motorCustos.frentes.map((frente) => ({
-      ref: frente.ref,
+    frentes: frentes.map((frente) => ({
+      ref: frente.localId,
       nome: frente.nome,
-      custoDireto: frente.custoDireto
+      custoDireto: frente.natureza === "COMERCIAL"
+        ? 0
+        : custosPorFrente.get(frente.localId)?.custoDireto ?? 0
     })),
     servicos: itens.map((item) => ({
       frenteRef: item.frenteTempId,
@@ -1253,7 +1269,7 @@ function buildOperationalConsolidation(
 }
 
 function buildEconomicPreview(form: OrcamentoForm) {
-  const isOperational = form.tipo === "OPERACIONAL";
+  const isOperational = form.tipo === "OPERACIONAL" || form.frentes.length > 0;
   const modoCusto = isOperational ? form.formacaoPreco.modoCusto : "SIMPLIFICADO";
   const subtotalItens = roundMoney(form.itens.reduce((sum, item) => sum + calcItemTotal(item), 0));
   const itensParaCusto = isOperational
@@ -1353,6 +1369,24 @@ function buildEconomicPreview(form: OrcamentoForm) {
     motorCustos,
     consolidacao
   };
+}
+
+function buildNatureTotals(form: OrcamentoForm, preview: ReturnType<typeof buildEconomicPreview>) {
+  if (!preview.consolidacao) {
+    return { comercial: 0, operacional: 0 };
+  }
+
+  const naturezaPorFrente = new Map(
+    form.frentes.map((frente) => [frente.localId, frente.natureza])
+  );
+  const comercial = roundMoney(
+    preview.consolidacao.frentes
+      .filter((frente) => naturezaPorFrente.get(frente.ref) === "COMERCIAL")
+      .reduce((total, frente) => total + frente.valorVenda, 0)
+  );
+  const operacional = roundMoney(Math.max(0, preview.consolidacao.valorSubtotal - comercial));
+
+  return { comercial, operacional };
 }
 
 function buildCenarioTotals(form: OrcamentoForm) {
@@ -1565,6 +1599,10 @@ export function OrcamentosManager() {
   const precoSugeridoForm = economicPreview.precoSugerido;
   const totalForm = economicPreview.total;
   const consolidacaoEconomicaForm = economicPreview.consolidacao;
+  const totaisNaturezaForm = useMemo(
+    () => buildNatureTotals(form, economicPreview),
+    [form, economicPreview]
+  );
   const motorCustosCenarioForm = economicPreview.motorCustos;
   const gruposExecutivosForm = motorCustosCenarioForm?.gruposUnidade ?? [];
   const unidadesHomogeneasForm = motorCustosCenarioForm?.unidadesHomogeneas ?? true;
@@ -1846,7 +1884,7 @@ export function OrcamentosManager() {
     setForm((current) => {
       if (tipo === "OPERACIONAL") {
         const cenario = current.cenarios[0] ?? createEmptyCenario(1, true);
-        const frente = current.frentes[0] ?? createEmptyFrente(1);
+        const frente = current.frentes[0] ?? createEmptyFrente(1, "OPERACIONAL");
         const frenteComCenario = {
           ...frente,
           cenarioTempId: frente.cenarioTempId || cenario.localId
@@ -1879,15 +1917,7 @@ export function OrcamentosManager() {
       if (tipo === "COMERCIAL") {
         return {
           ...current,
-          tipo,
-          cenarios: [],
-          propostasComerciais: [],
-          frentes: [],
-          itens: current.itens.map((item) => ({
-            ...item,
-            tipoItem: "COMERCIAL",
-            frenteTempId: ""
-          }))
+          tipo
         };
       }
 
@@ -1901,18 +1931,24 @@ export function OrcamentosManager() {
   function addFrente() {
     setForm((current) => {
       const cenarioPadrao = current.cenarios.find((cenario) => cenario.isPadrao) ?? current.cenarios[0];
+      const naturezaPadrao: NaturezaFrenteOrcamento =
+        current.tipo === "COMERCIAL" ? "COMERCIAL" : "OPERACIONAL";
       const frente = {
-        ...createEmptyFrente(current.frentes.length + 1),
+        ...createEmptyFrente(current.frentes.length + 1, naturezaPadrao),
         cenarioTempId: cenarioPadrao?.localId ?? ""
       };
 
       return {
         ...current,
         frentes: [...current.frentes, frente],
-        itens:
-          current.tipo === "OPERACIONAL"
-            ? [...current.itens, createEmptyItem("SERVICO_PRINCIPAL", current.itens.length + 1, frente.localId)]
-            : current.itens
+        itens: [
+          ...current.itens,
+          createEmptyItem(
+            naturezaPadrao === "OPERACIONAL" ? "SERVICO_PRINCIPAL" : "COMERCIAL",
+            current.itens.length + 1,
+            frente.localId
+          )
+        ]
       };
     });
   }
@@ -2547,6 +2583,12 @@ export function OrcamentosManager() {
             <div className="orcamentos-total-card">
               <span>Total previsto</span>
               <strong>{formatCurrency(totalForm)}</strong>
+              {form.frentes.length > 0 ? (
+                <div className="orcamentos-total-breakdown">
+                  <small>Comercial: {formatCurrency(totaisNaturezaForm.comercial)}</small>
+                  <small>Operacional: {formatCurrency(totaisNaturezaForm.operacional)}</small>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -2668,29 +2710,30 @@ export function OrcamentosManager() {
             </div>
           </div>
 
+          <FrentesOperacionaisSection
+            cenarios={form.cenarios}
+            frentes={form.frentes}
+            itens={form.itens}
+            custosFrentes={motorCustosForm?.frentes ?? []}
+            vendasFrentes={vendasTodasFrentesForm}
+            servicoOptions={servicoOptions}
+            materialOptions={materialOptions}
+            equipamentoOptions={equipamentoOptions}
+            classeOperacionalOptions={classeOperacionalOptions}
+            colaboradorOptions={colaboradorOptions}
+            fornecedorOptions={fornecedorOptions}
+            onAdd={addFrente}
+            onRemove={removeFrente}
+            onUpdate={updateFrente}
+            onAddItem={addItemToFrente}
+            onRemoveItem={removeItem}
+            onUpdateItem={updateItem}
+            onSelectEquipment={selectEquipmentResource}
+            onPersonalizeResourceField={personalizeResourceField}
+          />
+
           {form.tipo === "OPERACIONAL" ? (
             <>
-              <FrentesOperacionaisSection
-                cenarios={form.cenarios}
-                frentes={form.frentes}
-                itens={form.itens}
-                custosFrentes={motorCustosForm?.frentes ?? []}
-                vendasFrentes={vendasTodasFrentesForm}
-                servicoOptions={servicoOptions}
-                materialOptions={materialOptions}
-                equipamentoOptions={equipamentoOptions}
-                classeOperacionalOptions={classeOperacionalOptions}
-                colaboradorOptions={colaboradorOptions}
-                fornecedorOptions={fornecedorOptions}
-                onAdd={addFrente}
-                onRemove={removeFrente}
-                onUpdate={updateFrente}
-                onAddItem={addItemToFrente}
-                onRemoveItem={removeItem}
-                onUpdateItem={updateItem}
-                onSelectEquipment={selectEquipmentResource}
-                onPersonalizeResourceField={personalizeResourceField}
-              />
               <CenariosPropostasSection
                 cenarios={form.cenarios}
                 propostas={form.propostasComerciais}
@@ -2713,20 +2756,22 @@ export function OrcamentosManager() {
               />
             </>
           ) : (
-            <ItensSection
-              tipo={form.tipo}
-              itens={form.itens}
-              frentes={form.frentes}
-              servicoOptions={servicoOptions}
-              materialOptions={materialOptions}
-              equipamentoOptions={equipamentoOptions}
-              classeOperacionalOptions={classeOperacionalOptions}
-              colaboradorOptions={colaboradorOptions}
-              fornecedorOptions={fornecedorOptions}
-              onAdd={addItem}
-              onRemove={removeItem}
-              onUpdate={updateItem}
-            />
+            form.frentes.length === 0 ? (
+              <ItensSection
+                tipo={form.tipo}
+                itens={form.itens}
+                frentes={form.frentes}
+                servicoOptions={servicoOptions}
+                materialOptions={materialOptions}
+                equipamentoOptions={equipamentoOptions}
+                classeOperacionalOptions={classeOperacionalOptions}
+                colaboradorOptions={colaboradorOptions}
+                fornecedorOptions={fornecedorOptions}
+                onAdd={addItem}
+                onRemove={removeItem}
+                onUpdate={updateItem}
+              />
+            ) : null
           )}
 
           <div className="orcamentos-form-section orcamentos-economia-section">
@@ -3259,6 +3304,36 @@ function FrentesOperacionaisSection(props: {
     });
   }
 
+  function hasOperationalData(frente: FrenteForm, itensDaFrente: ItemForm[]) {
+    return Boolean(
+      frente.unidadeProducao.trim() ||
+        frente.quantidadePrevista.trim() ||
+        frente.produtividadeDia.trim() ||
+        frente.prazoAdotadoDias.trim() ||
+        frente.prazoTeoricoDias.trim() ||
+        frente.metodoExecutivo.trim() ||
+        itensDaFrente.some((item) => isRecursoItem(item) || item.tipoItem === "SERVICO_AUXILIAR")
+    );
+  }
+
+  function updateNatureza(frente: FrenteForm, itensDaFrente: ItemForm[], value: NaturezaFrenteOrcamento) {
+    if (frente.natureza === value) return;
+
+    if (
+      frente.natureza === "OPERACIONAL" &&
+      value === "COMERCIAL" &&
+      hasOperationalData(frente, itensDaFrente)
+    ) {
+      const confirmed = window.confirm(
+        "Esta frente possui dados operacionais preenchidos. Ao alterar para Comercial, esses dados deixarao de participar do calculo, mas serao preservados. Deseja continuar?"
+      );
+
+      if (!confirmed) return;
+    }
+
+    props.onUpdate(frente.localId, "natureza", value);
+  }
+
   return (
     <div className="orcamentos-form-section orcamentos-operational-section">
       <div className="orcamentos-form-heading">
@@ -3287,6 +3362,8 @@ function FrentesOperacionaisSection(props: {
           const servicosAuxiliares = itensDaFrente.filter((item) => item.tipoItem === "SERVICO_AUXILIAR");
           const materiaisComerciais = itensDaFrente.filter((item) => item.tipoItem === "MATERIAL");
           const recursosPlanejamento = itensDaFrente.filter((item) => isRecursoItem(item));
+          const itensComerciais = itensDaFrente.filter((item) => !isRecursoItem(item));
+          const isFrenteComercial = frente.natureza === "COMERCIAL";
           const custoFrente = props.custosFrentes.find((item) => item.ref === frente.localId);
           const vendaFrente = props.vendasFrentes.find((item) => item.ref === frente.localId);
           const custoCalculadoPorRecursos = custoFrente?.origemCusto === "RECURSOS";
@@ -3336,6 +3413,27 @@ function FrentesOperacionaisSection(props: {
                     onChange={(event) => props.onUpdate(frente.localId, "nome", event.target.value)}
                   />
                 </label>
+                <label className="manager-field">
+                  <span className="manager-field-label">Natureza da frente</span>
+                  <select
+                    className="field-control"
+                    value={frente.natureza}
+                    onChange={(event) =>
+                      updateNatureza(frente, itensDaFrente, event.target.value as NaturezaFrenteOrcamento)
+                    }
+                  >
+                    {naturezaFrenteOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <small className="manager-field-hint">
+                    Define se esta frente sera precificada diretamente ou calculada pelo Motor Operacional.
+                  </small>
+                </label>
+                {!isFrenteComercial ? (
+                  <>
                 <label className="manager-field">
                   <span className="manager-field-label">Unidade de producao</span>
                   <input
@@ -3424,6 +3522,8 @@ function FrentesOperacionaisSection(props: {
                 {frenteCalculoMessage ? (
                   <p className="orcamentos-front-validation orcamentos-span-3">{frenteCalculoMessage}</p>
                 ) : null}
+                  </>
+                ) : null}
                 <label className="manager-field orcamentos-span-2">
                   <span className="manager-field-label">Descricao da frente</span>
                   <textarea
@@ -3435,6 +3535,66 @@ function FrentesOperacionaisSection(props: {
                 </label>
               </div>
 
+              {isFrenteComercial ? (
+                <div className="orcamentos-depth-block">
+                  <div className="orcamentos-depth-heading">
+                    <button
+                      type="button"
+                      className="orcamentos-depth-toggle"
+                      aria-expanded={openLevelIds.includes("principal")}
+                      onClick={() => toggleLevel(frente.localId, "principal")}
+                    >
+                      <div>
+                        <span>Comercial</span>
+                        <strong>Itens comerciais da frente</strong>
+                        <small>
+                          {itensComerciais.length > 0
+                            ? `${itensComerciais.length} item(ns) comercial(is) informado(s).`
+                            : "Informe itens, unidades, quantidades e precos de venda."}
+                        </small>
+                      </div>
+                      <span className="orcamentos-depth-chevron" aria-hidden="true">
+                        {openLevelIds.includes("principal") ? "-" : "+"}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openLevel(frente.localId, "principal");
+                        props.onAddItem(frente.localId, "COMERCIAL");
+                      }}
+                    >
+                      Adicionar item
+                    </button>
+                  </div>
+                  {openLevelIds.includes("principal") ? (
+                    <div className="orcamentos-depth-content">
+                      <OperationalItemList
+                        emptyLabel="Nenhum item comercial nesta frente."
+                        itens={itensComerciais}
+                        servicoOptions={props.servicoOptions}
+                        materialOptions={props.materialOptions}
+                        equipamentoOptions={props.equipamentoOptions}
+                        classeOperacionalOptions={props.classeOperacionalOptions}
+                        colaboradorOptions={props.colaboradorOptions}
+                        fornecedorOptions={props.fornecedorOptions}
+                        onRemove={props.onRemoveItem}
+                        onUpdate={props.onUpdateItem}
+                        onSelectEquipment={props.onSelectEquipment}
+                        onPersonalizeResourceField={props.onPersonalizeResourceField}
+                      />
+                      <textarea
+                        className="field-control"
+                        rows={2}
+                        value={frente.observacao}
+                        placeholder="Observacoes comerciais desta frente."
+                        onChange={(event) => props.onUpdate(frente.localId, "observacao", event.target.value)}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <>
               <div className="orcamentos-depth-block">
                 <div className="orcamentos-depth-heading">
                   <button
@@ -3720,6 +3880,8 @@ function FrentesOperacionaisSection(props: {
                   </div>
                 ) : null}
               </div>
+                </>
+              )}
             </article>
           );
         })}
@@ -5457,6 +5619,7 @@ function mapFrentePayload(frente: FrenteForm) {
     cenarioTempId: frente.cenarioTempId,
     tempId: frente.localId,
     ordem: frente.ordem,
+    natureza: frente.natureza,
     nome: frente.nome,
     descricao: frente.descricao,
     metodoExecutivo: frente.metodoExecutivo,
@@ -5522,6 +5685,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
     localId: frente.id,
     cenarioTempId: frente.cenarioId ?? cenarios.find((cenario) => cenario.isPadrao)?.localId ?? "",
     ordem: frente.ordem,
+    natureza: frente.natureza ?? (item.tipo === "COMERCIAL" ? "COMERCIAL" : "OPERACIONAL"),
     nome: frente.nome,
     descricao: frente.descricao ?? "",
     metodoExecutivo: frente.metodoExecutivo ?? "",

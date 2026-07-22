@@ -85,6 +85,11 @@ enum ModoCustoFrente {
   MANUAL
 }
 
+enum NaturezaFrenteOrcamento {
+  COMERCIAL
+  OPERACIONAL
+}
+
 enum OrigemPrazoFrente {
   AUTOMATICO
   AJUSTADO
@@ -894,6 +899,7 @@ model OrcamentoFrente {
   orcamentoId        String
   cenarioId          String?
   ordem              Int               @default(1)
+  natureza           NaturezaFrenteOrcamento @default(OPERACIONAL)
   nome               String
   descricao          String?
   metodoExecutivo    String?

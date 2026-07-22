@@ -1,4 +1,9 @@
-import { ModoCustoOrcamento, TipoItemOrcamento, TipoOrcamento } from "@prisma/client";
+import {
+  ModoCustoOrcamento,
+  NaturezaFrenteOrcamento,
+  TipoItemOrcamento,
+  TipoOrcamento
+} from "@prisma/client";
 import { calcularMotorCustos } from "@/lib/orcamentos/cost-engine";
 import { calcularConsolidacaoEconomica } from "@/lib/orcamentos/economic-engine";
 import type { OrcamentoInput } from "@/lib/validators/orcamento";
@@ -43,6 +48,17 @@ function getItemFrenteRef(item: OrcamentoItemInput) {
   return item.frenteTempId?.trim() || (item.frenteOrdem ? `ordem:${item.frenteOrdem}` : "");
 }
 
+function getNaturezaFrente(
+  tipoOrcamento: TipoOrcamento,
+  frente: OrcamentoInput["frentes"][number]
+) {
+  return frente.natureza ?? (
+    tipoOrcamento === TipoOrcamento.COMERCIAL
+      ? NaturezaFrenteOrcamento.COMERCIAL
+      : NaturezaFrenteOrcamento.OPERACIONAL
+  );
+}
+
 function pertenceAoCenario(
   frente: OrcamentoInput["frentes"][number],
   cenario: OrcamentoCenarioInput
@@ -69,11 +85,17 @@ function getEscopoOperacional(
 }
 
 function buildCostEngineInput(
+  tipoOrcamento: TipoOrcamento,
   frentes: OrcamentoInput["frentes"],
   itens: OrcamentoInput["itens"]
 ) {
+  const frentesOperacionais = frentes.filter(
+    (frente) => getNaturezaFrente(tipoOrcamento, frente) !== NaturezaFrenteOrcamento.COMERCIAL
+  );
+  const refsOperacionais = new Set(frentesOperacionais.map(getFrenteRef));
+
   return {
-    frentes: frentes.map((frente) => ({
+    frentes: frentesOperacionais.map((frente) => ({
       ref: getFrenteRef(frente),
       nome: frente.nome,
       unidadeProducao: frente.unidadeProducao,
@@ -87,7 +109,11 @@ function buildCostEngineInput(
       custoManual: frente.custoManual
     })),
     recursos: itens
-      .filter((item) => item.tipoItem === TipoItemOrcamento.RECURSO)
+      .filter(
+        (item) =>
+          item.tipoItem === TipoItemOrcamento.RECURSO &&
+          refsOperacionais.has(getItemFrenteRef(item))
+      )
       .map((item) => ({
         ref: item.tempId?.trim() || `${getItemFrenteRef(item)}:item:${item.ordem}`,
         frenteRef: getItemFrenteRef(item),
@@ -122,12 +148,18 @@ function buildOperationalSnapshot(
 ) {
   const formacao = input.formacaoPreco;
   const escopo = getEscopoOperacional(input, cenario);
-  const motorCustos = calcularMotorCustos(buildCostEngineInput(escopo.frentes, escopo.itens));
+  const motorCustos = calcularMotorCustos(buildCostEngineInput(input.tipo, escopo.frentes, escopo.itens));
+  const resultadoMotorPorRef = new Map(
+    motorCustos.frentes.map((frente) => [frente.ref, frente])
+  );
   const consolidacao = calcularConsolidacaoEconomica({
-    frentes: motorCustos.frentes.map((frente) => ({
-      ref: frente.ref,
+    frentes: escopo.frentes.map((frente) => ({
+      ref: getFrenteRef(frente),
       nome: frente.nome,
-      custoDireto: frente.custoDireto
+      custoDireto:
+        getNaturezaFrente(input.tipo, frente) === NaturezaFrenteOrcamento.COMERCIAL
+          ? 0
+          : resultadoMotorPorRef.get(getFrenteRef(frente))?.custoDireto ?? 0
     })),
     servicos: escopo.itens.map((item) => ({
       frenteRef: getItemFrenteRef(item),
@@ -245,7 +277,7 @@ export function buildPricingSnapshot(
   input: OrcamentoInput,
   options?: { cenario?: OrcamentoCenarioInput | null }
 ) {
-  return input.tipo === TipoOrcamento.OPERACIONAL
+  return input.tipo === TipoOrcamento.OPERACIONAL || input.frentes.length > 0
     ? buildOperationalSnapshot(input, options?.cenario)
     : buildCommercialSnapshot(input);
 }

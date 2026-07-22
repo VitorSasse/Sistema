@@ -8188,6 +8188,19 @@ button {
   line-height: 1;
 }
 
+.orcamentos-total-breakdown {
+  display: grid;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.orcamentos-total-breakdown small {
+  color: var(--screen-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .orcamentos-grid {
   display: grid;
   grid-template-columns: minmax(320px, 0.38fr) minmax(0, 1fr);

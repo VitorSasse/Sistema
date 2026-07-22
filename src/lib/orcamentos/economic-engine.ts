@@ -92,6 +92,7 @@ type EconomicEngineInput = {
 };
 
 const tiposComerciaisDaFrente = new Set([
+  "COMERCIAL",
   "SERVICO_PRINCIPAL",
   "SERVICO_AUXILIAR",
   "MATERIAL",

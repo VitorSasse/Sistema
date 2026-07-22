@@ -4,6 +4,7 @@ import {
   ModoCustoOrcamento,
   ModoExibicaoValoresPdf,
   ModoPrecificacaoItemOrcamento,
+  NaturezaFrenteOrcamento,
   OrigemValorAplicadoOrcamento,
   OrigemQuantidadeOperacional,
   OrigemPrazoFrente,
@@ -90,6 +91,7 @@ const orcamentoFrenteSchema = z.object({
   cenarioOrdem: z.number().int().positive().max(999).optional().nullable(),
   tempId: z.string().trim().max(80).optional().or(z.literal("")),
   ordem: z.number().int().positive().max(999).default(1),
+  natureza: z.nativeEnum(NaturezaFrenteOrcamento).optional(),
   nome: z.string().trim().min(2).max(160),
   descricao: z.string().trim().max(500).optional().or(z.literal("")),
   metodoExecutivo: z.string().trim().max(1000).optional().or(z.literal("")),
@@ -468,8 +470,18 @@ export const orcamentoSchema = z
 
     if (data.tipo === TipoOrcamento.OPERACIONAL) {
       const itensComFrente = data.itens.filter((item) => item.frenteTempId || item.frenteOrdem);
+      const getFrenteRef = (frente: (typeof data.frentes)[number]) =>
+        frente.tempId?.trim() || `ordem:${frente.ordem}`;
+      const getItemFrenteRef = (item: (typeof data.itens)[number]) =>
+        item.frenteTempId?.trim() || (item.frenteOrdem ? `ordem:${item.frenteOrdem}` : "");
+      const frentesOperacionais = data.frentes.filter(
+        (frente) => (frente.natureza ?? NaturezaFrenteOrcamento.OPERACIONAL) === NaturezaFrenteOrcamento.OPERACIONAL
+      );
+      const refsOperacionais = new Set(frentesOperacionais.map(getFrenteRef));
       const possuiServicoPrincipal = itensComFrente.some(
-        (item) => item.tipoItem === TipoItemOrcamento.SERVICO_PRINCIPAL
+        (item) =>
+          item.tipoItem === TipoItemOrcamento.SERVICO_PRINCIPAL &&
+          refsOperacionais.has(getItemFrenteRef(item))
       );
 
       if (statusExigeItem && data.frentes.length === 0) {
@@ -480,11 +492,36 @@ export const orcamentoSchema = z
         });
       }
 
-      if (statusExigeItem && !possuiServicoPrincipal) {
+      if (statusExigeItem && frentesOperacionais.length > 0 && !possuiServicoPrincipal) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
           path: ["itens"],
           message: "Defina pelo menos um servico principal vinculado a uma frente."
+        });
+      }
+
+      if (statusExigeItem) {
+        data.frentes.forEach((frente, frenteIndex) => {
+          if ((frente.natureza ?? NaturezaFrenteOrcamento.OPERACIONAL) !== NaturezaFrenteOrcamento.COMERCIAL) {
+            return;
+          }
+
+          const frenteRef = getFrenteRef(frente);
+          const possuiItemComercialValido = data.itens.some(
+            (item) =>
+              getItemFrenteRef(item) === frenteRef &&
+              item.tipoItem !== TipoItemOrcamento.RECURSO &&
+              Number(item.quantidade ?? 0) > 0 &&
+              Number(item.valorUnitario ?? item.precoAplicado ?? 0) >= 0
+          );
+
+          if (!possuiItemComercialValido) {
+            context.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["frentes", frenteIndex],
+              message: "Inclua pelo menos um item comercial valido nesta frente."
+            });
+          }
         });
       }
 
@@ -502,6 +539,9 @@ export const orcamentoSchema = z
           (item.frenteOrdem && candidate.ordem === item.frenteOrdem)
         );
         if (!frente) return;
+        if ((frente.natureza ?? NaturezaFrenteOrcamento.OPERACIONAL) === NaturezaFrenteOrcamento.COMERCIAL) {
+          return;
+        }
 
         const quantidadeOperacional =
           item.origemQuantidadeOperacional === OrigemQuantidadeOperacional.PERSONALIZADA

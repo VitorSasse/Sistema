@@ -2,6 +2,7 @@ import {
   CategoriaRecursoOrcamento,
   ModoCustoFrente,
   ModoCustoOrcamento,
+  NaturezaFrenteOrcamento,
   StatusOrcamento,
   TipoItemOrcamento,
   TipoOrcamento
@@ -136,6 +137,7 @@ function inputOperacional(ajusteComercial = 0): OrcamentoInput {
         cenarioTempId: "",
         cenarioOrdem: null,
         ordem: 1,
+        natureza: NaturezaFrenteOrcamento.OPERACIONAL,
         nome: "Frente 1",
         descricao: "",
         metodoExecutivo: "",
@@ -317,5 +319,45 @@ describe("Formacao do preco do orcamento operacional", () => {
     expect(snapshot.consolidacao?.valorComercialInformado).toBe(100000);
     expect(snapshot.formacaoPreco.precoSugerido).toBe(33000);
     expect(snapshot.totals.valorTotal).toBe(133000);
+  });
+
+  it("soma frente comercial e operacional no mesmo orcamento sem enviar a comercial ao motor", () => {
+    const input = inputOperacional();
+    input.frentes.push({
+      tempId: "frente-comercial",
+      cenarioTempId: "",
+      cenarioOrdem: null,
+      ordem: 2,
+      natureza: NaturezaFrenteOrcamento.COMERCIAL,
+      nome: "Locacao de equipamentos",
+      descricao: "",
+      metodoExecutivo: "Dados preservados, mas inativos no calculo comercial.",
+      unidadeProducao: "",
+      quantidadePrevista: null,
+      produtividadeDia: null,
+      prazoEstimadoDias: null,
+      modoCusto: ModoCustoFrente.AUTO,
+      custoManual: 0,
+      observacao: ""
+    });
+    input.itens.push(
+      servicoPrincipal("frente-1", 10, 10000),
+      {
+        ...servicoPrincipal("frente-comercial", 3, 2500, 30),
+        tipoItem: TipoItemOrcamento.COMERCIAL,
+        descricao: "Locacao de escavadeira"
+      },
+      {
+        ...recurso("Recurso preservado na frente comercial", 1, 999999, "UN"),
+        frenteTempId: "frente-comercial"
+      }
+    );
+
+    const snapshot = buildPricingSnapshot(input);
+
+    expect(snapshot.motorCustos?.frentes.map((frente) => frente.ref)).toEqual(["frente-1"]);
+    expect(snapshot.consolidacao?.valorComercialInformado).toBe(107500);
+    expect(snapshot.formacaoPreco.custoDireto).toBe(96984.61);
+    expect(snapshot.totals.valorTotal).toBe(107500);
   });
 });

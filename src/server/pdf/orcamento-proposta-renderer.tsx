@@ -86,6 +86,7 @@ function mapSnapshotFrentes(snapshot: Record<string, unknown>) {
   return frentes.filter(isRecord).map((frente, index) => ({
     ordem: asNumber(frente.ordem, index + 1),
     tempId: asNullableString(frente.tempId),
+    natureza: asString(frente.natureza, "OPERACIONAL"),
     nome: asString(frente.nome, `Frente ${index + 1}`),
     descricao: asNullableString(frente.descricao),
     metodoExecutivo: asNullableString(frente.metodoExecutivo),
@@ -244,6 +245,7 @@ export async function renderOrcamentoPropostaPdf({
     ? mapSnapshotFrentes(snapshotOperacional)
     : frentesDaProposta.map((frente) => ({
         ordem: frente.ordem,
+        natureza: frente.natureza,
         nome: frente.nome,
         descricao: frente.descricao,
         metodoExecutivo: frente.metodoExecutivo,
