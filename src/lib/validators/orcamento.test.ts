@@ -86,6 +86,23 @@ describe("orcamentoSchema", () => {
     );
   });
 
+  it("aceita item comercial manual sem servico e sem equipamento", () => {
+    const payload = baseOrcamento();
+    payload.itens.push({
+      tipoItem: "COMERCIAL",
+      origemItemComercial: "MANUAL",
+      descricaoManualComercial: "Locacao especial nao cadastrada",
+      ordem: 1,
+      descricao: "Locacao especial nao cadastrada",
+      unidade: "DIARIA",
+      quantidade: 1,
+      custoUnitario: 0,
+      valorUnitario: 500
+    });
+
+    expect(orcamentoSchema.safeParse(payload).success).toBe(true);
+  });
+
   it("aceita unidade de capacidade nula em itens antigos que nao dependem dela", () => {
     const payload = baseOrcamento();
     payload.itens.push({

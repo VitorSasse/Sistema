@@ -172,6 +172,10 @@ type EquipamentoResourceOption = BasicSelectOption & {
   caracteristicasTecnicas: Record<string, unknown> | null;
   legado?: boolean;
 };
+type CommercialSearchOption = SearchableSelectOption & {
+  origem: OrigemItemComercialOrcamento;
+  sourceId: string;
+};
 type NamedSelectOption = { value: string; label: string; nome: string };
 type RecursoSelectOption = BasicSelectOption & {
   nome?: string;
@@ -1061,6 +1065,45 @@ function createResourceSnapshotFromOption(equipamento: EquipamentoResourceOption
     descricaoOperacional: equipamento.descricaoOperacional,
     caracteristicasTecnicas: equipamento.caracteristicasTecnicas
   });
+}
+
+function buildCommercialSearchOptions(
+  servicoOptions: ServicoSelectOption[],
+  equipamentoOptions: EquipamentoResourceOption[]
+): CommercialSearchOption[] {
+  const veiculos = equipamentoOptions.filter(
+    (equipamento) => getEquipamentoOrigemComercialLabel(equipamento) === "Veiculo"
+  );
+  const equipamentos = equipamentoOptions.filter(
+    (equipamento) => getEquipamentoOrigemComercialLabel(equipamento) !== "Veiculo"
+  );
+
+  return [
+    {
+      value: "MANUAL:manual",
+      label: "ACAO | + Informar item manual",
+      origem: "MANUAL",
+      sourceId: "manual"
+    },
+    ...equipamentos.map((equipamento) => ({
+      value: `RESOURCE:${equipamento.value}`,
+      label: `EQUIPAMENTOS | ${equipamento.label}`,
+      origem: "RESOURCE" as const,
+      sourceId: equipamento.value
+    })),
+    ...veiculos.map((equipamento) => ({
+      value: `RESOURCE:${equipamento.value}`,
+      label: `VEICULOS | ${equipamento.label}`,
+      origem: "RESOURCE" as const,
+      sourceId: equipamento.value
+    })),
+    ...servicoOptions.map((servico) => ({
+      value: `SERVICE:${servico.value}`,
+      label: `SERVICOS | ${servico.label}`,
+      origem: "SERVICE" as const,
+      sourceId: servico.value
+    }))
+  ];
 }
 
 function isCostDebugEnabled() {
@@ -4502,26 +4545,8 @@ function CommercialFrontItemFields(props: {
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
   onSelectEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
 }) {
-  type CommercialSearchOption = SearchableSelectOption & {
-    origem: OrigemItemComercialOrcamento;
-    sourceId: string;
-  };
-
   const commercialItemOptions = useMemo<CommercialSearchOption[]>(
-    () => [
-      ...props.servicoOptions.map((servico) => ({
-        value: `SERVICE:${servico.value}`,
-        label: `SERVICOS | ${servico.label}`,
-        origem: "SERVICE" as const,
-        sourceId: servico.value
-      })),
-      ...props.equipamentoOptions.map((equipamento) => ({
-        value: `RESOURCE:${equipamento.value}`,
-        label: `${getEquipamentoOrigemComercialLabel(equipamento).toLocaleUpperCase("pt-BR")} | ${equipamento.label}`,
-        origem: "RESOURCE" as const,
-        sourceId: equipamento.value
-      }))
-    ],
+    () => buildCommercialSearchOptions(props.servicoOptions, props.equipamentoOptions),
     [props.equipamentoOptions, props.servicoOptions]
   );
 
@@ -4530,7 +4555,9 @@ function CommercialFrontItemFields(props: {
       ? `SERVICE:${props.item.servicoId}`
       : props.item.origemItemComercial === "RESOURCE" && props.item.equipamentoId
         ? `RESOURCE:${props.item.equipamentoId}`
-        : "";
+        : props.item.origemItemComercial === "MANUAL"
+          ? "MANUAL:manual"
+          : "";
 
   const selectedCommercialEquipment =
     props.item.origemItemComercial === "RESOURCE"
@@ -4552,6 +4579,14 @@ function CommercialFrontItemFields(props: {
     }
 
     const [origem, sourceId] = value.split(":") as [OrigemItemComercialOrcamento, string];
+
+    if (origem === "MANUAL") {
+      props.onUpdate(props.item.localId, "origemItemComercial", "MANUAL");
+      props.onUpdate(props.item.localId, "servicoId", "");
+      props.onUpdate(props.item.localId, "equipamentoId", "");
+      props.onUpdate(props.item.localId, "descricaoManualComercial", props.item.descricao);
+      return;
+    }
 
     if (origem === "SERVICE") {
       props.onUpdate(props.item.localId, "origemItemComercial", "SERVICE");
@@ -4617,12 +4652,12 @@ function CommercialFrontItemFields(props: {
           <SearchableSelect
             value={selectedCommercialValue}
             options={commercialItemOptions}
-            placeholder="Buscar servico ou equipamento"
-            emptyLabel="Nenhum servico ou equipamento encontrado."
+            placeholder="Buscar servico, equipamento ou veiculo"
+            emptyLabel="Nenhum servico, equipamento ou veiculo encontrado."
             onChange={handleCommercialItemChange}
           />
           <small className="manager-field-hint">
-            Selecione um item cadastrado ou informe uma descricao comercial. Origem: {origemLabel}.
+            Selecione um item cadastrado ou informe um item manual. Origem: {origemLabel}.
           </small>
         </label>
       )}
@@ -4644,7 +4679,9 @@ function CommercialFrontItemFields(props: {
         <small className="manager-field-hint">Define se o preco vem direto ou de uma composicao.</small>
       </label>
       <label className="manager-field orcamentos-span-2">
-        <span className="manager-field-label">Descricao</span>
+        <span className="manager-field-label">
+          {props.item.origemItemComercial === "MANUAL" ? "Nome do item" : "Descricao"}
+        </span>
         <input
           className="field-control"
           value={props.item.descricao}
