@@ -14,6 +14,78 @@ function baseOrcamento() {
 }
 
 describe("orcamentoSchema", () => {
+  it("aceita item comercial vinculado a equipamento sem servico", () => {
+    const payload = baseOrcamento();
+    payload.itens.push({
+      tipoItem: "COMERCIAL",
+      origemItemComercial: "RESOURCE",
+      equipamentoId: "22222222-2222-4222-8222-222222222222",
+      servicoId: null,
+      ordem: 1,
+      descricao: "Escavadeira hidraulica 15 t",
+      unidade: "DIARIA",
+      quantidade: 1,
+      custoUnitario: 0,
+      valorUnitario: 2800
+    });
+
+    expect(orcamentoSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it("bloqueia item comercial com servico e equipamento simultaneos", () => {
+    const payload = baseOrcamento();
+    payload.itens.push({
+      tipoItem: "COMERCIAL",
+      origemItemComercial: "RESOURCE",
+      servicoId: "33333333-3333-4333-8333-333333333333",
+      equipamentoId: "22222222-2222-4222-8222-222222222222",
+      ordem: 1,
+      descricao: "Item duplicado",
+      unidade: "UN",
+      quantidade: 1,
+      custoUnitario: 0,
+      valorUnitario: 100
+    });
+
+    const result = orcamentoSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: ["itens", 0, "origemItemComercial"],
+          message: "O item comercial nao pode usar servico e equipamento ao mesmo tempo."
+        })
+      ])
+    );
+  });
+
+  it("exige equipamento quando a origem comercial for recurso", () => {
+    const payload = baseOrcamento();
+    payload.itens.push({
+      tipoItem: "COMERCIAL",
+      origemItemComercial: "RESOURCE",
+      ordem: 1,
+      descricao: "Locacao de equipamento",
+      unidade: "DIARIA",
+      quantidade: 1,
+      custoUnitario: 0,
+      valorUnitario: 100
+    });
+
+    const result = orcamentoSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: ["itens", 0, "equipamentoId"],
+          message: "Selecione o equipamento ou recurso comercial deste item."
+        })
+      ])
+    );
+  });
+
   it("aceita unidade de capacidade nula em itens antigos que nao dependem dela", () => {
     const payload = baseOrcamento();
     payload.itens.push({

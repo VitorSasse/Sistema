@@ -63,6 +63,12 @@ enum TipoItemOrcamento {
   OUTRO
 }
 
+enum OrigemItemComercialOrcamento {
+  SERVICE
+  RESOURCE
+  MANUAL
+}
+
 enum ModoPrecificacaoItemOrcamento {
   PRECO_DIRETO
   COMPOSICAO
@@ -931,6 +937,8 @@ model OrcamentoItem {
   orcamentoId                    String
   frenteId                       String?
   tipoItem                       TipoItemOrcamento           @default(COMERCIAL)
+  origemItemComercial            OrigemItemComercialOrcamento?
+  descricaoManualComercial       String?
   servicoId                      String?
   materialId                     String?
   equipamentoId                  String?

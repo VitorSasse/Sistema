@@ -5,6 +5,7 @@ import {
   ModoExibicaoValoresPdf,
   ModoPrecificacaoItemOrcamento,
   NaturezaFrenteOrcamento,
+  OrigemItemComercialOrcamento,
   OrigemValorAplicadoOrcamento,
   OrigemQuantidadeOperacional,
   OrigemPrazoFrente,
@@ -151,6 +152,8 @@ const orcamentoItemSchema = z.object({
   frenteTempId: z.string().trim().max(80).optional().or(z.literal("")),
   frenteOrdem: z.number().int().positive().max(999).optional().nullable(),
   tipoItem: z.nativeEnum(TipoItemOrcamento).default(TipoItemOrcamento.COMERCIAL),
+  origemItemComercial: z.nativeEnum(OrigemItemComercialOrcamento).optional().nullable(),
+  descricaoManualComercial: z.string().trim().max(240).optional().or(z.literal("")),
   servicoId: optionalUuid(),
   materialId: optionalUuid(),
   equipamentoId: optionalUuid(),
@@ -227,6 +230,42 @@ const orcamentoItemSchema = z.object({
         code: z.ZodIssueCode.custom,
         path: ["valorUnitario"],
         message: "O preco de venda do item nao pode ser negativo."
+      });
+    }
+
+    if (item.servicoId && item.equipamentoId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["origemItemComercial"],
+        message: "O item comercial nao pode usar servico e equipamento ao mesmo tempo."
+      });
+    }
+
+    if (item.origemItemComercial === OrigemItemComercialOrcamento.SERVICE && !item.servicoId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["servicoId"],
+        message: "Selecione o servico comercial deste item."
+      });
+    }
+
+    if (item.origemItemComercial === OrigemItemComercialOrcamento.RESOURCE && !item.equipamentoId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["equipamentoId"],
+        message: "Selecione o equipamento ou recurso comercial deste item."
+      });
+    }
+
+    if (
+      item.origemItemComercial === OrigemItemComercialOrcamento.MANUAL &&
+      !item.descricaoManualComercial?.trim() &&
+      !item.descricao?.trim()
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["descricao"],
+        message: "Informe a descricao comercial do item."
       });
     }
 

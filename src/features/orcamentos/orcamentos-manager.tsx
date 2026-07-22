@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { LockKeyhole, Pencil, Truck } from "lucide-react";
-import { SearchableSelect } from "@/components/form/searchable-select";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/form/searchable-select";
 import {
   calcularMotorCustos,
   type CostEngineMemoriaRecurso
@@ -48,6 +48,7 @@ type TipoPremissaOrcamento = "PREMISSA" | "CONDICAO" | "EXCLUSAO" | "OBSERVACAO"
 type ModoCustoOrcamento = "SIMPLIFICADO" | "COMPLETO";
 type ModoCustoFrente = "AUTO" | "MANUAL";
 type NaturezaFrenteOrcamento = "COMERCIAL" | "OPERACIONAL";
+type OrigemItemComercialOrcamento = "SERVICE" | "RESOURCE" | "MANUAL";
 type OrigemPrazoFrente = "AUTOMATICO" | "AJUSTADO";
 type OrigemQuantidadeOperacional = "FRENTE" | "PERSONALIZADA";
 type OrigemValorAplicadoOrcamento =
@@ -240,6 +241,8 @@ type ItemForm = {
   localId: string;
   frenteTempId: string;
   tipoItem: TipoItemOrcamento;
+  origemItemComercial: OrigemItemComercialOrcamento;
+  descricaoManualComercial: string;
   servicoId: string;
   materialId: string;
   equipamentoId: string;
@@ -446,6 +449,8 @@ type OrcamentoApi = {
     id: string;
     frenteId: string | null;
     tipoItem: TipoItemOrcamento;
+    origemItemComercial?: OrigemItemComercialOrcamento | null;
+    descricaoManualComercial?: string | null;
     servicoId: string | null;
     materialId: string | null;
     equipamentoId: string | null;
@@ -747,6 +752,8 @@ function createEmptyItem(tipoItem: TipoItemOrcamento, ordem: number, frenteTempI
     localId: uid("item"),
     frenteTempId,
     tipoItem,
+    origemItemComercial: "MANUAL",
+    descricaoManualComercial: "",
     servicoId: "",
     materialId: "",
     equipamentoId: "",
@@ -910,6 +917,8 @@ function normalizeItemUpdate(item: ItemForm, key: keyof ItemForm, value: string 
     if (tipoItem === "RECURSO") {
       return {
         ...next,
+        origemItemComercial: "MANUAL",
+        descricaoManualComercial: "",
         servicoId: "",
         materialId: "",
         equipamentoId: "",
@@ -921,6 +930,8 @@ function normalizeItemUpdate(item: ItemForm, key: keyof ItemForm, value: string 
     if (tipoItem === "MATERIAL") {
       return {
         ...next,
+        origemItemComercial: "MANUAL",
+        descricaoManualComercial: "",
         servicoId: "",
         equipamentoId: "",
         categoriaRecurso: "EQUIPAMENTO",
@@ -936,6 +947,7 @@ function normalizeItemUpdate(item: ItemForm, key: keyof ItemForm, value: string 
 
     return {
       ...next,
+      origemItemComercial: next.origemItemComercial || "MANUAL",
       materialId: "",
       categoriaRecurso: "EQUIPAMENTO",
       classeOperacional: "",
@@ -945,6 +957,20 @@ function normalizeItemUpdate(item: ItemForm, key: keyof ItemForm, value: string 
       camposTecnicosPersonalizados: [],
       custoUnitario: "0",
       produtividade: ""
+    };
+  }
+
+  if (key === "origemItemComercial") {
+    const origem = value as OrigemItemComercialOrcamento;
+
+    return {
+      ...next,
+      origemItemComercial: origem,
+      servicoId: origem === "SERVICE" ? next.servicoId : "",
+      equipamentoId: origem === "RESOURCE" ? next.equipamentoId : "",
+      descricaoManualComercial: origem === "MANUAL" ? next.descricaoManualComercial || next.descricao : "",
+      caracteristicasRecursoSnapshot: origem === "RESOURCE" ? next.caracteristicasRecursoSnapshot : null,
+      camposTecnicosPersonalizados: origem === "RESOURCE" ? next.camposTecnicosPersonalizados : []
     };
   }
 
@@ -989,6 +1015,52 @@ function normalizeItemUpdate(item: ItemForm, key: keyof ItemForm, value: string 
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function getUnidadeVendaFromUnidadeEconomica(unidade?: UnidadeEconomicaCusto | null) {
+  if (!unidade) return "";
+
+  const unidades: Partial<Record<UnidadeEconomicaCusto, string>> = {
+    CUSTO_FIXO: "UN",
+    DIA: "DIARIA",
+    HORA: "HORA",
+    KM: "KM",
+    M3: "m3",
+    M2: "m2",
+    VIAGEM: "VIAGEM",
+    CARGA: "CARGA",
+    MES: "MES",
+    UNIDADE_PRODUZIDA: "UN",
+    UNIDADE: "UN",
+    VALOR_TOTAL: "VB"
+  };
+
+  return unidades[unidade] ?? "";
+}
+
+function getEquipamentoOrigemComercialLabel(equipamento?: Pick<EquipamentoResourceOption, "tipoRecurso" | "label"> | null) {
+  if (!equipamento) return "Equipamento";
+
+  const origem = `${equipamento.tipoRecurso ?? ""} ${equipamento.label}`.toLocaleLowerCase("pt-BR");
+  return origem.includes("caminh") || origem.includes("carreta") || origem.includes("veiculo")
+    ? "Veiculo"
+    : "Equipamento";
+}
+
+function createResourceSnapshotFromOption(equipamento: EquipamentoResourceOption) {
+  return criarSnapshotCaracteristicasRecurso({
+    id: equipamento.value,
+    capacidadeM3: equipamento.capacidadeM3,
+    unidadeCapacidade: equipamento.unidadeCapacidade,
+    unidadeEconomicaPadrao: equipamento.unidadeEconomicaPadrao,
+    custoPadrao: equipamento.custoPadrao,
+    permitirEdicaoOrcamento: equipamento.permitirEdicaoOrcamento,
+    naturezaRecurso: equipamento.naturezaRecurso,
+    tipoRecurso: equipamento.tipoRecurso,
+    classeOperacional: equipamento.classeOperacional,
+    descricaoOperacional: equipamento.descricaoOperacional,
+    caracteristicasTecnicas: equipamento.caracteristicasTecnicas
+  });
 }
 
 function isCostDebugEnabled() {
@@ -1829,19 +1901,7 @@ export function OrcamentosManager() {
           };
         }
 
-        const snapshot = criarSnapshotCaracteristicasRecurso({
-          id: equipamento.value,
-          capacidadeM3: equipamento.capacidadeM3,
-          unidadeCapacidade: equipamento.unidadeCapacidade,
-          unidadeEconomicaPadrao: equipamento.unidadeEconomicaPadrao,
-          custoPadrao: equipamento.custoPadrao,
-          permitirEdicaoOrcamento: equipamento.permitirEdicaoOrcamento,
-          naturezaRecurso: equipamento.naturezaRecurso,
-          tipoRecurso: equipamento.tipoRecurso,
-          classeOperacional: equipamento.classeOperacional,
-          descricaoOperacional: equipamento.descricaoOperacional,
-          caracteristicasTecnicas: equipamento.caracteristicasTecnicas
-        });
+        const snapshot = createResourceSnapshotFromOption(equipamento);
         const herdados = valoresEfetivosDaHeranca(snapshot);
 
         return {
@@ -1856,6 +1916,45 @@ export function OrcamentosManager() {
             (herdados.unidadeEconomicaCusto as UnidadeEconomicaCusto | "") || "CUSTO_FIXO",
           valorCusto: herdados.valorCusto || "0",
           custoUnitario: herdados.valorCusto || "0",
+          caracteristicasRecursoSnapshot: snapshot,
+          camposTecnicosPersonalizados: []
+        };
+      })
+    }));
+  }
+
+  function selectCommercialEquipment(localId: string, equipamento: EquipamentoResourceOption) {
+    setForm((current) => ({
+      ...current,
+      itens: current.itens.map((item) => {
+        if (item.localId !== localId) {
+          return item;
+        }
+
+        const snapshot = equipamento.legado ? null : createResourceSnapshotFromOption(equipamento);
+        const herdados = snapshot ? valoresEfetivosDaHeranca(snapshot) : null;
+        const unidadeVenda =
+          getUnidadeVendaFromUnidadeEconomica(equipamento.unidadeEconomicaPadrao) ||
+          equipamento.unidadeCapacidade ||
+          item.unidade ||
+          "UN";
+
+        return {
+          ...item,
+          origemItemComercial: "RESOURCE",
+          descricaoManualComercial: "",
+          servicoId: "",
+          materialId: "",
+          equipamentoId: equipamento.value,
+          descricao: equipamento.nome,
+          unidade: unidadeVenda,
+          capacidadePorViagem: herdados?.capacidadePorViagem ?? item.capacidadePorViagem,
+          unidadeCapacidade: herdados?.unidadeCapacidade ?? item.unidadeCapacidade,
+          unidadeEconomicaCusto:
+            (herdados?.unidadeEconomicaCusto as UnidadeEconomicaCusto | "") ||
+            equipamento.unidadeEconomicaPadrao ||
+            item.unidadeEconomicaCusto,
+          valorCusto: herdados?.valorCusto || item.valorCusto,
           caracteristicasRecursoSnapshot: snapshot,
           camposTecnicosPersonalizados: []
         };
@@ -2729,6 +2828,7 @@ export function OrcamentosManager() {
             onRemoveItem={removeItem}
             onUpdateItem={updateItem}
             onSelectEquipment={selectEquipmentResource}
+            onSelectCommercialEquipment={selectCommercialEquipment}
             onPersonalizeResourceField={personalizeResourceField}
           />
 
@@ -2770,6 +2870,7 @@ export function OrcamentosManager() {
                 onAdd={addItem}
                 onRemove={removeItem}
                 onUpdate={updateItem}
+                onSelectCommercialEquipment={selectCommercialEquipment}
               />
             ) : null
           )}
@@ -3267,6 +3368,7 @@ function FrentesOperacionaisSection(props: {
   onRemoveItem: (localId: string) => void;
   onUpdateItem: (localId: string, key: keyof ItemForm, value: string | number) => void;
   onSelectEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
+  onSelectCommercialEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
   onPersonalizeResourceField: (localId: string, campo: CampoTecnicoRecurso) => void;
 }) {
   type OperationalLevel = "principal" | "metodo" | "auxiliares" | "materiais" | "recursos";
@@ -3581,6 +3683,7 @@ function FrentesOperacionaisSection(props: {
                         onRemove={props.onRemoveItem}
                         onUpdate={props.onUpdateItem}
                         onSelectEquipment={props.onSelectEquipment}
+                        onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                         onPersonalizeResourceField={props.onPersonalizeResourceField}
                       />
                       <textarea
@@ -3640,6 +3743,7 @@ function FrentesOperacionaisSection(props: {
                       onRemove={props.onRemoveItem}
                       onUpdate={props.onUpdateItem}
                       onSelectEquipment={props.onSelectEquipment}
+                      onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                       onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
                   </div>
@@ -3691,6 +3795,7 @@ function FrentesOperacionaisSection(props: {
                       onRemove={props.onRemoveItem}
                       onUpdate={props.onUpdateItem}
                       onSelectEquipment={props.onSelectEquipment}
+                      onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                       onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
                   </div>
@@ -3775,6 +3880,7 @@ function FrentesOperacionaisSection(props: {
                       onRemove={props.onRemoveItem}
                       onUpdate={props.onUpdateItem}
                       onSelectEquipment={props.onSelectEquipment}
+                      onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                       onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
                   </div>
@@ -3826,6 +3932,7 @@ function FrentesOperacionaisSection(props: {
                       onRemove={props.onRemoveItem}
                       onUpdate={props.onUpdateItem}
                       onSelectEquipment={props.onSelectEquipment}
+                      onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                       onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
                     <div className="orcamentos-front-cost-panel">
@@ -4315,6 +4422,7 @@ function OperationalItemList(props: {
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
   onSelectEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
+  onSelectCommercialEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
   onPersonalizeResourceField: (localId: string, campo: CampoTecnicoRecurso) => void;
 }) {
   if (props.itens.length === 0) {
@@ -4371,8 +4479,10 @@ function OperationalItemList(props: {
                 item={item}
                 servicoOptions={props.servicoOptions}
                 materialOptions={props.materialOptions}
+                equipamentoOptions={props.equipamentoOptions}
                 fornecedorOptions={props.fornecedorOptions}
                 onUpdate={props.onUpdate}
+                onSelectEquipment={props.onSelectCommercialEquipment}
               />
             )}
           </div>
@@ -4387,21 +4497,89 @@ function CommercialFrontItemFields(props: {
   item: ItemForm;
   servicoOptions: ServicoSelectOption[];
   materialOptions: MaterialSelectOption[];
+  equipamentoOptions: EquipamentoResourceOption[];
   fornecedorOptions: NamedSelectOption[];
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
+  onSelectEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
 }) {
-  function handleServicoChange(value: string) {
-    props.onUpdate(props.item.localId, "servicoId", value);
-    const selected = props.servicoOptions.find((option) => option.value === value);
+  type CommercialSearchOption = SearchableSelectOption & {
+    origem: OrigemItemComercialOrcamento;
+    sourceId: string;
+  };
 
-    if (!selected) {
+  const commercialItemOptions = useMemo<CommercialSearchOption[]>(
+    () => [
+      ...props.servicoOptions.map((servico) => ({
+        value: `SERVICE:${servico.value}`,
+        label: `SERVICOS | ${servico.label}`,
+        origem: "SERVICE" as const,
+        sourceId: servico.value
+      })),
+      ...props.equipamentoOptions.map((equipamento) => ({
+        value: `RESOURCE:${equipamento.value}`,
+        label: `${getEquipamentoOrigemComercialLabel(equipamento).toLocaleUpperCase("pt-BR")} | ${equipamento.label}`,
+        origem: "RESOURCE" as const,
+        sourceId: equipamento.value
+      }))
+    ],
+    [props.equipamentoOptions, props.servicoOptions]
+  );
+
+  const selectedCommercialValue =
+    props.item.origemItemComercial === "SERVICE" && props.item.servicoId
+      ? `SERVICE:${props.item.servicoId}`
+      : props.item.origemItemComercial === "RESOURCE" && props.item.equipamentoId
+        ? `RESOURCE:${props.item.equipamentoId}`
+        : "";
+
+  const selectedCommercialEquipment =
+    props.item.origemItemComercial === "RESOURCE"
+      ? props.equipamentoOptions.find((option) => option.value === props.item.equipamentoId)
+      : null;
+
+  const origemLabel =
+    props.item.origemItemComercial === "SERVICE"
+      ? "Servico"
+      : props.item.origemItemComercial === "RESOURCE"
+        ? getEquipamentoOrigemComercialLabel(selectedCommercialEquipment)
+        : "Manual";
+
+  function handleCommercialItemChange(value: string) {
+    if (!value) {
+      props.onUpdate(props.item.localId, "origemItemComercial", "MANUAL");
+      props.onUpdate(props.item.localId, "descricaoManualComercial", props.item.descricao);
       return;
     }
 
-    props.onUpdate(props.item.localId, "descricao", selected.label.replace(/^[^-]+ - /, ""));
+    const [origem, sourceId] = value.split(":") as [OrigemItemComercialOrcamento, string];
 
-    if (selected.unidadeFaturamento) {
-      props.onUpdate(props.item.localId, "unidade", selected.unidadeFaturamento);
+    if (origem === "SERVICE") {
+      props.onUpdate(props.item.localId, "origemItemComercial", "SERVICE");
+      props.onUpdate(props.item.localId, "servicoId", sourceId);
+      props.onUpdate(props.item.localId, "equipamentoId", "");
+      props.onUpdate(props.item.localId, "descricaoManualComercial", "");
+      const selected = props.servicoOptions.find((option) => option.value === sourceId);
+
+      if (!selected) {
+        return;
+      }
+
+      props.onUpdate(props.item.localId, "descricao", selected.label.replace(/^[^-]+ - /, ""));
+
+      if (selected.unidadeFaturamento) {
+        props.onUpdate(props.item.localId, "unidade", selected.unidadeFaturamento);
+      }
+      return;
+    }
+
+    if (origem === "RESOURCE") {
+      const selected = props.equipamentoOptions.find((option) => option.value === sourceId);
+
+      if (!selected) {
+        return;
+      }
+
+      props.onSelectEquipment(props.item.localId, selected);
     }
   }
 
@@ -4435,14 +4613,17 @@ function CommercialFrontItemFields(props: {
         </label>
       ) : (
         <label className="manager-field">
-          <span className="manager-field-label">Servico</span>
+          <span className="manager-field-label">Item comercial</span>
           <SearchableSelect
-            value={props.item.servicoId}
-            options={props.servicoOptions}
-            placeholder="Buscar servico"
-            onChange={handleServicoChange}
+            value={selectedCommercialValue}
+            options={commercialItemOptions}
+            placeholder="Buscar servico ou equipamento"
+            emptyLabel="Nenhum servico ou equipamento encontrado."
+            onChange={handleCommercialItemChange}
           />
-          <small className="manager-field-hint">Servico comercial da frente.</small>
+          <small className="manager-field-hint">
+            Selecione um item cadastrado ou informe uma descricao comercial. Origem: {origemLabel}.
+          </small>
         </label>
       )}
       <label className="manager-field">
@@ -5155,6 +5336,7 @@ function ItensSection(props: {
   onAdd: () => void;
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
+  onSelectCommercialEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
 }) {
   return (
     <div className="orcamentos-form-section">
@@ -5214,81 +5396,15 @@ function ItensSection(props: {
                 </select>
               </label>
 
-              <label className="manager-field">
-                <span className="manager-field-label">Servico</span>
-                <SearchableSelect
-                  value={item.servicoId}
-                  options={props.servicoOptions}
-                  placeholder="Buscar servico"
-                  onChange={(value) => props.onUpdate(item.localId, "servicoId", value)}
-                />
-              </label>
-
-              <label className="manager-field">
-                <span className="manager-field-label">Equipamento</span>
-                <SearchableSelect
-                  value={item.equipamentoId}
-                  options={props.equipamentoOptions}
-                  placeholder="Opcional"
-                  onChange={(value) => props.onUpdate(item.localId, "equipamentoId", value)}
-                />
-              </label>
-
-              <label className="manager-field">
-                <span className="manager-field-label">Material</span>
-                <SearchableSelect
-                  value={item.materialId}
-                  options={props.materialOptions}
-                  placeholder="Opcional"
-                  onChange={(value) => props.onUpdate(item.localId, "materialId", value)}
-                />
-              </label>
-
-              <label className="manager-field orcamentos-span-2">
-                <span className="manager-field-label">Descricao</span>
-                <input
-                  className="field-control"
-                  value={item.descricao}
-                  onChange={(event) =>
-                    props.onUpdate(item.localId, "descricao", event.target.value)
-                  }
-                />
-              </label>
-
-              <label className="manager-field">
-                <span className="manager-field-label">Unidade</span>
-                <input
-                  className="field-control"
-                  value={item.unidade}
-                  onChange={(event) => props.onUpdate(item.localId, "unidade", event.target.value)}
-                />
-              </label>
-              <label className="manager-field">
-                <span className="manager-field-label">Quantidade</span>
-                <input
-                  className="field-control"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={item.quantidade}
-                  onChange={(event) =>
-                    props.onUpdate(item.localId, "quantidade", event.target.value)
-                  }
-                />
-              </label>
-              <label className="manager-field">
-                <span className="manager-field-label">Valor unitario</span>
-                <input
-                  className="field-control"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={item.valorUnitario}
-                  onChange={(event) =>
-                    props.onUpdate(item.localId, "valorUnitario", event.target.value)
-                  }
-                />
-              </label>
+              <CommercialFrontItemFields
+                item={item}
+                servicoOptions={props.servicoOptions}
+                materialOptions={props.materialOptions}
+                equipamentoOptions={props.equipamentoOptions}
+                fornecedorOptions={props.fornecedorOptions}
+                onUpdate={props.onUpdate}
+                onSelectEquipment={props.onSelectCommercialEquipment}
+              />
               {props.tipo === "OPERACIONAL" ? (
                 <>
                   <label className="manager-field">
@@ -5483,19 +5599,25 @@ function mapItemPayload(item: ItemForm, tipoOrcamento: TipoOrcamento) {
   const recurso = isRecursoItem(item);
   const servicoOperacional =
     item.tipoItem === "SERVICO_PRINCIPAL" || item.tipoItem === "SERVICO_AUXILIAR";
+  const origemComercial = recurso ? null : item.origemItemComercial;
 
   return {
     tempId: item.localId,
-    frenteTempId: tipoOrcamento === "OPERACIONAL" ? item.frenteTempId : "",
+    frenteTempId: item.frenteTempId,
     tipoItem: item.tipoItem,
-    servicoId: recurso ? null : item.servicoId || null,
+    origemItemComercial: origemComercial,
+    descricaoManualComercial: origemComercial === "MANUAL" ? item.descricaoManualComercial || item.descricao : "",
+    servicoId: recurso || origemComercial === "RESOURCE" || origemComercial === "MANUAL" ? null : item.servicoId || null,
     materialId:
       recurso && item.categoriaRecurso === "MATERIAL"
         ? item.materialId || null
         : servicoOperacional
           ? null
           : item.materialId || null,
-    equipamentoId: recurso || servicoOperacional || item.tipoItem === "MATERIAL" ? null : item.equipamentoId || null,
+    equipamentoId:
+      recurso || servicoOperacional || item.tipoItem === "MATERIAL" || origemComercial !== "RESOURCE"
+        ? null
+        : item.equipamentoId || null,
     categoriaRecurso: recurso ? item.categoriaRecurso : null,
     classeOperacional:
       recurso && item.categoriaRecurso === "EQUIPAMENTO" ? item.classeOperacional : "",
@@ -5537,7 +5659,8 @@ function mapItemPayload(item: ItemForm, tipoOrcamento: TipoOrcamento) {
     quilometrosTotais: recurso && item.quilometrosTotais ? Number(item.quilometrosTotais) : null,
     capacidadePorViagem: recurso && item.capacidadePorViagem ? Number(item.capacidadePorViagem) : null,
     unidadeCapacidade: recurso ? item.unidadeCapacidade.trim() : "",
-    caracteristicasRecursoSnapshot: recurso ? item.caracteristicasRecursoSnapshot : null,
+    caracteristicasRecursoSnapshot:
+      recurso || origemComercial === "RESOURCE" ? item.caracteristicasRecursoSnapshot : null,
     camposTecnicosPersonalizados: recurso ? item.camposTecnicosPersonalizados : [],
     cargasTotais: recurso && item.cargasTotais ? Number(item.cargasTotais) : null,
     mesesTotais: recurso && item.mesesTotais ? Number(item.mesesTotais) : null,
@@ -5767,6 +5890,14 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
             localId: orcamentoItem.id,
             frenteTempId: orcamentoItem.frenteId ?? "",
             tipoItem: orcamentoItem.tipoItem,
+            origemItemComercial:
+              orcamentoItem.origemItemComercial ??
+              (orcamentoItem.equipamentoId
+                ? "RESOURCE"
+                : orcamentoItem.servicoId
+                  ? "SERVICE"
+                  : "MANUAL"),
+            descricaoManualComercial: orcamentoItem.descricaoManualComercial ?? "",
             servicoId: orcamentoItem.servicoId ?? "",
             materialId: orcamentoItem.materialId ?? "",
             equipamentoId: orcamentoItem.equipamentoId ?? "",

@@ -1,6 +1,7 @@
 import {
   CategoriaRecursoOrcamento,
   NaturezaFrenteOrcamento,
+  OrigemItemComercialOrcamento,
   Prisma,
   PrismaClient,
   StatusCenarioOrcamento,
@@ -616,6 +617,17 @@ export function buildPropostaSnapshot(
         frenteTempId: item.frenteTempId,
         frenteOrdem: item.frenteOrdem,
         tipoItem: item.tipoItem,
+        origemItemComercial:
+          item.origemItemComercial ??
+          (item.equipamentoId
+            ? OrigemItemComercialOrcamento.RESOURCE
+            : item.servicoId
+              ? OrigemItemComercialOrcamento.SERVICE
+              : OrigemItemComercialOrcamento.MANUAL),
+        servicoId: item.servicoId,
+        equipamentoId: item.equipamentoId,
+        descricaoManualComercial: item.descricaoManualComercial,
+        caracteristicasRecursoSnapshot: item.caracteristicasRecursoSnapshot,
         ordem: item.ordem,
         codigo: item.codigo,
         modoPrecificacao: item.modoPrecificacao ?? "PRECO_DIRETO",
@@ -848,6 +860,16 @@ async function criarEstruturaOrcamento(
         orcamentoId,
         frenteId,
         tipoItem: item.tipoItem,
+        origemItemComercial:
+          item.tipoItem === TipoItemOrcamento.RECURSO
+            ? null
+            : item.origemItemComercial ??
+              (item.equipamentoId
+                ? OrigemItemComercialOrcamento.RESOURCE
+                : item.servicoId
+                  ? OrigemItemComercialOrcamento.SERVICE
+                  : OrigemItemComercialOrcamento.MANUAL),
+        descricaoManualComercial: clean(item.descricaoManualComercial),
         servicoId: item.servicoId || null,
         materialId: item.materialId || null,
         equipamentoId: item.equipamentoId || null,
@@ -1431,6 +1453,8 @@ export async function duplicarOrcamento(
         orcamentoId: novo.id,
         frenteId: item.frenteId ? frenteIdMap.get(item.frenteId) ?? null : null,
         tipoItem: item.tipoItem,
+        origemItemComercial: item.origemItemComercial,
+        descricaoManualComercial: item.descricaoManualComercial,
         servicoId: item.servicoId,
         materialId: item.materialId,
         equipamentoId: item.equipamentoId,
