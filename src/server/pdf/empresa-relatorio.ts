@@ -1,4 +1,4 @@
-type EmpresaRelatorioInput = {
+export type EmpresaRelatorioInput = {
   nome?: string | null;
   nomeFantasia?: string | null;
   razaoSocial?: string | null;
@@ -21,17 +21,12 @@ export type EmpresaRelatorioPdf = {
 };
 
 const empresaRelatorioPadrao: EmpresaRelatorioPdf = {
-  nome: process.env.EMPRESA_RELATORIO_NOME?.trim() || "JMIX",
-  cnpj: process.env.EMPRESA_RELATORIO_CNPJ?.trim() || "20.613.463/0001-36",
-  endereco:
-    process.env.EMPRESA_RELATORIO_ENDERECO?.trim() ||
-    "AV. NEREU RAMOS, 899 (DEPOSITO JMIX) - CENTRO",
-  cidadeUfCep:
-    process.env.EMPRESA_RELATORIO_CIDADE_UF_CEP?.trim() || "Penha/SC - CEP: 88385-000",
-  telefones:
-    process.env.EMPRESA_RELATORIO_TELEFONES?.trim() || "(47) 98803-1610 - (47) 99251-4414",
-  email:
-    process.env.EMPRESA_RELATORIO_EMAIL?.trim() || "financeiro@jtbterraplenagem.com.br"
+  nome: process.env.EMPRESA_RELATORIO_NOME?.trim() || "BasePro OS",
+  cnpj: process.env.EMPRESA_RELATORIO_CNPJ?.trim() || "-",
+  endereco: process.env.EMPRESA_RELATORIO_ENDERECO?.trim() || "-",
+  cidadeUfCep: process.env.EMPRESA_RELATORIO_CIDADE_UF_CEP?.trim() || "-",
+  telefones: process.env.EMPRESA_RELATORIO_TELEFONES?.trim() || "-",
+  email: process.env.EMPRESA_RELATORIO_EMAIL?.trim() || "-"
 };
 
 function joinCidadeUfCep(empresa: EmpresaRelatorioInput) {

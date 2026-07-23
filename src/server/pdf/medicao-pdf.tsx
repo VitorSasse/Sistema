@@ -3,6 +3,7 @@ import { formatDateInputValue } from "@/lib/utils/date";
 import { formatCurrency } from "@/lib/utils/formatters";
 import { formatServicoDisplay } from "@/lib/utils/servico-display";
 import { formatUnidade, type UnidadeFaturada } from "@/lib/utils/unidades";
+import type { EmpresaRelatorioPdf } from "@/server/pdf/empresa-relatorio";
 
 export type MedicaoPdfTipo = "DETALHADO" | "RESUMIDO";
 
@@ -32,6 +33,7 @@ type MedicaoPdfProps = {
   itens: MedicaoPdfItem[];
   tipoRelatorio: MedicaoPdfTipo;
   logoPath?: string | null;
+  empresaRelatorio?: EmpresaRelatorioPdf;
 };
 
 const styles = StyleSheet.create({
@@ -62,6 +64,13 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: 3,
     fontSize: 10,
+    textAlign: "center",
+  },
+  companyInfo: {
+    marginTop: 8,
+    gap: 2,
+    fontSize: 8,
+    color: "#36322d",
     textAlign: "center",
   },
   metaRow: {
@@ -259,6 +268,17 @@ export function MedicaoPdfDocument(props: MedicaoPdfProps) {
               Relatorio de Medicao {isDetalhado ? "Detalhado" : "Resumido"}
             </Text>
             <Text style={styles.subtitle}>Documento de conferencia de medicao</Text>
+            {props.empresaRelatorio ? (
+              <View style={styles.companyInfo}>
+                <Text>{props.empresaRelatorio.nome}</Text>
+                <Text>CNPJ: {props.empresaRelatorio.cnpj}</Text>
+                <Text>{props.empresaRelatorio.endereco}</Text>
+                <Text>{props.empresaRelatorio.cidadeUfCep}</Text>
+                <Text>
+                  {props.empresaRelatorio.telefones} | {props.empresaRelatorio.email}
+                </Text>
+              </View>
+            ) : null}
           </View>
           <View style={styles.metaRow}>
             <Text>Codigo: {props.codigoMedicao}</Text>

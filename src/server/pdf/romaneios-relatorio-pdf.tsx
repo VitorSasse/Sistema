@@ -1,4 +1,5 @@
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import type { EmpresaRelatorioPdf } from "@/server/pdf/empresa-relatorio";
 
 type RelatorioFiltro = {
   label: string;
@@ -23,6 +24,7 @@ type RomaneiosRelatorioPdfProps = {
   lancamentos: LancamentoRomaneioGroup[];
   emitidoEm: Date;
   logoPath?: string | null;
+  empresaRelatorio?: EmpresaRelatorioPdf;
 };
 
 const styles = StyleSheet.create({
@@ -55,6 +57,12 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: "#6e6457",
     marginBottom: 10
+  },
+  companyInfo: {
+    marginTop: 2,
+    fontSize: 7.6,
+    color: "#36322d",
+    textAlign: "center"
   },
   filterBox: {
     borderWidth: 1,
@@ -267,6 +275,18 @@ export function RomaneiosRelatorioPdfDocument(props: RomaneiosRelatorioPdfProps)
             <Text style={styles.subtitle}>
               Relatorio gerado a partir dos filtros aplicados no historico de lancamentos
             </Text>
+            {props.empresaRelatorio ? (
+              <>
+                <Text style={styles.companyInfo}>{props.empresaRelatorio.nome}</Text>
+                <Text style={styles.companyInfo}>
+                  CNPJ: {props.empresaRelatorio.cnpj} | {props.empresaRelatorio.telefones}
+                </Text>
+                <Text style={styles.companyInfo}>
+                  {props.empresaRelatorio.endereco} | {props.empresaRelatorio.cidadeUfCep}
+                </Text>
+                <Text style={styles.companyInfo}>{props.empresaRelatorio.email}</Text>
+              </>
+            ) : null}
           </View>
         </View>
 

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
+import { resolveDocumentoCabecalhoPdf } from "@/server/pdf/documento-cabecalho";
 import { MedicaoPdfDocument, type MedicaoPdfTipo } from "@/server/pdf/medicao-pdf";
 import { resolveReportLogoSource } from "@/server/pdf/report-logo";
 
@@ -79,7 +80,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ message: "Selecione uma empresa para gerar o PDF." }, { status: 409 });
   }
 
-  const [medicao, empresa] = await Promise.all([
+  const [medicao, cabecalho] = await Promise.all([
     prisma.medicao.findFirst({
       where: {
         id,
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         }
       }
     }),
-    prisma.empresa.findUnique({ where: { id: empresaId } })
+    resolveDocumentoCabecalhoPdf(prisma, empresaId, "MEDICAO")
   ]);
 
   if (!medicao) {
@@ -147,7 +148,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       descontoValor: Number(medicao.descontoValor ?? 0),
       permutaPercentual: Number(medicao.permutaPercentual ?? 0),
       tipoRelatorio,
-      logoPath: resolveReportLogoSource(empresa?.logoUrl),
+      logoPath: resolveReportLogoSource(cabecalho.logoUrl),
+      empresaRelatorio: cabecalho.empresaRelatorio,
       itens: medicao.itens.map((item) => ({
         ...item,
         quantidadeFaturada: Number(item.quantidadeFaturada),

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
+import { resolveDocumentoCabecalhoPdf } from "@/server/pdf/documento-cabecalho";
 import { resolveReportLogoSource } from "@/server/pdf/report-logo";
 import { LancamentosRelatorioPdfDocument } from "@/server/pdf/lancamentos-relatorio-pdf";
 import { RomaneiosRelatorioPdfDocument } from "@/server/pdf/romaneios-relatorio-pdf";
@@ -86,9 +87,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Selecione uma empresa para gerar o relatorio." }, { status: 409 });
   }
 
-  const empresa = await prisma.empresa.findUnique({
-    where: { id: empresaId }
-  });
+  const cabecalho = await resolveDocumentoCabecalhoPdf(prisma, empresaId, "RELATORIO");
 
   const medicao = medicaoId
     ? await prisma.medicao.findUnique({
@@ -214,7 +213,8 @@ export async function GET(request: NextRequest) {
             titulo: "Relatorio de romaneios",
             filtros,
             emitidoEm: new Date(),
-            logoPath: resolveReportLogoSource(empresa?.logoUrl),
+            logoPath: resolveReportLogoSource(cabecalho.logoUrl),
+            empresaRelatorio: cabecalho.empresaRelatorio,
             lancamentos: normalizedItems.map((item) => ({
               lancamentoId: item.id,
               fichaKey: `${item.fichaId}:${item.clienteId}:${item.obraId ?? "sem-obra"}`,
@@ -233,7 +233,8 @@ export async function GET(request: NextRequest) {
             titulo: "Relatorio de historico de lancamentos",
             filtros,
             emitidoEm: new Date(),
-            logoPath: resolveReportLogoSource(empresa?.logoUrl),
+            logoPath: resolveReportLogoSource(cabecalho.logoUrl),
+            empresaRelatorio: cabecalho.empresaRelatorio,
             itens: normalizedItems.map((item) => ({
               id: item.id,
               data: item.data,

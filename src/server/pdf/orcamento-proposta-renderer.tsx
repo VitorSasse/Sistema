@@ -1,6 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import type { Prisma, PrismaClient } from "@prisma/client";
-import { buildEmpresaRelatorioPdf } from "@/server/pdf/empresa-relatorio";
+import { resolveDocumentoCabecalhoPdf } from "@/server/pdf/documento-cabecalho";
 import { OrcamentoPdfDocument } from "@/server/pdf/orcamento-pdf";
 import {
   montarFrentesComerciais,
@@ -219,9 +219,9 @@ export async function renderOrcamentoPropostaPdf({
   modo,
   dataDocumento
 }: RenderOrcamentoPropostaPdfParams) {
-  const [orcamento, empresa] = await Promise.all([
+  const [orcamento, cabecalho] = await Promise.all([
     buscarOrcamento(db, orcamentoId),
-    db.empresa.findUnique({ where: { id: empresaId } })
+    resolveDocumentoCabecalhoPdf(db, empresaId, "ORCAMENTO")
   ]);
 
   if (!orcamento) {
@@ -401,8 +401,8 @@ export async function renderOrcamentoPropostaPdf({
     frentes: frentesComerciaisPdf,
     itens: itensPdf,
     premissas: premissasPdf,
-    logoPath: resolveReportLogoSource(empresa?.logoUrl),
-    empresaRelatorio: buildEmpresaRelatorioPdf(empresa)
+    logoPath: resolveReportLogoSource(cabecalho.logoUrl),
+    empresaRelatorio: cabecalho.empresaRelatorio
   });
 
   const buffer = await renderToBuffer(documento);

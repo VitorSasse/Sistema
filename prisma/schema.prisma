@@ -151,6 +151,13 @@ enum ModoExibicaoValoresPdf {
   DETALHADO_POR_ITEM_E_FRENTE
 }
 
+enum TipoDocumentoCabecalho {
+  ORCAMENTO
+  ORDEM_COMPRA
+  MEDICAO
+  RELATORIO
+}
+
 enum NaturezaServico {
   OPERACIONAL
   ORCAMENTARIO_COMPOSTO
@@ -496,9 +503,32 @@ model Empresa {
   orcamentosPremissas          OrcamentoPremissa[]
   orcamentosPropostas          OrcamentoPropostaComercial[]
   orcamentosPropostasOpcionais OrcamentoPropostaOpcional[]
+  documentosCabecalhos         DocumentoCabecalhoConfig[]
 
   @@index([status, nome])
   @@index([deletedAt])
+}
+
+model DocumentoCabecalhoConfig {
+  id              String                 @id @default(uuid())
+  empresaId       String
+  tipo            TipoDocumentoCabecalho
+  nomeEmpresa     String?
+  cnpj            String?
+  endereco        String?
+  cidade          String?
+  estado          String?
+  cep             String?
+  telefone        String?
+  email           String?
+  logoUrl         String?                @db.Text
+  usarLogoGlobal  Boolean                @default(false)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  empresa         Empresa                @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([empresaId, tipo])
+  @@index([empresaId])
 }
 
 model Cliente {

@@ -93,6 +93,7 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
 
   const canManageUsers = hasRoleAccess(session.user.roles, "users.manage", session.user);
   const canReadAudit = hasRoleAccess(session.user.roles, "auditoria.read", session.user);
+  const canManagePdfs = hasModuleAccess(session.user, "pdfs", "manage");
   const isMaster = session.user.isMaster;
   const selectedEmpresa = session.user.empresaSelecionadaId
     ? await withUnscopedPrisma((db) =>
@@ -111,6 +112,9 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
   const securityItems = [
     ...(isMaster ? [{ href: "/master" as Route, label: "Painel Master", module: "master" as AccessModule }] : []),
     ...(canManageUsers ? [{ href: "/usuarios" as Route, label: "Usuarios e acessos", module: "usuarios" as AccessModule }] : []),
+    ...(canManagePdfs
+      ? [{ href: "/seguranca/cabecalhos-documentos" as Route, label: "Cabecalho dos documentos", module: "pdfs" as AccessModule }]
+      : []),
     ...(canReadAudit
       ? [{ href: "/seguranca/logs-lancamentos" as Route, label: "Logs de edicao de lancamentos", module: "auditoria" as AccessModule }]
       : [])

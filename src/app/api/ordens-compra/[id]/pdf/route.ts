@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
-import { buildEmpresaRelatorioPdf } from "@/server/pdf/empresa-relatorio";
+import { resolveDocumentoCabecalhoPdf } from "@/server/pdf/documento-cabecalho";
 import { OrdemCompraPdfDocument } from "@/server/pdf/ordem-compra-pdf";
 import { resolveReportLogoSource } from "@/server/pdf/report-logo";
 
@@ -39,7 +39,7 @@ export async function GET(_: Request, context: RouteContext) {
     return NextResponse.json({ message: "Selecione uma empresa para gerar o PDF." }, { status: 409 });
   }
 
-  const [ordemCompra, empresa] = await Promise.all([
+  const [ordemCompra, cabecalho] = await Promise.all([
     prisma.ordemCompra.findUnique({
       where: { id },
       include: {
@@ -53,9 +53,7 @@ export async function GET(_: Request, context: RouteContext) {
         }
       }
     }),
-    prisma.empresa.findUnique({
-      where: { id: empresaId }
-    })
+    resolveDocumentoCabecalhoPdf(prisma, empresaId, "ORDEM_COMPRA")
   ]);
 
   if (!ordemCompra) {
@@ -113,8 +111,8 @@ export async function GET(_: Request, context: RouteContext) {
         dataVencimento: parcela.dataVencimento,
         valorParcela: Number(parcela.valorParcela)
       })),
-      logoPath: resolveReportLogoSource(empresa?.logoUrl),
-      empresaRelatorio: buildEmpresaRelatorioPdf(empresa)
+      logoPath: resolveReportLogoSource(cabecalho.logoUrl),
+      empresaRelatorio: cabecalho.empresaRelatorio
     })
   );
 

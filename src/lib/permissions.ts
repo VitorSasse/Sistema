@@ -91,7 +91,7 @@ export const accessModules: Array<{
   { id: "medicoes", label: "Medicoes", group: "Financeiro", allowManage: true },
   { id: "orcamentos", label: "Orcamentos", group: "Financeiro", allowManage: true },
   { id: "relatorios", label: "Relatorios", group: "Relatorios e documentos", allowManage: false },
-  { id: "pdfs", label: "PDFs", group: "Relatorios e documentos", allowManage: false },
+  { id: "pdfs", label: "PDFs", group: "Relatorios e documentos", allowManage: true },
   { id: "usuarios", label: "Usuarios", group: "Administracao", allowManage: true },
   { id: "auditoria", label: "Logs e auditoria", group: "Administracao", allowManage: false },
   { id: "master", label: "Painel Master", group: "Administracao", allowManage: true }
@@ -347,6 +347,7 @@ const routeModuleMap: Array<{ prefix: string; module: AccessModule }> = [
   { prefix: "/medicoes", module: "medicoes" },
   { prefix: "/orcamentos", module: "orcamentos" },
   { prefix: "/usuarios", module: "usuarios" },
+  { prefix: "/seguranca/cabecalhos-documentos", module: "pdfs" },
   { prefix: "/seguranca/logs-lancamentos", module: "auditoria" },
   { prefix: "/master", module: "master" }
 ];
@@ -378,6 +379,7 @@ const apiModuleMap: Array<{ prefix: string; module: AccessModule }> = [
   { prefix: "/api/medicoes", module: "medicoes" },
   { prefix: "/api/orcamentos", module: "orcamentos" },
   { prefix: "/api/usuarios", module: "usuarios" },
+  { prefix: "/api/seguranca/cabecalhos-documentos", module: "pdfs" },
   { prefix: "/api/seguranca/logs-lancamentos", module: "auditoria" },
   { prefix: "/api/master", module: "master" }
 ];
