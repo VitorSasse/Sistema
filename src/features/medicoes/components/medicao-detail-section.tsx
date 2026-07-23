@@ -31,7 +31,7 @@ function parsePercentual(value: string) {
 function formatPercentual(value: number) {
   return `${new Intl.NumberFormat("pt-BR", {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 4
+    maximumFractionDigits: 6
   }).format(value)}%`;
 }
 
@@ -471,10 +471,10 @@ export function MedicaoDetailSection(props: {
                   type="number"
                   min="0"
                   max="100"
-                  step="0.0001"
+                  step="0.000001"
                   value={possuiPermuta ? permutaPercentual : ""}
                   onChange={(event) => onChangePermutaPercentual(event.target.value)}
-                  placeholder="Ex.: 24,8575"
+                  placeholder="Ex.: 24,857512"
                   disabled={!canEditContent || isPending || !possuiPermuta}
                 />
               </MedicaoField>

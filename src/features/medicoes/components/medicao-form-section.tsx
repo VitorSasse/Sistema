@@ -139,10 +139,10 @@ export function MedicaoFormSection(props: {
               type="number"
               min="0"
               max="100"
-              step="0.0001"
+              step="0.000001"
               value={possuiPermuta ? form.permutaPercentual : ""}
               onChange={(event) => onChange("permutaPercentual", event.target.value)}
-              placeholder="Ex.: 24,8575"
+              placeholder="Ex.: 24,857512"
               disabled={!possuiPermuta}
             />
           </MedicaoField>

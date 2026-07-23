@@ -44,7 +44,7 @@ function calcularValorLiquidoMedicao(medicao: MedicaoListItem) {
 function formatPercentualPermuta(value: number) {
   return new Intl.NumberFormat("pt-BR", {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 4
+    maximumFractionDigits: 6
   }).format(value);
 }
 

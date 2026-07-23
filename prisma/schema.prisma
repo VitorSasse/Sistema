@@ -1549,7 +1549,7 @@ model Medicao {
   status                    StatusMedicao @default(CRIADA)
   valorTotal                Decimal       @default(0) @db.Decimal(14, 2)
   descontoValor             Decimal       @default(0) @db.Decimal(14, 2)
-  permutaPercentual         Decimal       @default(0) @db.Decimal(7, 4)
+  permutaPercentual         Decimal       @default(0) @db.Decimal(9, 6)
   observacao                String?
   observacaoInterna         String?
   justificativaCancelamento String?
