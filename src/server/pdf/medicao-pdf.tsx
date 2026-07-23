@@ -186,6 +186,13 @@ function formatQuantidade(value: number) {
   }).format(Number(value.toFixed(2)));
 }
 
+function formatPercentual(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  }).format(value);
+}
+
 function aggregateSummaryItems(items: MedicaoPdfItem[]) {
   return Array.from(
     items.reduce(
@@ -405,7 +412,7 @@ export function MedicaoPdfDocument(props: MedicaoPdfProps) {
             ) : null}
             {hasPermuta ? (
               <Text style={styles.footerLine}>
-                Permuta: {permutaPercentual.toFixed(2).replace(".", ",")}% / {formatCurrency(valorPermuta)}
+                Permuta: {formatPercentual(permutaPercentual)}% / {formatCurrency(valorPermuta)}
               </Text>
             ) : null}
             <Text style={styles.footerFinalLine}>Valor final: {formatCurrency(valorFinal)}</Text>

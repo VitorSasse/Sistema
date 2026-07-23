@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   logoBox: {
-    width: 120,
+    width: 112,
     paddingRight: 10
   },
   logo: {
@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     paddingRight: 12
   },
   empresaNome: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "bold",
     marginBottom: 3
   },
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     lineHeight: 1.3
   },
   contatoBox: {
-    width: 230,
+    width: 190,
     alignItems: "flex-end",
     justifyContent: "center"
   },

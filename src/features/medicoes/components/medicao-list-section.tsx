@@ -41,6 +41,13 @@ function calcularValorLiquidoMedicao(medicao: MedicaoListItem) {
   };
 }
 
+function formatPercentualPermuta(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4
+  }).format(value);
+}
+
 export function MedicaoListSection(props: {
   filters: MedicaoFilters;
   clientes: OperationalOption[];
@@ -252,7 +259,7 @@ export function MedicaoListSection(props: {
                         Bruto: {formatCurrency(valores.bruto)}
                         {valores.desconto > 0 ? ` | Desc.: ${formatCurrency(valores.desconto)}` : ""}
                         {valores.valorPermuta > 0
-                          ? ` | Permuta ${valores.permutaPercentual.toFixed(2).replace(".", ",")}%: ${formatCurrency(valores.valorPermuta)}`
+                          ? ` | Permuta ${formatPercentualPermuta(valores.permutaPercentual)}%: ${formatCurrency(valores.valorPermuta)}`
                           : ""}
                       </div>
                     ) : null}

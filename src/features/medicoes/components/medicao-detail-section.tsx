@@ -29,7 +29,10 @@ function parsePercentual(value: string) {
 }
 
 function formatPercentual(value: number) {
-  return `${value.toFixed(2).replace(".", ",")}%`;
+  return `${new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4
+  }).format(value)}%`;
 }
 
 function buildWarnings(
@@ -468,10 +471,10 @@ export function MedicaoDetailSection(props: {
                   type="number"
                   min="0"
                   max="100"
-                  step="0.01"
+                  step="0.0001"
                   value={possuiPermuta ? permutaPercentual : ""}
                   onChange={(event) => onChangePermutaPercentual(event.target.value)}
-                  placeholder="Ex.: 25"
+                  placeholder="Ex.: 24,8575"
                   disabled={!canEditContent || isPending || !possuiPermuta}
                 />
               </MedicaoField>
