@@ -11,6 +11,8 @@ datasource db {
 enum StatusCadastro {
   ATIVO
   INATIVO
+  PROSPECTO
+  PROVISORIA
 }
 
 enum StatusOrdemCompra {
@@ -558,6 +560,7 @@ model Cliente {
   cep               String?
   observacao        String?
   status            StatusCadastro     @default(ATIVO)
+  cadastroCompleto  Boolean            @default(true)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   empresa           Empresa            @relation(fields: [empresaId], references: [id])

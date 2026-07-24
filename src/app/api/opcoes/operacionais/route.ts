@@ -12,19 +12,20 @@ export async function GET() {
   const [clientes, obras, servicos, materiais, equipamentos, colaboradores, fornecedores] = await Promise.all([
     prisma.cliente.findMany({
       where: {
-        status: "ATIVO"
+        status: { in: ["ATIVO", "PROSPECTO"] }
       },
       select: {
         id: true,
         codigo: true,
         nome: true,
-        status: true
+        status: true,
+        cadastroCompleto: true
       },
       orderBy: [{ nome: "asc" }]
     }),
     prisma.obra.findMany({
       where: {
-        status: "ATIVO"
+        status: { in: ["ATIVO", "PROVISORIA"] }
       },
       select: {
         id: true,

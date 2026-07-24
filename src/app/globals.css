@@ -8895,8 +8895,107 @@ button {
   background: color-mix(in srgb, #38bdf8 16%, transparent);
 }
 
+.orcamentos-field-label-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.orcamentos-field-label-action button {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.orcamentos-field-label-action button:disabled {
+  color: var(--screen-muted);
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.orcamentos-quick-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 8, 23, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+.orcamentos-quick-dialog {
+  width: min(720px, 100%);
+  max-height: min(86vh, 760px);
+  overflow: auto;
+  padding: 20px;
+  border: 1px solid var(--screen-border);
+  border-radius: 22px;
+  background: var(--screen-card);
+  box-shadow: var(--shadow-lg);
+}
+
+.orcamentos-quick-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.orcamentos-quick-header span {
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.orcamentos-quick-header h3 {
+  margin: 4px 0;
+  color: var(--screen-text);
+}
+
+.orcamentos-quick-header small {
+  color: var(--screen-muted);
+}
+
+.orcamentos-quick-header > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--screen-border);
+  border-radius: 999px;
+  background: var(--screen-card-muted);
+  color: var(--screen-text);
+  cursor: pointer;
+}
+
+.orcamentos-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.orcamentos-quick-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
 @media (max-width: 720px) {
   .orcamentos-front-cost-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .orcamentos-quick-grid {
     grid-template-columns: 1fr;
   }
 

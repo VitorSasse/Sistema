@@ -159,7 +159,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         uf: parsed.data.uf || null,
         cep,
         observacao: parsed.data.observacao || null,
-        status: parsed.data.status
+        status: parsed.data.status,
+        cadastroCompleto: parsed.data.cadastroCompleto
       },
       include: {
         obras: {

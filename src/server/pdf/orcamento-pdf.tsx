@@ -547,6 +547,7 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
   const exibirValoresDetalhados = modoExibicaoValoresPdf === "DETALHADO_POR_ITEM_E_FRENTE";
   const itensPorFrente = buildItensPorFrente(props);
   const empresaRelatorio = props.empresaRelatorio ?? empresaRelatorioPadrao;
+  const documentoCliente = props.cliente.cnpj || props.cliente.cpf || "";
   const dataHoraEmissao = new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "short",
     timeStyle: "short",
@@ -592,10 +593,18 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
         </View>
 
         <View style={styles.metaGrid}>
-          {renderMetaRow("Cliente:", props.cliente.nome, "Documento:", props.cliente.cnpj || props.cliente.cpf || "-")}
-          {renderMetaRow("Obra:", props.obra?.nome ?? "-", "Status:", statusLabel(props.status))}
-          {renderMetaRow("Validade:", formatDate(props.validadeAte), "Revisao:", String(props.revisao ?? 0))}
-          {renderMetaRow("Responsavel:", props.responsavel?.nome ?? "-", "Titulo:", props.titulo ?? "-")}
+          {documentoCliente
+            ? renderMetaRow("Cliente:", props.cliente.nome, "Documento:", documentoCliente)
+            : renderMetaRow("Cliente:", props.cliente.nome, "Status:", statusLabel(props.status))}
+          {documentoCliente
+            ? renderMetaRow("Obra:", props.obra?.nome ?? "-", "Status:", statusLabel(props.status))
+            : renderMetaRow("Obra:", props.obra?.nome ?? "-", "Validade:", formatDate(props.validadeAte))}
+          {documentoCliente
+            ? renderMetaRow("Validade:", formatDate(props.validadeAte), "Revisao:", String(props.revisao ?? 0))
+            : renderMetaRow("Revisao:", String(props.revisao ?? 0), "Titulo:", props.titulo ?? "-")}
+          {documentoCliente
+            ? renderMetaRow("Responsavel:", props.responsavel?.nome ?? "-", "Titulo:", props.titulo ?? "-")
+            : null}
         </View>
 
         {props.objeto?.trim() ? (

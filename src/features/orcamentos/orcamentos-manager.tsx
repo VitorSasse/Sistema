@@ -82,6 +82,8 @@ type ClienteOption = {
   id: string;
   codigo: string;
   nome: string;
+  status?: string;
+  cadastroCompleto?: boolean;
 };
 
 type ObraOption = {
@@ -89,6 +91,7 @@ type ObraOption = {
   codigo: string;
   nome: string;
   clienteId: string;
+  status?: string;
 };
 
 type ServicoOption = {
@@ -1522,6 +1525,25 @@ export function OrcamentosManager() {
   const [items, setItems] = useState<OrcamentoResumoApi[]>([]);
   const [options, setOptions] = useState<OptionsState>(emptyOptions);
   const [form, setForm] = useState<OrcamentoForm>(() => createEmptyForm());
+  const [quickClienteOpen, setQuickClienteOpen] = useState(false);
+  const [quickObraOpen, setQuickObraOpen] = useState(false);
+  const [quickSaving, setQuickSaving] = useState(false);
+  const [quickClienteForm, setQuickClienteForm] = useState({
+    nome: "",
+    telefone: "",
+    whatsapp: "",
+    email: "",
+    cpfCnpj: "",
+    observacao: ""
+  });
+  const [quickObraForm, setQuickObraForm] = useState({
+    nome: "",
+    cidade: "",
+    bairro: "",
+    endereco: "",
+    referencia: "",
+    observacao: ""
+  });
   const [selectedId, setSelectedId] = useState<string>("");
   const [filters, setFilters] = useState({
     search: "",
@@ -1548,7 +1570,11 @@ export function OrcamentosManager() {
     () =>
       options.clientes.map((cliente) => ({
         value: cliente.id,
-        label: `${cliente.codigo} - ${cliente.nome}`
+        label: `${cliente.codigo} - ${cliente.nome}${
+          cliente.status === "PROSPECTO" || cliente.cadastroCompleto === false
+            ? " - Prospecto"
+            : ""
+        }`
       })),
     [options.clientes]
   );
@@ -1559,7 +1585,7 @@ export function OrcamentosManager() {
         .filter((obra) => !form.clienteId || obra.clienteId === form.clienteId)
         .map((obra) => ({
           value: obra.id,
-          label: `${obra.codigo} - ${obra.nome}`
+          label: `${obra.codigo} - ${obra.nome}${obra.status === "PROVISORIA" ? " - Provisoria" : ""}`
         })),
     [form.clienteId, options.obras]
   );
@@ -1863,6 +1889,105 @@ export function OrcamentosManager() {
       ...current,
       [key]: value
     }));
+  }
+
+  function resetQuickClienteForm() {
+    setQuickClienteForm({
+      nome: "",
+      telefone: "",
+      whatsapp: "",
+      email: "",
+      cpfCnpj: "",
+      observacao: ""
+    });
+  }
+
+  function resetQuickObraForm() {
+    setQuickObraForm({
+      nome: "",
+      cidade: "",
+      bairro: "",
+      endereco: "",
+      referencia: "",
+      observacao: ""
+    });
+  }
+
+  async function criarClienteRapido(confirmDuplicate = false) {
+    setQuickSaving(true);
+    setMessage("");
+    clearError();
+
+    const response = await fetch("/api/clientes/rapido", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...quickClienteForm, confirmDuplicate })
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      if (response.status === 409 && data.canCreateAnyway && !confirmDuplicate) {
+        const matches = Array.isArray(data.matches)
+          ? data.matches
+              .map((match: { codigo?: string; nome?: string }) => `${match.codigo ?? ""} ${match.nome ?? ""}`.trim())
+              .join("\n")
+          : "";
+        const shouldCreate = window.confirm(
+          `Possivel cliente ja cadastrado.\n\n${matches}\n\nDeseja criar mesmo assim?`
+        );
+
+        if (shouldCreate) {
+          setQuickSaving(false);
+          await criarClienteRapido(true);
+          return;
+        }
+      } else {
+        applyApiError(data, "Nao foi possivel criar o prospecto.");
+      }
+      setQuickSaving(false);
+      return;
+    }
+
+    await loadOptions();
+    updateForm("clienteId", data.id);
+    updateForm("obraId", "");
+    resetQuickClienteForm();
+    setQuickClienteOpen(false);
+    setQuickObraOpen(true);
+    setMessage("Prospecto criado e selecionado no orcamento.");
+    setQuickSaving(false);
+  }
+
+  async function criarObraRapida() {
+    if (!form.clienteId) {
+      setError("Selecione ou cadastre um cliente antes de criar a obra provisoria.");
+      setErrorDetails([]);
+      return;
+    }
+
+    setQuickSaving(true);
+    setMessage("");
+    clearError();
+
+    const response = await fetch("/api/obras/rapido", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...quickObraForm, clienteId: form.clienteId })
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      applyApiError(data, "Nao foi possivel criar a obra provisoria.");
+      setQuickSaving(false);
+      return;
+    }
+
+    await loadOptions();
+    updateForm("obraId", data.id);
+    resetQuickObraForm();
+    setQuickObraOpen(false);
+    setMessage("Obra provisoria criada e selecionada no orcamento.");
+    setQuickSaving(false);
   }
 
   function updateFormacao<K extends keyof FormacaoPrecoForm>(key: K, value: FormacaoPrecoForm[K]) {
@@ -2510,6 +2635,7 @@ export function OrcamentosManager() {
   }
 
   return (
+    <>
     <section className="orcamentos-shell">
       <div className="orcamentos-hero">
         <div>
@@ -2645,7 +2771,12 @@ export function OrcamentosManager() {
             </div>
             <div className="orcamentos-form-grid">
               <label className="manager-field orcamentos-span-2">
-                <span className="manager-field-label">Cliente</span>
+                <span className="manager-field-label orcamentos-field-label-action">
+                  Cliente
+                  <button type="button" onClick={() => setQuickClienteOpen(true)}>
+                    + Cadastro rapido
+                  </button>
+                </span>
                 <SearchableSelect
                   value={form.clienteId}
                   options={clienteOptions}
@@ -2657,11 +2788,21 @@ export function OrcamentosManager() {
                 />
               </label>
               <label className="manager-field">
-                <span className="manager-field-label">Obra</span>
+                <span className="manager-field-label orcamentos-field-label-action">
+                  Obra
+                  <button
+                    type="button"
+                    disabled={!form.clienteId}
+                    onClick={() => setQuickObraOpen(true)}
+                  >
+                    + Cadastro rapido
+                  </button>
+                </span>
                 <SearchableSelect
                   value={form.obraId}
                   options={obraOptions}
                   placeholder="Digite para buscar a obra"
+                  disabled={!form.clienteId}
                   onChange={(value) => updateForm("obraId", value)}
                 />
               </label>
@@ -3244,6 +3385,156 @@ export function OrcamentosManager() {
         </div>
       </div>
     </section>
+
+    {quickClienteOpen ? (
+      <div className="orcamentos-quick-backdrop" role="dialog" aria-modal="true">
+        <div className="orcamentos-quick-dialog">
+          <div className="orcamentos-quick-header">
+            <div>
+              <span>Cadastro rapido</span>
+              <h3>Prospecto</h3>
+              <small>Crie um cliente provisorio para iniciar o orcamento sem CPF/CNPJ.</small>
+            </div>
+            <button type="button" onClick={() => setQuickClienteOpen(false)}>x</button>
+          </div>
+          <div className="orcamentos-quick-grid">
+            <label className="manager-field orcamentos-span-2">
+              <span className="manager-field-label">Nome ou razao social</span>
+              <input
+                className="field-control"
+                value={quickClienteForm.nome}
+                onChange={(event) => setQuickClienteForm((current) => ({ ...current, nome: event.target.value }))}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Telefone</span>
+              <input
+                className="field-control"
+                value={quickClienteForm.telefone}
+                onChange={(event) => setQuickClienteForm((current) => ({ ...current, telefone: event.target.value }))}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">WhatsApp</span>
+              <input
+                className="field-control"
+                value={quickClienteForm.whatsapp}
+                onChange={(event) => setQuickClienteForm((current) => ({ ...current, whatsapp: event.target.value }))}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">E-mail</span>
+              <input
+                className="field-control"
+                type="email"
+                value={quickClienteForm.email}
+                onChange={(event) => setQuickClienteForm((current) => ({ ...current, email: event.target.value }))}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">CPF/CNPJ opcional</span>
+              <input
+                className="field-control"
+                value={quickClienteForm.cpfCnpj}
+                onChange={(event) => setQuickClienteForm((current) => ({ ...current, cpfCnpj: event.target.value }))}
+              />
+            </label>
+            <label className="manager-field orcamentos-span-2">
+              <span className="manager-field-label">Observacoes</span>
+              <textarea
+                className="field-control"
+                rows={3}
+                value={quickClienteForm.observacao}
+                onChange={(event) => setQuickClienteForm((current) => ({ ...current, observacao: event.target.value }))}
+              />
+            </label>
+          </div>
+          <div className="orcamentos-quick-actions">
+            <button type="button" className="button-secondary" disabled={quickSaving} onClick={() => setQuickClienteOpen(false)}>
+              Cancelar
+            </button>
+            <button type="button" className="button-primary" disabled={quickSaving} onClick={() => void criarClienteRapido()}>
+              {quickSaving ? "Salvando..." : "Criar prospecto"}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null}
+
+    {quickObraOpen ? (
+      <div className="orcamentos-quick-backdrop" role="dialog" aria-modal="true">
+        <div className="orcamentos-quick-dialog">
+          <div className="orcamentos-quick-header">
+            <div>
+              <span>Cadastro rapido</span>
+              <h3>Obra provisoria</h3>
+              <small>Vinculada ao cliente selecionado e usada apenas neste fluxo de orçamento.</small>
+            </div>
+            <button type="button" onClick={() => setQuickObraOpen(false)}>x</button>
+          </div>
+          <div className="orcamentos-quick-grid">
+            <label className="manager-field orcamentos-span-2">
+              <span className="manager-field-label">Nome ou descricao da obra</span>
+              <input
+                className="field-control"
+                value={quickObraForm.nome}
+                onChange={(event) => setQuickObraForm((current) => ({ ...current, nome: event.target.value }))}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Cidade</span>
+              <input
+                className="field-control"
+                value={quickObraForm.cidade}
+                onChange={(event) => setQuickObraForm((current) => ({ ...current, cidade: event.target.value }))}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Bairro</span>
+              <input
+                className="field-control"
+                value={quickObraForm.bairro}
+                onChange={(event) => setQuickObraForm((current) => ({ ...current, bairro: event.target.value }))}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Endereco</span>
+              <input
+                className="field-control"
+                value={quickObraForm.endereco}
+                onChange={(event) => setQuickObraForm((current) => ({ ...current, endereco: event.target.value }))}
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Referencia</span>
+              <input
+                className="field-control"
+                value={quickObraForm.referencia}
+                onChange={(event) => setQuickObraForm((current) => ({ ...current, referencia: event.target.value }))}
+              />
+            </label>
+            <label className="manager-field orcamentos-span-2">
+              <span className="manager-field-label">Observacoes</span>
+              <textarea
+                className="field-control"
+                rows={3}
+                value={quickObraForm.observacao}
+                onChange={(event) => setQuickObraForm((current) => ({ ...current, observacao: event.target.value }))}
+              />
+            </label>
+          </div>
+          <div className="orcamentos-quick-actions">
+            <button type="button" className="button-secondary" disabled={quickSaving} onClick={() => setQuickObraOpen(false)}>
+              Cancelar
+            </button>
+            <button type="button" className="button-primary" disabled={quickSaving} onClick={() => void criarObraRapida()}>
+              {quickSaving ? "Salvando..." : "Criar obra provisoria"}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }
 

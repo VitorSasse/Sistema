@@ -14,7 +14,7 @@ type ObraResumo = {
   id: string;
   codigo: string;
   nome: string;
-  status: "ATIVO" | "INATIVO";
+  status: "ATIVO" | "INATIVO" | "PROVISORIA";
 };
 
 type Cliente = {
@@ -37,7 +37,8 @@ type Cliente = {
   uf: string | null;
   cep: string | null;
   observacao: string | null;
-  status: "ATIVO" | "INATIVO";
+  status: "ATIVO" | "INATIVO" | "PROSPECTO";
+  cadastroCompleto: boolean;
   obras: ObraResumo[];
 };
 
@@ -60,7 +61,8 @@ type FormState = {
   uf: string;
   cep: string;
   observacao: string;
-  status: "ATIVO" | "INATIVO";
+  status: "ATIVO" | "INATIVO" | "PROSPECTO";
+  cadastroCompleto: boolean;
 };
 
 const initialForm: FormState = {
@@ -81,7 +83,8 @@ const initialForm: FormState = {
   uf: "",
   cep: "",
   observacao: "",
-  status: "ATIVO"
+  status: "ATIVO",
+  cadastroCompleto: true
 };
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -163,10 +166,16 @@ export function ClientesManager() {
     const url = form.id ? `/api/clientes/${form.id}` : "/api/clientes";
 
     startTransition(async () => {
+      const hasDocument = form.tipoCliente === "CPF" ? Boolean(form.cpf.trim()) : Boolean(form.cnpj.trim());
+      const payload = {
+        ...form,
+        cadastroCompleto: form.status === "ATIVO" && hasDocument ? true : form.cadastroCompleto
+      };
+
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
+        body: JSON.stringify(payload)
       });
 
       const data = (await response.json()) as { message?: string };
@@ -203,7 +212,8 @@ export function ClientesManager() {
       uf: cliente.uf ?? "",
       cep: cliente.cep ?? "",
       observacao: cliente.observacao ?? "",
-      status: cliente.status
+      status: cliente.status,
+      cadastroCompleto: cliente.cadastroCompleto
     });
     setSelectedClienteId(cliente.id);
     setMessage(`Editando cliente ${cliente.codigo}.`);
@@ -217,6 +227,16 @@ export function ClientesManager() {
     setForm(initialForm);
     setSelectedClienteId(null);
     setMessage("");
+  }
+
+  function handleComplete(cliente: Cliente) {
+    handleEdit(cliente);
+    setForm((current) => ({
+      ...current,
+      status: "ATIVO",
+      cadastroCompleto: true
+    }));
+    setMessage("Complete os dados obrigatorios e salve para ativar o cliente.");
   }
 
   async function handleDisable(id: string) {
@@ -434,15 +454,16 @@ export function ClientesManager() {
               />
             </Field>
             <Field label="Status">
-              <select
-                className="field-control"
-                value={form.status}
-                onChange={(event) => updateField("status", event.target.value as FormState["status"])}
-              >
-                <option value="ATIVO">ATIVO</option>
-                <option value="INATIVO">INATIVO</option>
-              </select>
-            </Field>
+                <select
+                  className="field-control"
+                  value={form.status}
+                  onChange={(event) => updateField("status", event.target.value as FormState["status"])}
+                >
+                  <option value="ATIVO">ATIVO</option>
+                  <option value="PROSPECTO">PROSPECTO</option>
+                  <option value="INATIVO">INATIVO</option>
+                </select>
+              </Field>
           </div>
 
           <Field label="Observacao">
@@ -514,12 +535,18 @@ export function ClientesManager() {
                   </td>
                   <td>{cliente.obras.length}</td>
                   <td>
-                    <span className={cliente.status === "ATIVO" ? "badge badge-success" : "badge badge-danger"}>
+                    <span className={cliente.status === "ATIVO" ? "badge badge-success" : cliente.status === "PROSPECTO" ? "manager-badge manager-badge-warn" : "badge badge-danger"}>
                       {cliente.status}
                     </span>
+                    {!cliente.cadastroCompleto ? <div className="subtle">Cadastro incompleto</div> : null}
                   </td>
                   <td>
                     <div className="toolbar-actions">
+                      {!cliente.cadastroCompleto || cliente.status === "PROSPECTO" ? (
+                        <button type="button" onClick={() => handleComplete(cliente)} className="button-primary">
+                          Completar cadastro
+                        </button>
+                      ) : null}
                       <button type="button" onClick={() => handleEdit(cliente)} className="button-secondary">
                         Editar
                       </button>

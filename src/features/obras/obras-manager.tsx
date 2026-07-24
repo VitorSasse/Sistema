@@ -9,7 +9,7 @@ type ClienteOption = {
   id: string;
   codigo: string;
   nome: string;
-  status: "ATIVO" | "INATIVO";
+  status: "ATIVO" | "INATIVO" | "PROSPECTO";
 };
 
 type Obra = {
@@ -24,7 +24,7 @@ type Obra = {
   dataInicio: string | null;
   dataFim: string | null;
   observacao: string | null;
-  status: "ATIVO" | "INATIVO";
+  status: "ATIVO" | "INATIVO" | "PROVISORIA";
   liberadaParaLancamento: boolean;
   cliente: {
     id: string;
@@ -44,7 +44,7 @@ type FormState = {
   dataInicio: string;
   dataFim: string;
   observacao: string;
-  status: "ATIVO" | "INATIVO";
+  status: "ATIVO" | "INATIVO" | "PROVISORIA";
   liberadaParaLancamento: boolean;
 };
 
@@ -68,7 +68,7 @@ export function ObrasManager() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"TODOS" | "ATIVO" | "INATIVO">("TODOS");
+  const [statusFilter, setStatusFilter] = useState<"TODOS" | "ATIVO" | "INATIVO" | "PROVISORIA">("TODOS");
   const [isPending, startTransition] = useTransition();
 
   async function loadBase() {
@@ -127,6 +127,16 @@ export function ObrasManager() {
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function handleCompleteObra(obra: Obra) {
+    handleEdit(obra);
+    setForm((current) => ({
+      ...current,
+      status: "ATIVO",
+      liberadaParaLancamento: true
+    }));
+    setMessage("Complete os dados da obra e salve para ativar o cadastro.");
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -321,6 +331,7 @@ export function ObrasManager() {
                 className="field-control manager-field-control"
               >
                 <option value="ATIVO">ATIVO</option>
+                <option value="PROVISORIA">PROVISORIA</option>
                 <option value="INATIVO">INATIVO</option>
               </select>
             </Field>
@@ -376,11 +387,12 @@ export function ObrasManager() {
             />
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as "TODOS" | "ATIVO" | "INATIVO")}
+              onChange={(event) => setStatusFilter(event.target.value as "TODOS" | "ATIVO" | "INATIVO" | "PROVISORIA")}
               className="field-control manager-field-control"
             >
               <option value="TODOS">Todos os status</option>
               <option value="ATIVO">Ativas</option>
+              <option value="PROVISORIA">Provisorias</option>
               <option value="INATIVO">Inativas</option>
             </select>
           </div>
@@ -424,6 +436,11 @@ export function ObrasManager() {
                   </td>
                   <td>
                     <div className="manager-inline-actions">
+                      {obra.status === "PROVISORIA" ? (
+                        <button type="button" onClick={() => handleCompleteObra(obra)} className="button-primary">
+                          Completar cadastro
+                        </button>
+                      ) : null}
                       <button type="button" onClick={() => handleEdit(obra)} className="button-secondary">
                         Editar
                       </button>

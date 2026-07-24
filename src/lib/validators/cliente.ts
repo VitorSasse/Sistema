@@ -21,24 +21,36 @@ export const clienteSchema = z
   uf: z.string().trim().length(2).optional().or(z.literal("")),
   cep: z.string().trim().max(12).optional().or(z.literal("")),
   observacao: z.string().trim().max(500).optional().or(z.literal("")),
-  status: z.nativeEnum(StatusCadastro).default(StatusCadastro.ATIVO)
+  status: z.nativeEnum(StatusCadastro).default(StatusCadastro.ATIVO),
+  cadastroCompleto: z.boolean().default(true)
   })
   .superRefine((data, ctx) => {
     if (data.tipoCliente === "CPF") {
       const cpf = normalizeDocument(data.cpf || "");
-      if (!cpf) {
+      if (!cpf && data.cadastroCompleto) {
         ctx.addIssue({ code: "custom", path: ["cpf"], message: "CPF e obrigatorio." });
-      } else if (!isValidCpf(cpf)) {
+      } else if (cpf && !isValidCpf(cpf)) {
         ctx.addIssue({ code: "custom", path: ["cpf"], message: "CPF invalido." });
       }
     }
 
     if (data.tipoCliente === "CNPJ") {
       const cnpj = normalizeDocument(data.cnpj || "");
-      if (!cnpj) {
+      if (!cnpj && data.cadastroCompleto) {
         ctx.addIssue({ code: "custom", path: ["cnpj"], message: "CNPJ e obrigatorio." });
-      } else if (!isValidCnpj(cnpj)) {
+      } else if (cnpj && !isValidCnpj(cnpj)) {
         ctx.addIssue({ code: "custom", path: ["cnpj"], message: "CNPJ invalido." });
+      }
+    }
+
+    if (data.status === StatusCadastro.PROSPECTO || !data.cadastroCompleto) {
+      const possuiContato = Boolean(data.telefone?.trim() || data.email?.trim() || data.contatoNome?.trim());
+      if (!possuiContato) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["telefone"],
+          message: "Informe telefone, WhatsApp, e-mail ou contato para o prospecto."
+        });
       }
     }
   });
