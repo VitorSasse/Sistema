@@ -1,5 +1,6 @@
 import {
   CategoriaRecursoOrcamento,
+  FormaApresentacaoComercialItem,
   NaturezaFrenteOrcamento,
   OrigemItemComercialOrcamento,
   Prisma,
@@ -436,6 +437,7 @@ function calcularValorOpcional(opcional: OrcamentoInput["propostasComerciais"][n
     descricao: opcional.descricao,
     unidade: opcional.unidade,
     quantidade: opcional.quantidade,
+    formaApresentacaoComercial: FormaApresentacaoComercialItem.QUANTIDADE_DEFINIDA,
     produtividade: null,
     custoUnitario: 0,
     valorUnitario: opcional.valorUnitario,
@@ -634,6 +636,9 @@ export function buildPropostaSnapshot(
         ordem: item.ordem,
         codigo: item.codigo,
         modoPrecificacao: item.modoPrecificacao ?? "PRECO_DIRETO",
+        formaApresentacaoComercial:
+          item.formaApresentacaoComercial ??
+          FormaApresentacaoComercialItem.QUANTIDADE_DEFINIDA,
         precoCompra: item.precoCompra,
         markupPercentual: item.markupPercentual,
         precoVendaSobrescrito: item.precoVendaSobrescrito,
@@ -877,6 +882,11 @@ async function criarEstruturaOrcamento(
         recursoReferenciaId: clean(item.recursoReferenciaId),
         recursoNome: clean(item.recursoNome),
         modoPrecificacao: item.modoPrecificacao ?? "PRECO_DIRETO",
+        formaApresentacaoComercial:
+          item.tipoItem === TipoItemOrcamento.RECURSO
+            ? FormaApresentacaoComercialItem.QUANTIDADE_DEFINIDA
+            : item.formaApresentacaoComercial ??
+              FormaApresentacaoComercialItem.QUANTIDADE_DEFINIDA,
         precoCompra: item.precoCompra ?? null,
         markupPercentual: item.markupPercentual ?? null,
         precoVendaSobrescrito: Boolean(item.precoVendaSobrescrito),
@@ -1462,6 +1472,7 @@ export async function duplicarOrcamento(
         recursoReferenciaId: item.recursoReferenciaId,
         recursoNome: item.recursoNome,
         modoPrecificacao: item.modoPrecificacao,
+        formaApresentacaoComercial: item.formaApresentacaoComercial,
         precoCompra: item.precoCompra,
         markupPercentual: item.markupPercentual,
         precoVendaSobrescrito: item.precoVendaSobrescrito,

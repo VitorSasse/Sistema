@@ -49,6 +49,9 @@ type ModoCustoOrcamento = "SIMPLIFICADO" | "COMPLETO";
 type ModoCustoFrente = "AUTO" | "MANUAL";
 type NaturezaFrenteOrcamento = "COMERCIAL" | "OPERACIONAL";
 type OrigemItemComercialOrcamento = "SERVICE" | "RESOURCE" | "MANUAL";
+type FormaApresentacaoComercialItem =
+  | "QUANTIDADE_DEFINIDA"
+  | "PRECO_UNITARIO_REFERENCIAL";
 type OrigemPrazoFrente = "AUTOMATICO" | "AJUSTADO";
 type OrigemQuantidadeOperacional = "FRENTE" | "PERSONALIZADA";
 type OrigemValorAplicadoOrcamento =
@@ -251,6 +254,7 @@ type ItemForm = {
   recursoReferenciaId: string;
   recursoNome: string;
   modoPrecificacao: ModoPrecificacaoItemOrcamento;
+  formaApresentacaoComercial: FormaApresentacaoComercialItem;
   precoCompra: string;
   markupPercentual: string;
   precoVendaSobrescrito: boolean;
@@ -459,6 +463,7 @@ type OrcamentoApi = {
     recursoReferenciaId: string | null;
     recursoNome: string | null;
     modoPrecificacao?: ModoPrecificacaoItemOrcamento | null;
+    formaApresentacaoComercial?: FormaApresentacaoComercialItem | null;
     precoCompra?: string | number | null;
     markupPercentual?: string | number | null;
     precoVendaSobrescrito?: boolean | null;
@@ -565,6 +570,23 @@ const tipoItemOperacionalOptions = tipoItemOptions.filter((option) =>
 const modoPrecificacaoOptions: { value: ModoPrecificacaoItemOrcamento; label: string }[] = [
   { value: "PRECO_DIRETO", label: "Preco direto" },
   { value: "COMPOSICAO", label: "Composicao" }
+];
+
+const formaApresentacaoComercialOptions: {
+  value: FormaApresentacaoComercialItem;
+  label: string;
+  helper: string;
+}[] = [
+  {
+    value: "QUANTIDADE_DEFINIDA",
+    label: "Quantidade definida",
+    helper: "Participa do valor global da proposta."
+  },
+  {
+    value: "PRECO_UNITARIO_REFERENCIAL",
+    label: "Preco unitario referencial",
+    helper: "Tabela comercial para futura medicao. Nao soma no valor global."
+  }
 ];
 
 const categoriaRecursoOptions: { value: CategoriaRecursoOrcamento; label: string }[] = [
@@ -763,6 +785,7 @@ function createEmptyItem(tipoItem: TipoItemOrcamento, ordem: number, frenteTempI
     recursoReferenciaId: "",
     recursoNome: "",
     modoPrecificacao: "PRECO_DIRETO",
+    formaApresentacaoComercial: "QUANTIDADE_DEFINIDA",
     precoCompra: "",
     markupPercentual: "",
     precoVendaSobrescrito: false,
@@ -863,6 +886,7 @@ function getStatusLabel(value: StatusOrcamento) {
 function calcItemTotal(
   item: Pick<
     ItemForm,
+    | "formaApresentacaoComercial"
     | "quantidade"
     | "valorUnitario"
     | "modoPrecificacao"
@@ -872,6 +896,10 @@ function calcItemTotal(
     | "precoAplicado"
   >
 ) {
+  if (item.formaApresentacaoComercial === "PRECO_UNITARIO_REFERENCIAL") {
+    return 0;
+  }
+
   const precoCalculado =
     item.modoPrecificacao === "COMPOSICAO" && !item.precoVendaSobrescrito && Number(item.precoCompra) > 0
       ? roundMoney((Number(item.precoCompra) || 0) * (1 + (Number(item.markupPercentual) || 0) / 100))
@@ -1317,6 +1345,7 @@ function buildOperationalConsolidation(
       unidade: item.unidade,
       quantidade: item.quantidade,
       valorUnitario: item.valorUnitario,
+      formaApresentacaoComercial: item.formaApresentacaoComercial,
       modoPrecificacao: item.modoPrecificacao,
       precoCompra: item.precoCompra,
       markupPercentual: item.markupPercentual,
@@ -4553,6 +4582,33 @@ function CommercialFrontItemFields(props: {
         </select>
         <small className="manager-field-hint">Define se o preco vem direto ou de uma composicao.</small>
       </label>
+      <label className="manager-field">
+        <span className="manager-field-label">Forma de apresentacao comercial</span>
+        <select
+          className="field-control"
+          value={props.item.formaApresentacaoComercial}
+          onChange={(event) =>
+            props.onUpdate(
+              props.item.localId,
+              "formaApresentacaoComercial",
+              event.target.value as FormaApresentacaoComercialItem
+            )
+          }
+        >
+          {formaApresentacaoComercialOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <small className="manager-field-hint">
+          {
+            formaApresentacaoComercialOptions.find(
+              (option) => option.value === props.item.formaApresentacaoComercial
+            )?.helper
+          }
+        </small>
+      </label>
       <label className="manager-field orcamentos-span-2">
         <span className="manager-field-label">
           {props.item.origemItemComercial === "MANUAL" ? "Descricao comercial" : "Descricao"}
@@ -4582,19 +4638,26 @@ function CommercialFrontItemFields(props: {
           onChange={(event) => props.onUpdate(props.item.localId, "unidade", event.target.value)}
         />
       </label>
-      <label className="manager-field">
-        <span className="manager-field-label">Quantidade</span>
-        <input
-          className="field-control"
-          type="number"
-          min="0"
-          step="0.01"
-          value={props.item.quantidade}
-          onChange={(event) =>
-            props.onUpdate(props.item.localId, "quantidade", event.target.value)
-          }
-        />
-      </label>
+      {props.item.formaApresentacaoComercial === "PRECO_UNITARIO_REFERENCIAL" ? (
+        <div className="orcamentos-composition-note">
+          <strong>Preco unitario referencial</strong>
+          <span>Sem quantidade contratada. Este item nao compoe subtotal nem valor global.</span>
+        </div>
+      ) : (
+        <label className="manager-field">
+          <span className="manager-field-label">Quantidade</span>
+          <input
+            className="field-control"
+            type="number"
+            min="0"
+            step="0.01"
+            value={props.item.quantidade}
+            onChange={(event) =>
+              props.onUpdate(props.item.localId, "quantidade", event.target.value)
+            }
+          />
+        </label>
+      )}
       <label className="manager-field">
         <span className="manager-field-label">Preco de compra</span>
         <input
@@ -5498,6 +5561,9 @@ function mapItemPayload(item: ItemForm) {
     recursoReferenciaId: recurso ? item.recursoReferenciaId : "",
     recursoNome: recurso ? item.recursoNome : "",
     modoPrecificacao: recurso ? "PRECO_DIRETO" : item.modoPrecificacao,
+    formaApresentacaoComercial: recurso
+      ? "QUANTIDADE_DEFINIDA"
+      : item.formaApresentacaoComercial,
     precoCompra: !recurso && item.precoCompra ? Number(item.precoCompra) : null,
     markupPercentual: !recurso && item.markupPercentual ? Number(item.markupPercentual) : null,
     precoVendaSobrescrito: !recurso ? item.precoVendaSobrescrito : false,
@@ -5796,6 +5862,8 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
               recursoReferenciaId: orcamentoItem.recursoReferenciaId ?? "",
               recursoNome: orcamentoItem.recursoNome ?? "",
               modoPrecificacao: orcamentoItem.modoPrecificacao ?? "PRECO_DIRETO",
+              formaApresentacaoComercial:
+                orcamentoItem.formaApresentacaoComercial ?? "QUANTIDADE_DEFINIDA",
               precoCompra: toStringValue(orcamentoItem.precoCompra),
               markupPercentual: toStringValue(orcamentoItem.markupPercentual),
               precoVendaSobrescrito: Boolean(orcamentoItem.precoVendaSobrescrito),

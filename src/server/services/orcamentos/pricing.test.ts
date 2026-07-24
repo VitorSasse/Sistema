@@ -1,5 +1,6 @@
 import {
   CategoriaRecursoOrcamento,
+  FormaApresentacaoComercialItem,
   ModoCustoFrente,
   ModoCustoOrcamento,
   NaturezaFrenteOrcamento,
@@ -36,6 +37,7 @@ function recurso(
     descricao,
     unidade,
     quantidade,
+    formaApresentacaoComercial: FormaApresentacaoComercialItem.QUANTIDADE_DEFINIDA,
     produtividade: null,
     custoUnitario,
     valorUnitario: 0,
@@ -65,6 +67,7 @@ function servicoPrincipal(
     descricao: "Servico principal",
     unidade: "m3",
     quantidade,
+    formaApresentacaoComercial: FormaApresentacaoComercialItem.QUANTIDADE_DEFINIDA,
     produtividade: null,
     custoUnitario: 0,
     valorUnitario,
@@ -94,6 +97,7 @@ function materialComercial(
     descricao: "BGS",
     unidade: "m3",
     quantidade,
+    formaApresentacaoComercial: FormaApresentacaoComercialItem.QUANTIDADE_DEFINIDA,
     produtividade: null,
     custoUnitario: 0,
     valorUnitario,
@@ -251,6 +255,7 @@ describe("Formacao do preco do orcamento operacional", () => {
       descricao: "Servico principal",
       unidade: "m3",
       quantidade: 5560.66,
+      formaApresentacaoComercial: FormaApresentacaoComercialItem.QUANTIDADE_DEFINIDA,
       produtividade: null,
       custoUnitario: 999999,
       valorUnitario: 999999,
@@ -359,5 +364,46 @@ describe("Formacao do preco do orcamento operacional", () => {
     expect(snapshot.consolidacao?.valorComercialInformado).toBe(107500);
     expect(snapshot.formacaoPreco.custoDireto).toBe(96984.61);
     expect(snapshot.totals.valorTotal).toBe(107500);
+  });
+
+  it("nao soma itens de preco unitario referencial no valor global", () => {
+    const input = inputOperacional();
+    input.frentes.push({
+      tempId: "frente-referencial",
+      cenarioTempId: "",
+      cenarioOrdem: null,
+      ordem: 2,
+      natureza: NaturezaFrenteOrcamento.COMERCIAL,
+      nome: "Locacao de equipamentos",
+      descricao: "",
+      metodoExecutivo: "",
+      unidadeProducao: "",
+      quantidadePrevista: null,
+      produtividadeDia: null,
+      prazoEstimadoDias: null,
+      modoCusto: ModoCustoFrente.AUTO,
+      custoManual: 0,
+      observacao: ""
+    });
+    input.itens.push(
+      servicoPrincipal("frente-1", 2240, 26.2257142857),
+      {
+        ...materialComercial("frente-referencial", 1, 2800, 30),
+        descricao: "Escavadeira diaria",
+        unidade: "DIARIA",
+        formaApresentacaoComercial: FormaApresentacaoComercialItem.PRECO_UNITARIO_REFERENCIAL
+      },
+      {
+        ...materialComercial("frente-referencial", 1, 500, 31),
+        descricao: "Transporte por carga",
+        unidade: "CARGA",
+        formaApresentacaoComercial: FormaApresentacaoComercialItem.PRECO_UNITARIO_REFERENCIAL
+      }
+    );
+
+    const snapshot = buildPricingSnapshot(input);
+
+    expect(snapshot.consolidacao?.valorComercialInformado).toBe(58745.57);
+    expect(snapshot.totals.valorTotal).toBe(58745.57);
   });
 });

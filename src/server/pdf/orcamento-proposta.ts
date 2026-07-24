@@ -4,7 +4,9 @@ export type PropostaPdfItemBase = {
   descricao: string;
   unidade: string;
   quantidade: number;
+  valorUnitario?: number;
   valorTotal: number;
+  formaApresentacaoComercial?: string | null;
 };
 
 export type PropostaPdfFrenteBase = {
@@ -56,7 +58,11 @@ export function formatarUnidadeComercial(value?: string | null, quantidade?: num
 export function selecionarItensComerciais<T extends PropostaPdfItemBase>(itens: T[]) {
   return itens
     .filter((item) => tiposComerciais.has(item.tipoItem.toUpperCase()))
-    .filter((item) => Math.abs(item.valorTotal) > 0)
+    .filter(
+      (item) =>
+        item.formaApresentacaoComercial === "PRECO_UNITARIO_REFERENCIAL" ||
+        Math.abs(item.valorTotal) > 0
+    )
     .sort((first, second) => first.ordem - second.ordem);
 }
 

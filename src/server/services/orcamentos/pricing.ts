@@ -1,4 +1,5 @@
 import {
+  FormaApresentacaoComercialItem,
   ModoCustoOrcamento,
   NaturezaFrenteOrcamento,
   TipoItemOrcamento
@@ -20,6 +21,10 @@ export function toMoney(value: number) {
 }
 
 export function calcularValorItem(input: OrcamentoItemInput) {
+  if (input.formaApresentacaoComercial === FormaApresentacaoComercialItem.PRECO_UNITARIO_REFERENCIAL) {
+    return 0;
+  }
+
   const quantidade = Math.max(0, Number(input.quantidade) || 0);
   const precoAplicado = Math.max(
     0,
@@ -159,6 +164,7 @@ function buildOperationalSnapshot(
       unidade: item.unidade,
       quantidade: item.quantidade,
       valorUnitario: item.valorUnitario,
+      formaApresentacaoComercial: item.formaApresentacaoComercial,
       modoPrecificacao: item.modoPrecificacao,
       precoCompra: item.precoCompra,
       markupPercentual: item.markupPercentual,

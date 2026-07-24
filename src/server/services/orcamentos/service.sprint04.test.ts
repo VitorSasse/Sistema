@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  FormaApresentacaoComercialItem,
   ModoCustoOrcamento,
   ModoCustoFrente,
   StatusCenarioOrcamento,
@@ -79,6 +80,7 @@ function baseInput(overrides: Partial<OrcamentoInput> = {}): OrcamentoInput {
         descricao: "Escavacao",
         unidade: "m3",
         quantidade: 100,
+        formaApresentacaoComercial: FormaApresentacaoComercialItem.QUANTIDADE_DEFINIDA,
         produtividade: null,
         custoUnitario: 0,
         valorUnitario: 0,
@@ -120,6 +122,7 @@ function snapshotValues(snapshot: ReturnType<typeof buildPropostaSnapshot>) {
     }>;
     itens: Array<{
       quantidade: number;
+      formaApresentacaoComercial?: FormaApresentacaoComercialItem;
       valorUnitario: number;
       valorTotal: number;
     }>;
@@ -740,6 +743,35 @@ describe("revisoes de propostas comerciais", () => {
     expect(snapshot.itens[0].valorUnitario).toBe(325.5);
     expect(snapshot.itens[0].valorTotal).toBe(32550);
     expect(snapshot.totals.valorTotal).toBe(32550);
+  });
+
+  it("preserva item referencial no snapshot sem somar no valor global", () => {
+    const inputAtual = baseInput({
+      itens: [
+        { ...baseInput().itens[0], quantidade: 2240, valorUnitario: 26.2257142857 },
+        {
+          ...baseInput().itens[0],
+          ordem: 2,
+          descricao: "Escavadeira diaria",
+          unidade: "DIARIA",
+          quantidade: 1,
+          valorUnitario: 2800,
+          formaApresentacaoComercial:
+            FormaApresentacaoComercialItem.PRECO_UNITARIO_REFERENCIAL
+        }
+      ]
+    });
+    const snapshot = snapshotValues(
+      buildPropostaSnapshot(inputAtual, propostaInput(1), undefined)
+    );
+
+    expect(snapshot.itens).toHaveLength(2);
+    expect(snapshot.itens[1].formaApresentacaoComercial).toBe(
+      FormaApresentacaoComercialItem.PRECO_UNITARIO_REFERENCIAL
+    );
+    expect(snapshot.itens[1].valorUnitario).toBe(2800);
+    expect(snapshot.itens[1].valorTotal).toBe(0);
+    expect(snapshot.totals.valorTotal).toBe(58745.57);
   });
 
   it("recalcula o preco sugerido quando somente os custos mudam", () => {

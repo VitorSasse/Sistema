@@ -16,6 +16,7 @@ type EconomicEngineOrigemValorAplicado =
 export type EconomicEngineServicoInput = {
   frenteRef?: string | null;
   tipoItem?: string | null;
+  formaApresentacaoComercial?: string | null;
   modoPrecificacao?: string | null;
   descricao?: string | null;
   unidade?: string | null;
@@ -149,6 +150,10 @@ function getItemNatureza(tipoItem?: string | null): EconomicEngineItemNatureza {
   return "OUTRO";
 }
 
+function isPrecoUnitarioReferencial(servico: EconomicEngineServicoInput) {
+  return servico.formaApresentacaoComercial === "PRECO_UNITARIO_REFERENCIAL";
+}
+
 function calcularVendaItemComercial(servico: EconomicEngineServicoInput) {
   const quantidade = Math.max(0, toNumber(servico.quantidade));
   const modoPrecificacao = getModoPrecificacao(servico.modoPrecificacao);
@@ -192,7 +197,11 @@ export function calcularConsolidacaoEconomica(
   for (const servico of input.servicos) {
     const frenteRef = servico.frenteRef?.trim();
 
-    if (!frenteRef || !tiposComerciaisDaFrente.has((servico.tipoItem ?? "").toUpperCase())) {
+    if (
+      !frenteRef ||
+      isPrecoUnitarioReferencial(servico) ||
+      !tiposComerciaisDaFrente.has((servico.tipoItem ?? "").toUpperCase())
+    ) {
       continue;
     }
 

@@ -31,18 +31,29 @@ function collectPdfText(node: ReactNode): string[] {
 }
 
 describe("conteudo comercial do PDF de orcamentos", () => {
-  it("remove recursos internos e itens zerados, mantendo servicos e materiais comerciais", () => {
+  it("remove recursos internos e itens zerados, mantendo servicos, materiais e referenciais comerciais", () => {
     const selecionados = selecionarItensComerciais([
       { ordem: 1, tipoItem: "SERVICO_PRINCIPAL", descricao: "Escavacao", unidade: "m3", quantidade: 100, valorTotal: 15000 },
       { ordem: 2, tipoItem: "RECURSO", descricao: "Escavadeira", unidade: "UN", quantidade: 1, valorTotal: 0 },
       { ordem: 3, tipoItem: "MATERIAL", descricao: "Material", unidade: "UN", quantidade: 1, valorTotal: 500 },
       { ordem: 4, tipoItem: "OUTRO", descricao: "MTR", unidade: "m3", quantidade: 100, valorTotal: 700 },
-      { ordem: 5, tipoItem: "COMERCIAL", descricao: "Item zerado", unidade: "UN", quantidade: 1, valorTotal: 0 }
+      { ordem: 5, tipoItem: "COMERCIAL", descricao: "Item zerado", unidade: "UN", quantidade: 1, valorTotal: 0 },
+      {
+        ordem: 6,
+        tipoItem: "COMERCIAL",
+        descricao: "Escavadeira diaria",
+        unidade: "DIARIA",
+        quantidade: 1,
+        valorUnitario: 2800,
+        valorTotal: 0,
+        formaApresentacaoComercial: "PRECO_UNITARIO_REFERENCIAL"
+      }
     ]);
 
     expect(selecionados).toEqual([
       expect.objectContaining({ tipoItem: "SERVICO_PRINCIPAL", descricao: "Escavacao" }),
-      expect.objectContaining({ tipoItem: "MATERIAL", descricao: "Material" })
+      expect.objectContaining({ tipoItem: "MATERIAL", descricao: "Material" }),
+      expect.objectContaining({ descricao: "Escavadeira diaria", formaApresentacaoComercial: "PRECO_UNITARIO_REFERENCIAL" })
     ]);
   });
 
@@ -224,5 +235,64 @@ describe("conteudo comercial do PDF de orcamentos", () => {
     );
 
     expect(buffer.byteLength).toBeGreaterThan(1000);
+  });
+
+  it("renderiza item referencial como tabela de preco unitario sem subtotal da frente", () => {
+    const document = OrcamentoPdfDocument({
+      codigo: "PROP-003",
+      revisao: 0,
+      dataEmissao: new Date("2026-07-24T12:00:00.000Z"),
+      modoExibicaoValoresPdf: "DETALHADO_POR_ITEM_E_FRENTE",
+      tipo: "OPERACIONAL",
+      status: "RASCUNHO",
+      dataOrcamento: new Date("2026-07-24T12:00:00.000Z"),
+      validadeAte: null,
+      titulo: "Proposta referencial",
+      objeto: "Tabela comercial e servico contratado.",
+      observacaoCliente: null,
+      valorTotal: 58745.6,
+      cliente: { nome: "Cliente teste" },
+      obra: { nome: "Obra teste" },
+      responsavel: null,
+      frentes: [
+        { ordem: 1, nome: "Locacao de equipamentos", descricao: null, unidadeProducao: null, quantidadePrevista: null },
+        { ordem: 2, nome: "Escavacao", descricao: null, unidadeProducao: "m3", quantidadePrevista: 2240 }
+      ],
+      itens: [
+        {
+          ordem: 1,
+          frenteNome: "Locacao de equipamentos",
+          tipoItem: "COMERCIAL",
+          codigo: null,
+          descricao: "Escavadeira diaria",
+          unidade: "DIARIA",
+          quantidade: 1,
+          valorUnitario: 2800,
+          valorTotal: 0,
+          formaApresentacaoComercial: "PRECO_UNITARIO_REFERENCIAL"
+        },
+        {
+          ordem: 2,
+          frenteNome: "Escavacao",
+          tipoItem: "SERVICO_PRINCIPAL",
+          codigo: null,
+          descricao: "Escavacao mecanizada",
+          unidade: "m3",
+          quantidade: 2240,
+          valorUnitario: 26.2257142857,
+          valorTotal: 58745.6
+        }
+      ],
+      premissas: []
+    });
+
+    const texto = collectPdfText(document).join("\n");
+    const textoNormalizado = texto.replace(/\u00a0/g, " ");
+
+    expect(textoNormalizado).toContain("Valores unitarios de referencia");
+    expect(textoNormalizado).toContain("Os valores acima representam precos unitarios");
+    expect(textoNormalizado).toContain("TOTAL DA PROPOSTA");
+    expect(textoNormalizado).toContain("R$ 58.745,60");
+    expect(textoNormalizado).not.toContain("Subtotal da frente: R$ 2.800,00");
   });
 });

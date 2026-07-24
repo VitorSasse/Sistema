@@ -139,6 +139,10 @@ function mapSnapshotItens(snapshot: Record<string, unknown>) {
       unidade: asString(item.unidade, "-"),
       quantidade,
       valorUnitario,
+      formaApresentacaoComercial: asString(
+        item.formaApresentacaoComercial,
+        "QUANTIDADE_DEFINIDA"
+      ),
       valorTotal: asNumber(item.valorTotal, quantidade * valorUnitario)
     };
   });
@@ -156,6 +160,7 @@ function mapSnapshotItens(snapshot: Record<string, unknown>) {
       unidade: asString(opcional.unidade, "-"),
       quantidade,
       valorUnitario,
+      formaApresentacaoComercial: "QUANTIDADE_DEFINIDA",
       valorTotal: asNumber(opcional.valorTotal, quantidade * valorUnitario)
     };
   });
@@ -286,6 +291,7 @@ export async function renderOrcamentoPropostaPdf({
           unidade: item.unidade,
           quantidade: Number(item.quantidade),
           valorUnitario: Number(item.valorUnitario),
+          formaApresentacaoComercial: item.formaApresentacaoComercial,
           valorTotal: Number(item.valorTotal)
         })),
         ...opcionaisDaProposta.map((opcional) => ({
@@ -298,6 +304,7 @@ export async function renderOrcamentoPropostaPdf({
           unidade: opcional.unidade,
           quantidade: Number(opcional.quantidade),
           valorUnitario: Number(opcional.valorUnitario),
+          formaApresentacaoComercial: "QUANTIDADE_DEFINIDA",
           valorTotal: Number(opcional.valorTotal)
         }))
       ];

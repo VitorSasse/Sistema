@@ -74,6 +74,11 @@ enum ModoPrecificacaoItemOrcamento {
   COMPOSICAO
 }
 
+enum FormaApresentacaoComercialItem {
+  QUANTIDADE_DEFINIDA
+  PRECO_UNITARIO_REFERENCIAL
+}
+
 enum CategoriaRecursoOrcamento {
   EQUIPAMENTO
   EQUIPE
@@ -977,6 +982,7 @@ model OrcamentoItem {
   recursoReferenciaId            String?
   recursoNome                    String?
   modoPrecificacao               ModoPrecificacaoItemOrcamento @default(PRECO_DIRETO)
+  formaApresentacaoComercial     FormaApresentacaoComercialItem @default(QUANTIDADE_DEFINIDA)
   precoCompra                    Decimal?                    @db.Decimal(14, 4)
   markupPercentual               Decimal?                    @db.Decimal(7, 4)
   precoVendaSobrescrito          Boolean                     @default(false)

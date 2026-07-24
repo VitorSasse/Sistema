@@ -1,5 +1,6 @@
 import {
   CategoriaRecursoOrcamento,
+  FormaApresentacaoComercialItem,
   ModoCustoFrente,
   ModoCustoOrcamento,
   ModoExibicaoValoresPdf,
@@ -164,6 +165,9 @@ const orcamentoItemSchema = z.object({
   modoPrecificacao: z
     .nativeEnum(ModoPrecificacaoItemOrcamento)
     .optional(),
+  formaApresentacaoComercial: z
+    .nativeEnum(FormaApresentacaoComercialItem)
+    .default(FormaApresentacaoComercialItem.QUANTIDADE_DEFINIDA),
   precoCompra: numeroDecimal(999999999).optional().nullable(),
   markupPercentual: numeroDecimal(9999).optional().nullable(),
   precoVendaSobrescrito: z.boolean().optional(),
