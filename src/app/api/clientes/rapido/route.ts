@@ -169,13 +169,13 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json(
-        { message: "Nao foi possivel criar o prospecto por duplicidade de identificador." },
+        { message: "Nao foi possivel criar o cliente provisorio por duplicidade de identificador." },
         { status: 409 }
       );
     }
 
     return NextResponse.json(
-      { message: "Nao foi possivel criar o prospecto.", detail: String(error) },
+      { message: "Nao foi possivel criar o cliente provisorio.", detail: String(error) },
       { status: 409 }
     );
   }

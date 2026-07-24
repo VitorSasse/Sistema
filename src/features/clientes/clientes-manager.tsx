@@ -460,7 +460,7 @@ export function ClientesManager() {
                   onChange={(event) => updateField("status", event.target.value as FormState["status"])}
                 >
                   <option value="ATIVO">ATIVO</option>
-                  <option value="PROSPECTO">PROSPECTO</option>
+                  <option value="PROSPECTO">Cadastro incompleto</option>
                   <option value="INATIVO">INATIVO</option>
                 </select>
               </Field>
@@ -536,7 +536,7 @@ export function ClientesManager() {
                   <td>{cliente.obras.length}</td>
                   <td>
                     <span className={cliente.status === "ATIVO" ? "badge badge-success" : cliente.status === "PROSPECTO" ? "manager-badge manager-badge-warn" : "badge badge-danger"}>
-                      {cliente.status}
+                      {cliente.status === "PROSPECTO" ? "CADASTRO INCOMPLETO" : cliente.status}
                     </span>
                     {!cliente.cadastroCompleto ? <div className="subtle">Cadastro incompleto</div> : null}
                   </td>

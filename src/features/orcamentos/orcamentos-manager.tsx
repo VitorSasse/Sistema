@@ -1572,7 +1572,7 @@ export function OrcamentosManager() {
         value: cliente.id,
         label: `${cliente.codigo} - ${cliente.nome}${
           cliente.status === "PROSPECTO" || cliente.cadastroCompleto === false
-            ? " - Prospecto"
+            ? " - Cadastro incompleto"
             : ""
         }`
       })),
@@ -1942,7 +1942,7 @@ export function OrcamentosManager() {
           return;
         }
       } else {
-        applyApiError(data, "Nao foi possivel criar o prospecto.");
+        applyApiError(data, "Nao foi possivel criar o cliente provisorio.");
       }
       setQuickSaving(false);
       return;
@@ -1954,7 +1954,7 @@ export function OrcamentosManager() {
     resetQuickClienteForm();
     setQuickClienteOpen(false);
     setQuickObraOpen(true);
-    setMessage("Prospecto criado e selecionado no orcamento.");
+    setMessage("Cliente provisorio criado e selecionado no orcamento.");
     setQuickSaving(false);
   }
 
@@ -3392,7 +3392,7 @@ export function OrcamentosManager() {
           <div className="orcamentos-quick-header">
             <div>
               <span>Cadastro rapido</span>
-              <h3>Prospecto</h3>
+              <h3>Cliente provisorio</h3>
               <small>Crie um cliente provisorio para iniciar o orcamento sem CPF/CNPJ.</small>
             </div>
             <button type="button" onClick={() => setQuickClienteOpen(false)}>x</button>
@@ -3454,7 +3454,7 @@ export function OrcamentosManager() {
               Cancelar
             </button>
             <button type="button" className="button-primary" disabled={quickSaving} onClick={() => void criarClienteRapido()}>
-              {quickSaving ? "Salvando..." : "Criar prospecto"}
+              {quickSaving ? "Salvando..." : "Criar cliente provisorio"}
             </button>
           </div>
         </div>

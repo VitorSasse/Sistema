@@ -49,7 +49,7 @@ export const clienteSchema = z
         ctx.addIssue({
           code: "custom",
           path: ["telefone"],
-          message: "Informe telefone, WhatsApp, e-mail ou contato para o prospecto."
+          message: "Informe telefone, WhatsApp, e-mail ou contato para o cadastro incompleto."
         });
       }
     }
