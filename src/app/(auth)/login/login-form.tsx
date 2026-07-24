@@ -3,10 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { Eye, EyeOff } from "lucide-react";
 
 export function LoginForm() {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   return (
@@ -57,14 +59,25 @@ export function LoginForm() {
 
         <label className="field">
           <span className="field-label">Senha</span>
-          <input
-            className="field-control auth-field-control"
-            name="password"
-            type="password"
-            placeholder="Digite sua senha"
-            autoComplete="current-password"
-            required
-          />
+          <div className="auth-password-control">
+            <input
+              className="field-control auth-field-control"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              placeholder="Digite sua senha"
+              autoComplete="current-password"
+              required
+            />
+            <button
+              type="button"
+              className="auth-password-toggle"
+              onClick={() => setShowPassword((current) => !current)}
+              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              aria-pressed={showPassword}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
         </label>
       </div>
 
