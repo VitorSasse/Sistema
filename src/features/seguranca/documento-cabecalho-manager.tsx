@@ -307,6 +307,9 @@ export function DocumentoCabecalhoManager() {
                     ? "A logo enviada aqui sera aplicada em todos os documentos."
                     : "Envie uma logo propria para este tipo de PDF."}
                 </span>
+                <span>
+                  Recomendado: 960 x 520 px, em PNG com fundo transparente, para encaixar corretamente no cabecalho do PDF.
+                </span>
               </div>
               <label className={`profile-upload-button${logoUploadDisabled ? " is-disabled" : ""}`}>
                 <Upload size={15} />
