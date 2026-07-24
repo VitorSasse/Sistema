@@ -189,6 +189,7 @@ const orcamentoItemSchema = z.object({
   quantidade: numeroDecimal(999999999),
   quantidadeOperacional: numeroDecimal(999999999).optional().nullable(),
   origemQuantidadeOperacional: z.nativeEnum(OrigemQuantidadeOperacional).optional(),
+  unidadeQuantidadeOperacional: z.string().trim().max(40).optional().nullable(),
   produtividade: numeroDecimal(999999999).optional().nullable(),
   custoUnitario: numeroDecimal(999999999).default(0),
   tipoCalculoRecurso: z.nativeEnum(TipoCalculoRecurso).optional(),
@@ -310,6 +311,17 @@ const orcamentoItemSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["quantidadeOperacional"],
       message: "Informe uma quantidade operacional maior que zero."
+    });
+  }
+
+  if (
+    item.origemQuantidadeOperacional === OrigemQuantidadeOperacional.PERSONALIZADA &&
+    !item.unidadeQuantidadeOperacional?.trim()
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["unidadeQuantidadeOperacional"],
+      message: "Informe a unidade da quantidade operacional personalizada."
     });
   }
 

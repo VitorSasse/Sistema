@@ -1009,6 +1009,7 @@ model OrcamentoItem {
   quantidade                     Decimal                     @default(0) @db.Decimal(12, 2)
   quantidadeOperacional          Decimal?                    @db.Decimal(14, 4)
   origemQuantidadeOperacional    OrigemQuantidadeOperacional @default(FRENTE)
+  unidadeQuantidadeOperacional   String?
   produtividade                  Decimal?                    @db.Decimal(12, 2)
   custoUnitario                  Decimal                     @default(0) @db.Decimal(12, 2)
   tipoCalculoRecurso             TipoCalculoRecurso          @default(AUTOMATICO)

@@ -118,6 +118,7 @@ function buildCostEngineInput(
         quantidade: item.quantidade,
         quantidadeOperacional: item.quantidadeOperacional,
         origemQuantidadeOperacional: item.origemQuantidadeOperacional,
+        unidadeQuantidadeOperacional: item.unidadeQuantidadeOperacional,
         custoOperacional: item.custoUnitario,
         unidadeCusto: item.unidade,
         tipoCalculo: item.tipoCalculoRecurso,

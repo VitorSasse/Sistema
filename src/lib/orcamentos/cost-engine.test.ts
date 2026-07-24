@@ -607,6 +607,44 @@ describe("Evolucao do prazo e das unidades economicas", () => {
     });
   });
 
+  it("usa unidade operacional personalizada em viagens no transporte por km", () => {
+    const result = calcularMotorCustos({
+      frentes: [{
+        ...frenteBase,
+        quantidadePrevista: 650,
+        unidadeProducao: "m3"
+      }],
+      recursos: [{
+        ref: "caminhao-viagens",
+        frenteRef: "frente-operacional",
+        descricao: "Caminhao por viagens",
+        quantidade: 2,
+        valorCusto: 8,
+        unidadeEconomicaCusto: "KM",
+        tipoCalculo: "AUTOMATICO",
+        distanciaViagemKm: 12,
+        quantidadeOperacional: 10,
+        origemQuantidadeOperacional: "PERSONALIZADA",
+        unidadeQuantidadeOperacional: "viagem"
+      }]
+    });
+
+    expect(result.custoDiretoTotal).toBe(960);
+    expect(result.memoria[0]).toMatchObject({
+      quantidadeOperacional: 10,
+      origemQuantidadeOperacional: "PERSONALIZADA",
+      unidadeQuantidadeOperacional: "viagem",
+      quantidadeOperacionalExibida: 10,
+      unidadeQuantidadeOperacionalExibida: "viagem",
+      viagensOperacionais: 10,
+      custoPorViagem: 96,
+      custoTotal: 960
+    });
+    expect(result.memoria[0]?.formula.replace(/\u00a0/g, " ")).toContain(
+      "10 viagens x R$ 96,00/viagem = R$ 960,00"
+    );
+  });
+
   it("calcula a demanda diaria do transporte sem alterar o custo total", () => {
     const result = calcularRecurso("KM", {
       descricao: "Caminhao Basculante 14 m3",

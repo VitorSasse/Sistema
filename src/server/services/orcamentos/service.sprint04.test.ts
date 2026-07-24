@@ -506,6 +506,7 @@ describe("orcamentos sprint 4.1-4.3", () => {
         quantidade: 1,
         quantidadeOperacional: 936,
         origemQuantidadeOperacional: "PERSONALIZADA",
+        unidadeQuantidadeOperacional: "m3",
         custoUnitario: 8,
         tipoCalculoRecurso: "AUTOMATICO",
         unidadeEconomicaCusto: "KM",
@@ -522,12 +523,14 @@ describe("orcamentos sprint 4.1-4.3", () => {
     expect(records.itens[0]).toMatchObject({
       quantidadeOperacional: 936,
       origemQuantidadeOperacional: "PERSONALIZADA",
+      unidadeQuantidadeOperacional: "m3",
       viagensOperacionais: 67,
       custoTotalCalculado: 6432
     });
     expect(JSON.parse(String(records.itens[0].memoriaCalculo))).toMatchObject({
       quantidadeOperacional: 936,
       origemQuantidadeOperacional: "PERSONALIZADA",
+      unidadeQuantidadeOperacional: "m3",
       viagensOperacionais: 67,
       custoTotal: 6432
     });

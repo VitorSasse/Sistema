@@ -279,6 +279,7 @@ type ItemForm = {
   quantidade: string;
   quantidadeOperacional: string;
   origemQuantidadeOperacional: OrigemQuantidadeOperacional;
+  unidadeQuantidadeOperacional: string;
   produtividade: string;
   custoUnitario: string;
   tipoCalculoRecurso: TipoCalculoRecurso;
@@ -488,6 +489,7 @@ type OrcamentoApi = {
     quantidade: string | number;
     quantidadeOperacional: string | number | null;
     origemQuantidadeOperacional: OrigemQuantidadeOperacional;
+    unidadeQuantidadeOperacional?: string | null;
     produtividade: string | number | null;
     custoUnitario: string | number;
     tipoCalculoRecurso: TipoCalculoRecurso;
@@ -617,6 +619,17 @@ const unidadeEconomicaOptions: { value: UnidadeEconomicaCusto; label: string }[]
   { value: "MES", label: "Por mes" },
   { value: "UNIDADE", label: "Por unidade de recurso (legado)" },
   { value: "VALOR_TOTAL", label: "Valor total (compatibilidade)" }
+];
+
+const unidadeQuantidadeOperacionalOptions = [
+  "h",
+  "dia",
+  "km",
+  "viagem",
+  "m3",
+  "m2",
+  "unidade",
+  "verba"
 ];
 
 const premissaTipoOptions: { value: TipoPremissaOrcamento; label: string; helper: string }[] = [
@@ -810,6 +823,7 @@ function createEmptyItem(tipoItem: TipoItemOrcamento, ordem: number, frenteTempI
     quantidade: "1",
     quantidadeOperacional: "",
     origemQuantidadeOperacional: "FRENTE",
+    unidadeQuantidadeOperacional: "",
     produtividade: "",
     custoUnitario: "0",
     tipoCalculoRecurso: "AUTOMATICO",
@@ -1286,6 +1300,7 @@ function buildCostEngineInputFromForm(form: OrcamentoForm) {
         quantidade: item.quantidade,
         quantidadeOperacional: item.quantidadeOperacional,
         origemQuantidadeOperacional: item.origemQuantidadeOperacional,
+        unidadeQuantidadeOperacional: item.unidadeQuantidadeOperacional,
         custoOperacional: item.custoUnitario,
         unidadeCusto: item.unidade,
         tipoCalculo: item.tipoCalculoRecurso,
@@ -1554,10 +1569,12 @@ export function OrcamentosManager() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [errorDetails, setErrorDetails] = useState<string[]>([]);
+  const [itemValidationErrors, setItemValidationErrors] = useState<Record<string, string>>({});
 
   function clearError() {
     setError("");
     setErrorDetails([]);
+    setItemValidationErrors({});
   }
 
   function applyApiError(payload: ApiErrorPayload, fallback: string) {
@@ -2022,6 +2039,12 @@ export function OrcamentosManager() {
   }
 
   function updateItem(localId: string, key: keyof ItemForm, value: string | number) {
+    setItemValidationErrors((current) => {
+      if (!current[localId]) return current;
+      const next = { ...current };
+      delete next[localId];
+      return next;
+    });
     setForm((current) => ({
       ...current,
       itens: current.itens.map((item) =>
@@ -2185,6 +2208,12 @@ export function OrcamentosManager() {
   }
 
   function removeItem(localId: string) {
+    setItemValidationErrors((current) => {
+      if (!current[localId]) return current;
+      const next = { ...current };
+      delete next[localId];
+      return next;
+    });
     setForm((current) => ({
       ...current,
       itens: reordenarItens(current.itens.filter((item) => item.localId !== localId))
@@ -2415,6 +2444,7 @@ export function OrcamentosManager() {
       return;
     }
 
+    setItemValidationErrors({});
     setForm(mapApiToForm(data));
   }
 
@@ -2427,6 +2457,7 @@ export function OrcamentosManager() {
       return;
     }
 
+    setItemValidationErrors({});
     setForm(mapApiToForm(data));
   }
 
@@ -2434,6 +2465,15 @@ export function OrcamentosManager() {
     setSaving(true);
     setMessage("");
     clearError();
+
+    const itemValidation = validateItemsBeforeSubmit(form);
+    if (Object.keys(itemValidation.errors).length > 0) {
+      setItemValidationErrors(itemValidation.errors);
+      setError("Corrija os itens destacados antes de salvar o orcamento.");
+      setErrorDetails(Object.values(itemValidation.errors));
+      setSaving(false);
+      return;
+    }
 
     const payload = buildPayload(form, economicPreview);
     debugCostFlow("A. Antes de salvar", {
@@ -2874,6 +2914,7 @@ export function OrcamentosManager() {
             cenarios={form.cenarios}
             frentes={form.frentes}
             itens={form.itens}
+            itemErrors={itemValidationErrors}
             custosFrentes={motorCustosForm?.frentes ?? []}
             vendasFrentes={vendasTodasFrentesForm}
             servicoOptions={servicoOptions}
@@ -3542,6 +3583,7 @@ function FrentesOperacionaisSection(props: {
   cenarios: CenarioForm[];
   frentes: FrenteForm[];
   itens: ItemForm[];
+  itemErrors: Record<string, string>;
   custosFrentes: ReturnType<typeof calcularMotorCustos>["frentes"];
   vendasFrentes: NonNullable<ReturnType<typeof buildEconomicPreview>["consolidacao"]>["frentes"];
   servicoOptions: ServicoSelectOption[];
@@ -3868,6 +3910,7 @@ function FrentesOperacionaisSection(props: {
                       <OperationalItemList
                         emptyLabel="Nenhum item comercial nesta frente."
                         itens={itensComerciais}
+                        itemErrors={props.itemErrors}
                         servicoOptions={props.servicoOptions}
                         materialOptions={props.materialOptions}
                         equipamentoOptions={props.equipamentoOptions}
@@ -3928,6 +3971,7 @@ function FrentesOperacionaisSection(props: {
                     <OperationalItemList
                       emptyLabel="Nenhum material comercializado nesta frente."
                       itens={materiaisComerciais}
+                      itemErrors={props.itemErrors}
                       servicoOptions={props.servicoOptions}
                       materialOptions={props.materialOptions}
                       equipamentoOptions={props.equipamentoOptions}
@@ -3980,6 +4024,7 @@ function FrentesOperacionaisSection(props: {
                     <OperationalItemList
                       emptyLabel="Nenhum servico principal informado nesta frente."
                       itens={servicosPrincipais}
+                      itemErrors={props.itemErrors}
                       servicoOptions={props.servicoOptions}
                       materialOptions={props.materialOptions}
                       equipamentoOptions={props.equipamentoOptions}
@@ -4065,6 +4110,7 @@ function FrentesOperacionaisSection(props: {
                     <OperationalItemList
                       emptyLabel="Nenhum servico auxiliar informado."
                       itens={servicosAuxiliares}
+                      itemErrors={props.itemErrors}
                       servicoOptions={props.servicoOptions}
                       materialOptions={props.materialOptions}
                       equipamentoOptions={props.equipamentoOptions}
@@ -4114,6 +4160,7 @@ function FrentesOperacionaisSection(props: {
                     <OperationalItemList
                       emptyLabel="Nenhum equipamento, equipe, material ou terceiro planejado."
                       itens={recursosPlanejamento}
+                      itemErrors={props.itemErrors}
                       memoriasRecursos={custoFrente?.recursos ?? []}
                       quantidadeFrente={frente.quantidadePrevista}
                       unidadeFrente={frente.unidadeProducao}
@@ -4612,6 +4659,7 @@ function CenariosPropostasSection(props: {
 function OperationalItemList(props: {
   emptyLabel: string;
   itens: ItemForm[];
+  itemErrors: Record<string, string>;
   memoriasRecursos?: CostEngineMemoriaRecurso[];
   quantidadeFrente?: string;
   unidadeFrente?: string;
@@ -4635,8 +4683,12 @@ function OperationalItemList(props: {
     <div className="orcamentos-items-list">
       {props.itens.map((item) => {
         const memoriaRecurso = props.memoriasRecursos?.find((memoria) => memoria.recursoRef === item.localId);
+        const itemError = props.itemErrors[item.localId];
         return (
-        <article key={item.localId} className="orcamentos-item-card orcamentos-operational-item">
+        <article
+          key={item.localId}
+          className={`orcamentos-item-card orcamentos-operational-item${itemError ? " is-invalid" : ""}`}
+        >
           <div className="orcamentos-item-head">
             <strong>Item {item.ordem}</strong>
             <span>{formatCurrency(isRecursoItem(item) ? memoriaRecurso?.custoTotal ?? calcItemCost(item) : calcItemTotal(item))}</span>
@@ -4644,6 +4696,7 @@ function OperationalItemList(props: {
               Remover
             </button>
           </div>
+          {itemError ? <p className="orcamentos-item-validation">{itemError}</p> : null}
           <div className="orcamentos-form-grid">
             <label className="manager-field">
               <span className="manager-field-label">Tipo</span>
@@ -4664,6 +4717,7 @@ function OperationalItemList(props: {
             {isRecursoItem(item) ? (
               <ResourceItemFields
                 item={item}
+                itemError={itemError}
                 materialOptions={props.materialOptions}
                 equipamentoOptions={props.equipamentoOptions}
                 classeOperacionalOptions={props.classeOperacionalOptions}
@@ -4679,6 +4733,7 @@ function OperationalItemList(props: {
             ) : (
               <CommercialFrontItemFields
                 item={item}
+                itemError={itemError}
                 servicoOptions={props.servicoOptions}
                 materialOptions={props.materialOptions}
                 equipamentoOptions={props.equipamentoOptions}
@@ -4697,6 +4752,7 @@ function OperationalItemList(props: {
 
 function CommercialFrontItemFields(props: {
   item: ItemForm;
+  itemError?: string;
   servicoOptions: ServicoSelectOption[];
   materialOptions: MaterialSelectOption[];
   equipamentoOptions: EquipamentoResourceOption[];
@@ -4918,7 +4974,7 @@ function CommercialFrontItemFields(props: {
           {props.item.origemItemComercial === "MANUAL" ? "Descricao comercial" : "Descricao"}
         </span>
         <textarea
-          className="field-control"
+          className={`field-control${props.itemError ? " field-control-error" : ""}`}
           rows={props.item.origemItemComercial === "MANUAL" ? 2 : undefined}
           value={props.item.descricao}
           placeholder={
@@ -4933,6 +4989,7 @@ function CommercialFrontItemFields(props: {
         {props.item.origemItemComercial === "MANUAL" ? (
           <small className="manager-field-hint">Detalhamento complementar opcional.</small>
         ) : null}
+        {props.itemError ? <small className="manager-field-error">{props.itemError}</small> : null}
       </label>
       <label className="manager-field">
         <span className="manager-field-label">Unidade</span>
@@ -5081,6 +5138,7 @@ function CommercialFrontItemFields(props: {
 
 function ResourceItemFields(props: {
   item: ItemForm;
+  itemError?: string;
   materialOptions: MaterialSelectOption[];
   equipamentoOptions: EquipamentoResourceOption[];
   classeOperacionalOptions: BasicSelectOption[];
@@ -5110,7 +5168,10 @@ function ResourceItemFields(props: {
       props.memoria?.unidadeQuantidadeOperacional ||
       props.unidadeFrente ||
       "unidade"
-    : props.unidadeFrente || props.memoria?.unidadeQuantidadeOperacional || "unidade";
+    : props.item.unidadeQuantidadeOperacional ||
+      props.unidadeFrente ||
+      props.memoria?.unidadeQuantidadeOperacional ||
+      "unidade";
   const origemQuantidadeOperacional =
     props.memoria?.origemQuantidadeOperacionalExibida || "Quantidade da Frente";
   const permitePersonalizacaoMestre =
@@ -5122,11 +5183,13 @@ function ResourceItemFields(props: {
       "quantidadeOperacional",
       quantidadeOperacionalExibida || "0"
     );
+    props.onUpdate(props.item.localId, "unidadeQuantidadeOperacional", unidadeQuantidadeOperacional || "unidade");
     props.onUpdate(props.item.localId, "origemQuantidadeOperacional", "PERSONALIZADA");
   }
 
   function herdarQuantidadeOperacional() {
     props.onUpdate(props.item.localId, "quantidadeOperacional", quantidadeOperacionalHerdada || "0");
+    props.onUpdate(props.item.localId, "unidadeQuantidadeOperacional", "");
     props.onUpdate(props.item.localId, "origemQuantidadeOperacional", "FRENTE");
   }
 
@@ -5273,7 +5336,23 @@ function ResourceItemFields(props: {
               props.onUpdate(props.item.localId, "quantidadeOperacional", event.target.value)
             }
           />
-          <span>{unidadeQuantidadeOperacional}</span>
+          {herdaQuantidadeDaFrente ? (
+            <span>{unidadeQuantidadeOperacional}</span>
+          ) : (
+            <select
+              className="field-control"
+              value={props.item.unidadeQuantidadeOperacional || unidadeQuantidadeOperacional || "unidade"}
+              onChange={(event) =>
+                props.onUpdate(props.item.localId, "unidadeQuantidadeOperacional", event.target.value)
+              }
+            >
+              {unidadeQuantidadeOperacionalOptions.map((unidade) => (
+                <option key={unidade} value={unidade}>
+                  {unidade}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         <label className="orcamentos-operational-quantity-toggle">
           <input
@@ -5291,7 +5370,7 @@ function ResourceItemFields(props: {
           {herdaQuantidadeDaFrente ? <LockKeyhole size={13} /> : <Pencil size={13} />}
           {herdaQuantidadeDaFrente
             ? `Herdado automaticamente: ${origemQuantidadeOperacional}`
-            : "Quantidade operacional personalizada nesta Frente"}
+            : "Quantidade e unidade operacional personalizadas nesta Frente"}
         </small>
       </div>
       <label className="manager-field">
@@ -5760,7 +5839,7 @@ function buildPayload(
   form: OrcamentoForm,
   previewCalculado?: ReturnType<typeof buildEconomicPreview>
 ) {
-  const itensPreenchidos = form.itens.filter(isItemPreenchido);
+  const itensPreenchidos = normalizeItemsForPayload(form.itens).filter(isItemPreenchido);
   const itensValidos =
     form.frentes.length > 0
       ? itensPreenchidos.filter((item) => Boolean(item.frenteTempId))
@@ -5848,11 +5927,11 @@ function mapItemPayload(item: ItemForm) {
   const descricaoComercial =
     origemComercial === "MANUAL"
       ? item.descricao.trim() || nomeManual
-      : item.descricao;
+      : item.descricao.trim();
 
   return {
     tempId: item.localId,
-    frenteTempId: item.frenteTempId,
+    frenteTempId: item.frenteTempId.trim(),
     tipoItem: item.tipoItem,
     origemItemComercial: origemComercial,
     descricaoManualComercial: origemComercial === "MANUAL" ? nomeManual : "",
@@ -5869,9 +5948,9 @@ function mapItemPayload(item: ItemForm) {
         : item.equipamentoId || null,
     categoriaRecurso: recurso ? item.categoriaRecurso : null,
     classeOperacional:
-      recurso && item.categoriaRecurso === "EQUIPAMENTO" ? item.classeOperacional : "",
-    recursoReferenciaId: recurso ? item.recursoReferenciaId : "",
-    recursoNome: recurso ? item.recursoNome : "",
+      recurso && item.categoriaRecurso === "EQUIPAMENTO" ? item.classeOperacional.trim() : "",
+    recursoReferenciaId: recurso ? item.recursoReferenciaId.trim() : "",
+    recursoNome: recurso ? item.recursoNome.trim() : "",
     modoPrecificacao: recurso ? "PRECO_DIRETO" : item.modoPrecificacao,
     formaApresentacaoComercial: recurso
       ? "QUANTIDADE_DEFINIDA"
@@ -5891,13 +5970,17 @@ function mapItemPayload(item: ItemForm) {
     exibirNoPdf: !recurso ? item.exibirNoPdf : false,
     observacaoComercial: !recurso ? item.observacaoComercial : "",
     ordem: item.ordem,
-    codigo: item.codigo,
+    codigo: item.codigo.trim(),
     descricao: descricaoComercial,
-    unidade: item.unidade,
+    unidade: item.unidade.trim(),
     quantidade: Number(item.quantidade) || 0,
     quantidadeOperacional:
       recurso && item.quantidadeOperacional ? Number(item.quantidadeOperacional) : null,
     origemQuantidadeOperacional: recurso ? item.origemQuantidadeOperacional : "FRENTE",
+    unidadeQuantidadeOperacional:
+      recurso && item.origemQuantidadeOperacional === "PERSONALIZADA"
+        ? item.unidadeQuantidadeOperacional.trim() || null
+        : null,
     produtividade: recurso ? null : item.produtividade ? Number(item.produtividade) : null,
     custoUnitario: recurso ? Number(item.custoUnitario) || 0 : Number(item.custoUnitario) || 0,
     tipoCalculoRecurso: item.tipoCalculoRecurso,
@@ -5918,9 +6001,9 @@ function mapItemPayload(item: ItemForm) {
     mesesTotais: recurso && item.mesesTotais ? Number(item.mesesTotais) : null,
     diasTrabalhadosMes: recurso ? Number(item.diasTrabalhadosMes) || 22 : null,
     custoTotalCalculado: recurso ? Number(item.custoTotalCalculado) || 0 : 0,
-    memoriaCalculo: recurso ? item.memoriaCalculo : "",
+    memoriaCalculo: recurso ? item.memoriaCalculo.trim() : "",
     valorUnitario: recurso ? 0 : Number(item.valorUnitario) || 0,
-    observacao: item.observacao
+    observacao: item.observacao.trim()
   };
 }
 
@@ -5970,10 +6053,56 @@ function buildFormacaoPayload(
   return payload;
 }
 
+function normalizeItemForPayload(item: ItemForm): ItemForm {
+  return {
+    ...item,
+    frenteTempId: item.frenteTempId.trim(),
+    descricaoManualComercial: item.descricaoManualComercial.trim(),
+    servicoId: item.servicoId.trim(),
+    materialId: item.materialId.trim(),
+    equipamentoId: item.equipamentoId.trim(),
+    classeOperacional: item.classeOperacional.trim(),
+    recursoReferenciaId: item.recursoReferenciaId.trim(),
+    recursoNome: item.recursoNome.trim(),
+    fornecedorPreferencialId: item.fornecedorPreferencialId.trim(),
+    codigo: item.codigo.trim(),
+    descricao: item.descricao.trim(),
+    unidade: item.unidade.trim(),
+    unidadeQuantidadeOperacional: item.unidadeQuantidadeOperacional.trim(),
+    unidadeCapacidade: item.unidadeCapacidade.trim(),
+    memoriaCalculo: item.memoriaCalculo.trim(),
+    observacao: item.observacao.trim()
+  };
+}
+
+export function normalizeItemsForPayload(itens: ItemForm[]) {
+  return reordenarItens(itens.map(normalizeItemForPayload).filter(isItemPreenchido));
+}
+
+function getItemDescricaoEfetiva(item: ItemForm) {
+  const origemComercial = isRecursoItem(item) ? null : item.origemItemComercial;
+  const nomeManual = item.descricaoManualComercial.trim();
+
+  if (origemComercial === "MANUAL") {
+    return item.descricao.trim() || nomeManual;
+  }
+
+  return item.descricao.trim();
+}
+
+function hasPositiveNumber(value: string) {
+  return Number(value) > 0;
+}
+
+function isUnidadeInformada(item: ItemForm) {
+  const unidade = item.unidade.trim();
+  return Boolean(unidade && unidade !== "UN");
+}
+
 function isItemPreenchido(item: ItemForm) {
   return Boolean(
-    item.descricaoManualComercial.trim() ||
-      item.descricao.trim() ||
+    getItemDescricaoEfetiva(item) ||
+      item.descricaoManualComercial.trim() ||
       item.codigo.trim() ||
       item.servicoId ||
       item.materialId ||
@@ -5981,10 +6110,44 @@ function isItemPreenchido(item: ItemForm) {
       item.classeOperacional ||
       item.recursoReferenciaId ||
       item.recursoNome ||
+      item.fornecedorPreferencialId ||
+      item.unidadeQuantidadeOperacional.trim() ||
+      isUnidadeInformada(item) ||
       Number(item.quantidade) !== 1 ||
-      Number(item.valorUnitario) > 0 ||
-      Number(item.custoUnitario) > 0
+      hasPositiveNumber(item.quantidadeOperacional) ||
+      hasPositiveNumber(item.valorUnitario) ||
+      hasPositiveNumber(item.precoCompra) ||
+      hasPositiveNumber(item.markupPercentual) ||
+      hasPositiveNumber(item.custoUnitario) ||
+      hasPositiveNumber(item.valorCusto) ||
+      hasPositiveNumber(item.horasTotais) ||
+      hasPositiveNumber(item.viagensTotais) ||
+      hasPositiveNumber(item.distanciaViagemKm) ||
+      hasPositiveNumber(item.quilometrosTotais) ||
+      hasPositiveNumber(item.capacidadePorViagem) ||
+      hasPositiveNumber(item.cargasTotais) ||
+      hasPositiveNumber(item.mesesTotais) ||
+      item.observacao.trim()
   );
+}
+
+export function validateItemsBeforeSubmit(form: Pick<OrcamentoForm, "frentes" | "itens">) {
+  const errors: Record<string, string> = {};
+  const normalizedItems = normalizeItemsForPayload(form.itens);
+  const itensValidos =
+    form.frentes.length > 0
+      ? normalizedItems.filter((item) => Boolean(item.frenteTempId))
+      : normalizedItems;
+
+  itensValidos.forEach((item) => {
+    const descricao = getItemDescricaoEfetiva(item);
+
+    if (descricao.length < 2) {
+      errors[item.localId] = `Item ${item.ordem}: informe uma descricao com pelo menos 2 caracteres.`;
+    }
+  });
+
+  return { errors };
 }
 
 function isPremissaPreenchida(premissa: PremissaForm) {
@@ -6141,7 +6304,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
     frentes,
     itens:
       item.itens.length > 0
-        ? item.itens.map((orcamentoItem) => {
+        ? normalizeItemsForPayload(item.itens.map((orcamentoItem) => {
             const origemItemComercial =
               orcamentoItem.origemItemComercial ??
               (orcamentoItem.equipamentoId
@@ -6198,6 +6361,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
               quantidadeOperacional: toStringValue(orcamentoItem.quantidadeOperacional),
               origemQuantidadeOperacional:
                 orcamentoItem.origemQuantidadeOperacional ?? "FRENTE",
+              unidadeQuantidadeOperacional: orcamentoItem.unidadeQuantidadeOperacional ?? "",
               produtividade: toStringValue(orcamentoItem.produtividade),
               custoUnitario: toStringValue(orcamentoItem.custoUnitario),
               tipoCalculoRecurso: orcamentoItem.tipoCalculoRecurso ?? "AUTOMATICO",
@@ -6223,7 +6387,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
               valorUnitario: toStringValue(orcamentoItem.valorUnitario),
               observacao: orcamentoItem.observacao ?? ""
             };
-          })
+          }))
         : [
             createEmptyItem(
               frentes[0]?.natureza === "OPERACIONAL" ? "SERVICO_PRINCIPAL" : "COMERCIAL",

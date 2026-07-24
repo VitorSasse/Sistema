@@ -69,7 +69,7 @@ function formatIssuePath(issue: ZodIssue) {
 
   return issue.path
     .map((segment) =>
-      typeof segment === "number" ? `[${segment + 1}]` : String(segment)
+      typeof segment === "number" ? `[${segment}]` : String(segment)
     )
     .join(".")
     .replaceAll(".[", "[");
@@ -85,8 +85,7 @@ export function buildOrcamentoValidationErrorResponse(error: ZodError) {
   return NextResponse.json(
     {
       message: "Dados invalidos.",
-      validationErrors,
-      issues: error.flatten()
+      validationErrors
     },
     { status: 400 }
   );

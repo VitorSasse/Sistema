@@ -55,6 +55,7 @@ export type CostEngineRecursoInput = {
   quantidade?: string | number | null;
   quantidadeOperacional?: string | number | null;
   origemQuantidadeOperacional?: CostEngineOrigemQuantidadeOperacional | null;
+  unidadeQuantidadeOperacional?: string | null;
   custoOperacional?: string | number | null;
   unidadeCusto?: string | null;
   tipoCalculo?: CostEngineTipoCalculoRecurso | null;
@@ -426,6 +427,7 @@ function resolverQuantidadeOperacionalExibida(params: {
   quantidadeOperacional: number;
   quantidadeRecursos: number;
   unidadeFrenteOriginal?: string | null;
+  unidadeQuantidadeOperacional?: string | null;
   unidadeFrente: UnidadeOperacional;
   planejamento: CostEnginePlanejamentoFrente;
   baseConversao: number;
@@ -441,11 +443,12 @@ function resolverQuantidadeOperacionalExibida(params: {
   diasTrabalhadosMes: number;
 }) {
   const unidadeFrenteFormatada = formatarUnidadeFrente(params.unidadeFrenteOriginal);
+  const unidadePersonalizadaFormatada = formatarUnidadeFrente(params.unidadeQuantidadeOperacional);
 
   if (params.origemQuantidadeOperacional === "PERSONALIZADA") {
     return {
       valor: params.quantidadeOperacional,
-      unidade: unidadeFrenteFormatada,
+      unidade: unidadePersonalizadaFormatada || unidadeFrenteFormatada,
       origem: "Quantidade personalizada do recurso"
     };
   }
@@ -532,7 +535,13 @@ function calcularRecurso(params: {
   const valorCusto = Math.max(0, toNumber(recurso.valorCusto ?? recurso.custoOperacional));
   const tipoCalculo = recurso.tipoCalculo ?? "AUTOMATICO";
   const unidadeEconomica = recurso.unidadeEconomicaCusto ?? unidadeEconomicaLegada(recurso.unidadeCusto);
+  const unidadeQuantidadeOperacionalPersonalizada =
+    origemQuantidadeOperacional === "PERSONALIZADA"
+      ? recurso.unidadeQuantidadeOperacional?.trim() || frente.unidadeProducao
+      : frente.unidadeProducao;
   const unidadeFrente = normalizeUnidade(frente.unidadeProducao);
+  const unidadeOperacional = normalizeUnidade(unidadeQuantidadeOperacionalPersonalizada);
+  const unidadeOperacionalFormatada = formatarUnidadeFrente(unidadeQuantidadeOperacionalPersonalizada);
   const unidadeFormatada = recurso.unidadeEconomicaCusto
     ? formatarUnidadeEconomica(unidadeEconomica)
     : formatarUnidadeCusto(recurso.unidadeCusto);
@@ -588,7 +597,11 @@ function calcularRecurso(params: {
         break;
       }
       case "DIA": {
-        if (unidadeFrente === "MES") {
+        if (origemQuantidadeOperacional === "PERSONALIZADA" && unidadeOperacional === "DIA") {
+          baseConversao = quantidadeOperacional;
+          custoTotal = quantidadeRecursos * valorCusto * baseConversao;
+          formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/dia x ${formatNumber(baseConversao)} dias = ${formatCurrency(custoTotal)}`;
+        } else if (unidadeFrente === "MES") {
           baseConversao = diasTrabalhadosMes * quantidadeOperacional;
           custoTotal = quantidadeRecursos * valorCusto * baseConversao;
           formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/dia x ${formatNumber(diasTrabalhadosMes)} dias/mes x ${formatNumber(quantidadeOperacional)} meses = ${formatCurrency(custoTotal)}`;
@@ -600,7 +613,11 @@ function calcularRecurso(params: {
         break;
       }
       case "HORA": {
-        if (horasTotais > 0) {
+        if (origemQuantidadeOperacional === "PERSONALIZADA" && unidadeOperacional === "HORA") {
+          baseConversao = quantidadeOperacional;
+          custoTotal = quantidadeRecursos * valorCusto * baseConversao;
+          formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/hora x ${formatNumber(baseConversao)} horas = ${formatCurrency(custoTotal)}`;
+        } else if (horasTotais > 0) {
           baseConversao = quantidadeRecursos * horasTotais;
           custoTotal = valorCusto * baseConversao;
           formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/hora x ${formatNumber(horasTotais)} horas = ${formatCurrency(custoTotal)}`;
@@ -623,14 +640,16 @@ function calcularRecurso(params: {
           ? "m3"
           : unidadeEconomica === "M2"
             ? "m2"
-            : formatarUnidadeFrente(frente.unidadeProducao);
+            : unidadeOperacionalFormatada;
         baseConversao = quantidadeOperacional;
         custoTotal = valorCusto * baseConversao;
         formula = `${formatNumber(baseConversao)} ${unidadeProducao} x ${formatCurrency(valorCusto)}/${unidadeProducao} = ${formatCurrency(custoTotal)}`;
         break;
       }
       case "VIAGEM": {
-        baseConversao = viagensTotais > 0
+        baseConversao = origemQuantidadeOperacional === "PERSONALIZADA" && unidadeOperacional === "VIAGEM"
+          ? quantidadeOperacional
+          : viagensTotais > 0
           ? viagensTotais
           : quantidadeRecursos * viagensDia * planejamento.prazoCalculo;
         custoTotal = valorCusto * baseConversao;
@@ -642,22 +661,41 @@ function calcularRecurso(params: {
       case "KM": {
         const unidadeCapacidadeNormalizada = normalizeUnidade(unidadeCapacidade);
         const unidadeCompativel = unidadesOperacionaisCompativeis(
-          unidadeFrente,
+          unidadeOperacional,
           unidadeCapacidadeNormalizada
         );
 
         if (recurso.unidadeEconomicaCusto === "KM") {
           if (quantidadeOperacional <= 0) observacoes.push("Informe uma quantidade operacional maior que zero.");
-          if (capacidadePorViagem <= 0) observacoes.push("Informe uma capacidade por viagem maior que zero.");
-          if (!unidadeCapacidade) observacoes.push("Informe a unidade da capacidade por viagem.");
-          if (unidadeCapacidade && !unidadeCompativel) {
-            observacoes.push("A unidade da capacidade deve ser compativel com a unidade de producao da frente.");
+          if (unidadeOperacional !== "KM" && unidadeOperacional !== "VIAGEM") {
+            if (capacidadePorViagem <= 0) observacoes.push("Informe uma capacidade por viagem maior que zero.");
+            if (!unidadeCapacidade) observacoes.push("Informe a unidade da capacidade por viagem.");
+            if (unidadeCapacidade && !unidadeCompativel) {
+              observacoes.push("A unidade da capacidade deve ser compativel com a unidade operacional do recurso.");
+            }
           }
           if (distanciaViagemKm <= 0) observacoes.push("Informe uma distancia por viagem maior que zero.");
           if (quantidadeRecursos <= 0) observacoes.push("Informe a quantidade de caminhoes mobilizados.");
 
           calculavel = observacoes.length === 0;
           if (calculavel) {
+            if (unidadeOperacional === "KM") {
+              baseConversao = quantidadeOperacional;
+              custoTotal = valorCusto * baseConversao;
+              formula = `${formatNumber(baseConversao)} km x ${formatCurrency(valorCusto)}/km = ${formatCurrency(custoTotal)}`;
+            } else if (unidadeOperacional === "VIAGEM") {
+              viagensTeoricas = quantidadeOperacional;
+              viagensOperacionais = Math.ceil(viagensTeoricas - 1e-9);
+              custoPorViagem = roundMoney(distanciaViagemKm * valorCusto);
+              viagensMediasPorRecurso = viagensOperacionais / quantidadeRecursos;
+              baseConversao = viagensOperacionais * distanciaViagemKm;
+              custoTotal = viagensOperacionais * custoPorViagem;
+              formula = [
+                `${formatNumber(quantidadeOperacional)} viagens operacionais informadas`,
+                `${formatNumber(distanciaViagemKm)} km/viagem x ${formatCurrency(valorCusto)}/km = ${formatCurrency(custoPorViagem)}/viagem`,
+                `${viagensOperacionais.toLocaleString("pt-BR")} viagens x ${formatCurrency(custoPorViagem)}/viagem = ${formatCurrency(custoTotal)}`
+              ].join("\n");
+            } else {
             viagensTeoricas = quantidadeOperacional / capacidadePorViagem;
             viagensOperacionais = Math.ceil(viagensTeoricas - 1e-9);
             custoPorViagem = roundMoney(distanciaViagemKm * valorCusto);
@@ -679,16 +717,19 @@ function calcularRecurso(params: {
                 "Informe a produtividade ou o prazo da frente para calcular a demanda diaria de transporte."
               );
             }
-            const unidadeFormatada = formatarUnidadeFrente(frente.unidadeProducao);
+            const unidadeFormatada = unidadeOperacionalFormatada;
             formula = [
               `${formatNumber(quantidadeOperacional)} ${unidadeFormatada} / ${formatNumber(capacidadePorViagem)} ${unidadeFormatada}/viagem = ${formatNumber(viagensTeoricas)} viagens teoricas`,
               `Arredondamento operacional: ${viagensOperacionais.toLocaleString("pt-BR")} viagens`,
               `${formatNumber(distanciaViagemKm)} km/viagem x ${formatCurrency(valorCusto)}/km = ${formatCurrency(custoPorViagem)}/viagem`,
               `${viagensOperacionais.toLocaleString("pt-BR")} viagens x ${formatCurrency(custoPorViagem)}/viagem = ${formatCurrency(custoTotal)}`
             ].join("\n");
-            observacoes.push(
-              `${viagensOperacionais.toLocaleString("pt-BR")} viagens / ${formatNumber(quantidadeRecursos)} caminhoes = ${formatNumber(viagensMediasPorRecurso)} viagens medias por caminhao.`
-            );
+            }
+            if (viagensOperacionais > 0) {
+              observacoes.push(
+                `${viagensOperacionais.toLocaleString("pt-BR")} viagens / ${formatNumber(quantidadeRecursos)} caminhoes = ${formatNumber(viagensMediasPorRecurso)} viagens medias por caminhao.`
+              );
+            }
           } else {
             baseConversao = 0;
             formula = "Pendente de calculo: complete os parametros do transporte por km.";
@@ -709,14 +750,23 @@ function calcularRecurso(params: {
         break;
       }
       case "CARGA": {
-        baseConversao = cargasTotais;
+        baseConversao = origemQuantidadeOperacional === "PERSONALIZADA" && unidadeOperacional === "CARGA"
+          ? quantidadeOperacional
+          : cargasTotais;
         custoTotal = valorCusto * baseConversao;
         formula = `${formatNumber(baseConversao)} cargas x ${formatCurrency(valorCusto)}/carga = ${formatCurrency(custoTotal)}`;
-        if (cargasTotais <= 0) observacoes.push("Informe a quantidade total de cargas para calcular este recurso.");
+        if (
+          !(origemQuantidadeOperacional === "PERSONALIZADA" && unidadeOperacional === "CARGA") &&
+          cargasTotais <= 0
+        ) {
+          observacoes.push("Informe a quantidade total de cargas para calcular este recurso.");
+        }
         break;
       }
       case "MES": {
-        baseConversao = mesesTotais > 0
+        baseConversao = origemQuantidadeOperacional === "PERSONALIZADA" && unidadeOperacional === "MES"
+          ? quantidadeOperacional
+          : mesesTotais > 0
           ? mesesTotais
           : unidadeFrente === "MES"
           ? quantidadeOperacional
@@ -749,6 +799,7 @@ function calcularRecurso(params: {
     quantidadeOperacional,
     quantidadeRecursos,
     unidadeFrenteOriginal: frente.unidadeProducao,
+    unidadeQuantidadeOperacional: unidadeQuantidadeOperacionalPersonalizada,
     unidadeFrente,
     planejamento,
     baseConversao,
@@ -768,6 +819,7 @@ function calcularRecurso(params: {
     quantidadeRecursos,
     quantidadeOperacional,
     origemQuantidadeOperacional,
+    unidadeQuantidadeOperacional: unidadeQuantidadeOperacionalPersonalizada,
     quantidadeOperacionalExibida,
     valorCusto,
     tipoCalculo,
@@ -848,7 +900,7 @@ export function resolveFrontCost(
       quantidadeRecursos: roundMoney(calculo.quantidadeRecursos),
       quantidadeOperacional: roundOperational(calculo.quantidadeOperacional, 4),
       origemQuantidadeOperacional: calculo.origemQuantidadeOperacional,
-      unidadeQuantidadeOperacional: formatarUnidadeFrente(frenteInput.unidadeProducao),
+      unidadeQuantidadeOperacional: formatarUnidadeFrente(calculo.unidadeQuantidadeOperacional),
       quantidadeOperacionalExibida: roundOperational(calculo.quantidadeOperacionalExibida.valor, 4),
       unidadeQuantidadeOperacionalExibida: calculo.quantidadeOperacionalExibida.unidade,
       origemQuantidadeOperacionalExibida: calculo.quantidadeOperacionalExibida.origem,
@@ -903,7 +955,8 @@ export function resolveFrontCost(
           item.unidadeCustoFormatada === memoriaAtual.unidadeCustoFormatada &&
           item.tipoCalculo === memoriaAtual.tipoCalculo &&
           item.quantidadeOperacional === memoriaAtual.quantidadeOperacional &&
-          item.origemQuantidadeOperacional === memoriaAtual.origemQuantidadeOperacional
+          item.origemQuantidadeOperacional === memoriaAtual.origemQuantidadeOperacional &&
+          item.unidadeQuantidadeOperacional === memoriaAtual.unidadeQuantidadeOperacional
         )
       : undefined;
 
