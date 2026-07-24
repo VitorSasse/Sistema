@@ -96,6 +96,9 @@ export type CostEngineMemoriaRecurso = {
   quantidadeOperacional: number;
   origemQuantidadeOperacional: CostEngineOrigemQuantidadeOperacional;
   unidadeQuantidadeOperacional: string;
+  quantidadeOperacionalExibida: number;
+  unidadeQuantidadeOperacionalExibida: string;
+  origemQuantidadeOperacionalExibida: string;
   custoOperacional: number;
   unidadeCustoOriginal: string;
   unidadeCustoFormatada: string;
@@ -417,6 +420,103 @@ function resolverLegado(params: {
   return { base: 1, descricao: "1", observacoes };
 }
 
+function resolverQuantidadeOperacionalExibida(params: {
+  unidadeEconomica: CostEngineUnidadeEconomicaCusto;
+  origemQuantidadeOperacional: CostEngineOrigemQuantidadeOperacional;
+  quantidadeOperacional: number;
+  quantidadeRecursos: number;
+  unidadeFrenteOriginal?: string | null;
+  unidadeFrente: UnidadeOperacional;
+  planejamento: CostEnginePlanejamentoFrente;
+  baseConversao: number;
+  horasDia: number;
+  horasTotais: number;
+  viagensDia: number;
+  viagensTotais: number;
+  viagensOperacionais: number;
+  distanciaViagemKm: number;
+  quilometrosTotais: number;
+  cargasTotais: number;
+  mesesTotais: number;
+  diasTrabalhadosMes: number;
+}) {
+  const unidadeFrenteFormatada = formatarUnidadeFrente(params.unidadeFrenteOriginal);
+
+  if (params.origemQuantidadeOperacional === "PERSONALIZADA") {
+    return {
+      valor: params.quantidadeOperacional,
+      unidade: unidadeFrenteFormatada,
+      origem: "Quantidade personalizada do recurso"
+    };
+  }
+
+  switch (params.unidadeEconomica) {
+    case "DIA": {
+      if (params.unidadeFrente === "MES") {
+        return {
+          valor: params.diasTrabalhadosMes * params.quantidadeOperacional,
+          unidade: "dias",
+          origem: "Prazo da Frente"
+        };
+      }
+
+      return {
+        valor: params.planejamento.prazoCalculo,
+        unidade: "dias",
+        origem: "Prazo da Frente"
+      };
+    }
+    case "HORA": {
+      if (params.horasTotais > 0) {
+        return { valor: params.horasTotais, unidade: "horas", origem: "Horas informadas no recurso" };
+      }
+      if (params.unidadeFrente === "HORA") {
+        return { valor: params.quantidadeOperacional, unidade: "horas", origem: "Quantidade da Frente" };
+      }
+      return {
+        valor: params.horasDia * params.planejamento.prazoCalculo,
+        unidade: "horas",
+        origem: "Prazo da Frente x jornada"
+      };
+    }
+    case "VIAGEM": {
+      const viagensCalculadas = params.viagensTotais > 0
+        ? params.viagensTotais
+        : params.viagensOperacionais > 0
+          ? params.viagensOperacionais
+          : params.baseConversao;
+      return { valor: viagensCalculadas, unidade: "viagens", origem: "Viagens calculadas" };
+    }
+    case "KM": {
+      const kmCalculados = params.quilometrosTotais > 0
+        ? params.quilometrosTotais
+        : params.baseConversao;
+      return { valor: kmCalculados, unidade: "km", origem: "Quilometragem calculada" };
+    }
+    case "CARGA":
+      return { valor: params.cargasTotais || params.baseConversao, unidade: "cargas", origem: "Cargas informadas" };
+    case "MES": {
+      const mesesCalculados = params.mesesTotais > 0
+        ? params.mesesTotais
+        : params.baseConversao;
+      return { valor: mesesCalculados, unidade: "meses", origem: "Prazo da Frente" };
+    }
+    case "M3":
+      return { valor: params.quantidadeOperacional, unidade: "m3", origem: "Quantidade da Frente" };
+    case "M2":
+      return { valor: params.quantidadeOperacional, unidade: "m2", origem: "Quantidade da Frente" };
+    case "UNIDADE_PRODUZIDA":
+      return { valor: params.quantidadeOperacional, unidade: unidadeFrenteFormatada, origem: "Quantidade da Frente" };
+    case "UNIDADE":
+      return { valor: params.quantidadeRecursos, unidade: "unidades", origem: "Quantidade de recursos" };
+    case "VALOR_TOTAL":
+      return { valor: 1, unidade: "valor total", origem: "Valor total informado" };
+    case "CUSTO_FIXO":
+    default:
+      return { valor: params.quantidadeRecursos, unidade: "recursos", origem: "Quantidade de recursos" };
+  }
+}
+
 function calcularRecurso(params: {
   frente: CostEngineFrenteInput;
   recurso: CostEngineRecursoInput;
@@ -643,10 +743,32 @@ function calcularRecurso(params: {
     }
   }
 
+  const quantidadeOperacionalExibida = resolverQuantidadeOperacionalExibida({
+    unidadeEconomica,
+    origemQuantidadeOperacional,
+    quantidadeOperacional,
+    quantidadeRecursos,
+    unidadeFrenteOriginal: frente.unidadeProducao,
+    unidadeFrente,
+    planejamento,
+    baseConversao,
+    horasDia,
+    horasTotais,
+    viagensDia,
+    viagensTotais,
+    viagensOperacionais,
+    distanciaViagemKm,
+    quilometrosTotais,
+    cargasTotais,
+    mesesTotais,
+    diasTrabalhadosMes
+  });
+
   return {
     quantidadeRecursos,
     quantidadeOperacional,
     origemQuantidadeOperacional,
+    quantidadeOperacionalExibida,
     valorCusto,
     tipoCalculo,
     unidadeEconomica,
@@ -727,6 +849,9 @@ export function resolveFrontCost(
       quantidadeOperacional: roundOperational(calculo.quantidadeOperacional, 4),
       origemQuantidadeOperacional: calculo.origemQuantidadeOperacional,
       unidadeQuantidadeOperacional: formatarUnidadeFrente(frenteInput.unidadeProducao),
+      quantidadeOperacionalExibida: roundOperational(calculo.quantidadeOperacionalExibida.valor, 4),
+      unidadeQuantidadeOperacionalExibida: calculo.quantidadeOperacionalExibida.unidade,
+      origemQuantidadeOperacionalExibida: calculo.quantidadeOperacionalExibida.origem,
       custoOperacional: roundMoney(calculo.valorCusto),
       unidadeCustoOriginal: recurso.unidadeCusto?.trim() || calculo.unidadeFormatada,
       unidadeCustoFormatada: calculo.unidadeFormatada,

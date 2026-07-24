@@ -644,7 +644,7 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
                 .map((grupo) => {
                   const grupoTemReferencia = grupo.itens.some(isItemReferencial);
                   const exibirValorUnitario = exibirValoresDetalhados || grupoTemReferencia;
-                  const descWidth = exibirValoresDetalhados ? "34%" : exibirValorUnitario ? "42%" : "54%";
+                  const descWidth = exibirValoresDetalhados ? "46%" : exibirValorUnitario ? "42%" : "54%";
                   const unidadeBorderRight = exibirValorUnitario ? 1 : 0;
 
                   return (
@@ -655,69 +655,81 @@ export function OrcamentoPdfDocument(props: OrcamentoPdfProps) {
                           <Text style={styles.groupDescription}>{grupo.frente.descricao}</Text>
                         ) : null}
                       </View>
-                      <View style={styles.tableHeader}>
-                        <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "8%" }]}>Item</Text>
-                        {exibirValoresDetalhados ? (
-                          <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "14%" }]}>Natureza</Text>
-                        ) : null}
-                        <Text style={[styles.cell, styles.headCell, { width: descWidth }]}>
-                          Descricao
-                        </Text>
-                        <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "10%" }]}>Qtd</Text>
-                        <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "10%", borderRightWidth: unidadeBorderRight }]}>Un</Text>
-                        {exibirValorUnitario ? (
-                          <Text style={[styles.cell, styles.headCell, styles.moneyCell, { width: "12%", borderRightWidth: exibirValoresDetalhados ? 1 : 0 }]}>Vlr unit.</Text>
-                        ) : null}
-                        {exibirValoresDetalhados ? (
-                          <Text style={[styles.cell, styles.headCell, styles.moneyCell, { width: "12%", borderRightWidth: 0 }]}>Total</Text>
-                        ) : null}
-                      </View>
-                      {grupo.itens.map((item) => {
-                        const referencial = isItemReferencial(item);
-
-                        return (
-                          <View key={`${grupo.frente.ordem}-${item.ordem}-${item.descricao}`} style={styles.tableRow} wrap={false}>
-                            <Text style={[styles.cell, styles.centerCell, { width: "8%" }]}>{item.ordem}</Text>
-                            {exibirValoresDetalhados ? (
-                              <Text style={[styles.cell, styles.centerCell, { width: "14%" }]}>{item.tipoItem}</Text>
-                            ) : null}
-                            <Text style={[styles.cell, { width: descWidth }]}>
-                              {item.descricao}
-                            </Text>
-                            <Text style={[styles.cell, styles.centerCell, { width: "10%" }]}>
-                              {referencial ? "" : formatNumber(item.quantidade)}
-                            </Text>
-                            <Text style={[styles.cell, styles.centerCell, { width: "10%", borderRightWidth: unidadeBorderRight }]}>
-                              {item.unidade}
-                            </Text>
-                            {exibirValorUnitario ? (
-                              <Text style={[styles.cell, styles.moneyCell, { width: "12%", borderRightWidth: exibirValoresDetalhados ? 1 : 0 }]}>
-                                {formatCurrency(item.valorUnitario)}
-                              </Text>
-                            ) : null}
-                            {exibirValoresDetalhados ? (
-                              <Text style={[styles.cell, styles.moneyCell, { width: "12%", borderRightWidth: 0 }]}>
-                                {referencial ? "" : formatCurrency(item.valorTotal)}
-                              </Text>
-                            ) : null}
-                          </View>
-                        );
-                      })}
                       {grupo.somenteReferencia ? (
                         <>
+                          <View style={styles.tableHeader}>
+                            <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "10%" }]}>Item</Text>
+                            <Text style={[styles.cell, styles.headCell, { width: "54%" }]}>Descricao</Text>
+                            <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "14%" }]}>Unidade</Text>
+                            <Text style={[styles.cell, styles.headCell, styles.moneyCell, { width: "22%", borderRightWidth: 0 }]}>Valor Unitario</Text>
+                          </View>
+                          {grupo.itens.map((item) => (
+                            <View key={`${grupo.frente.ordem}-${item.ordem}-${item.descricao}`} style={styles.tableRow} wrap={false}>
+                              <Text style={[styles.cell, styles.centerCell, { width: "10%" }]}>{item.ordem}</Text>
+                              <Text style={[styles.cell, { width: "54%" }]}>{item.descricao}</Text>
+                              <Text style={[styles.cell, styles.centerCell, { width: "14%" }]}>{item.unidade}</Text>
+                              <Text style={[styles.cell, styles.moneyCell, { width: "22%", borderRightWidth: 0 }]}>
+                                {formatCurrency(item.valorUnitario)}
+                              </Text>
+                            </View>
+                          ))}
                           <View style={styles.subtotalRow}>
-                            <Text style={styles.subtotalText}>Valores unitarios de referencia</Text>
+                            <Text style={styles.subtotalText}>VALORES UNITARIOS DE REFERENCIA</Text>
                           </View>
                           <Text style={styles.referenceNote}>
                             Os valores acima representam precos unitarios para futura medicao e faturamento conforme utilizacao efetivamente executada.
                           </Text>
                         </>
                       ) : (
-                        <View style={styles.subtotalRow}>
-                          <Text style={styles.subtotalText}>
-                            Subtotal da frente: {formatCurrency(grupo.subtotal)}
-                          </Text>
-                        </View>
+                        <>
+                          <View style={styles.tableHeader}>
+                            <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "8%" }]}>Item</Text>
+                            <Text style={[styles.cell, styles.headCell, { width: descWidth }]}>
+                              Descricao
+                            </Text>
+                            <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "10%" }]}>Qtd</Text>
+                            <Text style={[styles.cell, styles.headCell, styles.centerCell, { width: "10%", borderRightWidth: unidadeBorderRight }]}>Un</Text>
+                            {exibirValorUnitario ? (
+                              <Text style={[styles.cell, styles.headCell, styles.moneyCell, { width: "12%", borderRightWidth: exibirValoresDetalhados ? 1 : 0 }]}>Vlr unit.</Text>
+                            ) : null}
+                            {exibirValoresDetalhados ? (
+                              <Text style={[styles.cell, styles.headCell, styles.moneyCell, { width: "14%", borderRightWidth: 0 }]}>Total</Text>
+                            ) : null}
+                          </View>
+                          {grupo.itens.map((item) => {
+                            const referencial = isItemReferencial(item);
+
+                            return (
+                              <View key={`${grupo.frente.ordem}-${item.ordem}-${item.descricao}`} style={styles.tableRow} wrap={false}>
+                                <Text style={[styles.cell, styles.centerCell, { width: "8%" }]}>{item.ordem}</Text>
+                                <Text style={[styles.cell, { width: descWidth }]}>
+                                  {item.descricao}
+                                </Text>
+                                <Text style={[styles.cell, styles.centerCell, { width: "10%" }]}>
+                                  {referencial ? "" : formatNumber(item.quantidade)}
+                                </Text>
+                                <Text style={[styles.cell, styles.centerCell, { width: "10%", borderRightWidth: unidadeBorderRight }]}>
+                                  {item.unidade}
+                                </Text>
+                                {exibirValorUnitario ? (
+                                  <Text style={[styles.cell, styles.moneyCell, { width: "12%", borderRightWidth: exibirValoresDetalhados ? 1 : 0 }]}>
+                                    {formatCurrency(item.valorUnitario)}
+                                  </Text>
+                                ) : null}
+                                {exibirValoresDetalhados ? (
+                                  <Text style={[styles.cell, styles.moneyCell, { width: "14%", borderRightWidth: 0 }]}>
+                                    {referencial ? "" : formatCurrency(item.valorTotal)}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            );
+                          })}
+                          <View style={styles.subtotalRow}>
+                            <Text style={styles.subtotalText}>
+                              Subtotal da frente: {formatCurrency(grupo.subtotal)}
+                            </Text>
+                          </View>
+                        </>
                       )}
                     </View>
                   );

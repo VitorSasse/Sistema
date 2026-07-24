@@ -850,4 +850,57 @@ describe("Evolucao do prazo e das unidades economicas", () => {
     expect(produtividadeAlterada.custoDiretoTotal).toBe(500);
     expect(prazoAlterado.custoDiretoTotal).toBe(400);
   });
+
+  it("expõe a variável operacional herdada conforme a base economica do recurso", () => {
+    const frente = {
+      ...frenteBase,
+      quantidadePrevista: 2240,
+      produtividadeDia: 280
+    };
+
+    const porDia = calcularRecurso("DIA", { valorCusto: 900 }, frente).memoria[0];
+    const porHora = calcularRecurso("HORA", { valorCusto: 100, horasDia: 8 }, frente).memoria[0];
+    const porViagem = calcularRecurso("VIAGEM", { valorCusto: 120, viagensTotais: 160 }, frente).memoria[0];
+    const porKm = calcularRecurso("KM", {
+      quantidade: 2,
+      valorCusto: 8,
+      capacidadePorViagem: 14,
+      unidadeCapacidade: "m3",
+      distanciaViagemKm: 15
+    }, frente).memoria[0];
+    const porMes = calcularRecurso("MES", { valorCusto: 5000, mesesTotais: 2 }, frente).memoria[0];
+    const porM3 = calcularRecurso("M3", { valorCusto: 3 }, frente).memoria[0];
+    const porUnidade = calcularRecurso("UNIDADE", { quantidade: 4, valorCusto: 250 }, frente).memoria[0];
+
+    expect(porDia).toMatchObject({
+      quantidadeOperacionalExibida: 8,
+      unidadeQuantidadeOperacionalExibida: "dias",
+      origemQuantidadeOperacionalExibida: "Prazo da Frente"
+    });
+    expect(porHora).toMatchObject({
+      quantidadeOperacionalExibida: 64,
+      unidadeQuantidadeOperacionalExibida: "horas"
+    });
+    expect(porViagem).toMatchObject({
+      quantidadeOperacionalExibida: 160,
+      unidadeQuantidadeOperacionalExibida: "viagens"
+    });
+    expect(porKm).toMatchObject({
+      quantidadeOperacionalExibida: 2400,
+      unidadeQuantidadeOperacionalExibida: "km"
+    });
+    expect(porMes).toMatchObject({
+      quantidadeOperacionalExibida: 2,
+      unidadeQuantidadeOperacionalExibida: "meses"
+    });
+    expect(porM3).toMatchObject({
+      quantidadeOperacionalExibida: 2240,
+      unidadeQuantidadeOperacionalExibida: "m3"
+    });
+    expect(porUnidade).toMatchObject({
+      quantidadeOperacionalExibida: 4,
+      unidadeQuantidadeOperacionalExibida: "unidades",
+      origemQuantidadeOperacionalExibida: "Quantidade de recursos"
+    });
+  });
 });

@@ -3373,6 +3373,11 @@ function FrentesOperacionaisSection(props: {
             parseFrenteNumber(frente.produtividadeDia),
             custoFrente?.produtividadeResultante
           );
+          const quantidadePrevistaNumero = parseFrenteNumber(frente.quantidadePrevista) ?? 0;
+          const custoOperacionalUnitario = quantidadePrevistaNumero > 0
+            ? (custoFrente?.custoDireto ?? 0) / quantidadePrevistaNumero
+            : 0;
+          const unidadeCustoOperacional = frente.unidadeProducao?.trim() || "unidade";
           const openLevelIds = getOpenLevels(frente.localId);
 
           return (
@@ -3857,6 +3862,14 @@ function FrentesOperacionaisSection(props: {
                         : "Origem do custo: Manual"}
                     </span>
                     <strong>{formatCurrency(custoFrente?.custoDireto ?? 0)}</strong>
+                    {quantidadePrevistaNumero > 0 ? (
+                      <div className="orcamentos-front-unit-cost">
+                        <span>Custo operacional unitario</span>
+                        <strong>
+                          {formatCurrency(custoOperacionalUnitario)}/{unidadeCustoOperacional}
+                        </strong>
+                      </div>
+                    ) : null}
                     <small>
                       {custoCalculadoPorRecursos
                         ? `Soma atual dos recursos: ${formatCurrency(custoFrente?.custoCalculadoRecursos ?? 0)}. O custo manual nao e somado.`
@@ -4793,14 +4806,22 @@ function ResourceItemFields(props: {
   const recursoValue = getRecursoValue(props.item);
   const herdaQuantidadeDaFrente =
     props.item.origemQuantidadeOperacional !== "PERSONALIZADA";
-  const quantidadeDaFrente =
-    props.quantidadeFrente ??
-    (props.memoria ? String(props.memoria.quantidadeOperacional) : "");
+  const quantidadeOperacionalHerdada =
+    props.memoria?.quantidadeOperacionalExibida !== undefined
+      ? String(props.memoria.quantidadeOperacionalExibida)
+      : props.quantidadeFrente ??
+        (props.memoria ? String(props.memoria.quantidadeOperacional) : "");
   const quantidadeOperacionalExibida = herdaQuantidadeDaFrente
-    ? quantidadeDaFrente
+    ? quantidadeOperacionalHerdada
     : props.item.quantidadeOperacional;
-  const unidadeQuantidadeOperacional =
-    props.unidadeFrente || props.memoria?.unidadeQuantidadeOperacional || "unidade";
+  const unidadeQuantidadeOperacional = herdaQuantidadeDaFrente
+    ? props.memoria?.unidadeQuantidadeOperacionalExibida ||
+      props.memoria?.unidadeQuantidadeOperacional ||
+      props.unidadeFrente ||
+      "unidade"
+    : props.unidadeFrente || props.memoria?.unidadeQuantidadeOperacional || "unidade";
+  const origemQuantidadeOperacional =
+    props.memoria?.origemQuantidadeOperacionalExibida || "Quantidade da Frente";
   const permitePersonalizacaoMestre =
     props.item.caracteristicasRecursoSnapshot?.herdados.permitirEdicaoOrcamento !== false;
 
@@ -4814,7 +4835,7 @@ function ResourceItemFields(props: {
   }
 
   function herdarQuantidadeOperacional() {
-    props.onUpdate(props.item.localId, "quantidadeOperacional", quantidadeDaFrente || "0");
+    props.onUpdate(props.item.localId, "quantidadeOperacional", quantidadeOperacionalHerdada || "0");
     props.onUpdate(props.item.localId, "origemQuantidadeOperacional", "FRENTE");
   }
 
@@ -4973,12 +4994,12 @@ function ResourceItemFields(props: {
                 : personalizarQuantidadeOperacional()
             }
           />
-          Herdar quantidade da Frente
+          Herdar variavel operacional automaticamente
         </label>
         <small className={herdaQuantidadeDaFrente ? "is-inherited" : "is-personalized"}>
           {herdaQuantidadeDaFrente ? <LockKeyhole size={13} /> : <Pencil size={13} />}
           {herdaQuantidadeDaFrente
-            ? "Herdado da Frente"
+            ? `Herdado automaticamente: ${origemQuantidadeOperacional}`
             : "Quantidade operacional personalizada nesta Frente"}
         </small>
       </div>

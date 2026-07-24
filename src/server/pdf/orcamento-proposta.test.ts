@@ -289,10 +289,12 @@ describe("conteudo comercial do PDF de orcamentos", () => {
     const texto = collectPdfText(document).join("\n");
     const textoNormalizado = texto.replace(/\u00a0/g, " ");
 
-    expect(textoNormalizado).toContain("Valores unitarios de referencia");
+    expect(textoNormalizado).toContain("VALORES UNITARIOS DE REFERENCIA");
     expect(textoNormalizado).toContain("Os valores acima representam precos unitarios");
     expect(textoNormalizado).toContain("TOTAL DA PROPOSTA");
     expect(textoNormalizado).toContain("R$ 58.745,60");
+    expect(textoNormalizado).not.toContain("Natureza");
+    expect(textoNormalizado).not.toContain("SERVICO_PRINCIPAL");
     expect(textoNormalizado).not.toContain("Subtotal da frente: R$ 2.800,00");
   });
 });

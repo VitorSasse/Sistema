@@ -8814,6 +8814,27 @@ button {
   font-size: 1.05rem;
 }
 
+.orcamentos-front-unit-cost {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--screen-card) 72%, transparent);
+}
+
+.orcamentos-front-unit-cost span {
+  padding: 0;
+  background: transparent;
+  color: var(--screen-muted);
+  font-size: 0.66rem;
+}
+
+.orcamentos-front-unit-cost strong {
+  color: var(--primary);
+  font-size: 0.95rem;
+}
+
 .orcamentos-front-cost-origin small,
 .orcamentos-front-sale-status small {
   color: var(--screen-muted);
