@@ -266,15 +266,15 @@ export async function GET(request: NextRequest) {
         ? endOfMonth(referenceDate)
         : endOfWeek(referenceDate);
 
-  const [clientes, obras, equipamentos, programacoes] = await Promise.all([
+  const [clientes, obras, programacoes] = await Promise.all([
     prisma.cliente.findMany({
-      where: { status: "ATIVO" },
+      where: { status: { in: ["ATIVO", "PROSPECTO"] } },
       select: { id: true, codigo: true, nome: true },
       orderBy: [{ nome: "asc" }]
     }),
     prisma.obra.findMany({
       where: {
-        status: "ATIVO",
+        status: { in: ["ATIVO", "PROVISORIA"] },
         clienteId: clienteId || undefined
       },
       select: {
@@ -291,45 +291,6 @@ export async function GET(request: NextRequest) {
         }
       },
       orderBy: [{ nome: "asc" }]
-    }),
-    prisma.equipamento.findMany({
-      where: {
-        status: "ATIVO",
-        tipoRecurso: {
-          in: ["CAMINHAO", "MAQUINA", "CARRETA"]
-        }
-      },
-      select: {
-        id: true,
-        descricao: true,
-        placaOuTag: true,
-        complementar: true,
-        tipoRecurso: true,
-        tipoControle: true,
-        statusOperacional: true,
-        horimetroAtual: true,
-        kmAtual: true,
-        planosManutencao: {
-          where: {
-            status: "ATIVO"
-          },
-          select: {
-            tipoManutencao: true,
-            criterioControle: true,
-            periodicidadeValor: true,
-            toleranciaValor: true,
-            ultimaExecucaoEm: true,
-            ultimaLeituraHorimetro: true,
-            ultimaLeituraKm: true,
-            proximaExecucaoEm: true,
-            proximoHorimetro: true,
-            proximoKm: true,
-            createdAt: true,
-            updatedAt: true
-          }
-        }
-      },
-      orderBy: [{ descricao: "asc" }, { placaOuTag: "asc" }]
     }),
     prisma.agendaProgramacao.findMany({
       where: {
@@ -377,6 +338,55 @@ export async function GET(request: NextRequest) {
       orderBy: [{ dataInicio: "asc" }, { createdAt: "asc" }]
     })
   ]);
+  const hoje = toDateOnly(new Date());
+  const devePreservarHistorico = rangeStart.getTime() <= hoje.getTime();
+  const equipamentosHistoricosIds = devePreservarHistorico
+    ? Array.from(new Set(programacoes.map((item) => item.equipamentoId)))
+    : [];
+  const equipamentos = await prisma.equipamento.findMany({
+    where: {
+      tipoRecurso: {
+        in: ["CAMINHAO", "MAQUINA", "CARRETA"]
+      },
+      OR: [
+        { status: "ATIVO" },
+        ...(equipamentosHistoricosIds.length > 0
+          ? [{ id: { in: equipamentosHistoricosIds } }]
+          : [])
+      ]
+    },
+    select: {
+      id: true,
+      descricao: true,
+      placaOuTag: true,
+      complementar: true,
+      tipoRecurso: true,
+      tipoControle: true,
+      statusOperacional: true,
+      horimetroAtual: true,
+      kmAtual: true,
+      planosManutencao: {
+        where: {
+          status: "ATIVO"
+        },
+        select: {
+          tipoManutencao: true,
+          criterioControle: true,
+          periodicidadeValor: true,
+          toleranciaValor: true,
+          ultimaExecucaoEm: true,
+          ultimaLeituraHorimetro: true,
+          ultimaLeituraKm: true,
+          proximaExecucaoEm: true,
+          proximoHorimetro: true,
+          proximoKm: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      }
+    },
+    orderBy: [{ descricao: "asc" }, { placaOuTag: "asc" }]
+  });
 
   const days = enumerateDays(rangeStart, toDateOnly(rangeEnd));
   const focusDate = days.some((day) => day.getTime() === toDateOnly(new Date()).getTime())

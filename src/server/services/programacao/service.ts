@@ -133,7 +133,7 @@ export async function validarRelacionamentosProgramacao(db: DbClient, input: Pro
   }
 
   if (input.obraId) {
-    if (!obra || obra.status !== "ATIVO") {
+    if (!obra || !["ATIVO", "PROVISORIA"].includes(obra.status)) {
       throw new Error("OBRA_INVALIDA");
     }
   }
