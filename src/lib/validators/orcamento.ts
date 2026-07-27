@@ -70,6 +70,67 @@ function normalizarUnidadeOperacional(value?: string | null) {
   return unidade ? "DESCONHECIDA" : "";
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function trimString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function resolveDescricaoItemOrcamento(item: Record<string, unknown>) {
+  const tipoItem = trimString(item.tipoItem);
+  const origemItemComercial = trimString(item.origemItemComercial);
+  const descricao = trimString(item.descricao);
+
+  if (tipoItem === TipoItemOrcamento.RECURSO) {
+    return (
+      descricao ||
+      trimString(item.recursoNome) ||
+      trimString(item.classeOperacional) ||
+      trimString(item.recursoReferenciaId)
+    );
+  }
+
+  if (origemItemComercial === OrigemItemComercialOrcamento.MANUAL) {
+    return descricao || trimString(item.descricaoManualComercial);
+  }
+
+  return descricao;
+}
+
+export function normalizeOrcamentoPayloadForValidation(value: unknown) {
+  const payload = asRecord(value);
+
+  if (!payload) {
+    return value;
+  }
+
+  const itens = Array.isArray(payload.itens)
+    ? payload.itens.map((item) => {
+        const record = asRecord(item);
+
+        if (!record) {
+          return item;
+        }
+
+        return {
+          ...record,
+          descricao: resolveDescricaoItemOrcamento(record)
+        };
+      })
+    : payload.itens;
+
+  return {
+    ...payload,
+    itens
+  };
+}
+
 const caracteristicasRecursoSnapshotSchema = z.object({
   versao: z.literal(1),
   origem: z.literal("CADASTRO_MESTRE"),
@@ -184,7 +245,7 @@ const orcamentoItemSchema = z.object({
   observacaoComercial: z.string().trim().max(700).optional().or(z.literal("")),
   ordem: z.number().int().positive().max(999).default(1),
   codigo: z.string().trim().max(80).optional().or(z.literal("")),
-  descricao: z.string().trim().min(2).max(240),
+  descricao: z.string().trim().max(240).optional().or(z.literal("")).default(""),
   unidade: z.string().trim().min(1).max(40),
   quantidade: numeroDecimal(999999999),
   quantidadeOperacional: numeroDecimal(999999999).optional().nullable(),
@@ -213,6 +274,24 @@ const orcamentoItemSchema = z.object({
   valorUnitario: numeroDecimal(999999999).default(0),
   observacao: z.string().trim().max(500).optional().or(z.literal(""))
 }).superRefine((item, context) => {
+  const descricaoEfetiva =
+    item.tipoItem === TipoItemOrcamento.RECURSO
+      ? resolveDescricaoItemOrcamento(item as unknown as Record<string, unknown>)
+      : item.origemItemComercial === OrigemItemComercialOrcamento.MANUAL
+        ? item.descricao || item.descricaoManualComercial || ""
+        : item.descricao;
+
+  if (descricaoEfetiva.trim().length < 2) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: item.tipoItem === TipoItemOrcamento.RECURSO ? ["recursoReferenciaId"] : ["descricao"],
+      message:
+        item.tipoItem === TipoItemOrcamento.RECURSO
+          ? "O recurso deste item nao possui cadastro ou identificacao valida. Selecione novamente o recurso."
+          : "Informe uma descricao com pelo menos 2 caracteres."
+    });
+  }
+
   if (item.tipoItem !== TipoItemOrcamento.RECURSO) {
     if (!item.unidade?.trim()) {
       context.addIssue({
@@ -461,7 +540,7 @@ const orcamentoFormacaoPrecoSchema = z.object({
 });
 
 export const orcamentoSchema = z
-  .object({
+  .preprocess(normalizeOrcamentoPayloadForValidation, z.object({
     tipo: z.nativeEnum(TipoOrcamento).default(TipoOrcamento.COMERCIAL),
     status: z.nativeEnum(StatusOrcamento).default(StatusOrcamento.RASCUNHO),
     clienteId: z.string().uuid(),
@@ -481,7 +560,7 @@ export const orcamentoSchema = z
     frentes: z.array(orcamentoFrenteSchema).default([]),
     itens: z.array(orcamentoItemSchema).default([]),
     premissas: z.array(orcamentoPremissaSchema).default([])
-  })
+  }))
   .superRefine((data, context) => {
     const dataOrcamento = parseDateOnlyStart(data.dataOrcamento);
     const validadeAte = parseOptionalDateOnlyStart(data.validadeAte);

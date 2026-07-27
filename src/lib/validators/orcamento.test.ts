@@ -178,4 +178,57 @@ describe("orcamentoSchema", () => {
       ])
     );
   });
+
+  it("normaliza descricao de recurso reidratado a partir do nome do recurso", () => {
+    const payload = baseOrcamento();
+    payload.itens.push({
+      tipoItem: "RECURSO",
+      categoriaRecurso: "EQUIPAMENTO",
+      classeOperacional: "CAMINHAO BASCULANTE",
+      recursoNome: "CAMINHAO BASCULANTE 14m3",
+      ordem: 1,
+      descricao: "",
+      unidade: "UN",
+      quantidade: 2,
+      custoUnitario: 900,
+      tipoCalculoRecurso: "AUTOMATICO",
+      unidadeEconomicaCusto: "CUSTO_FIXO",
+      valorCusto: 900,
+      valorUnitario: 0
+    });
+
+    const result = orcamentoSchema.safeParse(payload);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.itens[0]?.descricao).toBe("CAMINHAO BASCULANTE 14m3");
+  });
+
+  it("bloqueia recurso sem descricao, nome ou identificacao valida com mensagem acionavel", () => {
+    const payload = baseOrcamento();
+    payload.itens.push({
+      tipoItem: "RECURSO",
+      categoriaRecurso: "EQUIPAMENTO",
+      ordem: 1,
+      descricao: "",
+      unidade: "UN",
+      quantidade: 1,
+      custoUnitario: 900,
+      tipoCalculoRecurso: "AUTOMATICO",
+      unidadeEconomicaCusto: "CUSTO_FIXO",
+      valorCusto: 900,
+      valorUnitario: 0
+    });
+
+    const result = orcamentoSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: ["itens", 0, "recursoReferenciaId"],
+          message: "O recurso deste item nao possui cadastro ou identificacao valida. Selecione novamente o recurso."
+        })
+      ])
+    );
+  });
 });

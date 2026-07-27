@@ -6054,7 +6054,7 @@ function buildFormacaoPayload(
 }
 
 function normalizeItemForPayload(item: ItemForm): ItemForm {
-  return {
+  const normalized: ItemForm = {
     ...item,
     frenteTempId: item.frenteTempId.trim(),
     descricaoManualComercial: item.descricaoManualComercial.trim(),
@@ -6073,13 +6073,41 @@ function normalizeItemForPayload(item: ItemForm): ItemForm {
     memoriaCalculo: item.memoriaCalculo.trim(),
     observacao: item.observacao.trim()
   };
+
+  if (isRecursoItem(normalized)) {
+    return {
+      ...normalized,
+      descricao: getResourceDescricaoResolvida(normalized)
+    };
+  }
+
+  return {
+    ...normalized,
+    descricao:
+      normalized.origemItemComercial === "MANUAL"
+        ? normalized.descricao || normalized.descricaoManualComercial
+        : normalized.descricao
+  };
 }
 
 export function normalizeItemsForPayload(itens: ItemForm[]) {
   return reordenarItens(itens.map(normalizeItemForPayload).filter(isItemPreenchido));
 }
 
+function getResourceDescricaoResolvida(item: Pick<ItemForm, "descricao" | "recursoNome" | "classeOperacional" | "recursoReferenciaId">) {
+  return (
+    item.descricao.trim() ||
+    item.recursoNome.trim() ||
+    item.classeOperacional.trim() ||
+    item.recursoReferenciaId.trim()
+  );
+}
+
 function getItemDescricaoEfetiva(item: ItemForm) {
+  if (isRecursoItem(item)) {
+    return getResourceDescricaoResolvida(item);
+  }
+
   const origemComercial = isRecursoItem(item) ? null : item.origemItemComercial;
   const nomeManual = item.descricaoManualComercial.trim();
 
@@ -6143,7 +6171,9 @@ export function validateItemsBeforeSubmit(form: Pick<OrcamentoForm, "frentes" | 
     const descricao = getItemDescricaoEfetiva(item);
 
     if (descricao.length < 2) {
-      errors[item.localId] = `Item ${item.ordem}: informe uma descricao com pelo menos 2 caracteres.`;
+      errors[item.localId] = isRecursoItem(item)
+        ? `Item ${item.ordem}: o recurso nao possui identificacao valida. Selecione novamente o recurso.`
+        : `Item ${item.ordem}: informe uma descricao com pelo menos 2 caracteres.`;
     }
   });
 
@@ -6305,6 +6335,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
     itens:
       item.itens.length > 0
         ? normalizeItemsForPayload(item.itens.map((orcamentoItem) => {
+            const isRecurso = orcamentoItem.tipoItem === "RECURSO";
             const origemItemComercial =
               orcamentoItem.origemItemComercial ??
               (orcamentoItem.equipamentoId
@@ -6313,11 +6344,19 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
                   ? "SERVICE"
                   : "MANUAL");
             const nomeManual =
-              origemItemComercial === "MANUAL"
+              !isRecurso && origemItemComercial === "MANUAL"
                 ? orcamentoItem.descricaoManualComercial || orcamentoItem.descricao
                 : orcamentoItem.descricaoManualComercial ?? "";
             const descricao =
-              origemItemComercial === "MANUAL" &&
+              isRecurso
+                ? (
+                    orcamentoItem.descricao ||
+                    orcamentoItem.recursoNome ||
+                    orcamentoItem.classeOperacional ||
+                    orcamentoItem.recursoReferenciaId ||
+                    ""
+                  )
+                : origemItemComercial === "MANUAL" &&
               nomeManual &&
               orcamentoItem.descricao === nomeManual
                 ? ""

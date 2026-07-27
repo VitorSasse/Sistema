@@ -136,4 +136,57 @@ describe("normalizacao dos itens do orcamento", () => {
 
     expect(itens).toHaveLength(0);
   });
+
+  it("resolve descricao de recurso reidratado pelo nome do recurso", () => {
+    const itens = normalizeItemsForPayload([
+      makeItem({
+        tipoItem: "RECURSO",
+        descricao: "",
+        recursoNome: "CAMINHAO BASCULANTE 14m3",
+        classeOperacional: "CAMINHAO BASCULANTE",
+        quantidade: "2",
+        custoUnitario: "900"
+      })
+    ]);
+
+    expect(itens).toHaveLength(1);
+    expect(itens[0].descricao).toBe("CAMINHAO BASCULANTE 14m3");
+  });
+
+  it("permite salvar recurso reidratado com descricao vazia quando possui nome valido", () => {
+    const validation = validateItemsBeforeSubmit(
+      makeForm([
+        makeItem({
+          tipoItem: "RECURSO",
+          descricao: "",
+          recursoNome: "ESCAVADEIRA 15 TON",
+          classeOperacional: "ESCAVADEIRA",
+          quantidade: "1",
+          custoUnitario: "900"
+        })
+      ])
+    );
+
+    expect(validation.errors).toEqual({});
+  });
+
+  it("bloqueia recurso sem descricao, nome ou identificacao valida", () => {
+    const validation = validateItemsBeforeSubmit(
+      makeForm([
+        makeItem({
+          tipoItem: "RECURSO",
+          descricao: "",
+          recursoNome: "",
+          classeOperacional: "",
+          recursoReferenciaId: "",
+          quantidade: "1",
+          custoUnitario: "900"
+        })
+      ])
+    );
+
+    expect(Object.values(validation.errors)).toContain(
+      "Item 1: o recurso nao possui identificacao valida. Selecione novamente o recurso."
+    );
+  });
 });
