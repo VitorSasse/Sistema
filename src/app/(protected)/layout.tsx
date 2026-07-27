@@ -121,7 +121,7 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
       : null;
 
   const securityItems = [
-    ...(isMaster ? [{ href: "/master" as Route, label: "Painel Master", module: "master" as AccessModule }] : []),
+    ...(isMaster ? [{ href: "/master" as Route, label: "Painel da Plataforma", module: "master" as AccessModule }] : []),
     ...(canManageUsers ? [{ href: "/usuarios" as Route, label: "Usuarios e acessos", module: "usuarios" as AccessModule }] : []),
     ...(canManagePdfs
       ? [{ href: "/seguranca/cabecalhos-documentos" as Route, label: "Cabecalho dos documentos", module: "pdfs" as AccessModule }]

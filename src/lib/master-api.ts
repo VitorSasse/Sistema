@@ -16,7 +16,7 @@ export async function requireMasterApi() {
   if (session.user.roleEmpresa !== RoleUsuarioEmpresa.MASTER) {
     return {
       ok: false as const,
-      response: NextResponse.json({ message: "Acesso exclusivo para usuarios MASTER." }, { status: 403 })
+      response: NextResponse.json({ message: "Acesso exclusivo para Administradores da Plataforma." }, { status: 403 })
     };
   }
 

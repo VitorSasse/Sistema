@@ -94,7 +94,7 @@ export const accessModules: Array<{
   { id: "pdfs", label: "PDFs", group: "Relatorios e documentos", allowManage: true },
   { id: "usuarios", label: "Usuarios", group: "Administracao", allowManage: true },
   { id: "auditoria", label: "Logs e auditoria", group: "Administracao", allowManage: false },
-  { id: "master", label: "Painel Master", group: "Administracao", allowManage: true }
+  { id: "master", label: "Painel da Plataforma", group: "Administracao", allowManage: true }
 ];
 
 const rolePermissions: Record<RoleCodigo, PermissionAction[]> = {

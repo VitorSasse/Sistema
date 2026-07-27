@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState, useTransition } from "react";
+import { getRoleEmpresaDescription, getRoleEmpresaLabel } from "@/lib/perfil";
 
 type StatusCadastro = "ATIVO" | "INATIVO";
 type RoleEmpresa = "ADMIN_EMPRESA" | "GERENTE" | "OPERADOR" | "FINANCEIRO" | "VISUALIZADOR";
@@ -90,12 +91,32 @@ const usuarioFormInicial: UsuarioForm = {
   roleEmpresa: "OPERADOR"
 };
 
-const roleOptions: Array<{ value: RoleEmpresa; label: string }> = [
-  { value: "ADMIN_EMPRESA", label: "Admin empresa" },
-  { value: "GERENTE", label: "Gerente" },
-  { value: "OPERADOR", label: "Operador" },
-  { value: "FINANCEIRO", label: "Financeiro" },
-  { value: "VISUALIZADOR", label: "Visualizador" }
+const roleOptions: Array<{ value: RoleEmpresa; label: string; description: string }> = [
+  {
+    value: "ADMIN_EMPRESA",
+    label: getRoleEmpresaLabel("ADMIN_EMPRESA"),
+    description: getRoleEmpresaDescription("ADMIN_EMPRESA")
+  },
+  {
+    value: "GERENTE",
+    label: getRoleEmpresaLabel("GERENTE"),
+    description: getRoleEmpresaDescription("GERENTE")
+  },
+  {
+    value: "FINANCEIRO",
+    label: getRoleEmpresaLabel("FINANCEIRO"),
+    description: getRoleEmpresaDescription("FINANCEIRO")
+  },
+  {
+    value: "OPERADOR",
+    label: getRoleEmpresaLabel("OPERADOR"),
+    description: getRoleEmpresaDescription("OPERADOR")
+  },
+  {
+    value: "VISUALIZADOR",
+    label: getRoleEmpresaLabel("VISUALIZADOR"),
+    description: getRoleEmpresaDescription("VISUALIZADOR")
+  }
 ];
 
 function formatDate(value: string) {
@@ -287,7 +308,7 @@ export function MasterPanel() {
 
   function editUsuario(usuario: UsuarioEmpresa) {
     if (usuario.roleEmpresa === "MASTER") {
-      setMessage("Usuarios MASTER devem ser mantidos fora do cadastro operacional de empresas.");
+      setMessage("Usuarios Administradores da Plataforma devem ser mantidos fora do cadastro operacional de empresas.");
       return;
     }
 
@@ -307,7 +328,7 @@ export function MasterPanel() {
       <section className="page-header master-hero">
         <div>
           <span className="basepro-kicker">SaaS multiempresa</span>
-          <h1 className="page-title">Painel Master</h1>
+          <h1 className="page-title">Painel da Plataforma</h1>
           <p className="page-copy">
             Administre empresas, usuarios e valide o isolamento operacional sem interferir nos fluxos de fichas,
             medicoes e compras.
@@ -549,7 +570,7 @@ export function MasterPanel() {
                 />
               </label>
               <label className="field">
-                <span className="field-label">Role empresa</span>
+                <span className="field-label">Funcao na empresa</span>
                 <select
                   className="field-control"
                   value={usuarioForm.roleEmpresa}
@@ -563,6 +584,7 @@ export function MasterPanel() {
                     </option>
                   ))}
                 </select>
+                <small className="manager-field-hint">{getRoleEmpresaDescription(usuarioForm.roleEmpresa)}</small>
               </label>
               <label className="field">
                 <span className="field-label">Status</span>
@@ -588,7 +610,7 @@ export function MasterPanel() {
                   <tr>
                     <th>Nome</th>
                     <th>E-mail</th>
-                    <th>Role empresa</th>
+                    <th>Funcao na empresa</th>
                     <th>Status</th>
                     <th>Ultimo login</th>
                     <th>Acoes</th>
@@ -599,7 +621,7 @@ export function MasterPanel() {
                     <tr key={usuario.id}>
                       <td>{usuario.nome}</td>
                       <td>{usuario.email}</td>
-                      <td>{usuario.roleEmpresa}</td>
+                      <td>{getRoleEmpresaLabel(usuario.roleEmpresa)}</td>
                       <td>{usuario.status}</td>
                       <td>{formatDateTime(usuario.ultimoLoginEm)}</td>
                       <td>

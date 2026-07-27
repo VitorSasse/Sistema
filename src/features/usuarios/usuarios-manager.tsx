@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { accessModules, mergeModulePermissions, normalizeModulePermissions, type AccessModule, type ModulePermissionMap } from "@/lib/permissions";
+import { getRoleEmpresaDescription, getRoleEmpresaLabel } from "@/lib/perfil";
 
 type RoleCodigo = "ADMIN" | "GESTOR" | "OPERACIONAL" | "FINANCEIRO" | "CONSULTA";
 type RoleEmpresa = "ADMIN_EMPRESA" | "GERENTE" | "OPERADOR" | "FINANCEIRO" | "VISUALIZADOR";
@@ -53,20 +54,60 @@ type FormState = {
   empresasAcesso: EmpresaAcessoForm[];
 };
 
-const roleOptions: { value: RoleCodigo; label: string }[] = [
-  { value: "ADMIN", label: "Administrador" },
-  { value: "GESTOR", label: "Gestor" },
-  { value: "OPERACIONAL", label: "Operacional" },
-  { value: "FINANCEIRO", label: "Financeiro" },
-  { value: "CONSULTA", label: "Consulta" }
+const roleOptions: { value: RoleCodigo; label: string; description: string }[] = [
+  {
+    value: "ADMIN",
+    label: "Administrador da Empresa",
+    description: getRoleEmpresaDescription("ADMIN_EMPRESA")
+  },
+  {
+    value: "GESTOR",
+    label: "Gestor",
+    description: getRoleEmpresaDescription("GERENTE")
+  },
+  {
+    value: "OPERACIONAL",
+    label: "Operacional",
+    description: getRoleEmpresaDescription("OPERADOR")
+  },
+  {
+    value: "FINANCEIRO",
+    label: "Financeiro",
+    description: getRoleEmpresaDescription("FINANCEIRO")
+  },
+  {
+    value: "CONSULTA",
+    label: "Consulta",
+    description: getRoleEmpresaDescription("VISUALIZADOR")
+  }
 ];
 
-const roleEmpresaOptions: { value: RoleEmpresa; label: string }[] = [
-  { value: "ADMIN_EMPRESA", label: "Administrador da empresa" },
-  { value: "GERENTE", label: "Gerente" },
-  { value: "OPERADOR", label: "Operador" },
-  { value: "FINANCEIRO", label: "Financeiro" },
-  { value: "VISUALIZADOR", label: "Visualizador" }
+const roleEmpresaOptions: { value: RoleEmpresa; label: string; description: string }[] = [
+  {
+    value: "ADMIN_EMPRESA",
+    label: getRoleEmpresaLabel("ADMIN_EMPRESA"),
+    description: getRoleEmpresaDescription("ADMIN_EMPRESA")
+  },
+  {
+    value: "GERENTE",
+    label: getRoleEmpresaLabel("GERENTE"),
+    description: getRoleEmpresaDescription("GERENTE")
+  },
+  {
+    value: "FINANCEIRO",
+    label: getRoleEmpresaLabel("FINANCEIRO"),
+    description: getRoleEmpresaDescription("FINANCEIRO")
+  },
+  {
+    value: "OPERADOR",
+    label: getRoleEmpresaLabel("OPERADOR"),
+    description: getRoleEmpresaDescription("OPERADOR")
+  },
+  {
+    value: "VISUALIZADOR",
+    label: getRoleEmpresaLabel("VISUALIZADOR"),
+    description: getRoleEmpresaDescription("VISUALIZADOR")
+  }
 ];
 
 const initialForm: FormState = {
@@ -184,7 +225,7 @@ export function UsuariosManager() {
     }
 
     return usuarios.filter((usuario) =>
-      [usuario.nome, usuario.email, usuario.roleEmpresa, usuario.roles.join(" "), usuario.status]
+      [usuario.nome, usuario.email, usuario.roleEmpresa, getRoleEmpresaLabel(usuario.roleEmpresa), usuario.roles.join(" "), usuario.status]
         .join(" ")
         .toLowerCase()
         .includes(normalized)
@@ -580,6 +621,7 @@ export function UsuariosManager() {
                   </option>
                 ))}
               </select>
+              <small className="manager-field-hint">{getRoleEmpresaDescription(form.roleEmpresa)}</small>
             </label>
           </div>
 
@@ -651,6 +693,7 @@ export function UsuariosManager() {
                         <option key={role.value} value={role.value}>{role.label}</option>
                       ))}
                     </select>
+                    <small className="manager-field-hint">{getRoleEmpresaDescription(empresa.roleEmpresa)}</small>
                   </label>
                   <label className="field">
                     <span className="field-label">Status do vinculo</span>
@@ -703,10 +746,13 @@ export function UsuariosManager() {
                     </option>
                   ))}
                 </select>
+                <small className="manager-field-hint">
+                  {roleOptions.find((role) => role.value === (form.roles[0] ?? "CONSULTA"))?.description}
+                </small>
               </label>
 
               <div className="message-inline" style={{ margin: 0, alignSelf: "end" }}>
-                As permissoes abaixo sobrescrevem o perfil base. Perfil Consulta permite apenas visualizacao.
+                As permissoes abaixo sobrescrevem o perfil base. O perfil Consulta permite apenas visualizacao.
               </div>
             </div>
 
@@ -849,8 +895,8 @@ export function UsuariosManager() {
                 <tr key={usuario.id} style={selectedUserId === usuario.id ? { background: "rgba(249, 115, 22, 0.08)" } : undefined}>
                   <td>{usuario.nome}</td>
                   <td>{usuario.email}</td>
-                  <td>{usuario.roleEmpresa}</td>
-                  <td>{usuario.roles.join(", ")}</td>
+                  <td>{getRoleEmpresaLabel(usuario.roleEmpresa)}</td>
+                  <td>{usuario.roles.map((role) => roleOptions.find((option) => option.value === role)?.label ?? role).join(", ")}</td>
                   <td>
                     <span className={usuario.modoSomenteLeitura ? "badge badge-success" : "badge"}>
                       {usuario.modoSomenteLeitura ? "Somente leitura" : "Gerenciamento"}

@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (session.user.isMaster) {
-    return NextResponse.json({ message: "Use o seletor do Painel Master para trocar o escopo." }, { status: 400 });
+    return NextResponse.json({ message: "Use o seletor do Painel da Plataforma para trocar o escopo." }, { status: 400 });
   }
 
   const payload = (await request.json()) as { empresaId?: string | null };

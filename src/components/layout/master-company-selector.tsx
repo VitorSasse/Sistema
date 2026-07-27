@@ -65,7 +65,7 @@ export function MasterCompanySelector() {
   }
 
   return (
-    <label className="master-company-selector" title={`Escopo MASTER: ${selectedLabel}`}>
+    <label className="master-company-selector" title={`Escopo da plataforma: ${selectedLabel}`}>
       <Building2 size={16} aria-hidden="true" />
       <span>Escopo</span>
       <select
