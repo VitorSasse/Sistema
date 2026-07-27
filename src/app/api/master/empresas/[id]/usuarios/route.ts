@@ -19,8 +19,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
   return access.run(async (db) => {
     const usuarios = await db.usuario.findMany({
-      where: { empresaId: id },
-      orderBy: [{ status: "asc" }, { nome: "asc" }],
+      where: {
+        empresasAcesso: {
+          some: { empresaId: id }
+        }
+      },
+      orderBy: [{ nome: "asc" }],
       select: {
         id: true,
         nome: true,
@@ -28,11 +32,28 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         status: true,
         roleEmpresa: true,
         ultimoLoginEm: true,
-        createdAt: true
+        createdAt: true,
+        empresasAcesso: {
+          where: { empresaId: id },
+          select: {
+            roleEmpresa: true,
+            status: true
+          }
+        }
       }
     });
 
-    return NextResponse.json({ items: usuarios });
+    return NextResponse.json({
+      items: usuarios.map((usuario) => ({
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email,
+        status: usuario.empresasAcesso[0]?.status ?? usuario.status,
+        roleEmpresa: usuario.empresasAcesso[0]?.roleEmpresa ?? usuario.roleEmpresa,
+        ultimoLoginEm: usuario.ultimoLoginEm,
+        createdAt: usuario.createdAt
+      }))
+    });
   });
 }
 
@@ -67,14 +88,48 @@ export async function POST(request: NextRequest, context: RouteContext) {
       const email = parsed.data.email.trim().toLowerCase();
 
       const usuario = await db.$transaction(async (tx) => {
-        const created = await tx.usuario.create({
-          data: {
-            nome: parsed.data.nome.trim(),
-            email,
-            senhaHash,
-            status: parsed.data.status,
+        const existing = await tx.usuario.findUnique({ where: { email } });
+        const created = existing
+          ? await tx.usuario.update({
+              where: { id: existing.id },
+              data: {
+                nome: parsed.data.nome.trim(),
+                status: parsed.data.status
+              }
+            })
+          : await tx.usuario.create({
+              data: {
+                nome: parsed.data.nome.trim(),
+                email,
+                senhaHash,
+                status: parsed.data.status,
+                roleEmpresa: parsed.data.roleEmpresa,
+                empresaId: id
+              }
+            });
+
+        const hasDefault = await tx.usuarioEmpresa.findFirst({
+          where: { usuarioId: created.id, padrao: true },
+          select: { id: true }
+        });
+
+        await tx.usuarioEmpresa.upsert({
+          where: {
+            usuarioId_empresaId: {
+              usuarioId: created.id,
+              empresaId: id
+            }
+          },
+          create: {
+            usuarioId: created.id,
+            empresaId: id,
             roleEmpresa: parsed.data.roleEmpresa,
-            empresaId: id
+            status: parsed.data.status,
+            padrao: !hasDefault
+          },
+          update: {
+            roleEmpresa: parsed.data.roleEmpresa,
+            status: parsed.data.status
           }
         });
 

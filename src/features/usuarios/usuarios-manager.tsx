@@ -18,6 +18,26 @@ type UsuarioItem = {
   ultimoLoginEm: string | null;
   createdAt: string;
   roles: RoleCodigo[];
+  empresasAcesso: EmpresaAcessoForm[];
+};
+
+type EmpresaOption = {
+  id: string;
+  nome: string;
+  nomeFantasia: string | null;
+  razaoSocial: string | null;
+};
+
+type EmpresaAcessoForm = {
+  empresaId: string;
+  nome?: string;
+  nomeFantasia?: string | null;
+  razaoSocial?: string | null;
+  roleEmpresa: RoleEmpresa;
+  status: StatusCadastro;
+  padrao: boolean;
+  modoSomenteLeitura: boolean;
+  permissoesAcesso: ModulePermissionMap;
 };
 
 type FormState = {
@@ -30,6 +50,7 @@ type FormState = {
   roles: RoleCodigo[];
   modoSomenteLeitura: boolean;
   permissoesAcesso: ModulePermissionMap;
+  empresasAcesso: EmpresaAcessoForm[];
 };
 
 const roleOptions: { value: RoleCodigo; label: string }[] = [
@@ -56,7 +77,8 @@ const initialForm: FormState = {
   roleEmpresa: "OPERADOR",
   roles: ["OPERACIONAL"],
   modoSomenteLeitura: false,
-  permissoesAcesso: mergeModulePermissions(["OPERACIONAL"])
+  permissoesAcesso: mergeModulePermissions(["OPERACIONAL"]),
+  empresasAcesso: []
 };
 
 const roleEmpresaByRole: Record<RoleCodigo, RoleEmpresa> = {
@@ -66,6 +88,13 @@ const roleEmpresaByRole: Record<RoleCodigo, RoleEmpresa> = {
   FINANCEIRO: "FINANCEIRO",
   CONSULTA: "VISUALIZADOR"
 };
+
+function baseRoleFromRoleEmpresa(roleEmpresa: RoleEmpresa): RoleCodigo {
+  return (
+    roleOptions.find((entry) => roleEmpresaByRole[entry.value] === roleEmpresa)?.value ??
+    (roleEmpresa === "VISUALIZADOR" ? "CONSULTA" : "OPERACIONAL")
+  );
+}
 
 const permissionGroups = accessModules.reduce<Record<string, typeof accessModules>>((groups, module) => {
   groups[module.group] = [...(groups[module.group] ?? []), module];
@@ -85,6 +114,9 @@ function formatDateTime(value: string | null) {
 
 export function UsuariosManager() {
   const [usuarios, setUsuarios] = useState<UsuarioItem[]>([]);
+  const [empresasDisponiveis, setEmpresasDisponiveis] = useState<EmpresaOption[]>([]);
+  const [empresaAtualId, setEmpresaAtualId] = useState("");
+  const [empresaSearch, setEmpresaSearch] = useState("");
   const [form, setForm] = useState<FormState>(initialForm);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
@@ -96,14 +128,48 @@ export function UsuariosManager() {
 
   async function loadUsuarios() {
     const response = await fetch("/api/usuarios", { cache: "no-store" });
-    const data = (await response.json()) as { items?: UsuarioItem[]; message?: string };
+    const data = (await response.json()) as {
+      items?: UsuarioItem[];
+      empresasDisponiveis?: EmpresaOption[];
+      empresaAtualId?: string;
+      message?: string;
+    };
 
     if (!response.ok) {
       setMessage(data.message ?? "Nao foi possivel carregar os usuarios.");
       return;
     }
 
+    const empresas = data.empresasDisponiveis ?? [];
+    const currentEmpresaId = data.empresaAtualId ?? empresas[0]?.id ?? "";
+
     setUsuarios(data.items ?? []);
+    setEmpresasDisponiveis(empresas);
+    setEmpresaAtualId(currentEmpresaId);
+    setForm((current) => {
+      if (current.id || current.empresasAcesso.length > 0 || !currentEmpresaId) {
+        return current;
+      }
+
+      const empresa = empresas.find((item) => item.id === currentEmpresaId);
+
+      return {
+        ...current,
+        empresasAcesso: [
+          {
+            empresaId: currentEmpresaId,
+            nome: empresa?.nome,
+            nomeFantasia: empresa?.nomeFantasia,
+            razaoSocial: empresa?.razaoSocial,
+            roleEmpresa: current.roleEmpresa,
+            status: "ATIVO",
+            padrao: true,
+            modoSomenteLeitura: current.modoSomenteLeitura,
+            permissoesAcesso: current.permissoesAcesso
+          }
+        ]
+      };
+    });
   }
 
   useEffect(() => {
@@ -135,7 +201,17 @@ export function UsuariosManager() {
       roleEmpresa: roleEmpresaByRole[role],
       roles: [role],
       modoSomenteLeitura: role === "CONSULTA",
-      permissoesAcesso: mergeModulePermissions([role])
+      permissoesAcesso: mergeModulePermissions([role]),
+      empresasAcesso: current.empresasAcesso.map((empresa) =>
+        empresa.padrao
+          ? {
+              ...empresa,
+              roleEmpresa: roleEmpresaByRole[role],
+              modoSomenteLeitura: role === "CONSULTA",
+              permissoesAcesso: mergeModulePermissions([role])
+            }
+          : empresa
+      )
     }));
   }
 
@@ -165,7 +241,18 @@ export function UsuariosManager() {
         permissoesAcesso: {
           ...current.permissoesAcesso,
           [module]: nextPermission
-        }
+        },
+        empresasAcesso: current.empresasAcesso.map((empresa) =>
+          empresa.padrao
+            ? {
+                ...empresa,
+                permissoesAcesso: {
+                  ...empresa.permissoesAcesso,
+                  [module]: nextPermission
+                }
+              }
+            : empresa
+        )
       };
     });
   }
@@ -177,7 +264,19 @@ export function UsuariosManager() {
         accessModules
           .filter((module) => module.id !== "master")
           .map((module) => [module.id, { view: true, manage: current.roles[0] === "CONSULTA" ? false : Boolean(current.permissoesAcesso[module.id]?.manage) }])
-      ) as ModulePermissionMap
+      ) as ModulePermissionMap,
+      empresasAcesso: current.empresasAcesso.map((empresa) =>
+        empresa.padrao
+          ? {
+              ...empresa,
+              permissoesAcesso: Object.fromEntries(
+                accessModules
+                  .filter((module) => module.id !== "master")
+                  .map((module) => [module.id, { view: true, manage: current.roles[0] === "CONSULTA" ? false : Boolean(empresa.permissoesAcesso[module.id]?.manage) }])
+              ) as ModulePermissionMap
+            }
+          : empresa
+      )
     }));
   }
 
@@ -186,14 +285,32 @@ export function UsuariosManager() {
       ...current,
       permissoesAcesso: Object.fromEntries(
         accessModules.map((module) => [module.id, { view: false, manage: false }])
-      ) as ModulePermissionMap
+      ) as ModulePermissionMap,
+      empresasAcesso: current.empresasAcesso.map((empresa) =>
+        empresa.padrao
+          ? {
+              ...empresa,
+              permissoesAcesso: Object.fromEntries(
+                accessModules.map((module) => [module.id, { view: false, manage: false }])
+              ) as ModulePermissionMap
+            }
+          : empresa
+      )
     }));
   }
 
   function restoreBaseProfile() {
     setForm((current) => ({
       ...current,
-      permissoesAcesso: mergeModulePermissions(current.roles)
+      permissoesAcesso: mergeModulePermissions(current.roles),
+      empresasAcesso: current.empresasAcesso.map((empresa) =>
+        empresa.padrao
+          ? {
+              ...empresa,
+              permissoesAcesso: mergeModulePermissions(current.roles)
+            }
+          : empresa
+      )
     }));
   }
 
@@ -205,6 +322,22 @@ export function UsuariosManager() {
   }
 
   function handleEdit(usuario: UsuarioItem) {
+    const empresasAcesso =
+      usuario.empresasAcesso.length > 0
+        ? usuario.empresasAcesso
+        : empresaAtualId
+          ? [
+              {
+                empresaId: empresaAtualId,
+                roleEmpresa: usuario.roleEmpresa,
+                status: usuario.status,
+                padrao: true,
+                modoSomenteLeitura: usuario.modoSomenteLeitura,
+                permissoesAcesso: normalizeModulePermissions(usuario.permissoesAcesso)
+              }
+            ]
+          : [];
+
     setForm({
       id: usuario.id,
       nome: usuario.nome,
@@ -214,16 +347,119 @@ export function UsuariosManager() {
       roleEmpresa: usuario.roleEmpresa,
       roles: usuario.roles,
       modoSomenteLeitura: usuario.modoSomenteLeitura,
-      permissoesAcesso: normalizeModulePermissions(usuario.permissoesAcesso)
+      permissoesAcesso: normalizeModulePermissions(usuario.permissoesAcesso),
+      empresasAcesso
     });
     setSelectedUserId(usuario.id);
     setMessage(`Editando acesso de ${usuario.nome}.`);
   }
 
   function handleReset() {
-    setForm(initialForm);
+    const empresa = empresasDisponiveis.find((item) => item.id === empresaAtualId);
+    setForm({
+      ...initialForm,
+      empresasAcesso: empresaAtualId
+        ? [
+            {
+              empresaId: empresaAtualId,
+              nome: empresa?.nome,
+              nomeFantasia: empresa?.nomeFantasia,
+              razaoSocial: empresa?.razaoSocial,
+              roleEmpresa: initialForm.roleEmpresa,
+              status: "ATIVO",
+              padrao: true,
+              modoSomenteLeitura: initialForm.modoSomenteLeitura,
+              permissoesAcesso: initialForm.permissoesAcesso
+            }
+          ]
+        : []
+    });
     setSelectedUserId(null);
     setMessage("");
+  }
+
+  const filteredEmpresas = useMemo(() => {
+    const normalized = empresaSearch.trim().toLowerCase();
+    const selected = new Set(form.empresasAcesso.map((item) => item.empresaId));
+
+    return empresasDisponiveis
+      .filter((empresa) => !selected.has(empresa.id))
+      .filter((empresa) => {
+        if (!normalized) {
+          return true;
+        }
+
+        return [empresa.nome, empresa.nomeFantasia, empresa.razaoSocial].filter(Boolean).join(" ").toLowerCase().includes(normalized);
+      });
+  }, [empresaSearch, empresasDisponiveis, form.empresasAcesso]);
+
+  function getEmpresaLabel(empresaId: string) {
+    const empresa = empresasDisponiveis.find((item) => item.id === empresaId);
+    return empresa?.nomeFantasia || empresa?.razaoSocial || empresa?.nome || "Empresa";
+  }
+
+  function addEmpresaAcesso(empresa: EmpresaOption) {
+    setForm((current) => ({
+      ...current,
+      empresasAcesso: [
+        ...current.empresasAcesso,
+        {
+          empresaId: empresa.id,
+          nome: empresa.nome,
+          nomeFantasia: empresa.nomeFantasia,
+          razaoSocial: empresa.razaoSocial,
+          roleEmpresa: current.roleEmpresa,
+          status: "ATIVO",
+          padrao: current.empresasAcesso.length === 0,
+          modoSomenteLeitura: current.modoSomenteLeitura,
+          permissoesAcesso: current.permissoesAcesso
+        }
+      ]
+    }));
+    setEmpresaSearch("");
+  }
+
+  function removeEmpresaAcesso(empresaId: string) {
+    setForm((current) => {
+      const next = current.empresasAcesso.filter((item) => item.empresaId !== empresaId);
+      return {
+        ...current,
+        empresasAcesso: next.some((item) => item.padrao) || next.length === 0
+          ? next
+          : next.map((item, index) => ({ ...item, padrao: index === 0 }))
+      };
+    });
+  }
+
+  function updateEmpresaAcesso(empresaId: string, patch: Partial<EmpresaAcessoForm>) {
+    setForm((current) => {
+      const next = current.empresasAcesso.map((item) => {
+        if (item.empresaId !== empresaId) {
+          return patch.padrao ? { ...item, padrao: false } : item;
+        }
+
+        const roleEmpresa = patch.roleEmpresa ?? item.roleEmpresa;
+        const role = baseRoleFromRoleEmpresa(roleEmpresa);
+
+        return {
+          ...item,
+          ...patch,
+          modoSomenteLeitura: patch.modoSomenteLeitura ?? (roleEmpresa === "VISUALIZADOR" ? true : item.modoSomenteLeitura),
+          permissoesAcesso: patch.roleEmpresa ? mergeModulePermissions([role]) : (patch.permissoesAcesso ?? item.permissoesAcesso)
+        };
+      });
+      const defaultEmpresa = next.find((item) => item.padrao) ?? next[0];
+      const defaultRole = defaultEmpresa ? baseRoleFromRoleEmpresa(defaultEmpresa.roleEmpresa) : current.roles[0] ?? "OPERACIONAL";
+
+      return {
+        ...current,
+        roleEmpresa: defaultEmpresa?.roleEmpresa ?? current.roleEmpresa,
+        roles: [defaultRole],
+        modoSomenteLeitura: defaultEmpresa?.modoSomenteLeitura ?? current.modoSomenteLeitura,
+        permissoesAcesso: defaultEmpresa?.permissoesAcesso ?? current.permissoesAcesso,
+        empresasAcesso: next
+      };
+    });
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -245,7 +481,8 @@ export function UsuariosManager() {
           roleEmpresa: form.roleEmpresa,
           roles: form.roles,
           modoSomenteLeitura: form.roles[0] === "CONSULTA",
-          permissoesAcesso: form.permissoesAcesso
+          permissoesAcesso: form.permissoesAcesso,
+          empresasAcesso: form.empresasAcesso
         })
       });
 
@@ -345,6 +582,111 @@ export function UsuariosManager() {
               </select>
             </label>
           </div>
+
+          <section className="surface-subtle" style={{ display: "grid", gap: 14, padding: 16, borderRadius: 18 }}>
+            <div>
+              <h3 className="section-title" style={{ fontSize: 16 }}>Empresas permitidas</h3>
+              <p className="section-copy">
+                O usuario acessa somente a empresa ativa selecionada. Permissoes e funcao podem variar por empresa.
+              </p>
+            </div>
+
+            <label className="field">
+              <span className="field-label">Pesquisar empresas</span>
+              <input
+                className="field-control"
+                value={empresaSearch}
+                onChange={(event) => setEmpresaSearch(event.target.value)}
+                placeholder="Digite nome fantasia ou razao social"
+              />
+            </label>
+
+            {empresaSearch.trim() ? (
+              <div style={{ display: "grid", gap: 8, maxHeight: 180, overflow: "auto" }}>
+                {filteredEmpresas.slice(0, 12).map((empresa) => (
+                  <button
+                    key={empresa.id}
+                    type="button"
+                    className="button-secondary"
+                    onClick={() => addEmpresaAcesso(empresa)}
+                    style={{ justifyContent: "space-between" }}
+                  >
+                    <span>{empresa.nomeFantasia || empresa.razaoSocial || empresa.nome}</span>
+                    <small>Adicionar</small>
+                  </button>
+                ))}
+                {filteredEmpresas.length === 0 ? (
+                  <p className="message-inline">Nenhuma empresa encontrada ou todas ja foram selecionadas.</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div style={{ display: "grid", gap: 10 }}>
+              {form.empresasAcesso.map((empresa) => (
+                <div
+                  key={empresa.empresaId}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(220px, 1fr) 180px 150px 120px auto",
+                    gap: 10,
+                    alignItems: "end",
+                    padding: 12,
+                    border: "1px solid var(--line-soft)",
+                    borderRadius: 16,
+                    background: "var(--surface)"
+                  }}
+                >
+                  <div>
+                    <span className="field-label">Empresa</span>
+                    <strong>{getEmpresaLabel(empresa.empresaId)}</strong>
+                  </div>
+                  <label className="field">
+                    <span className="field-label">Funcao nesta empresa</span>
+                    <select
+                      className="field-control"
+                      value={empresa.roleEmpresa}
+                      onChange={(event) => updateEmpresaAcesso(empresa.empresaId, { roleEmpresa: event.target.value as RoleEmpresa })}
+                    >
+                      {roleEmpresaOptions.map((role) => (
+                        <option key={role.value} value={role.value}>{role.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field">
+                    <span className="field-label">Status do vinculo</span>
+                    <select
+                      className="field-control"
+                      value={empresa.status}
+                      onChange={(event) => updateEmpresaAcesso(empresa.empresaId, { status: event.target.value as StatusCadastro })}
+                    >
+                      <option value="ATIVO">ATIVO</option>
+                      <option value="INATIVO">INATIVO</option>
+                    </select>
+                  </label>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 8, paddingBottom: 12 }}>
+                    <input
+                      type="radio"
+                      name="empresaPadrao"
+                      checked={empresa.padrao}
+                      onChange={() => updateEmpresaAcesso(empresa.empresaId, { padrao: true })}
+                    />
+                    Padrao
+                  </label>
+                  <button
+                    type="button"
+                    className="button-secondary button-compact"
+                    onClick={() => removeEmpresaAcesso(empresa.empresaId)}
+                    disabled={form.empresasAcesso.length <= 1}
+                  >
+                    Remover
+                  </button>
+                </div>
+              ))}
+              {form.empresasAcesso.length === 0 ? (
+                <p className="message-inline">Selecione ao menos uma empresa permitida para este usuario.</p>
+              ) : null}
+            </div>
+          </section>
 
           <section className="surface-subtle" style={{ display: "grid", gap: 16, padding: 16, borderRadius: 18 }}>
             <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(220px, 320px) 1fr" }}>

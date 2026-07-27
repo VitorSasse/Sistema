@@ -413,6 +413,7 @@ model Usuario {
   createdAt                     DateTime              @default(now())
   updatedAt                     DateTime              @updatedAt
   empresa                       Empresa               @relation(fields: [empresaId], references: [id])
+  empresasAcesso                UsuarioEmpresa[]
   roles                         UsuarioRole[]
   fichasCriadas                 Ficha[]               @relation("FichaCriadaPor")
   lancCriados                   LancamentoDiario[]    @relation("LancamentoCriadoPor")
@@ -472,6 +473,7 @@ model Empresa {
   updatedAt                    DateTime                     @updatedAt
   deletedAt                    DateTime?
   usuarios                     Usuario[]
+  usuariosAcesso               UsuarioEmpresa[]
   clientes                     Cliente[]
   obras                        Obra[]
   fornecedores                 Fornecedor[]
@@ -514,6 +516,26 @@ model Empresa {
 
   @@index([status, nome])
   @@index([deletedAt])
+}
+
+model UsuarioEmpresa {
+  id                  String             @id @default(uuid())
+  usuarioId           String
+  empresaId           String
+  roleEmpresa         RoleUsuarioEmpresa @default(OPERADOR)
+  modoSomenteLeitura  Boolean            @default(false)
+  permissoesAcesso    Json               @default("{}")
+  status              StatusCadastro     @default(ATIVO)
+  padrao              Boolean            @default(false)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  usuario             Usuario            @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  empresa             Empresa            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, empresaId])
+  @@index([empresaId, status])
+  @@index([usuarioId, status])
+  @@index([usuarioId, padrao])
 }
 
 model DocumentoCabecalhoConfig {

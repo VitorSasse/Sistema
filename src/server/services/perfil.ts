@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { getRoleEmpresaLabel, type PerfilUsuario } from "@/lib/perfil";
 import { withUnscopedPrisma } from "@/lib/prisma";
+import { getTenantContext } from "@/lib/tenant-store";
 
 export const perfilUsuarioSelect = Prisma.validator<Prisma.UsuarioSelect>()({
   id: true,
@@ -39,12 +40,15 @@ type PerfilUsuarioRecord = Prisma.UsuarioGetPayload<{
 
 export function serializePerfilUsuario(usuario: PerfilUsuarioRecord): PerfilUsuario {
   const { roles, updatedAt, ...perfil } = usuario;
+  const tenant = getTenantContext();
+  const roleEmpresa = tenant?.roleEmpresa ?? usuario.roleEmpresa;
 
   return {
     ...perfil,
+    roleEmpresa,
     fotoPerfilUrl: usuario.fotoPerfilUrl ? `/api/perfil/foto?v=${updatedAt.getTime()}` : null,
     ultimoLoginEm: usuario.ultimoLoginEm?.toISOString() ?? null,
-    roleLabel: getRoleEmpresaLabel(usuario.roleEmpresa),
+    roleLabel: getRoleEmpresaLabel(roleEmpresa),
     permissions: roles.map((item) => item.role.nome)
   };
 }

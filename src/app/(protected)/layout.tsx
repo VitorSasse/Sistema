@@ -10,6 +10,7 @@ import { SidebarScrollArea } from "@/components/layout/sidebar-scroll-area";
 import { hasModuleAccess, hasRoleAccess, requireSession } from "@/lib/auth-guards";
 import type { AccessModule } from "@/lib/permissions";
 import { withUnscopedPrisma } from "@/lib/prisma";
+import { listarEmpresasUsuario } from "@/lib/usuario-empresa";
 import { getPerfilUsuario } from "@/server/services/perfil";
 
 const navigationGroups = [
@@ -95,6 +96,9 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
   const canReadAudit = hasRoleAccess(session.user.roles, "auditoria.read", session.user);
   const canManagePdfs = hasModuleAccess(session.user, "pdfs", "manage");
   const isMaster = session.user.isMaster;
+  const empresasAcesso = isMaster
+    ? []
+    : await withUnscopedPrisma((db) => listarEmpresasUsuario(db, session.user.id));
   const selectedEmpresa = session.user.empresaSelecionadaId
     ? await withUnscopedPrisma((db) =>
         db.empresa.findFirst({
@@ -102,6 +106,13 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
           select: { nome: true, nomeFantasia: true, razaoSocial: true }
         })
       )
+    : !isMaster && session.user.empresaId
+      ? await withUnscopedPrisma((db) =>
+          db.empresa.findFirst({
+            where: { id: session.user.empresaId, status: "ATIVO", deletedAt: null },
+            select: { nome: true, nomeFantasia: true, razaoSocial: true }
+          })
+        )
     : null;
   const companyName = selectedEmpresa
     ? selectedEmpresa.nomeFantasia || selectedEmpresa.razaoSocial || selectedEmpresa.nome
@@ -164,6 +175,13 @@ export default async function ProtectedLayout({ children }: ProtectedLayoutProps
         userAvatarUrl={profile.fotoPerfilUrl}
         companyName={companyName}
         isMaster={isMaster}
+        empresaAtualId={session.user.empresaId}
+        empresasAcesso={empresasAcesso.map((acesso) => ({
+          empresaId: acesso.empresaId,
+          nome: acesso.nome,
+          nomeFantasia: acesso.nomeFantasia,
+          razaoSocial: acesso.razaoSocial
+        }))}
       />
       <div className="admin-content">{children}</div>
     </CollapsibleAdminShell>

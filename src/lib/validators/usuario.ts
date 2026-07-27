@@ -23,6 +23,47 @@ const roleEmpresaSchema = z.enum([
   RoleUsuarioEmpresa.VISUALIZADOR
 ]);
 
+const usuarioEmpresaAcessoSchema = z.object({
+  empresaId: z.string().uuid("Selecione uma empresa valida."),
+  roleEmpresa: roleEmpresaSchema.default(RoleUsuarioEmpresa.OPERADOR),
+  status: z.nativeEnum(StatusCadastro).default(StatusCadastro.ATIVO),
+  padrao: z.boolean().default(false),
+  modoSomenteLeitura: z.boolean().default(false),
+  permissoesAcesso: permissoesAcessoSchema
+});
+
+const empresasAcessoSchema = z
+  .array(usuarioEmpresaAcessoSchema)
+  .optional()
+  .default([])
+  .superRefine((items, ctx) => {
+    const empresas = new Set<string>();
+    let padraoCount = 0;
+
+    for (const [index, item] of items.entries()) {
+      if (empresas.has(item.empresaId)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [index, "empresaId"],
+          message: "Esta empresa ja foi adicionada para o usuario."
+        });
+      }
+
+      empresas.add(item.empresaId);
+
+      if (item.padrao) {
+        padraoCount += 1;
+      }
+    }
+
+    if (items.length > 0 && padraoCount !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Defina exatamente uma empresa padrao."
+      });
+    }
+  });
+
 export const usuarioCreateSchema = z.object({
   nome: z.string().trim().min(3, "Informe o nome do usuario."),
   email: z.string().trim().email("Informe um e-mail valido."),
@@ -36,7 +77,8 @@ export const usuarioCreateSchema = z.object({
   roleEmpresa: roleEmpresaSchema.default(RoleUsuarioEmpresa.OPERADOR),
   roles: rolesSchema,
   modoSomenteLeitura: z.boolean().default(false),
-  permissoesAcesso: permissoesAcessoSchema
+  permissoesAcesso: permissoesAcessoSchema,
+  empresasAcesso: empresasAcessoSchema
 });
 
 export const usuarioUpdateSchema = z.object({
@@ -60,5 +102,6 @@ export const usuarioUpdateSchema = z.object({
   roleEmpresa: roleEmpresaSchema,
   roles: rolesSchema,
   modoSomenteLeitura: z.boolean().default(false),
-  permissoesAcesso: permissoesAcessoSchema
+  permissoesAcesso: permissoesAcessoSchema,
+  empresasAcesso: empresasAcessoSchema
 });

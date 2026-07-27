@@ -25,9 +25,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   return access.run(async (db) => {
     try {
-      const existing = await db.usuario.findFirst({
-        where: { id: usuarioId, empresaId: id },
-        select: { id: true, roleEmpresa: true }
+      const existing = await db.usuarioEmpresa.findUnique({
+        where: {
+          usuarioId_empresaId: {
+            usuarioId,
+            empresaId: id
+          }
+        },
+        select: { id: true, usuarioId: true, roleEmpresa: true }
       });
 
       if (!existing) {
@@ -44,8 +49,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             ...(parsed.data.nome ? { nome: parsed.data.nome.trim() } : {}),
             ...(parsed.data.email ? { email: parsed.data.email.trim().toLowerCase() } : {}),
             ...(parsed.data.status ? { status: parsed.data.status } : {}),
-            roleEmpresa,
             ...(parsed.data.senha ? { senhaHash: await bcrypt.hash(parsed.data.senha, 10) } : {})
+          }
+        });
+
+        await tx.usuarioEmpresa.update({
+          where: {
+            usuarioId_empresaId: {
+              usuarioId,
+              empresaId: id
+            }
+          },
+          data: {
+            roleEmpresa,
+            ...(parsed.data.status ? { status: parsed.data.status } : {})
           }
         });
 

@@ -82,6 +82,7 @@ export async function getCurrentUser(): Promise<CurrentUserContext | null> {
   const isMaster = isMasterRole(usuario.roleEmpresa);
   const tenant = getTenantContext();
   const empresaSelecionadaId = tenant?.empresaSelecionadaId ?? null;
+  const empresaAtivaId = session.user.empresaId || usuario.empresaId;
 
   const empresaContexto =
     isMaster && empresaSelecionadaId
@@ -107,9 +108,32 @@ export async function getCurrentUser(): Promise<CurrentUserContext | null> {
             }
           })
         )
-      : usuario.empresa;
+      : empresaAtivaId !== usuario.empresaId
+        ? await withUnscopedPrisma((db) =>
+            db.empresa.findFirst({
+              where: { id: empresaAtivaId, deletedAt: null },
+              select: {
+                id: true,
+                nome: true,
+                nomeFantasia: true,
+                razaoSocial: true,
+                cnpj: true,
+                email: true,
+                telefone: true,
+                endereco: true,
+                cidade: true,
+                estado: true,
+                cep: true,
+                logoUrl: true,
+                corPrimaria: true,
+                status: true,
+                deletedAt: true
+              }
+            })
+          )
+        : usuario.empresa;
 
-  if (!isMaster && (usuario.empresa.status !== StatusCadastro.ATIVO || usuario.empresa.deletedAt)) {
+  if (!isMaster && (!empresaContexto || empresaContexto.status !== StatusCadastro.ATIVO || empresaContexto.deletedAt)) {
     return null;
   }
 
@@ -117,8 +141,8 @@ export async function getCurrentUser(): Promise<CurrentUserContext | null> {
     id: usuario.id,
     nome: usuario.nome,
     email: usuario.email,
-    empresaId: empresaContexto?.id ?? usuario.empresaId,
-    roleEmpresa: usuario.roleEmpresa,
+    empresaId: empresaContexto?.id ?? empresaAtivaId,
+    roleEmpresa: session.user.roleEmpresa,
     isMaster,
     empresaSelecionadaId: empresaContexto?.id === empresaSelecionadaId ? empresaSelecionadaId : null,
     empresa: {

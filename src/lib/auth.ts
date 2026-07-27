@@ -6,7 +6,13 @@ import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 import { MASTER_EMPRESA_COOKIE } from "@/lib/master-empresa-cookie";
 import { normalizeModulePermissions, type ModulePermissionMap } from "@/lib/permissions";
-import { prisma, withUnscopedPrisma } from "@/lib/prisma";
+import { withUnscopedPrisma } from "@/lib/prisma";
+import {
+  listarEmpresasUsuario,
+  roleLegadaPorRoleEmpresa,
+  selecionarEmpresaUsuario,
+  USUARIO_EMPRESA_COOKIE
+} from "@/lib/usuario-empresa";
 import {
   beginTenantContext,
   resolveTenantContext
@@ -71,6 +77,23 @@ const nextAuth = NextAuth({
                   include: {
                     role: true
                   }
+                },
+                empresasAcesso: {
+                  where: {
+                    status: "ATIVO",
+                    empresa: {
+                      status: "ATIVO",
+                      deletedAt: null
+                    }
+                  },
+                  include: {
+                    empresa: {
+                      select: {
+                        id: true
+                      }
+                    }
+                  },
+                  orderBy: [{ padrao: "desc" }]
                 }
               }
             })
@@ -82,7 +105,9 @@ const nextAuth = NextAuth({
 
           const isMaster = user.roleEmpresa === RoleUsuarioEmpresa.MASTER;
 
-          if (!isMaster && (user.empresa.status !== "ATIVO" || user.empresa.deletedAt)) {
+          const acessoPadrao = user.empresasAcesso[0] ?? null;
+
+          if (!isMaster && !acessoPadrao && (user.empresa.status !== "ATIVO" || user.empresa.deletedAt)) {
             return null;
           }
 
@@ -103,12 +128,12 @@ const nextAuth = NextAuth({
             id: user.id,
             name: user.nome,
             email: user.email,
-            empresaId: user.empresaId,
-            roleEmpresa: user.roleEmpresa,
+            empresaId: acessoPadrao?.empresaId ?? user.empresaId,
+            roleEmpresa: acessoPadrao?.roleEmpresa ?? user.roleEmpresa,
             isMaster,
-            roles: user.roles.map((item) => item.role.codigo),
-            modoSomenteLeitura: user.modoSomenteLeitura,
-            permissoesAcesso: normalizeModulePermissions(user.permissoesAcesso)
+            roles: acessoPadrao ? [roleLegadaPorRoleEmpresa(acessoPadrao.roleEmpresa)] : user.roles.map((item) => item.role.codigo),
+            modoSomenteLeitura: acessoPadrao?.modoSomenteLeitura ?? user.modoSomenteLeitura,
+            permissoesAcesso: normalizeModulePermissions(acessoPadrao?.permissoesAcesso ?? user.permissoesAcesso)
           };
         } catch (error) {
           console.error("[auth] erro no authorize", error);
@@ -177,6 +202,19 @@ async function getEmpresaSelecionadaMaster(isMaster: boolean) {
   }
 }
 
+async function getEmpresaSelecionadaUsuario(isMaster: boolean) {
+  if (isMaster) {
+    return null;
+  }
+
+  try {
+    const cookieStore = await cookies();
+    return cookieStore.get(USUARIO_EMPRESA_COOKIE)?.value ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function auth() {
   const tenantContext = beginTenantContext();
   const session = await nextAuth.auth();
@@ -208,6 +246,26 @@ export async function auth() {
               select: { codigo: true }
             }
           }
+        },
+        empresasAcesso: {
+          where: {
+            status: "ATIVO",
+            empresa: {
+              status: "ATIVO",
+              deletedAt: null
+            }
+          },
+          include: {
+            empresa: {
+              select: {
+                id: true,
+                nome: true,
+                nomeFantasia: true,
+                razaoSocial: true
+              }
+            }
+          },
+          orderBy: [{ padrao: "desc" }, { empresa: { nome: "asc" } }]
         }
       }
     })
@@ -220,7 +278,19 @@ export async function auth() {
 
   const isMaster = usuario.roleEmpresa === RoleUsuarioEmpresa.MASTER;
 
-  if (!isMaster && (!usuario.empresaId || usuario.empresa.status !== "ATIVO" || usuario.empresa.deletedAt)) {
+  const empresaSelecionadaUsuarioCookie = await getEmpresaSelecionadaUsuario(isMaster);
+  const empresasAcesso = isMaster
+    ? []
+    : await withUnscopedPrisma((db) => listarEmpresasUsuario(db, usuario.id));
+  const acessoAtivo = isMaster
+    ? null
+    : selecionarEmpresaUsuario({
+        acessos: empresasAcesso,
+        empresaSelecionadaId: empresaSelecionadaUsuarioCookie,
+        empresaLegadaId: usuario.empresaId
+      });
+
+  if (!isMaster && !acessoAtivo && (!usuario.empresaId || usuario.empresa.status !== "ATIVO" || usuario.empresa.deletedAt)) {
     resolveTenantContext(tenantContext, null);
     return null;
   }
@@ -240,18 +310,18 @@ export async function auth() {
       })
     : null;
 
-  session.user.empresaId = usuario.empresaId;
-  session.user.roleEmpresa = usuario.roleEmpresa;
+  session.user.empresaId = acessoAtivo?.empresaId ?? usuario.empresaId;
+  session.user.roleEmpresa = acessoAtivo?.roleEmpresa ?? usuario.roleEmpresa;
   session.user.isMaster = isMaster;
   session.user.empresaSelecionadaId = empresaSelecionadaId;
-  session.user.roles = usuario.roles.map((item) => item.role.codigo);
-  session.user.modoSomenteLeitura = usuario.modoSomenteLeitura;
-  session.user.permissoesAcesso = normalizeModulePermissions(usuario.permissoesAcesso);
+  session.user.roles = acessoAtivo?.roles ?? usuario.roles.map((item) => item.role.codigo);
+  session.user.modoSomenteLeitura = acessoAtivo?.modoSomenteLeitura ?? usuario.modoSomenteLeitura;
+  session.user.permissoesAcesso = acessoAtivo?.permissoesAcesso ?? normalizeModulePermissions(usuario.permissoesAcesso);
 
   resolveTenantContext(tenantContext, {
     usuarioId: usuario.id,
-    empresaId: usuario.empresaId,
-    roleEmpresa: usuario.roleEmpresa,
+    empresaId: session.user.empresaId,
+    roleEmpresa: session.user.roleEmpresa,
     isMaster,
     empresaSelecionadaId
   });

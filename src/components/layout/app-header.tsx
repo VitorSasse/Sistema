@@ -16,6 +16,7 @@ import {
 import { AppUserMenu } from "@/components/layout/app-user-menu";
 import { MasterCompanySelector } from "@/components/layout/master-company-selector";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { UserCompanySelector } from "@/components/layout/user-company-selector";
 
 type AppHeaderProps = {
   userEmail: string;
@@ -23,6 +24,13 @@ type AppHeaderProps = {
   userAvatarUrl?: string | null;
   companyName?: string | null;
   isMaster?: boolean;
+  empresaAtualId?: string;
+  empresasAcesso?: Array<{
+    empresaId: string;
+    nome: string;
+    nomeFantasia: string | null;
+    razaoSocial: string | null;
+  }>;
 };
 
 type RouteMeta = {
@@ -121,7 +129,9 @@ export function AppHeader({
   userName,
   userAvatarUrl,
   companyName,
-  isMaster = false
+  isMaster = false,
+  empresaAtualId = "",
+  empresasAcesso = []
 }: AppHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -225,6 +235,8 @@ export function AppHeader({
 
         {isMaster ? (
           <MasterCompanySelector />
+        ) : empresasAcesso.length > 1 ? (
+          <UserCompanySelector empresas={empresasAcesso} empresaAtualId={empresaAtualId} />
         ) : companyName ? (
           <div className="app-company-readonly">
             <span>Empresa atual</span>
