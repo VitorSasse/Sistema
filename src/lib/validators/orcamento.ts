@@ -63,6 +63,7 @@ function normalizarUnidadeOperacional(value?: string | null) {
   if (unidade === "t" || unidade.includes("ton")) return "TON";
   if (unidade.includes("carga")) return "CARGA";
   if (unidade.includes("km")) return "KM";
+  if (unidade.includes("viagem")) return "VIAGEM";
   if (unidade.includes("hora") || unidade === "h") return "HORA";
   if (unidade.includes("mes")) return "MES";
   if (unidade.includes("dia")) return "DIA";
@@ -865,13 +866,23 @@ export const orcamentoSchema = z
           });
         }
 
-        const unidadeFrente = normalizarUnidadeOperacional(frente.unidadeProducao);
+        const unidadeOperacional = normalizarUnidadeOperacional(
+          item.unidadeQuantidadeOperacional || frente.unidadeProducao
+        );
         const unidadeCapacidade = normalizarUnidadeOperacional(item.unidadeCapacidade);
-        if (unidadeFrente && unidadeCapacidade && unidadeFrente !== unidadeCapacidade) {
+        if (
+          unidadeOperacional &&
+          unidadeCapacidade &&
+          unidadeOperacional !== "DESCONHECIDA" &&
+          unidadeCapacidade !== "DESCONHECIDA" &&
+          unidadeOperacional !== "KM" &&
+          unidadeOperacional !== "VIAGEM" &&
+          unidadeOperacional !== unidadeCapacidade
+        ) {
           context.addIssue({
             code: z.ZodIssueCode.custom,
             path: ["itens", itemIndex, "unidadeCapacidade"],
-            message: "A unidade da capacidade deve ser compativel com a unidade de producao da frente."
+            message: `Nao e possivel calcular as viagens do recurso "${item.descricao}" porque a quantidade operacional e a capacidade usam unidades diferentes. Ajuste as unidades ou informe uma conversao valida.`
           });
         }
       });

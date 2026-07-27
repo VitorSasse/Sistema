@@ -313,4 +313,101 @@ describe("orcamentoSchema", () => {
       ])
     );
   });
+
+  it("permite frente em m2 com caminhao em m3 quando a quantidade operacional personalizada esta em m3", () => {
+    const payload = {
+      ...baseOrcamento(),
+      frentes: [
+        {
+          tempId: "frente-1",
+          ordem: 1,
+          natureza: "OPERACIONAL",
+          nome: "Limpeza de terreno",
+          unidadeProducao: "m2",
+          quantidadePrevista: 1000,
+          produtividadeDia: 500,
+          prazoEstimadoDias: 2,
+          prazoTeoricoDias: 2,
+          modoCusto: "AUTO",
+          custoManual: 0
+        }
+      ]
+    };
+    payload.itens.push({
+      frenteTempId: "frente-1",
+      tipoItem: "RECURSO",
+      categoriaRecurso: "EQUIPAMENTO",
+      classeOperacional: "CAMINHAO BASCULANTE",
+      recursoNome: "CAMINHAO BASCULANTE 14m3",
+      ordem: 1,
+      descricao: "",
+      unidade: "UN",
+      quantidade: 1,
+      custoUnitario: 8,
+      tipoCalculoRecurso: "AUTOMATICO",
+      unidadeEconomicaCusto: "KM",
+      valorCusto: 8,
+      quantidadeOperacional: 150,
+      origemQuantidadeOperacional: "PERSONALIZADA",
+      unidadeQuantidadeOperacional: "m3",
+      capacidadePorViagem: 14,
+      unidadeCapacidade: "m3",
+      distanciaViagemKm: 26,
+      valorUnitario: 0
+    });
+
+    expect(orcamentoSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it("bloqueia transporte quando quantidade operacional e capacidade usam unidades incompativeis", () => {
+    const payload = {
+      ...baseOrcamento(),
+      frentes: [
+        {
+          tempId: "frente-1",
+          ordem: 1,
+          natureza: "OPERACIONAL",
+          nome: "Transporte",
+          unidadeProducao: "m2",
+          quantidadePrevista: 1000,
+          modoCusto: "AUTO",
+          custoManual: 0
+        }
+      ]
+    };
+    payload.itens.push({
+      frenteTempId: "frente-1",
+      tipoItem: "RECURSO",
+      categoriaRecurso: "EQUIPAMENTO",
+      classeOperacional: "CAMINHAO BASCULANTE",
+      recursoNome: "CAMINHAO BASCULANTE",
+      ordem: 1,
+      descricao: "",
+      unidade: "UN",
+      quantidade: 1,
+      custoUnitario: 8,
+      tipoCalculoRecurso: "AUTOMATICO",
+      unidadeEconomicaCusto: "KM",
+      valorCusto: 8,
+      quantidadeOperacional: 150,
+      origemQuantidadeOperacional: "PERSONALIZADA",
+      unidadeQuantidadeOperacional: "m3",
+      capacidadePorViagem: 14,
+      unidadeCapacidade: "ton",
+      distanciaViagemKm: 26,
+      valorUnitario: 0
+    });
+
+    const result = orcamentoSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: ["itens", 0, "unidadeCapacidade"],
+          message: expect.stringContaining("quantidade operacional e a capacidade usam unidades diferentes")
+        })
+      ])
+    );
+  });
 });
