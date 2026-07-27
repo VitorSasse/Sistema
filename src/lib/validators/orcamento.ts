@@ -103,11 +103,182 @@ function resolveDescricaoItemOrcamento(item: Record<string, unknown>) {
   return descricao;
 }
 
+function toFiniteNumber(value: unknown) {
+  const parsed = parseDecimalInput(value);
+  return Number.isFinite(parsed) ? Number(parsed) : 0;
+}
+
+function getFrenteRefs(frente: Record<string, unknown>) {
+  const refs: string[] = [];
+  const tempId = trimString(frente.tempId);
+  const ordem = toFiniteNumber(frente.ordem);
+
+  if (tempId) {
+    refs.push(`temp:${tempId}`);
+  }
+
+  if (ordem > 0) {
+    refs.push(`ordem:${ordem}`);
+  }
+
+  return refs;
+}
+
+function getItemFrenteKey(item: Record<string, unknown>) {
+  const frenteTempId = trimString(item.frenteTempId);
+  const frenteOrdem = toFiniteNumber(item.frenteOrdem);
+
+  if (frenteTempId) {
+    return `temp:${frenteTempId}`;
+  }
+
+  if (frenteOrdem > 0) {
+    return `ordem:${frenteOrdem}`;
+  }
+
+  return "";
+}
+
+function getPrazoUtilizadoFrenteRecord(frente?: Record<string, unknown> | null) {
+  if (!frente) {
+    return 0;
+  }
+
+  return (
+    toFiniteNumber(frente.prazoAdotadoDias) ||
+    toFiniteNumber(frente.prazoEstimadoDias) ||
+    toFiniteNumber(frente.prazoTeoricoDias)
+  );
+}
+
+function getViagensOperacionaisDerivadas(
+  item: Record<string, unknown>,
+  frente?: Record<string, unknown> | null
+) {
+  const viagensInformadas =
+    toFiniteNumber(item.viagensTotais) || toFiniteNumber(item.cargasTotais);
+
+  if (viagensInformadas > 0) {
+    return viagensInformadas;
+  }
+
+  const quantidade =
+    toFiniteNumber(item.quantidadeOperacional) || toFiniteNumber(frente?.quantidadePrevista);
+  const capacidade = toFiniteNumber(item.capacidadePorViagem);
+
+  if (quantidade > 0 && capacidade > 0) {
+    return Math.ceil(quantidade / capacidade);
+  }
+
+  return 0;
+}
+
+function resolveOperationalQuantityForValidation(
+  item: Record<string, unknown>,
+  frente?: Record<string, unknown> | null
+) {
+  if (trimString(item.tipoItem) !== TipoItemOrcamento.RECURSO) {
+    return null;
+  }
+
+  const quantidadeFrente = toFiniteNumber(frente?.quantidadePrevista);
+  const prazoUtilizado = getPrazoUtilizadoFrenteRecord(frente);
+  const unidadeFrente = trimString(frente?.unidadeProducao) || trimString(item.unidade);
+  const base = trimString(item.unidadeEconomicaCusto) || UnidadeEconomicaCusto.CUSTO_FIXO;
+
+  switch (base) {
+    case UnidadeEconomicaCusto.DIA:
+      return { quantidade: prazoUtilizado, unidade: "dias" };
+    case UnidadeEconomicaCusto.HORA: {
+      const horas =
+        toFiniteNumber(item.horasTotais) ||
+        (prazoUtilizado > 0 ? prazoUtilizado * (toFiniteNumber(item.horasDia) || 8) : 0);
+      return { quantidade: horas, unidade: "h" };
+    }
+    case UnidadeEconomicaCusto.KM: {
+      const quilometros =
+        toFiniteNumber(item.quilometrosTotais) ||
+        getViagensOperacionaisDerivadas(item, frente) * toFiniteNumber(item.distanciaViagemKm);
+      return { quantidade: quilometros, unidade: "km" };
+    }
+    case UnidadeEconomicaCusto.VIAGEM:
+      return {
+        quantidade: getViagensOperacionaisDerivadas(item, frente),
+        unidade: "viagens"
+      };
+    case UnidadeEconomicaCusto.CARGA:
+      return { quantidade: toFiniteNumber(item.cargasTotais), unidade: "cargas" };
+    case UnidadeEconomicaCusto.MES: {
+      const meses =
+        toFiniteNumber(item.mesesTotais) ||
+        (unidadeFrente.toLowerCase().includes("mes") ? quantidadeFrente : 0);
+      return { quantidade: meses, unidade: "meses" };
+    }
+    case UnidadeEconomicaCusto.M3:
+      return { quantidade: quantidadeFrente, unidade: "m3" };
+    case UnidadeEconomicaCusto.M2:
+      return { quantidade: quantidadeFrente, unidade: "m2" };
+    case UnidadeEconomicaCusto.UNIDADE_PRODUZIDA:
+      return { quantidade: quantidadeFrente, unidade: unidadeFrente || "unidade" };
+    case UnidadeEconomicaCusto.UNIDADE:
+      return { quantidade: toFiniteNumber(item.quantidade), unidade: "unidades" };
+    case UnidadeEconomicaCusto.VALOR_TOTAL:
+      return { quantidade: 1, unidade: "valor total" };
+    case UnidadeEconomicaCusto.CUSTO_FIXO:
+    default:
+      return { quantidade: toFiniteNumber(item.quantidade), unidade: "recursos" };
+  }
+}
+
+function normalizeOperationalResourceForValidation(
+  item: Record<string, unknown>,
+  frente?: Record<string, unknown> | null
+) {
+  if (trimString(item.tipoItem) !== TipoItemOrcamento.RECURSO) {
+    return item;
+  }
+
+  const automatic = resolveOperationalQuantityForValidation(item, frente);
+  const origem = trimString(item.origemQuantidadeOperacional);
+  const unidadeAtual = trimString(item.unidadeQuantidadeOperacional);
+  const quantidadeAtual = toFiniteNumber(item.quantidadeOperacional);
+  const quantidadeAutomatica = automatic?.quantidade ?? 0;
+  const isLegacyAutomaticAsPersonalizada =
+    origem === OrigemQuantidadeOperacional.PERSONALIZADA &&
+    !unidadeAtual &&
+    quantidadeAutomatica > 0 &&
+    (quantidadeAtual <= 0 || Math.abs(quantidadeAtual - quantidadeAutomatica) < 0.0001);
+  const shouldUseAutomatic =
+    origem !== OrigemQuantidadeOperacional.PERSONALIZADA || isLegacyAutomaticAsPersonalizada;
+
+  if (!shouldUseAutomatic) {
+    return item;
+  }
+
+  return {
+    ...item,
+    origemQuantidadeOperacional: OrigemQuantidadeOperacional.FRENTE,
+    quantidadeOperacional: quantidadeAutomatica > 0 ? quantidadeAutomatica : item.quantidadeOperacional,
+    unidadeQuantidadeOperacional: automatic?.unidade || unidadeAtual
+  };
+}
+
 export function normalizeOrcamentoPayloadForValidation(value: unknown) {
   const payload = asRecord(value);
 
   if (!payload) {
     return value;
+  }
+
+  const frentes = Array.isArray(payload.frentes)
+    ? payload.frentes.map(asRecord).filter((frente): frente is Record<string, unknown> => Boolean(frente))
+    : [];
+  const frenteByRef = new Map<string, Record<string, unknown>>();
+
+  for (const frente of frentes) {
+    for (const ref of getFrenteRefs(frente)) {
+      frenteByRef.set(ref, frente);
+    }
   }
 
   const itens = Array.isArray(payload.itens)
@@ -119,7 +290,7 @@ export function normalizeOrcamentoPayloadForValidation(value: unknown) {
         }
 
         return {
-          ...record,
+          ...normalizeOperationalResourceForValidation(record, frenteByRef.get(getItemFrenteKey(record))),
           descricao: resolveDescricaoItemOrcamento(record)
         };
       })
@@ -400,7 +571,18 @@ const orcamentoItemSchema = z.object({
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["unidadeQuantidadeOperacional"],
-      message: "Informe a unidade da quantidade operacional personalizada."
+      message: "Informe a unidade da quantidade operacional personalizada para o recurso."
+    });
+  }
+
+  if (
+    item.origemQuantidadeOperacional !== OrigemQuantidadeOperacional.PERSONALIZADA &&
+    !item.unidadeQuantidadeOperacional?.trim()
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["unidadeQuantidadeOperacional"],
+      message: `Nao foi possivel determinar automaticamente a unidade operacional do recurso "${item.descricao}". Revise a base de calculo.`
     });
   }
 

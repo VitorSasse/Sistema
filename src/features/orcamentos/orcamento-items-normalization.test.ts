@@ -72,9 +72,32 @@ function makeItem(overrides: Partial<ItemInput> = {}): ItemInput {
 
 function makeForm(itens: ItemInput[]) {
   return {
-    frentes: [{ localId: "frente-1" }],
+    frentes: [makeFrente()],
     itens
   } as Parameters<typeof validateItemsBeforeSubmit>[0];
+}
+
+function makeFrente(overrides: Record<string, unknown> = {}) {
+  return {
+    localId: "frente-1",
+    cenarioTempId: "cenario-1",
+    ordem: 1,
+    natureza: "OPERACIONAL" as const,
+    nome: "Frente 1",
+    descricao: "",
+    metodoExecutivo: "",
+    unidadeProducao: "m3",
+    quantidadePrevista: "100",
+    produtividadeDia: "",
+    prazoEstimadoDias: "3",
+    prazoTeoricoDias: "3",
+    prazoAdotadoDias: "",
+    origemPrazo: "AUTOMATICO" as const,
+    modoCusto: "AUTO" as const,
+    custoManual: "0",
+    observacao: "",
+    ...overrides
+  };
 }
 
 describe("normalizacao dos itens do orcamento", () => {
@@ -187,6 +210,74 @@ describe("normalizacao dos itens do orcamento", () => {
 
     expect(Object.values(validation.errors)).toContain(
       "Item 1: o recurso nao possui identificacao valida. Selecione novamente o recurso."
+    );
+  });
+
+  it("resolve quantidade e unidade operacional automatica para recurso por dia", () => {
+    const itens = normalizeItemsForPayload(
+      [
+        makeItem({
+          tipoItem: "RECURSO",
+          descricao: "",
+          recursoNome: "ESCAVADEIRA 15 TON",
+          quantidade: "1",
+          origemQuantidadeOperacional: "FRENTE",
+          unidadeQuantidadeOperacional: "",
+          unidadeEconomicaCusto: "DIA",
+          valorCusto: "900",
+          custoUnitario: "900"
+        })
+      ],
+      [makeFrente()]
+    );
+
+    expect(itens).toHaveLength(1);
+    expect(itens[0].quantidadeOperacional).toBe("3");
+    expect(itens[0].unidadeQuantidadeOperacional).toBe("dias");
+    expect(itens[0].origemQuantidadeOperacional).toBe("FRENTE");
+  });
+
+  it("permite salvar recurso personalizado com unidade operacional informada", () => {
+    const validation = validateItemsBeforeSubmit(
+      makeForm([
+        makeItem({
+          tipoItem: "RECURSO",
+          descricao: "",
+          recursoNome: "ESCAVADEIRA 15 TON",
+          quantidade: "1",
+          quantidadeOperacional: "10",
+          origemQuantidadeOperacional: "PERSONALIZADA",
+          unidadeQuantidadeOperacional: "h",
+          unidadeEconomicaCusto: "DIA",
+          valorCusto: "900",
+          custoUnitario: "900"
+        })
+      ])
+    );
+
+    expect(validation.errors).toEqual({});
+  });
+
+  it("bloqueia recurso personalizado sem unidade operacional", () => {
+    const validation = validateItemsBeforeSubmit(
+      makeForm([
+        makeItem({
+          tipoItem: "RECURSO",
+          descricao: "",
+          recursoNome: "ESCAVADEIRA 15 TON",
+          quantidade: "1",
+          quantidadeOperacional: "10",
+          origemQuantidadeOperacional: "PERSONALIZADA",
+          unidadeQuantidadeOperacional: "",
+          unidadeEconomicaCusto: "DIA",
+          valorCusto: "900",
+          custoUnitario: "900"
+        })
+      ])
+    );
+
+    expect(Object.values(validation.errors)).toContain(
+      "Item 1: informe a unidade da quantidade operacional personalizada para o recurso."
     );
   });
 });

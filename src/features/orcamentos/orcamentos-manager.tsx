@@ -5839,7 +5839,7 @@ function buildPayload(
   form: OrcamentoForm,
   previewCalculado?: ReturnType<typeof buildEconomicPreview>
 ) {
-  const itensPreenchidos = normalizeItemsForPayload(form.itens).filter(isItemPreenchido);
+  const itensPreenchidos = normalizeItemsForPayload(form.itens, form.frentes).filter(isItemPreenchido);
   const itensValidos =
     form.frentes.length > 0
       ? itensPreenchidos.filter((item) => Boolean(item.frenteTempId))
@@ -5978,9 +5978,7 @@ function mapItemPayload(item: ItemForm) {
       recurso && item.quantidadeOperacional ? Number(item.quantidadeOperacional) : null,
     origemQuantidadeOperacional: recurso ? item.origemQuantidadeOperacional : "FRENTE",
     unidadeQuantidadeOperacional:
-      recurso && item.origemQuantidadeOperacional === "PERSONALIZADA"
-        ? item.unidadeQuantidadeOperacional.trim() || null
-        : null,
+      recurso ? item.unidadeQuantidadeOperacional.trim() || null : null,
     produtividade: recurso ? null : item.produtividade ? Number(item.produtividade) : null,
     custoUnitario: recurso ? Number(item.custoUnitario) || 0 : Number(item.custoUnitario) || 0,
     tipoCalculoRecurso: item.tipoCalculoRecurso,
@@ -6053,7 +6051,111 @@ function buildFormacaoPayload(
   return payload;
 }
 
-function normalizeItemForPayload(item: ItemForm): ItemForm {
+function toFiniteNumber(value: string | number | null | undefined) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatOperationalPayloadNumber(value: number) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return "";
+  }
+
+  return String(Math.round(value * 10000) / 10000);
+}
+
+function getPrazoUtilizadoFrente(frente?: Pick<FrenteForm, "prazoAdotadoDias" | "prazoEstimadoDias" | "prazoTeoricoDias"> | null) {
+  if (!frente) {
+    return 0;
+  }
+
+  return (
+    toFiniteNumber(frente.prazoAdotadoDias) ||
+    toFiniteNumber(frente.prazoEstimadoDias) ||
+    toFiniteNumber(frente.prazoTeoricoDias)
+  );
+}
+
+function getFrenteByItem(item: ItemForm, frentes: FrenteForm[]) {
+  return frentes.find((frente) => frente.localId === item.frenteTempId);
+}
+
+function getViagensOperacionaisDerivadas(item: ItemForm, frente?: Pick<FrenteForm, "quantidadePrevista"> | null) {
+  const viagensInformadas =
+    toFiniteNumber(item.viagensTotais) || toFiniteNumber(item.cargasTotais);
+
+  if (viagensInformadas > 0) {
+    return viagensInformadas;
+  }
+
+  const quantidade = toFiniteNumber(item.quantidadeOperacional) || toFiniteNumber(frente?.quantidadePrevista);
+  const capacidade = toFiniteNumber(item.capacidadePorViagem);
+
+  if (quantidade > 0 && capacidade > 0) {
+    return Math.ceil(quantidade / capacidade);
+  }
+
+  return 0;
+}
+
+function resolveAutomaticOperationalQuantity(
+  item: ItemForm,
+  frente?: Pick<
+    FrenteForm,
+    "quantidadePrevista" | "unidadeProducao" | "prazoAdotadoDias" | "prazoEstimadoDias" | "prazoTeoricoDias"
+  > | null
+) {
+  if (!isRecursoItem(item) || item.origemQuantidadeOperacional === "PERSONALIZADA") {
+    return null;
+  }
+
+  const quantidadeFrente = toFiniteNumber(frente?.quantidadePrevista);
+  const prazoUtilizado = getPrazoUtilizadoFrente(frente);
+  const unidadeFrente = frente?.unidadeProducao?.trim() || item.unidade.trim();
+  const base = item.unidadeEconomicaCusto || "CUSTO_FIXO";
+
+  switch (base) {
+    case "DIA":
+      return { quantidade: prazoUtilizado, unidade: "dias" };
+    case "HORA": {
+      const horas =
+        toFiniteNumber(item.horasTotais) ||
+        (prazoUtilizado > 0 ? prazoUtilizado * (toFiniteNumber(item.horasDia) || 8) : 0);
+      return { quantidade: horas, unidade: "h" };
+    }
+    case "KM": {
+      const quilometros =
+        toFiniteNumber(item.quilometrosTotais) ||
+        getViagensOperacionaisDerivadas(item, frente) * toFiniteNumber(item.distanciaViagemKm);
+      return { quantidade: quilometros, unidade: "km" };
+    }
+    case "VIAGEM":
+      return { quantidade: getViagensOperacionaisDerivadas(item, frente), unidade: "viagens" };
+    case "CARGA":
+      return { quantidade: toFiniteNumber(item.cargasTotais), unidade: "cargas" };
+    case "MES": {
+      const meses =
+        toFiniteNumber(item.mesesTotais) ||
+        (unidadeFrente.toLowerCase().includes("mes") ? quantidadeFrente : 0);
+      return { quantidade: meses, unidade: "meses" };
+    }
+    case "M3":
+      return { quantidade: quantidadeFrente, unidade: "m3" };
+    case "M2":
+      return { quantidade: quantidadeFrente, unidade: "m2" };
+    case "UNIDADE_PRODUZIDA":
+      return { quantidade: quantidadeFrente, unidade: unidadeFrente || "unidade" };
+    case "UNIDADE":
+      return { quantidade: toFiniteNumber(item.quantidade), unidade: "unidades" };
+    case "VALOR_TOTAL":
+      return { quantidade: 1, unidade: "valor total" };
+    case "CUSTO_FIXO":
+    default:
+      return { quantidade: toFiniteNumber(item.quantidade), unidade: "recursos" };
+  }
+}
+
+function normalizeItemForPayload(item: ItemForm, frentes: FrenteForm[] = []): ItemForm {
   const normalized: ItemForm = {
     ...item,
     frenteTempId: item.frenteTempId.trim(),
@@ -6075,9 +6177,24 @@ function normalizeItemForPayload(item: ItemForm): ItemForm {
   };
 
   if (isRecursoItem(normalized)) {
+    const frente = getFrenteByItem(normalized, frentes);
+    const automaticQuantity = resolveAutomaticOperationalQuantity(normalized, frente);
+
     return {
       ...normalized,
-      descricao: getResourceDescricaoResolvida(normalized)
+      descricao: getResourceDescricaoResolvida(normalized),
+      origemQuantidadeOperacional:
+        normalized.origemQuantidadeOperacional === "PERSONALIZADA"
+          ? "PERSONALIZADA"
+          : "FRENTE",
+      quantidadeOperacional:
+        normalized.origemQuantidadeOperacional === "PERSONALIZADA"
+          ? normalized.quantidadeOperacional
+          : formatOperationalPayloadNumber(automaticQuantity?.quantidade ?? 0),
+      unidadeQuantidadeOperacional:
+        normalized.origemQuantidadeOperacional === "PERSONALIZADA"
+          ? normalized.unidadeQuantidadeOperacional
+          : automaticQuantity?.unidade ?? normalized.unidadeQuantidadeOperacional
     };
   }
 
@@ -6090,8 +6207,8 @@ function normalizeItemForPayload(item: ItemForm): ItemForm {
   };
 }
 
-export function normalizeItemsForPayload(itens: ItemForm[]) {
-  return reordenarItens(itens.map(normalizeItemForPayload).filter(isItemPreenchido));
+export function normalizeItemsForPayload(itens: ItemForm[], frentes: FrenteForm[] = []) {
+  return reordenarItens(itens.map((item) => normalizeItemForPayload(item, frentes)).filter(isItemPreenchido));
 }
 
 function getResourceDescricaoResolvida(item: Pick<ItemForm, "descricao" | "recursoNome" | "classeOperacional" | "recursoReferenciaId">) {
@@ -6161,7 +6278,7 @@ function isItemPreenchido(item: ItemForm) {
 
 export function validateItemsBeforeSubmit(form: Pick<OrcamentoForm, "frentes" | "itens">) {
   const errors: Record<string, string> = {};
-  const normalizedItems = normalizeItemsForPayload(form.itens);
+  const normalizedItems = normalizeItemsForPayload(form.itens, form.frentes);
   const itensValidos =
     form.frentes.length > 0
       ? normalizedItems.filter((item) => Boolean(item.frenteTempId))
@@ -6174,6 +6291,26 @@ export function validateItemsBeforeSubmit(form: Pick<OrcamentoForm, "frentes" | 
       errors[item.localId] = isRecursoItem(item)
         ? `Item ${item.ordem}: o recurso nao possui identificacao valida. Selecione novamente o recurso.`
         : `Item ${item.ordem}: informe uma descricao com pelo menos 2 caracteres.`;
+      return;
+    }
+
+    if (
+      isRecursoItem(item) &&
+      item.origemQuantidadeOperacional === "PERSONALIZADA" &&
+      !item.unidadeQuantidadeOperacional.trim()
+    ) {
+      errors[item.localId] =
+        `Item ${item.ordem}: informe a unidade da quantidade operacional personalizada para o recurso.`;
+      return;
+    }
+
+    if (
+      isRecursoItem(item) &&
+      item.origemQuantidadeOperacional !== "PERSONALIZADA" &&
+      !item.unidadeQuantidadeOperacional.trim()
+    ) {
+      errors[item.localId] =
+        `Item ${item.ordem}: nao foi possivel resolver a unidade operacional automaticamente do recurso "${descricao}". Revise a base de calculo.`;
     }
   });
 
@@ -6426,7 +6563,7 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
               valorUnitario: toStringValue(orcamentoItem.valorUnitario),
               observacao: orcamentoItem.observacao ?? ""
             };
-          }))
+          }), frentes)
         : [
             createEmptyItem(
               frentes[0]?.natureza === "OPERACIONAL" ? "SERVICO_PRINCIPAL" : "COMERCIAL",

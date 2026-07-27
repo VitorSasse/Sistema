@@ -231,4 +231,86 @@ describe("orcamentoSchema", () => {
       ])
     );
   });
+
+  it("normaliza unidade operacional automatica por dia antes da validacao", () => {
+    const payload = {
+      ...baseOrcamento(),
+      frentes: [
+        {
+          tempId: "frente-1",
+          ordem: 1,
+          natureza: "OPERACIONAL",
+          nome: "Frente 1",
+          unidadeProducao: "m3",
+          quantidadePrevista: 100,
+          produtividadeDia: 33.33,
+          prazoEstimadoDias: 3,
+          prazoTeoricoDias: 3,
+          prazoAdotadoDias: null,
+          modoCusto: "AUTO",
+          custoManual: 0
+        }
+      ]
+    };
+    payload.itens.push({
+      frenteTempId: "frente-1",
+      tipoItem: "RECURSO",
+      categoriaRecurso: "EQUIPAMENTO",
+      classeOperacional: "ESCAVADEIRA",
+      recursoNome: "ESCAVADEIRA 15 TON",
+      ordem: 1,
+      descricao: "",
+      unidade: "UN",
+      quantidade: 1,
+      custoUnitario: 900,
+      tipoCalculoRecurso: "AUTOMATICO",
+      unidadeEconomicaCusto: "DIA",
+      valorCusto: 900,
+      quantidadeOperacional: null,
+      origemQuantidadeOperacional: "FRENTE",
+      unidadeQuantidadeOperacional: null,
+      valorUnitario: 0
+    });
+
+    const result = orcamentoSchema.safeParse(payload);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.itens[0]?.quantidadeOperacional).toBe(3);
+    expect(result.data?.itens[0]?.unidadeQuantidadeOperacional).toBe("dias");
+    expect(result.data?.itens[0]?.origemQuantidadeOperacional).toBe("FRENTE");
+  });
+
+  it("bloqueia somente recurso realmente personalizado sem unidade operacional", () => {
+    const payload = baseOrcamento();
+    payload.itens.push({
+      tipoItem: "RECURSO",
+      categoriaRecurso: "EQUIPAMENTO",
+      classeOperacional: "ESCAVADEIRA",
+      recursoNome: "ESCAVADEIRA 15 TON",
+      ordem: 1,
+      descricao: "",
+      unidade: "UN",
+      quantidade: 1,
+      custoUnitario: 900,
+      tipoCalculoRecurso: "AUTOMATICO",
+      unidadeEconomicaCusto: "DIA",
+      valorCusto: 900,
+      quantidadeOperacional: 10,
+      origemQuantidadeOperacional: "PERSONALIZADA",
+      unidadeQuantidadeOperacional: "",
+      valorUnitario: 0
+    });
+
+    const result = orcamentoSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: ["itens", 0, "unidadeQuantidadeOperacional"],
+          message: "Informe a unidade da quantidade operacional personalizada para o recurso."
+        })
+      ])
+    );
+  });
 });
