@@ -105,8 +105,12 @@ export function useLancamentos() {
     try {
       const data = await carregarOpcoesLancamento();
       setOptions({
-        clientes: data.clientes.filter((item) => item.status === "ATIVO"),
-        obras: data.obras.filter((item) => item.status === "ATIVO"),
+        clientes: data.clientes.filter((item) =>
+          item.status === "ATIVO" || item.status === "PROSPECTO"
+        ),
+        obras: data.obras.filter((item) =>
+          item.status === "ATIVO" || item.status === "PROVISORIA"
+        ),
         servicos: data.servicos.filter(
           (item) => item.status === "ATIVO" && item.usarEmFichas !== false
         ),

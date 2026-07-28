@@ -16,7 +16,7 @@ type Option = {
   nome?: string;
   tipoServico?: string;
   descricao?: string;
-  status: "ATIVO" | "INATIVO";
+  status: string;
   clienteId?: string;
   placaOuTag?: string;
 };

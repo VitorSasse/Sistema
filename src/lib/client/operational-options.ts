@@ -18,7 +18,7 @@ export type OperationalOption = {
   custoPadrao?: string | number | null;
   permitirEdicaoOrcamento?: boolean;
   caracteristicasTecnicas?: Record<string, unknown> | null;
-  status: "ATIVO" | "INATIVO";
+  status: string;
   clienteId?: string;
   liberadaParaLancamento?: boolean;
   natureza?: string;

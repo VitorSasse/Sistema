@@ -253,7 +253,10 @@ export async function POST(request: NextRequest) {
     prisma.colaborador.findUnique({ where: { id: parsed.data.colaboradorId } })
   ]);
 
-  if (!cliente || cliente.status !== StatusCadastro.ATIVO) {
+  if (
+    !cliente ||
+    (cliente.status !== StatusCadastro.ATIVO && cliente.status !== StatusCadastro.PROSPECTO)
+  ) {
     return NextResponse.json({ message: "Cliente invalido ou inativo." }, { status: 400 });
   }
 
@@ -262,7 +265,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "A obra nao pertence ao cliente selecionado." }, { status: 400 });
     }
 
-    if (obra.status !== StatusCadastro.ATIVO || !obra.liberadaParaLancamento) {
+    if (
+      (obra.status !== StatusCadastro.ATIVO && obra.status !== StatusCadastro.PROVISORIA) ||
+      !obra.liberadaParaLancamento
+    ) {
       return NextResponse.json(
         { message: "A obra esta inativa ou bloqueada para lancamento." },
         { status: 400 }
