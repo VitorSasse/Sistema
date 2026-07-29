@@ -1,9 +1,8 @@
-import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatDateInputValue } from "@/lib/utils/date";
 import { formatCurrency } from "@/lib/utils/formatters";
 import { formatServicoDisplay } from "@/lib/utils/servico-display";
 import { formatUnidade, type UnidadeFaturada } from "@/lib/utils/unidades";
-import type { EmpresaRelatorioPdf } from "@/server/pdf/empresa-relatorio";
 
 export type MedicaoPdfTipo = "DETALHADO" | "RESUMIDO";
 
@@ -32,8 +31,6 @@ type MedicaoPdfProps = {
   permutaPercentual: string | number;
   itens: MedicaoPdfItem[];
   tipoRelatorio: MedicaoPdfTipo;
-  logoPath?: string | null;
-  empresaRelatorio?: EmpresaRelatorioPdf;
 };
 
 const styles = StyleSheet.create({
@@ -46,32 +43,6 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 16,
-  },
-  headerBrand: {
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  logo: {
-    width: 220,
-    height: 74,
-    objectFit: "contain",
-  },
-  title: {
-    marginTop: 12,
-    fontSize: 16,
-    textAlign: "center",
-  },
-  subtitle: {
-    marginTop: 3,
-    fontSize: 10,
-    textAlign: "center",
-  },
-  companyInfo: {
-    marginTop: 8,
-    gap: 2,
-    fontSize: 8,
-    color: "#36322d",
-    textAlign: "center",
   },
   metaRow: {
     flexDirection: "row",
@@ -269,24 +240,6 @@ export function MedicaoPdfDocument(props: MedicaoPdfProps) {
     <Document>
       <Page size="A4" orientation={isDetalhado ? "landscape" : "portrait"} style={styles.page}>
         <View style={styles.header}>
-          <View style={styles.headerBrand}>
-            {props.logoPath ? <Image style={styles.logo} src={props.logoPath} /> : null}
-            <Text style={styles.title}>
-              Relatorio de Medicao {isDetalhado ? "Detalhado" : "Resumido"}
-            </Text>
-            <Text style={styles.subtitle}>Documento de conferencia de medicao</Text>
-            {props.empresaRelatorio ? (
-              <View style={styles.companyInfo}>
-                <Text>{props.empresaRelatorio.nome}</Text>
-                <Text>CNPJ: {props.empresaRelatorio.cnpj}</Text>
-                <Text>{props.empresaRelatorio.endereco}</Text>
-                <Text>{props.empresaRelatorio.cidadeUfCep}</Text>
-                <Text>
-                  {props.empresaRelatorio.telefones} | {props.empresaRelatorio.email}
-                </Text>
-              </View>
-            ) : null}
-          </View>
           <View style={styles.metaRow}>
             <Text>Codigo: {props.codigoMedicao}</Text>
             <Text>Status: {props.status}</Text>

@@ -3,9 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
-import { resolveDocumentoCabecalhoPdf } from "@/server/pdf/documento-cabecalho";
 import { MedicaoPdfDocument, type MedicaoPdfTipo } from "@/server/pdf/medicao-pdf";
-import { resolveReportLogoSource } from "@/server/pdf/report-logo";
 
 export const runtime = "nodejs";
 
@@ -80,33 +78,30 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ message: "Selecione uma empresa para gerar o PDF." }, { status: 409 });
   }
 
-  const [medicao, cabecalho] = await Promise.all([
-    prisma.medicao.findFirst({
-      where: {
-        id,
-        deletedAt: null
-      },
-      include: {
-        cliente: {
-          select: {
-            nome: true
-          }
-        },
-        obra: {
-          select: {
-            nome: true
-          }
-        },
-        itens: {
-          where: {
-            deletedAt: null
-          },
-          orderBy: [{ data: "asc" }, { createdAt: "asc" }]
+  const medicao = await prisma.medicao.findFirst({
+    where: {
+      id,
+      deletedAt: null
+    },
+    include: {
+      cliente: {
+        select: {
+          nome: true
         }
+      },
+      obra: {
+        select: {
+          nome: true
+        }
+      },
+      itens: {
+        where: {
+          deletedAt: null
+        },
+        orderBy: [{ data: "asc" }, { createdAt: "asc" }]
       }
-    }),
-    resolveDocumentoCabecalhoPdf(prisma, empresaId, "MEDICAO")
-  ]);
+    }
+  });
 
   if (!medicao) {
     return NextResponse.json({ message: "Medicao nao encontrada." }, { status: 404 });
@@ -148,8 +143,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       descontoValor: Number(medicao.descontoValor ?? 0),
       permutaPercentual: Number(medicao.permutaPercentual ?? 0),
       tipoRelatorio,
-      logoPath: resolveReportLogoSource(cabecalho.logoUrl),
-      empresaRelatorio: cabecalho.empresaRelatorio,
       itens: medicao.itens.map((item) => ({
         ...item,
         quantidadeFaturada: Number(item.quantidadeFaturada),
