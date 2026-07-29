@@ -35,6 +35,19 @@ function formatPercentual(value: number) {
   }).format(value)}%`;
 }
 
+type UnidadeFaturadaMedicao = "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
+
+const JORNADA_PADRAO_HORAS_DIA_MEDICAO = 8;
+const VALOR_MINIMO_PROVAVEL_DIARIA = 1000;
+
+function normalizarValorUnitarioVisual(valorUnitario: number, unidadeFaturada: UnidadeFaturadaMedicao) {
+  if (unidadeFaturada === "HORA" && valorUnitario >= VALOR_MINIMO_PROVAVEL_DIARIA) {
+    return valorUnitario / JORNADA_PADRAO_HORAS_DIA_MEDICAO;
+  }
+
+  return valorUnitario;
+}
+
 function buildWarnings(
   detail: MedicaoDetail,
   descontoValor: string,
@@ -55,7 +68,10 @@ function buildWarnings(
   }
 
   const valorTotal = detail.itens.reduce(
-    (acc, item) => acc + Number(item.quantidadeFaturada) * Number(item.valorUnitario),
+    (acc, item) =>
+      acc +
+      Number(item.quantidadeFaturada) *
+        normalizarValorUnitarioVisual(Number(item.valorUnitario), item.unidadeFaturada),
     0
   );
   const desconto = Number(descontoValor.replace(",", ".") || 0);
@@ -815,7 +831,10 @@ export function MedicaoDetailSection(props: {
                     <td>
                       {formatCurrency(
                         Number(itemDrafts[item.id]?.quantidadeFaturada ?? item.quantidadeFaturada) *
-                          Number(itemDrafts[item.id]?.valorUnitario ?? item.valorUnitario ?? 0)
+                          normalizarValorUnitarioVisual(
+                            Number(itemDrafts[item.id]?.valorUnitario ?? item.valorUnitario ?? 0),
+                            itemDrafts[item.id]?.unidadeFaturada ?? item.unidadeFaturada
+                          )
                       )}
                     </td>
                     <td>

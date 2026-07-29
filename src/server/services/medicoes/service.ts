@@ -36,6 +36,24 @@ type MedicaoEditavelSnapshot = {
   }>;
 };
 
+const JORNADA_PADRAO_HORAS_DIA_MEDICAO = 8;
+const VALOR_MINIMO_PROVAVEL_DIARIA = 1000;
+
+function normalizarValorUnitarioMedicao(
+  valorUnitario: number,
+  unidadeFaturada: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO"
+) {
+  if (unidadeFaturada !== "HORA") {
+    return valorUnitario;
+  }
+
+  if (valorUnitario >= VALOR_MINIMO_PROVAVEL_DIARIA) {
+    return Number((valorUnitario / JORNADA_PADRAO_HORAS_DIA_MEDICAO).toFixed(4));
+  }
+
+  return valorUnitario;
+}
+
 export function startOfDay(value: string) {
   return parseDateOnlyStart(value);
 }
@@ -411,7 +429,10 @@ export async function adicionarLancamentosNaMedicao(
   }
 
   const novosItens = itensSelecionados.map((item) => {
-    const valorUnitario = sugerirValorUnitarioParaLancamento(item, medicao.itens);
+    const valorUnitario = normalizarValorUnitarioMedicao(
+      sugerirValorUnitarioParaLancamento(item, medicao.itens),
+      item.unidadeFaturada
+    );
     const valorTotalItem = Number(item.quantidadeFaturada) * valorUnitario;
 
     return {
@@ -498,9 +519,9 @@ export async function criarMedicao(
   }
 
   const itensMedicao = eligibleItems.map((item) => {
-    const valorUnitario = valorPorLancamento.get(item.id);
+    const valorUnitarioInformado = valorPorLancamento.get(item.id);
 
-    if (valorUnitario === undefined || Number.isNaN(valorUnitario) || valorUnitario < 0) {
+    if (valorUnitarioInformado === undefined || Number.isNaN(valorUnitarioInformado) || valorUnitarioInformado < 0) {
       throw new Error("VALOR_UNITARIO_INVALIDO");
     }
 
@@ -511,6 +532,8 @@ export async function criarMedicao(
     ) {
       throw new Error("PERMUTA_PERCENTUAL_INVALIDA");
     }
+
+    const valorUnitario = normalizarValorUnitarioMedicao(valorUnitarioInformado, item.unidadeFaturada);
 
     return {
       item,
@@ -650,15 +673,17 @@ export async function atualizarValorItemMedicao(
   }
 
   const quantidadeFaturada = params.quantidadeFaturada ?? Number(item.quantidadeFaturada);
-  const valorTotalItem = quantidadeFaturada * params.valorUnitario;
+  const unidadeFaturada = params.unidadeFaturada ?? item.unidadeFaturada;
+  const valorUnitario = normalizarValorUnitarioMedicao(params.valorUnitario, unidadeFaturada);
+  const valorTotalItem = quantidadeFaturada * valorUnitario;
   const deltaValorTotal = Number((valorTotalItem - Number(item.valorTotalItem)).toFixed(2));
 
   await db.medicaoItem.update({
     where: { id: item.id },
     data: {
       quantidadeFaturada,
-      unidadeFaturada: params.unidadeFaturada ?? item.unidadeFaturada,
-      valorUnitario: params.valorUnitario,
+      unidadeFaturada,
+      valorUnitario,
       valorTotalItem
     }
   });
@@ -667,7 +692,7 @@ export async function atualizarValorItemMedicao(
     where: { id: item.lancamentoId },
     data: {
       quantidadeFaturada,
-      unidadeFaturada: params.unidadeFaturada ?? item.unidadeFaturada
+      unidadeFaturada
     }
   });
 

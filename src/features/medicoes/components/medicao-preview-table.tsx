@@ -6,6 +6,20 @@ import type {
 import { formatQuantidadeComUnidade, formatUnidade } from "@/lib/utils/unidades";
 import { formatCurrency } from "@/lib/utils/formatters";
 
+const JORNADA_PADRAO_HORAS_DIA_MEDICAO = 8;
+const VALOR_MINIMO_PROVAVEL_DIARIA = 1000;
+
+function normalizarValorUnitarioPreview(
+  valorUnitario: number,
+  unidadeFaturada: PreviewItem["unidadeFaturada"]
+) {
+  if (unidadeFaturada === "HORA" && valorUnitario >= VALOR_MINIMO_PROVAVEL_DIARIA) {
+    return valorUnitario / JORNADA_PADRAO_HORAS_DIA_MEDICAO;
+  }
+
+  return valorUnitario;
+}
+
 export function MedicaoPreviewTable(props: {
   items: PreviewItem[];
   resumo: MedicaoPreviewResumo | null;
@@ -33,7 +47,13 @@ export function MedicaoPreviewTable(props: {
     const value = itemValues[item.id]?.replace(",", ".").trim() ?? "";
     const valorUnitario = value ? Number(value) : 0;
 
-    return acc + Number(item.quantidadeFaturada) * (Number.isFinite(valorUnitario) ? valorUnitario : 0);
+    return (
+      acc +
+      Number(item.quantidadeFaturada) *
+        (Number.isFinite(valorUnitario)
+          ? normalizarValorUnitarioPreview(valorUnitario, item.unidadeFaturada)
+          : 0)
+    );
   }, 0);
 
   return (
@@ -87,7 +107,8 @@ export function MedicaoPreviewTable(props: {
               const parsedValue = rawValue.trim() ? Number(rawValue.replace(",", ".")) : null;
               const valorTotalItem =
                 parsedValue !== null && Number.isFinite(parsedValue)
-                  ? Number(item.quantidadeFaturada) * parsedValue
+                  ? Number(item.quantidadeFaturada) *
+                    normalizarValorUnitarioPreview(parsedValue, item.unidadeFaturada)
                   : null;
               return (
                 <tr
