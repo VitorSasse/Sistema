@@ -1,4 +1,4 @@
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatDateInputValue } from "@/lib/utils/date";
 import { formatCurrency } from "@/lib/utils/formatters";
 import { formatServicoDisplay } from "@/lib/utils/servico-display";
@@ -19,6 +19,7 @@ type MedicaoPdfItem = {
 };
 
 type MedicaoPdfProps = {
+  logoPath?: string | null;
   codigoMedicao: string;
   tipoMedicao: string;
   clienteNome: string;
@@ -43,6 +44,25 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 16,
+  },
+  headerBrand: {
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  logo: {
+    width: 220,
+    height: 74,
+    objectFit: "contain",
+  },
+  title: {
+    marginTop: 12,
+    fontSize: 16,
+    textAlign: "center",
+  },
+  subtitle: {
+    marginTop: 3,
+    fontSize: 10,
+    textAlign: "center",
   },
   metaRow: {
     flexDirection: "row",
@@ -240,6 +260,13 @@ export function MedicaoPdfDocument(props: MedicaoPdfProps) {
     <Document>
       <Page size="A4" orientation={isDetalhado ? "landscape" : "portrait"} style={styles.page}>
         <View style={styles.header}>
+          <View style={styles.headerBrand}>
+            {props.logoPath ? <Image style={styles.logo} src={props.logoPath} /> : null}
+            <Text style={styles.title}>
+              Relatorio de Medicao {isDetalhado ? "Detalhado" : "Resumido"}
+            </Text>
+            <Text style={styles.subtitle}>Documento de conferencia de medicao</Text>
+          </View>
           <View style={styles.metaRow}>
             <Text>Codigo: {props.codigoMedicao}</Text>
             <Text>Status: {props.status}</Text>
