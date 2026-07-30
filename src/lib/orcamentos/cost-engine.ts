@@ -1,3 +1,8 @@
+import {
+  resolveOperationalResourceDescription,
+  validateTransportCapacityCompatibility
+} from "@/lib/orcamentos/operational-resource-domain";
+
 export const JORNADA_PADRAO_HORAS_DIA = 8;
 export const DIAS_TRABALHADOS_MES_PADRAO = 22;
 
@@ -52,6 +57,9 @@ export type CostEngineRecursoInput = {
   frenteRef?: string | null;
   categoria?: string | null;
   descricao?: string | null;
+  recursoNome?: string | null;
+  classeOperacional?: string | null;
+  recursoReferenciaId?: string | null;
   quantidade?: string | number | null;
   quantidadeOperacional?: string | number | null;
   origemQuantidadeOperacional?: CostEngineOrigemQuantidadeOperacional | null;
@@ -238,15 +246,6 @@ function normalizeUnidade(value?: string | null): UnidadeOperacional {
   if (normalized.includes("carga")) return "CARGA";
   if (["un", "und", "unidade", "unidades", "item"].includes(normalized)) return "UN";
   return "DESCONHECIDA";
-}
-
-function unidadesOperacionaisCompativeis(
-  unidadeFrente: UnidadeOperacional,
-  unidadeCapacidade: UnidadeOperacional
-) {
-  return unidadeFrente !== "DESCONHECIDA" &&
-    unidadeCapacidade !== "DESCONHECIDA" &&
-    unidadeFrente === unidadeCapacidade;
 }
 
 function unidadeEconomicaLegada(value?: string | null): CostEngineUnidadeEconomicaCusto {
@@ -659,11 +658,11 @@ function calcularRecurso(params: {
         break;
       }
       case "KM": {
-        const unidadeCapacidadeNormalizada = normalizeUnidade(unidadeCapacidade);
-        const unidadeCompativel = unidadesOperacionaisCompativeis(
-          unidadeOperacional,
-          unidadeCapacidadeNormalizada
-        );
+        const compatibilidadeCapacidade = validateTransportCapacityCompatibility({
+          unidadeOperacional: unidadeQuantidadeOperacionalPersonalizada,
+          unidadeCapacidade
+        });
+        const unidadeCompativel = compatibilidadeCapacidade.valid;
 
         if (recurso.unidadeEconomicaCusto === "KM") {
           if (quantidadeOperacional <= 0) observacoes.push("Informe uma quantidade operacional maior que zero.");
@@ -868,7 +867,7 @@ export function resolveFrontCost(
   for (const recurso of recursosInput) {
     if (recurso.frenteRef && recurso.frenteRef !== frenteInput.ref) continue;
     const calculo = calcularRecurso({ frente: frenteInput, recurso, planejamento });
-    const descricao = recurso.descricao?.trim() || "Recurso sem descricao";
+    const descricao = resolveOperationalResourceDescription(recurso) || "Recurso sem descricao";
     const transporteKmExplicito =
       calculo.tipoCalculo === "AUTOMATICO" &&
       recurso.unidadeEconomicaCusto === "KM";

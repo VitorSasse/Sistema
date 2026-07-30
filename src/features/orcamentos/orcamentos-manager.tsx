@@ -8,6 +8,10 @@ import {
   type CostEngineMemoriaRecurso
 } from "@/lib/orcamentos/cost-engine";
 import { calcularConsolidacaoEconomica } from "@/lib/orcamentos/economic-engine";
+import {
+  normalizeOperationalResource,
+  resolveOperationalResourceDescription
+} from "@/lib/orcamentos/operational-resource-domain";
 import { criarNovaRevisaoProposta } from "@/lib/orcamentos/proposta-revision";
 import {
   campoTecnicoHerdado,
@@ -1297,6 +1301,9 @@ function buildCostEngineInputFromForm(form: OrcamentoForm) {
         frenteRef: item.frenteTempId,
         categoria: item.categoriaRecurso,
         descricao: item.descricao,
+        recursoNome: item.recursoNome,
+        classeOperacional: item.classeOperacional,
+        recursoReferenciaId: item.recursoReferenciaId,
         quantidade: item.quantidade,
         quantidadeOperacional: item.quantidadeOperacional,
         origemQuantidadeOperacional: item.origemQuantidadeOperacional,
@@ -6080,24 +6087,6 @@ function getFrenteByItem(item: ItemForm, frentes: FrenteForm[]) {
   return frentes.find((frente) => frente.localId === item.frenteTempId);
 }
 
-function getViagensOperacionaisDerivadas(item: ItemForm, frente?: Pick<FrenteForm, "quantidadePrevista"> | null) {
-  const viagensInformadas =
-    toFiniteNumber(item.viagensTotais) || toFiniteNumber(item.cargasTotais);
-
-  if (viagensInformadas > 0) {
-    return viagensInformadas;
-  }
-
-  const quantidade = toFiniteNumber(item.quantidadeOperacional) || toFiniteNumber(frente?.quantidadePrevista);
-  const capacidade = toFiniteNumber(item.capacidadePorViagem);
-
-  if (quantidade > 0 && capacidade > 0) {
-    return Math.ceil(quantidade / capacidade);
-  }
-
-  return 0;
-}
-
 function resolveAutomaticOperationalQuantity(
   item: ItemForm,
   frente?: Pick<
@@ -6109,50 +6098,11 @@ function resolveAutomaticOperationalQuantity(
     return null;
   }
 
-  const quantidadeFrente = toFiniteNumber(frente?.quantidadePrevista);
-  const prazoUtilizado = getPrazoUtilizadoFrente(frente);
-  const unidadeFrente = frente?.unidadeProducao?.trim() || item.unidade.trim();
-  const base = item.unidadeEconomicaCusto || "CUSTO_FIXO";
-
-  switch (base) {
-    case "DIA":
-      return { quantidade: prazoUtilizado, unidade: "dias" };
-    case "HORA": {
-      const horas =
-        toFiniteNumber(item.horasTotais) ||
-        (prazoUtilizado > 0 ? prazoUtilizado * (toFiniteNumber(item.horasDia) || 8) : 0);
-      return { quantidade: horas, unidade: "h" };
-    }
-    case "KM": {
-      const quilometros =
-        toFiniteNumber(item.quilometrosTotais) ||
-        getViagensOperacionaisDerivadas(item, frente) * toFiniteNumber(item.distanciaViagemKm);
-      return { quantidade: quilometros, unidade: "km" };
-    }
-    case "VIAGEM":
-      return { quantidade: getViagensOperacionaisDerivadas(item, frente), unidade: "viagens" };
-    case "CARGA":
-      return { quantidade: toFiniteNumber(item.cargasTotais), unidade: "cargas" };
-    case "MES": {
-      const meses =
-        toFiniteNumber(item.mesesTotais) ||
-        (unidadeFrente.toLowerCase().includes("mes") ? quantidadeFrente : 0);
-      return { quantidade: meses, unidade: "meses" };
-    }
-    case "M3":
-      return { quantidade: quantidadeFrente, unidade: "m3" };
-    case "M2":
-      return { quantidade: quantidadeFrente, unidade: "m2" };
-    case "UNIDADE_PRODUZIDA":
-      return { quantidade: quantidadeFrente, unidade: unidadeFrente || "unidade" };
-    case "UNIDADE":
-      return { quantidade: toFiniteNumber(item.quantidade), unidade: "unidades" };
-    case "VALOR_TOTAL":
-      return { quantidade: 1, unidade: "valor total" };
-    case "CUSTO_FIXO":
-    default:
-      return { quantidade: toFiniteNumber(item.quantidade), unidade: "recursos" };
-  }
+  const normalized = normalizeOperationalResource(item, frente);
+  return {
+    quantidade: normalized.quantidadeOperacionalResolvida,
+    unidade: normalized.unidadeOperacionalResolvida
+  };
 }
 
 function normalizeItemForPayload(item: ItemForm, frentes: FrenteForm[] = []): ItemForm {
@@ -6212,12 +6162,7 @@ export function normalizeItemsForPayload(itens: ItemForm[], frentes: FrenteForm[
 }
 
 function getResourceDescricaoResolvida(item: Pick<ItemForm, "descricao" | "recursoNome" | "classeOperacional" | "recursoReferenciaId">) {
-  return (
-    item.descricao.trim() ||
-    item.recursoNome.trim() ||
-    item.classeOperacional.trim() ||
-    item.recursoReferenciaId.trim()
-  );
+  return resolveOperationalResourceDescription(item);
 }
 
 function getItemDescricaoEfetiva(item: ItemForm) {

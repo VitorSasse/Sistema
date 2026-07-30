@@ -645,6 +645,40 @@ describe("Evolucao do prazo e das unidades economicas", () => {
     );
   });
 
+  it("calcula transporte por km com frente em m2 e quantidade operacional personalizada em m3", () => {
+    const result = calcularMotorCustos({
+      frentes: [{
+        ...frenteBase,
+        quantidadePrevista: 100,
+        unidadeProducao: "m2"
+      }],
+      recursos: [{
+        ref: "caminhao-m3",
+        frenteRef: "frente-operacional",
+        descricao: "Caminhao por volume operacional",
+        quantidade: 2,
+        valorCusto: 8,
+        unidadeEconomicaCusto: "KM",
+        tipoCalculo: "AUTOMATICO",
+        distanciaViagemKm: 26,
+        capacidadePorViagem: 14,
+        unidadeCapacidade: "m3",
+        quantidadeOperacional: 150,
+        origemQuantidadeOperacional: "PERSONALIZADA",
+        unidadeQuantidadeOperacional: "m3"
+      }]
+    });
+
+    expect(result.memoria[0]).toMatchObject({
+      statusCalculo: "CALCULADO",
+      quantidadeOperacional: 150,
+      unidadeQuantidadeOperacional: "m3",
+      viagensOperacionais: 11,
+      custoPorViagem: 208,
+      custoTotal: 2288
+    });
+  });
+
   it("calcula a demanda diaria do transporte sem alterar o custo total", () => {
     const result = calcularRecurso("KM", {
       descricao: "Caminhao Basculante 14 m3",

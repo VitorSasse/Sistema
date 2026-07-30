@@ -23,6 +23,12 @@ import { z } from "zod";
 import { parseDateOnlyStart, parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import { CAMPOS_TECNICOS_RECURSO } from "@/lib/orcamentos/resource-inheritance";
+import {
+  normalizeOperationalResource,
+  normalizeOperationalUnit,
+  resolveOperationalResourceDescription,
+  validateTransportCapacityCompatibility
+} from "@/lib/orcamentos/operational-resource-domain";
 
 function optionalUuid() {
   return z.preprocess(
@@ -49,6 +55,8 @@ function numeroDecimal(max = 999999999) {
 }
 
 function normalizarUnidadeOperacional(value?: string | null) {
+  return value?.trim() ? normalizeOperationalUnit(value) : "";
+
   const unidade = (value ?? "")
     .trim()
     .toLowerCase()
@@ -89,6 +97,8 @@ function resolveDescricaoItemOrcamento(item: Record<string, unknown>) {
   const descricao = trimString(item.descricao);
 
   if (tipoItem === TipoItemOrcamento.RECURSO) {
+    return resolveOperationalResourceDescription(item);
+
     return (
       descricao ||
       trimString(item.recursoNome) ||
@@ -182,6 +192,12 @@ function resolveOperationalQuantityForValidation(
     return null;
   }
 
+  const normalized = normalizeOperationalResource(item, frente);
+  return {
+    quantidade: normalized.quantidadeOperacionalResolvida,
+    unidade: normalized.unidadeOperacionalResolvida
+  };
+
   const quantidadeFrente = toFiniteNumber(frente?.quantidadePrevista);
   const prazoUtilizado = getPrazoUtilizadoFrenteRecord(frente);
   const unidadeFrente = trimString(frente?.unidadeProducao) || trimString(item.unidade);
@@ -248,7 +264,7 @@ function normalizeOperationalResourceForValidation(
     origem === OrigemQuantidadeOperacional.PERSONALIZADA &&
     !unidadeAtual &&
     quantidadeAutomatica > 0 &&
-    (quantidadeAtual <= 0 || Math.abs(quantidadeAtual - quantidadeAutomatica) < 0.0001);
+    quantidadeAtual <= 0;
   const shouldUseAutomatic =
     origem !== OrigemQuantidadeOperacional.PERSONALIZADA || isLegacyAutomaticAsPersonalizada;
 
@@ -866,19 +882,15 @@ export const orcamentoSchema = z
           });
         }
 
-        const unidadeOperacional = normalizarUnidadeOperacional(
-          item.unidadeQuantidadeOperacional || frente.unidadeProducao
-        );
-        const unidadeCapacidade = normalizarUnidadeOperacional(item.unidadeCapacidade);
-        if (
-          unidadeOperacional &&
-          unidadeCapacidade &&
-          unidadeOperacional !== "DESCONHECIDA" &&
-          unidadeCapacidade !== "DESCONHECIDA" &&
-          unidadeOperacional !== "KM" &&
-          unidadeOperacional !== "VIAGEM" &&
-          unidadeOperacional !== unidadeCapacidade
-        ) {
+        const unidadeOperacionalResolvida = normalizeOperationalResource(
+          item as unknown as Record<string, unknown>,
+          frente as unknown as Record<string, unknown>
+        ).unidadeOperacionalResolvida;
+        const compatibilidade = validateTransportCapacityCompatibility({
+          unidadeOperacional: unidadeOperacionalResolvida || item.unidadeQuantidadeOperacional,
+          unidadeCapacidade: item.unidadeCapacidade
+        });
+        if (!compatibilidade.valid) {
           context.addIssue({
             code: z.ZodIssueCode.custom,
             path: ["itens", itemIndex, "unidadeCapacidade"],
