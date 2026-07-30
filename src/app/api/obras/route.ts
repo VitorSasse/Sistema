@@ -47,12 +47,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const cliente = await prisma.cliente.findUnique({
-    where: { id: parsed.data.clienteId },
+  const empresaId = requireActiveTenantEmpresaId();
+  const cliente = await prisma.cliente.findFirst({
+    where: { id: parsed.data.clienteId, empresaId },
     select: { id: true, status: true }
   });
 
-  if (!cliente || cliente.status !== "ATIVO") {
+  if (!cliente || !["ATIVO", "PROSPECTO", "PROVISORIA"].includes(cliente.status)) {
     return NextResponse.json(
       { message: "Cliente invalido ou inativo para vinculacao da obra." },
       { status: 400 }
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     const codigo = await generateObraCode();
     const obra = await prisma.obra.create({
       data: {
-        empresaId: requireActiveTenantEmpresaId(),
+        empresaId,
         clienteId: parsed.data.clienteId,
         codigo,
         nome: parsed.data.nome,

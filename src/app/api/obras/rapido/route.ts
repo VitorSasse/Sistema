@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
         cidade: parsed.data.cidade?.trim() || null,
         observacao: parsed.data.observacao?.trim() || parsed.data.bairro?.trim() || null,
         status: StatusCadastro.PROVISORIA,
-        liberadaParaLancamento: false
+        liberadaParaLancamento: true
       },
       include: {
         cliente: {
