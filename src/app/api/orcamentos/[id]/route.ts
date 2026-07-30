@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateApiPermission } from "@/lib/auth-guards";
+import { measurePerformanceStep } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { orcamentoSchema } from "@/lib/validators/orcamento";
 import {
@@ -18,7 +20,8 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function GET(_: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/orcamentos/[id]", method: "GET" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -26,16 +29,18 @@ export async function GET(_: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const orcamento = await buscarOrcamento(prisma, id);
+  const orcamento = await measurePerformanceStep("loadOrcamento", () => buscarOrcamento(prisma, id));
 
   if (!orcamento) {
     return NextResponse.json({ message: "Orcamento nao encontrado." }, { status: 404 });
   }
 
   return NextResponse.json(orcamento);
+  });
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/orcamentos/[id]", method: "PATCH" }, async () => {
   const permission = await validateApiPermission("orcamentos.manage");
 
   if (!permission.ok) {
@@ -43,15 +48,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const payload = await request.json();
-  const parsed = orcamentoSchema.safeParse(payload);
+  const payload = await measurePerformanceStep("readPayload", () => request.json());
+  const parsed = await measurePerformanceStep("validation", async () => orcamentoSchema.safeParse(payload));
 
   if (!parsed.success) {
     return buildOrcamentoValidationErrorResponse(parsed.error);
   }
 
   try {
-    const orcamento = await prisma.$transaction(
+    const orcamento = await measurePerformanceStep("transaction", () => prisma.$transaction(
       (tx) =>
         atualizarOrcamento(tx, {
           id,
@@ -59,15 +64,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           userId: permission.session.user.id
         }),
       orcamentoTransactionOptions
-    );
+    ));
 
     return NextResponse.json(orcamento);
   } catch (error) {
     return handleOrcamentoApiError(error);
   }
+  });
 }
 
-export async function DELETE(_: NextRequest, context: RouteContext) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/orcamentos/[id]", method: "DELETE" }, async () => {
   const permission = await validateApiPermission("orcamentos.manage");
 
   if (!permission.ok) {
@@ -77,12 +84,13 @@ export async function DELETE(_: NextRequest, context: RouteContext) {
   const { id } = await context.params;
 
   try {
-    const orcamento = await prisma.$transaction(
+    const orcamento = await measurePerformanceStep("transaction", () => prisma.$transaction(
       (tx) => excluirOrcamento(tx, id),
       orcamentoTransactionOptions
-    );
+    ));
     return NextResponse.json(orcamento);
   } catch (error) {
     return handleOrcamentoApiError(error);
   }
+  });
 }

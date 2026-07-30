@@ -1,4 +1,5 @@
 import { loadOperationalOptions } from "@/lib/client/operational-options";
+import { performanceFetch } from "@/lib/performance/client";
 import type { LancamentoFormState, LancamentoItem } from "@/features/lancamentos/types";
 import { parseRomaneiosInput } from "@/lib/utils/romaneios";
 
@@ -17,7 +18,7 @@ export async function carregarOpcoesLancamento() {
 }
 
 export async function carregarLancamentosDoDia(date: string) {
-  const response = await fetch(`/api/lancamentos?date=${date}`, { cache: "no-store" });
+  const response = await performanceFetch("listDailyEntries", `/api/lancamentos?date=${date}`, { cache: "no-store" });
   const data = (await response.json()) as { items?: LancamentoItem[]; message?: string };
 
   if (!response.ok) {
@@ -28,7 +29,7 @@ export async function carregarLancamentosDoDia(date: string) {
 }
 
 export async function criarLancamento(form: LancamentoFormState) {
-  const response = await fetch("/api/lancamentos", {
+  const response = await performanceFetch("createEntry", "/api/lancamentos", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(buildPayload(form))
@@ -41,7 +42,7 @@ export async function criarLancamento(form: LancamentoFormState) {
 }
 
 export async function cancelarLancamento(id: string) {
-  const response = await fetch(`/api/lancamentos/${id}`, { method: "DELETE" });
+  const response = await performanceFetch("cancelEntry", `/api/lancamentos/${id}`, { method: "DELETE" });
 
   return {
     response,
@@ -50,7 +51,7 @@ export async function cancelarLancamento(id: string) {
 }
 
 export async function excluirLancamento(id: string) {
-  const response = await fetch(`/api/lancamentos/${id}?mode=delete`, {
+  const response = await performanceFetch("deleteEntry", `/api/lancamentos/${id}?mode=delete`, {
     method: "DELETE"
   });
 
@@ -64,7 +65,7 @@ export async function atualizarLancamento(
   id: string,
   form: LancamentoFormState & { motivoAlteracao: string }
 ) {
-  const response = await fetch(`/api/lancamentos/${id}`, {
+  const response = await performanceFetch("updateEntry", `/api/lancamentos/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(buildPayload(form))

@@ -1,4 +1,5 @@
 import { loadOperationalOptions } from "@/lib/client/operational-options";
+import { performanceFetch } from "@/lib/performance/client";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
 import type {
   MedicaoDetail,
@@ -51,7 +52,7 @@ export async function carregarOpcoesMedicoes() {
 
 export async function carregarListagemMedicoes(filters: MedicaoFilters) {
   const query = buildListQuery(filters);
-  const response = await fetch(`/api/medicoes${query ? `?${query}` : ""}`, {
+  const response = await performanceFetch("listMeasurements", `/api/medicoes${query ? `?${query}` : ""}`, {
     cache: "no-store"
   });
   const data = (await response.json()) as { items: MedicaoListItem[] };
@@ -59,7 +60,7 @@ export async function carregarListagemMedicoes(filters: MedicaoFilters) {
 }
 
 export async function previsualizarMedicao(form: MedicaoFormState) {
-  const response = await fetch("/api/medicoes/previsualizar", {
+  const response = await performanceFetch("previewMeasurement", "/api/medicoes/previsualizar", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(toPayload(form))
@@ -78,7 +79,7 @@ export async function gerarMedicaoComValores(
   form: MedicaoFormState,
   itemValues: MedicaoPreviewValueMap
 ) {
-  const response = await fetch("/api/medicoes", {
+  const response = await performanceFetch("createMeasurement", "/api/medicoes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -96,7 +97,7 @@ export async function gerarMedicaoComValores(
 }
 
 export async function carregarDetalheMedicao(id: string) {
-  const response = await fetch(`/api/medicoes/${id}`, { cache: "no-store" });
+  const response = await performanceFetch("loadMeasurementDetail", `/api/medicoes/${id}`, { cache: "no-store" });
   return {
     response,
     data: (await response.json()) as MedicaoDetail | { message?: string }
@@ -110,7 +111,7 @@ export async function carregarLancamentosElegiveisDaMedicao(
   const query = cobrancaMaterial
     ? `?cobrancaMaterial=${encodeURIComponent(cobrancaMaterial)}`
     : "";
-  const response = await fetch(`/api/medicoes/${id}/lancamentos${query}`, {
+  const response = await performanceFetch("loadMeasurementEligibleEntries", `/api/medicoes/${id}/lancamentos${query}`, {
     cache: "no-store"
   });
   return {
@@ -124,7 +125,7 @@ export async function adicionarLancamentosNaMedicao(
   lancamentoIds: string[],
   cobrancaMaterial: MedicaoFormState["cobrancaMaterial"]
 ) {
-  const response = await fetch(`/api/medicoes/${id}/lancamentos`, {
+  const response = await performanceFetch("addEntriesToMeasurement", `/api/medicoes/${id}/lancamentos`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -139,7 +140,7 @@ export async function adicionarLancamentosNaMedicao(
 }
 
 export async function excluirMedicao(id: string) {
-  const response = await fetch(`/api/medicoes/${id}`, {
+  const response = await performanceFetch("deleteMeasurement", `/api/medicoes/${id}`, {
     method: "DELETE"
   });
   return {
@@ -153,7 +154,7 @@ export async function atualizarStatusMedicao(
   status: MedicaoStatus,
   justificativaCancelamento?: string
 ) {
-  const response = await fetch(`/api/medicoes/${id}/status`, {
+  const response = await performanceFetch("updateMeasurementStatus", `/api/medicoes/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status, justificativaCancelamento })
@@ -168,7 +169,7 @@ export async function anexarMedicao(id: string, upload: MedicaoUploadState) {
   const body = new FormData();
   body.append("tipo", upload.tipo);
   body.append("file", upload.file as File);
-  const response = await fetch(`/api/medicoes/${id}/anexos`, {
+  const response = await performanceFetch("attachMeasurementFile", `/api/medicoes/${id}/anexos`, {
     method: "POST",
     body
   });
@@ -185,7 +186,7 @@ export async function atualizarValorItemMedicao(params: {
   quantidadeFaturada?: number;
   unidadeFaturada?: "CARGA" | "HORA" | "M3" | "DIARIA" | "SERVICO";
 }) {
-  const response = await fetch(`/api/medicoes/${params.medicaoId}/itens/${params.itemId}`, {
+  const response = await performanceFetch("updateMeasurementItem", `/api/medicoes/${params.medicaoId}/itens/${params.itemId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -211,7 +212,7 @@ export async function atualizarDadosMedicao(
   numeroPedido: string,
   numeroNotaFiscal: string
 ) {
-  const response = await fetch(`/api/medicoes/${id}`, {
+  const response = await performanceFetch("updateMeasurementData", `/api/medicoes/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -239,7 +240,7 @@ export async function editarLancamentoNaMedicao(params: {
   exigeMaterial: boolean;
 }) {
   const { edit, form, exigeMaterial } = params;
-  const response = await fetch(`/api/lancamentos/${edit.id}`, {
+  const response = await performanceFetch("updateEntryFromMeasurement", `/api/lancamentos/${edit.id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

@@ -1,3 +1,5 @@
+import { performanceFetch } from "@/lib/performance/client";
+
 export type OperationalOption = {
   id: string;
   codigo?: string;
@@ -45,7 +47,7 @@ export type OperationalOptionsPayload = {
 };
 
 export async function loadOperationalOptions() {
-  const response = await fetch("/api/opcoes/operacionais", { cache: "no-store" });
+  const response = await performanceFetch("loadOperationalOptions", "/api/opcoes/operacionais", { cache: "no-store" });
 
   if (!response.ok) {
     throw new Error("Nao foi possivel carregar as opcoes operacionais.");

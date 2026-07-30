@@ -1,6 +1,8 @@
 import { Prisma, StatusOrdemCompra, TipoCatalogoCompra } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { measurePerformanceStep } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import {
   calcularSubtotalItem,
   calcularTotalOrdem,
@@ -144,6 +146,7 @@ function buildStatusFilter(statusParam: string): Prisma.OrdemCompraWhereInput["s
 }
 
 export async function GET(request: NextRequest) {
+  return withPerformanceMonitoring(request, { route: "/api/ordens-compra" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -247,24 +250,27 @@ export async function GET(request: NextRequest) {
     ];
   }
 
-  const items = await prisma.ordemCompra.findMany({
+  const items = await measurePerformanceStep("listOrdensCompra", () => prisma.ordemCompra.findMany({
     where,
     include: ordemCompraInclude,
     orderBy: [{ dataEmissao: "desc" }, { createdAt: "desc" }]
-  });
+  }));
 
   return NextResponse.json({ items });
+  });
 }
 
 export async function POST(request: NextRequest) {
+  return withPerformanceMonitoring(request, { route: "/api/ordens-compra", method: "POST" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
-  const payload = normalizePayload((await request.json()) as Record<string, unknown>);
-  const parsed = ordemCompraSchema.safeParse(payload);
+  const rawPayload = await measurePerformanceStep("readPayload", () => request.json() as Promise<Record<string, unknown>>);
+  const payload = await measurePerformanceStep("normalizePayload", async () => normalizePayload(rawPayload));
+  const parsed = await measurePerformanceStep("validation", async () => ordemCompraSchema.safeParse(payload));
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -273,35 +279,35 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const fornecedor = await prisma.fornecedor.findUnique({
+  const fornecedor = await measurePerformanceStep("loadFornecedor", () => prisma.fornecedor.findUnique({
     where: { id: parsed.data.fornecedorId },
     select: { id: true, status: true }
-  });
+  }));
 
   if (!fornecedor) {
     return NextResponse.json({ message: "Fornecedor nao encontrado." }, { status: 404 });
   }
 
-  const centroCusto = await prisma.centroCustoCompra.findUnique({
+  const centroCusto = await measurePerformanceStep("loadCentroCusto", () => prisma.centroCustoCompra.findUnique({
     where: { id: parsed.data.centroCustoId },
     select: {
       id: true,
       nome: true,
       status: true
     }
-  });
+  }));
 
   if (!centroCusto) {
     return NextResponse.json({ message: "Centro de custo nao encontrado." }, { status: 404 });
   }
 
-  const planoConta = await prisma.planoConta.findUnique({
+  const planoConta = await measurePerformanceStep("loadPlanoConta", () => prisma.planoConta.findUnique({
     where: { id: parsed.data.planoContaId },
     select: {
       id: true,
       tipo: true
     }
-  });
+  }));
 
   if (!planoConta) {
     return NextResponse.json({ message: "Plano de conta nao encontrado." }, { status: 404 });
@@ -319,7 +325,7 @@ export async function POST(request: NextRequest) {
     .filter((value): value is string => Boolean(value));
 
   const catalogos = catalogoIds.length
-    ? await prisma.catalogoCompra.findMany({
+    ? await measurePerformanceStep("loadCatalogos", () => prisma.catalogoCompra.findMany({
         where: {
           id: { in: catalogoIds }
         },
@@ -332,7 +338,7 @@ export async function POST(request: NextRequest) {
           valorPadrao: true,
           status: true
         }
-      })
+      }))
     : [];
 
   const catalogoMap = new Map(catalogos.map((item) => [item.id, item]));
@@ -392,10 +398,10 @@ export async function POST(request: NextRequest) {
       dataBase: dataBaseParcelas
     });
 
-    const numeroOrdem = await generateOrdemCompraCode(parsed.data.tipoCompra);
+    const numeroOrdem = await measurePerformanceStep("generateCode", () => generateOrdemCompraCode(parsed.data.tipoCompra));
     const empresaId = requireActiveTenantEmpresaId();
 
-    const ordemCompra = await prisma.ordemCompra.create({
+    const ordemCompra = await measurePerformanceStep("createOrdemCompra", () => prisma.ordemCompra.create({
       data: {
         empresaId,
         numeroOrdem,
@@ -433,7 +439,7 @@ export async function POST(request: NextRequest) {
         }
       },
       include: ordemCompraInclude
-    });
+    }));
 
     return NextResponse.json(ordemCompra, { status: 201 });
   } catch (error) {
@@ -456,4 +462,5 @@ export async function POST(request: NextRequest) {
       { status: 409 }
     );
   }
+  });
 }

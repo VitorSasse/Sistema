@@ -1,6 +1,9 @@
 import { renderToBuffer } from "@react-pdf/renderer";
+import { performance } from "node:perf_hooks";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { measurePerformanceStep, recordPdfPerformanceMetric } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { resolveDocumentoCabecalhoPdf } from "@/server/pdf/documento-cabecalho";
@@ -67,6 +70,7 @@ function buildPdfFilename(params: {
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/medicoes/[id]/pdf", method: "GET" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -80,7 +84,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ message: "Selecione uma empresa para gerar o PDF." }, { status: 409 });
   }
 
-  const [medicao, cabecalho] = await Promise.all([
+  const loadDataStart = performance.now();
+  const [medicao, cabecalho] = await measurePerformanceStep("loadData", () => Promise.all([
     prisma.medicao.findFirst({
       where: {
         id,
@@ -106,7 +111,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     }),
     resolveDocumentoCabecalhoPdf(prisma, empresaId, "MEDICAO")
-  ]);
+  ]));
+  recordPdfPerformanceMetric({ loadDataMs: performance.now() - loadDataStart });
 
   if (!medicao) {
     return NextResponse.json({ message: "Medicao nao encontrada." }, { status: 404 });
@@ -135,7 +141,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     tipoRelatorio
   });
 
-  const buffer = await renderToBuffer(
+  const renderStart = performance.now();
+  const buffer = await measurePerformanceStep("renderPdf", () => renderToBuffer(
     MedicaoPdfDocument({
       logoPath: resolveReportLogoSource(cabecalho.logoUrl),
       codigoMedicao: medicao.codigoMedicao,
@@ -156,7 +163,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         valorTotalItem: Number(item.valorTotalItem)
       }))
     })
-  );
+  ));
+  recordPdfPerformanceMetric({ renderPdfMs: performance.now() - renderStart, pdfSizeBytes: buffer.length });
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,
@@ -165,5 +173,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
       "Content-Disposition": `inline; filename="${filename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
       "Cache-Control": "no-store"
     }
+  });
   });
 }

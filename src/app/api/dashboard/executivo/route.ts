@@ -1,6 +1,8 @@
 import { Prisma, StatusAgendaProgramacao, TipoRecurso } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { measurePerformanceStep } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
@@ -380,6 +382,7 @@ function formatMonthShort(value: Date) {
 }
 
 export async function GET(request: NextRequest) {
+  return withPerformanceMonitoring(request, { route: "/api/dashboard/executivo" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -418,7 +421,7 @@ export async function GET(request: NextRequest) {
     weekend: isWeekend(day)
   }));
 
-  const medicaoIdsPeriodo = await prisma.$queryRaw<MedicaoPeriodRow[]>(Prisma.sql`
+  const medicaoIdsPeriodo = await measurePerformanceStep("loadMeasurementIds", () => prisma.$queryRaw<MedicaoPeriodRow[]>(Prisma.sql`
     SELECT
       medicao.id
     FROM "Medicao" medicao
@@ -432,7 +435,7 @@ export async function GET(request: NextRequest) {
     GROUP BY medicao.id
     HAVING MAX(item."data") >= ${period.start}
        AND MAX(item."data") <= ${period.end}
-  `);
+  `));
 
   const medicaoIds = medicaoIdsPeriodo.map((item) => item.id);
 
@@ -443,7 +446,7 @@ export async function GET(request: NextRequest) {
     precosHora,
     medicaoItems,
     lancamentosProdutivos
-  ] = await Promise.all([
+  ] = await measurePerformanceStep("loadDashboardData", () => Promise.all([
     prisma.equipamento.findMany({
       where: {
         status: "ATIVO",
@@ -642,7 +645,7 @@ export async function GET(request: NextRequest) {
         }
       }
     })
-  ]);
+  ]));
 
   const relevantEquipmentIds = new Set<string>();
 
@@ -1390,5 +1393,6 @@ export async function GET(request: NextRequest) {
       rows: heatmapRows
     },
     insights
+  });
   });
 }

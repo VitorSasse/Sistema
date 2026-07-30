@@ -1,8 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { measurePerformanceStep } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  return withPerformanceMonitoring(request, { route: "/api/opcoes/operacionais" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -10,7 +13,7 @@ export async function GET() {
   }
 
   const [clientes, obras, servicos, materiais, equipamentos, colaboradores, fornecedores] = await Promise.all([
-    prisma.cliente.findMany({
+    measurePerformanceStep("clientes", () => prisma.cliente.findMany({
       where: {
         status: { in: ["ATIVO", "PROSPECTO"] }
       },
@@ -22,8 +25,8 @@ export async function GET() {
         cadastroCompleto: true
       },
       orderBy: [{ nome: "asc" }]
-    }),
-    prisma.obra.findMany({
+    })),
+    measurePerformanceStep("obras", () => prisma.obra.findMany({
       where: {
         status: { in: ["ATIVO", "PROVISORIA"] }
       },
@@ -36,8 +39,8 @@ export async function GET() {
         liberadaParaLancamento: true
       },
       orderBy: [{ nome: "asc" }]
-    }),
-    prisma.servico.findMany({
+    })),
+    measurePerformanceStep("servicos", () => prisma.servico.findMany({
       where: {
         status: "ATIVO"
       },
@@ -59,8 +62,8 @@ export async function GET() {
         unidadeFaturamento: true
       },
       orderBy: [{ tipoServico: "asc" }]
-    }),
-    prisma.material.findMany({
+    })),
+    measurePerformanceStep("materiais", () => prisma.material.findMany({
       where: {
         status: "ATIVO"
       },
@@ -72,8 +75,8 @@ export async function GET() {
         status: true
       },
       orderBy: [{ descricao: "asc" }]
-    }),
-    prisma.equipamento.findMany({
+    })),
+    measurePerformanceStep("equipamentos", () => prisma.equipamento.findMany({
       where: {
         status: "ATIVO"
       },
@@ -94,8 +97,8 @@ export async function GET() {
         status: true
       },
       orderBy: [{ descricao: "asc" }]
-    }),
-    prisma.colaborador.findMany({
+    })),
+    measurePerformanceStep("colaboradores", () => prisma.colaborador.findMany({
       where: {
         status: "ATIVO"
       },
@@ -106,8 +109,8 @@ export async function GET() {
         status: true
       },
       orderBy: [{ nome: "asc" }]
-    }),
-    prisma.fornecedor.findMany({
+    })),
+    measurePerformanceStep("fornecedores", () => prisma.fornecedor.findMany({
       where: {
         status: "ATIVO"
       },
@@ -119,7 +122,7 @@ export async function GET() {
         status: true
       },
       orderBy: [{ razaoSocial: "asc" }]
-    })
+    }))
   ]);
 
   return NextResponse.json({
@@ -130,5 +133,6 @@ export async function GET() {
     equipamentos,
     colaboradores,
     fornecedores
+  });
   });
 }

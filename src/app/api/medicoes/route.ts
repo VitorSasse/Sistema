@@ -1,6 +1,8 @@
 import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { measurePerformanceStep } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import {
   criarMedicao,
@@ -9,6 +11,7 @@ import {
 import { medicaoCreateSchema } from "@/lib/validators/medicao";
 
 export async function GET(request: NextRequest) {
+  return withPerformanceMonitoring(request, { route: "/api/medicoes" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -17,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams;
 
-  const items = await listarMedicoes(prisma, {
+  const items = await measurePerformanceStep("listMedicoes", () => listarMedicoes(prisma, {
     clienteId: searchParams.get("clienteId") ?? undefined,
     obraId: searchParams.get("obraId") ?? undefined,
     status: searchParams.get("status"),
@@ -26,23 +29,25 @@ export async function GET(request: NextRequest) {
     periodoFinal: searchParams.get("periodoFinal"),
     numeroPedido: searchParams.get("numeroPedido"),
     numeroNotaFiscal: searchParams.get("numeroNotaFiscal")
-  });
+  }));
 
   return NextResponse.json({ items });
+  });
 }
 
 export async function POST(request: NextRequest) {
+  return withPerformanceMonitoring(request, { route: "/api/medicoes", method: "POST" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
-  const payload = await request.json();
-  const parsed = medicaoCreateSchema.safeParse({
+  const payload = await measurePerformanceStep("readPayload", () => request.json());
+  const parsed = await measurePerformanceStep("validation", async () => medicaoCreateSchema.safeParse({
     ...payload,
     obraId: payload.obraId || null
-  });
+  }));
 
   if (!parsed.success) {
     const hasItemIssue = parsed.error.issues.some((issue) => issue.path[0] === "itens");
@@ -65,12 +70,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const medicao = await prisma.$transaction((tx) =>
+    const medicao = await measurePerformanceStep("transaction", () => prisma.$transaction((tx) =>
       criarMedicao(tx, {
         input: parsed.data,
         userId: session.user.id
       })
-    );
+    ));
 
     return NextResponse.json(medicao, { status: 201 });
   } catch (error) {
@@ -128,4 +133,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+  });
 }

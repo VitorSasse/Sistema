@@ -1,6 +1,9 @@
 import { renderToBuffer } from "@react-pdf/renderer";
+import { performance } from "node:perf_hooks";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { measurePerformanceStep, recordPdfPerformanceMetric } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { resolveDocumentoCabecalhoPdf } from "@/server/pdf/documento-cabecalho";
@@ -25,7 +28,8 @@ function normalizeFileSegment(value: string, maxLength = 36) {
   return normalized.slice(0, maxLength) || "SEM_FORNECEDOR";
 }
 
-export async function GET(_: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/ordens-compra/[id]/pdf", method: "GET" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -39,7 +43,8 @@ export async function GET(_: Request, context: RouteContext) {
     return NextResponse.json({ message: "Selecione uma empresa para gerar o PDF." }, { status: 409 });
   }
 
-  const [ordemCompra, cabecalho] = await Promise.all([
+  const loadDataStart = performance.now();
+  const [ordemCompra, cabecalho] = await measurePerformanceStep("loadData", () => Promise.all([
     prisma.ordemCompra.findUnique({
       where: { id },
       include: {
@@ -54,14 +59,16 @@ export async function GET(_: Request, context: RouteContext) {
       }
     }),
     resolveDocumentoCabecalhoPdf(prisma, empresaId, "ORDEM_COMPRA")
-  ]);
+  ]));
+  recordPdfPerformanceMetric({ loadDataMs: performance.now() - loadDataStart });
 
   if (!ordemCompra) {
     return NextResponse.json({ message: "Ordem de compra nao encontrada." }, { status: 404 });
   }
 
   const fileName = `${ordemCompra.numeroOrdem}_${normalizeFileSegment(ordemCompra.fornecedor.razaoSocial)}.pdf`;
-  const buffer = await renderToBuffer(
+  const renderStart = performance.now();
+  const buffer = await measurePerformanceStep("renderPdf", () => renderToBuffer(
     OrdemCompraPdfDocument({
       numeroOrdem: ordemCompra.numeroOrdem,
       dataEmissao: ordemCompra.dataEmissao,
@@ -114,7 +121,8 @@ export async function GET(_: Request, context: RouteContext) {
       logoPath: resolveReportLogoSource(cabecalho.logoUrl),
       empresaRelatorio: cabecalho.empresaRelatorio
     })
-  );
+  ));
+  recordPdfPerformanceMetric({ renderPdfMs: performance.now() - renderStart, pdfSizeBytes: buffer.length });
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,
@@ -123,5 +131,6 @@ export async function GET(_: Request, context: RouteContext) {
       "Content-Disposition": `inline; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
       "Cache-Control": "no-store"
     }
+  });
   });
 }

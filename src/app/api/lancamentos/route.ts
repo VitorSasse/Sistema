@@ -2,6 +2,8 @@ import { StatusCadastro, StatusLancamento } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { validateApiPermission } from "@/lib/auth-guards";
+import { measurePerformanceStep } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
@@ -90,6 +92,7 @@ function validateRomaneiosPorCarga(data: {
 }
 
 export async function GET(request: NextRequest) {
+  return withPerformanceMonitoring(request, { route: "/api/lancamentos" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -139,7 +142,7 @@ export async function GET(request: NextRequest) {
     return undefined;
   })();
 
-  const items = await prisma.lancamentoDiario.findMany({
+  const items = await measurePerformanceStep("listLancamentos", () => prisma.lancamentoDiario.findMany({
     where: {
       data: dataFilter,
       clienteId: clienteId || undefined,
@@ -186,7 +189,7 @@ export async function GET(request: NextRequest) {
       colaborador: true
     },
     orderBy: [{ data: "desc" }, { createdAt: "desc" }]
-  });
+  }));
 
   const normalizedItems = items.map((item) => ({
     ...item,
@@ -199,9 +202,11 @@ export async function GET(request: NextRequest) {
   }));
 
   return NextResponse.json({ items: normalizedItems });
+  });
 }
 
 export async function POST(request: NextRequest) {
+  return withPerformanceMonitoring(request, { route: "/api/lancamentos", method: "POST" }, async () => {
   const access = await validateApiPermission("lancamentos.create");
 
   if (!access.ok) {
@@ -210,7 +215,7 @@ export async function POST(request: NextRequest) {
 
   const session = access.session;
 
-  const payload = (await request.json()) as Record<string, unknown>;
+  const payload = await measurePerformanceStep("readPayload", () => request.json() as Promise<Record<string, unknown>>);
   const romaneiosPayload = parseRomaneiosInput(payload.romaneios);
   const possuiRomaneio =
     typeof payload.possuiRomaneio === "boolean" ? payload.possuiRomaneio : romaneiosPayload.length > 0;
@@ -226,7 +231,7 @@ export async function POST(request: NextRequest) {
     horimetroInformado: parseNullableNumber(payload.horimetroInformado),
     kmInformado: parseNullableNumber(payload.kmInformado)
   };
-  const parsed = lancamentoSchema.safeParse(normalizedPayload);
+  const parsed = await measurePerformanceStep("validation", async () => lancamentoSchema.safeParse(normalizedPayload));
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -243,7 +248,7 @@ export async function POST(request: NextRequest) {
 
   const dataReferencia = normalizeDate(parsed.data.data);
 
-  const [cliente, obra, servico, material, colaborador] = await Promise.all([
+  const [cliente, obra, servico, material, colaborador] = await measurePerformanceStep("loadReferences", () => Promise.all([
     prisma.cliente.findUnique({ where: { id: parsed.data.clienteId } }),
     parsed.data.obraId ? prisma.obra.findUnique({ where: { id: parsed.data.obraId } }) : Promise.resolve(null),
     prisma.servico.findUnique({ where: { id: parsed.data.servicoId } }),
@@ -251,7 +256,7 @@ export async function POST(request: NextRequest) {
       ? prisma.material.findUnique({ where: { id: parsed.data.materialId } })
       : Promise.resolve(null),
     prisma.colaborador.findUnique({ where: { id: parsed.data.colaboradorId } })
-  ]);
+  ]));
 
   if (
     !cliente ||
@@ -305,8 +310,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Material invalido ou inativo." }, { status: 400 });
   }
 
-  const equipamento = parsed.data.equipamentoId
-    ? await prisma.equipamento.findUnique({ where: { id: parsed.data.equipamentoId } })
+  const equipamentoId = parsed.data.equipamentoId;
+  const equipamento = equipamentoId
+    ? await measurePerformanceStep("loadEquipment", () => prisma.equipamento.findUnique({ where: { id: equipamentoId } }))
     : null;
 
   const equipamentoResolvido = servico.servicoTecnico
@@ -346,7 +352,7 @@ export async function POST(request: NextRequest) {
     : parsed.data.horimetroInformado ?? null;
   const kmInformado = servico.servicoTecnico ? null : parsed.data.kmInformado ?? null;
 
-  const duplicate = await prisma.lancamentoDiario.findFirst({
+  const duplicate = await measurePerformanceStep("duplicateCheck", () => prisma.lancamentoDiario.findFirst({
     where: {
       data: dataReferencia,
       clienteId: cliente.id,
@@ -364,7 +370,7 @@ export async function POST(request: NextRequest) {
       },
       deletedAt: null
     }
-  });
+  }));
 
   if (duplicate) {
     return NextResponse.json(
@@ -374,7 +380,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await measurePerformanceStep("transaction", () => prisma.$transaction(async (tx) => {
       let ficha = await tx.ficha.findFirst({
         where: {
           numero: parsed.data.fichaNumero,
@@ -457,7 +463,7 @@ export async function POST(request: NextRequest) {
       }
 
       return lancamento;
-    });
+    }));
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
@@ -466,4 +472,5 @@ export async function POST(request: NextRequest) {
       { status: 409 }
     );
   }
+  });
 }

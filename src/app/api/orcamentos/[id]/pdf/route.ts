@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { performance } from "node:perf_hooks";
 import { auth } from "@/lib/auth";
+import { measurePerformanceStep, recordPdfPerformanceMetric } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { renderOrcamentoPropostaPdf } from "@/server/pdf/orcamento-proposta-renderer";
@@ -38,6 +41,7 @@ function handlePdfError(error: unknown) {
 }
 
 export async function GET(request: Request, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/orcamentos/[id]/pdf", method: "GET" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -55,13 +59,15 @@ export async function GET(request: Request, context: RouteContext) {
   const propostaId = url.searchParams.get("propostaId");
 
   try {
-    const { buffer, fileName } = await renderOrcamentoPropostaPdf({
+    const renderStart = performance.now();
+    const { buffer, fileName } = await measurePerformanceStep("renderPdf", () => renderOrcamentoPropostaPdf({
       db: prisma,
       orcamentoId: id,
       empresaId,
       propostaId,
       modo: "PREVIEW"
-    });
+    }));
+    recordPdfPerformanceMetric({ renderPdfMs: performance.now() - renderStart, pdfSizeBytes: buffer.length });
 
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
@@ -74,4 +80,5 @@ export async function GET(request: Request, context: RouteContext) {
   } catch (error) {
     return handlePdfError(error);
   }
+  });
 }

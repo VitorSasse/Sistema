@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { measurePerformanceStep } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { parseDateOnlyEnd, parseOptionalDateOnlyStart } from "@/lib/utils/date";
 
@@ -194,6 +196,7 @@ function addToMap<T extends { total: number; count: number }>(
 }
 
 export async function GET(request: NextRequest) {
+  return withPerformanceMonitoring(request, { route: "/api/dashboard/custos" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -224,7 +227,7 @@ export async function GET(request: NextRequest) {
     planosConta,
     ordensPeriodo,
     ordensPeriodoAnterior
-  ] = await Promise.all([
+  ] = await measurePerformanceStep("loadDashboardData", () => Promise.all([
     prisma.fornecedor.findMany({
       select: { id: true, razaoSocial: true, nomeFantasia: true, status: true },
       orderBy: [{ razaoSocial: "asc" }]
@@ -283,7 +286,7 @@ export async function GET(request: NextRequest) {
         }
       }
     })
-  ]);
+  ]));
 
   function matchesOrderFilters(ordem: (typeof ordensPeriodo)[number] | (typeof ordensPeriodoAnterior)[number]) {
     if (fornecedorIds.length > 0 && !fornecedorIds.includes(ordem.fornecedorId)) return false;
@@ -344,8 +347,8 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const items = mapItems(ordensPeriodo);
-  const previousItems = mapItems(ordensPeriodoAnterior as typeof ordensPeriodo);
+  const items = await measurePerformanceStep("aggregateCurrentPeriod", async () => mapItems(ordensPeriodo));
+  const previousItems = await measurePerformanceStep("aggregatePreviousPeriod", async () => mapItems(ordensPeriodoAnterior as typeof ordensPeriodo));
   const totalCusto = Number(items.reduce((acc, item) => acc + item.subtotal, 0).toFixed(2));
   const totalAnterior = Number(previousItems.reduce((acc, item) => acc + item.subtotal, 0).toFixed(2));
   const variacaoPercentual = totalAnterior > 0 ? ((totalCusto - totalAnterior) / totalAnterior) * 100 : totalCusto > 0 ? 100 : 0;
@@ -413,7 +416,7 @@ export async function GET(request: NextRequest) {
 
   const equipamentoIdsComCusto = Array.from(byEquipamento.values()).map((item) => item.id).filter(Boolean) as string[];
   const lancamentosOperacionais = equipamentoIdsComCusto.length
-    ? await prisma.lancamentoDiario.findMany({
+    ? await measurePerformanceStep("loadOperationalEntries", () => prisma.lancamentoDiario.findMany({
         where: {
           deletedAt: null,
           equipamentoId: { in: equipamentoIdsComCusto },
@@ -425,7 +428,7 @@ export async function GET(request: NextRequest) {
           unidadeApontada: true,
           quantidadeApontada: true
         }
-      })
+      }))
     : [];
 
   const operacaoByEquipamento = new Map<string, { horas: number; cargas: number; registros: number }>();
@@ -545,5 +548,6 @@ export async function GET(request: NextRequest) {
       pareto
     },
     details: items
+  });
   });
 }

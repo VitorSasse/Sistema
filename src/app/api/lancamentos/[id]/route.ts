@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { StatusCadastro, StatusLancamento, TipoAlteracao } from "@prisma/client";
 import { validateApiPermission } from "@/lib/auth-guards";
+import { measurePerformanceStep } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseDecimalInput } from "@/lib/utils/decimal-input";
@@ -100,6 +102,7 @@ function validateRomaneiosPorCarga(data: {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/lancamentos/[id]", method: "PATCH" }, async () => {
   const access = await validateApiPermission("lancamentos.update");
 
   if (!access.ok) {
@@ -109,7 +112,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const session = access.session;
 
   const { id } = await context.params;
-  const payload = (await request.json()) as Record<string, unknown>;
+  const payload = await measurePerformanceStep("readPayload", () => request.json() as Promise<Record<string, unknown>>);
   const motivoAlteracao = String(payload.motivoAlteracao ?? "").trim();
 
   if (!motivoAlteracao) {
@@ -131,7 +134,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     horimetroInformado: parseNullableNumber(payload.horimetroInformado),
     kmInformado: parseNullableNumber(payload.kmInformado)
   };
-  const parsed = lancamentoSchema.safeParse(normalizedPayload);
+  const parsed = await measurePerformanceStep("validation", async () => lancamentoSchema.safeParse(normalizedPayload));
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -558,9 +561,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       { status: 409 }
     );
   }
+  });
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/lancamentos/[id]", method: "DELETE" }, async () => {
   const access = await validateApiPermission("lancamentos.update");
 
   if (!access.ok) {
@@ -702,4 +707,5 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       { status: 409 }
     );
   }
+  });
 }

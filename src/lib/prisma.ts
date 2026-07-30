@@ -1,4 +1,7 @@
 import { Prisma, PrismaClient } from "@prisma/client";
+import { performance } from "node:perf_hooks";
+import { performanceConfig } from "@/lib/performance/config";
+import { recordPerformanceQuery } from "@/lib/performance/request-context";
 import { getTenantContext } from "@/lib/tenant-store";
 
 declare global {
@@ -137,7 +140,21 @@ function createPrismaClient(client: PrismaClient): PrismaClient {
           const tenant = shouldScopeTenant(model);
 
           if (!tenant) {
-            return query(args);
+            if (!performanceConfig.enabled || !performanceConfig.queryLogEnabled) {
+              return query(args);
+            }
+
+            const start = performance.now();
+            try {
+              return await query(args);
+            } finally {
+              recordPerformanceQuery({
+                model: model ?? null,
+                operation,
+                durationMs: performance.now() - start,
+                transaction: null
+              });
+            }
           }
 
           const scopedArgs = args as PrismaQueryArgs;
@@ -156,7 +173,21 @@ function createPrismaClient(client: PrismaClient): PrismaClient {
             applyTenantToWriteArgs(scopedArgs, tenant.empresaId);
           }
 
-          return query(args);
+          if (!performanceConfig.enabled || !performanceConfig.queryLogEnabled) {
+            return query(args);
+          }
+
+          const start = performance.now();
+          try {
+            return await query(args);
+          } finally {
+            recordPerformanceQuery({
+              model: model ?? null,
+              operation,
+              durationMs: performance.now() - start,
+              transaction: null
+            });
+          }
         }
       }
     }

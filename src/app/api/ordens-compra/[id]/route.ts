@@ -3,6 +3,8 @@ import path from "path";
 import { TipoCatalogoCompra } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { measurePerformanceStep } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import {
   calcularSubtotalItem,
   calcularTotalOrdem,
@@ -97,7 +99,8 @@ const ordemCompraInclude = {
   }
 };
 
-export async function GET(_: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/ordens-compra/[id]", method: "GET" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -105,19 +108,21 @@ export async function GET(_: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const ordemCompra = await prisma.ordemCompra.findUnique({
+  const ordemCompra = await measurePerformanceStep("loadOrdemCompra", () => prisma.ordemCompra.findUnique({
     where: { id },
     include: ordemCompraInclude
-  });
+  }));
 
   if (!ordemCompra) {
     return NextResponse.json({ message: "Ordem de compra nao encontrada." }, { status: 404 });
   }
 
   return NextResponse.json(ordemCompra);
+  });
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/ordens-compra/[id]", method: "PATCH" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -125,8 +130,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const payload = normalizePayload((await request.json()) as Record<string, unknown>);
-  const parsed = ordemCompraSchema.safeParse(payload);
+  const rawPayload = await measurePerformanceStep("readPayload", () => request.json() as Promise<Record<string, unknown>>);
+  const payload = await measurePerformanceStep("normalizePayload", async () => normalizePayload(rawPayload));
+  const parsed = await measurePerformanceStep("validation", async () => ordemCompraSchema.safeParse(payload));
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -353,9 +359,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       { status: 409 }
     );
   }
+  });
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/ordens-compra/[id]", method: "DELETE" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -420,5 +428,6 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     numeroOrdem: ordemAtual.numeroOrdem,
     motivoExclusao,
     removidaPorNome: session.user.name ?? session.user.email ?? "Usuario"
+  });
   });
 }
