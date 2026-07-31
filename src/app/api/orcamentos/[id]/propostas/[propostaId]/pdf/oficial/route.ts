@@ -1,8 +1,11 @@
 import { readFile } from "fs/promises";
+import { performance } from "node:perf_hooks";
 import path from "path";
 import { StatusPropostaComercial } from "@prisma/client";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { measurePerformanceStep, recordPdfPerformanceMetric } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { renderOrcamentoPropostaPdf } from "@/server/pdf/orcamento-proposta-renderer";
@@ -18,7 +21,8 @@ function publicFilePathFromUrl(url: string) {
   return path.join(process.cwd(), "public", normalized);
 }
 
-export async function GET(_: Request, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/orcamentos/[id]/propostas/[propostaId]/pdf/oficial", method: "GET" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -54,9 +58,13 @@ export async function GET(_: Request, context: RouteContext) {
     return NextResponse.json({ message: "Esta proposta ainda nao possui PDF oficial." }, { status: 409 });
   }
 
-  if (proposta.pdfOficialUrl?.startsWith("/uploads/")) {
+  const pdfOficialUrl = proposta.pdfOficialUrl;
+
+  if (pdfOficialUrl?.startsWith("/uploads/")) {
     try {
-      const file = await readFile(publicFilePathFromUrl(proposta.pdfOficialUrl));
+      const loadStart = performance.now();
+      const file = await measurePerformanceStep("loadPdfFile", () => readFile(publicFilePathFromUrl(pdfOficialUrl)));
+      recordPdfPerformanceMetric({ loadDataMs: performance.now() - loadStart, pdfSizeBytes: file.length });
       const fileName = proposta.pdfOficialNome ?? `${proposta.codigo}.pdf`;
 
       return new NextResponse(new Uint8Array(file), {
@@ -73,13 +81,15 @@ export async function GET(_: Request, context: RouteContext) {
   }
 
   try {
-    const { buffer, fileName } = await renderOrcamentoPropostaPdf({
+    const renderStart = performance.now();
+    const { buffer, fileName } = await measurePerformanceStep("renderPdfFallback", () => renderOrcamentoPropostaPdf({
       db: prisma,
       orcamentoId: id,
       empresaId,
       propostaId,
       modo: "OFICIAL"
-    });
+    }));
+    recordPdfPerformanceMetric({ renderPdfMs: performance.now() - renderStart, pdfSizeBytes: buffer.length });
 
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
@@ -95,4 +105,5 @@ export async function GET(_: Request, context: RouteContext) {
       { status: 500 }
     );
   }
+  });
 }

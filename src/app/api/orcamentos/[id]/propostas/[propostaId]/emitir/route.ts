@@ -1,7 +1,10 @@
 import { createHash } from "crypto";
+import { performance } from "node:perf_hooks";
 import { StatusPropostaComercial } from "@prisma/client";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { validateApiPermission } from "@/lib/auth-guards";
+import { measurePerformanceStep, recordPdfPerformanceMetric } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { buscarOrcamento } from "@/server/services/orcamentos/service";
@@ -17,7 +20,8 @@ function sanitizeFileName(value: string) {
   return value.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
-export async function POST(_: Request, context: RouteContext) {
+export async function POST(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/orcamentos/[id]/propostas/[propostaId]/emitir", method: "POST" }, async () => {
   const permission = await validateApiPermission("orcamentos.manage");
 
   if (!permission.ok) {
@@ -61,19 +65,21 @@ export async function POST(_: Request, context: RouteContext) {
   let buffer: Buffer;
   let fileName: string;
   const emitidaEm = new Date();
+  const renderStart = performance.now();
 
   try {
-    const rendered = await renderOrcamentoPropostaPdf({
+    const rendered = await measurePerformanceStep("renderPdf", () => renderOrcamentoPropostaPdf({
       db: prisma,
       orcamentoId: id,
       empresaId,
       propostaId,
       modo: "OFICIAL",
       dataDocumento: emitidaEm
-    });
+    }));
 
     buffer = rendered.buffer;
     fileName = rendered.fileName;
+    recordPdfPerformanceMetric({ renderPdfMs: performance.now() - renderStart, pdfSizeBytes: buffer.length });
   } catch (error) {
     return NextResponse.json(
       { message: "Nao foi possivel gerar o PDF oficial da proposta.", detail: String(error) },
@@ -116,5 +122,6 @@ export async function POST(_: Request, context: RouteContext) {
     message: "Proposta emitida com sucesso.",
     pdfOficialUrl: publicUrl,
     orcamento
+  });
   });
 }

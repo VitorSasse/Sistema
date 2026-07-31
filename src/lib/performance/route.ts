@@ -55,6 +55,27 @@ function summarizeQueries(context: PerformanceRequestContext) {
   };
 }
 
+function resolveCurrentTenantLogContext() {
+  const tenant = getTenantContext();
+  const empresaId = getActiveTenantEmpresaId();
+
+  return {
+    empresaId,
+    tenantContextStatus:
+      tenant?.initialized && !tenant.bypassTenantScope && empresaId ? "available" : "missing"
+  } satisfies Pick<PerformanceRequestContext, "empresaId" | "tenantContextStatus">;
+}
+
+function sanitizeErrorForPerformanceLog(error: unknown) {
+  if (!error) return null;
+
+  if (error instanceof Error) {
+    return { name: error.name };
+  }
+
+  return { name: "UnknownError" };
+}
+
 export async function withPerformanceMonitoring(
   request: NextRequest | Request,
   options: MonitoredRouteOptions,
@@ -91,6 +112,9 @@ export async function withPerformanceMonitoring(
       throw currentError;
     } finally {
       const totalBeforeLog = performance.now();
+      const currentTenant = resolveCurrentTenantLogContext();
+      context.empresaId = currentTenant.empresaId;
+      context.tenantContextStatus = currentTenant.tenantContextStatus;
       const durationMs = Number((totalBeforeLog - context.startedAt).toFixed(2));
       const status = response?.status ?? 500;
       const payloadBytes = response ? estimatePayloadBytes(response) : null;
@@ -123,7 +147,7 @@ export async function withPerformanceMonitoring(
           steps: context.steps.map((step) => ({ name: step.name, durationMs: Number(step.durationMs.toFixed(2)) })),
           pdf: context.pdf ?? null,
           ...summarizeQueries(context),
-          error: error instanceof Error ? { name: error.name, message: error.message } : null
+          error: sanitizeErrorForPerformanceLog(error)
         };
 
         if (error || status >= 500) {

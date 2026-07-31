@@ -1,7 +1,10 @@
 import { StatusLancamento } from "@prisma/client";
 import { renderToBuffer } from "@react-pdf/renderer";
+import { performance } from "node:perf_hooks";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { measurePerformanceStep, recordPdfPerformanceMetric } from "@/lib/performance/request-context";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { resolveDocumentoCabecalhoPdf } from "@/server/pdf/documento-cabecalho";
@@ -64,6 +67,7 @@ function getDataFilter(searchParams: URLSearchParams) {
 }
 
 export async function GET(request: NextRequest) {
+  return withPerformanceMonitoring(request, { route: "/api/lancamentos/relatorio", method: "GET" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -87,16 +91,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Selecione uma empresa para gerar o relatorio." }, { status: 409 });
   }
 
-  const cabecalho = await resolveDocumentoCabecalhoPdf(prisma, empresaId, "RELATORIO");
+  const loadDataStart = performance.now();
+  const cabecalho = await measurePerformanceStep("loadHeader", () => resolveDocumentoCabecalhoPdf(prisma, empresaId, "RELATORIO"));
 
   const medicao = medicaoId
-    ? await prisma.medicao.findUnique({
+    ? await measurePerformanceStep("loadMeasurement", () => prisma.medicao.findUnique({
         where: { id: medicaoId },
         select: { codigoMedicao: true }
-      })
+      }))
     : null;
 
-  const items = await prisma.lancamentoDiario.findMany({
+  const items = await measurePerformanceStep("loadReportEntries", () => prisma.lancamentoDiario.findMany({
     where: {
       data: getDataFilter(searchParams),
       medicaoItens: medicaoId
@@ -157,7 +162,8 @@ export async function GET(request: NextRequest) {
       modo === "romaneios"
         ? [{ data: "asc" }, { ficha: { numero: "asc" } }, { createdAt: "asc" }]
         : [{ data: "desc" }, { ficha: { numero: "desc" } }, { createdAt: "desc" }]
-  });
+  }));
+  recordPdfPerformanceMetric({ loadDataMs: performance.now() - loadDataStart });
 
   if (items.length === 0) {
     return NextResponse.json(
@@ -206,9 +212,10 @@ export async function GET(request: NextRequest) {
           : []
   }));
 
+  const renderStart = performance.now();
   const buffer =
     modo === "romaneios"
-      ? await renderToBuffer(
+      ? await measurePerformanceStep("renderPdf", () => renderToBuffer(
           RomaneiosRelatorioPdfDocument({
             titulo: "Relatorio de romaneios",
             filtros,
@@ -227,8 +234,8 @@ export async function GET(request: NextRequest) {
               romaneios: item.romaneiosResolvidos
             }))
           })
-        )
-      : await renderToBuffer(
+        ))
+      : await measurePerformanceStep("renderPdf", () => renderToBuffer(
           LancamentosRelatorioPdfDocument({
             titulo: "Relatorio de historico de lancamentos",
             filtros,
@@ -254,7 +261,8 @@ export async function GET(request: NextRequest) {
               observacao: item.observacao
             }))
           })
-        );
+        ));
+  recordPdfPerformanceMetric({ renderPdfMs: performance.now() - renderStart, pdfSizeBytes: buffer.length });
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,
@@ -266,5 +274,6 @@ export async function GET(request: NextRequest) {
           : 'inline; filename="relatorio-historico-lancamentos.pdf"',
       "Cache-Control": "no-store"
     }
+  });
   });
 }
