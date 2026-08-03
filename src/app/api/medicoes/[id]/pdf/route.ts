@@ -69,8 +69,22 @@ function buildPdfFilename(params: {
   return `${codigo}_${obra}_${periodoInicial}_a_${periodoFinal}${suffix}.pdf`;
 }
 
+async function measurePdfStep<T>(
+  stepName: string,
+  metricName: "loadHeaderMs" | "loadMedicaoMs",
+  callback: () => Promise<T>
+) {
+  const start = performance.now();
+  try {
+    return await measurePerformanceStep(stepName, callback);
+  } finally {
+    recordPdfPerformanceMetric({ [metricName]: performance.now() - start });
+  }
+}
+
 export async function GET(request: NextRequest, context: RouteContext) {
   return withPerformanceMonitoring(request, { route: "/api/medicoes/[id]/pdf", method: "GET" }, async () => {
+  const requestStart = performance.now();
   const session = await auth();
 
   if (!session?.user) {
@@ -84,14 +98,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ message: "Selecione uma empresa para gerar o PDF." }, { status: 409 });
   }
 
-  const loadDataStart = performance.now();
-  const [medicao, cabecalho] = await measurePerformanceStep("loadData", () => Promise.all([
-    prisma.medicao.findFirst({
+  const [medicao, cabecalho] = await Promise.all([
+    measurePdfStep("loadMedicaoMs", "loadMedicaoMs", () => prisma.medicao.findFirst({
       where: {
         id,
+        empresaId,
         deletedAt: null
       },
-      include: {
+      select: {
+        codigoMedicao: true,
+        tipoMedicao: true,
+        periodoInicial: true,
+        periodoFinal: true,
+        status: true,
+        observacao: true,
+        descontoValor: true,
+        permutaPercentual: true,
         cliente: {
           select: {
             nome: true
@@ -104,15 +126,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
         },
         itens: {
           where: {
+            empresaId,
             deletedAt: null
           },
-          orderBy: [{ data: "asc" }, { createdAt: "asc" }]
+          orderBy: [{ data: "asc" }, { createdAt: "asc" }],
+          select: {
+            data: true,
+            ficha: true,
+            placaOuTag: true,
+            tipoServico: true,
+            material: true,
+            unidadeFaturada: true,
+            quantidadeFaturada: true,
+            valorUnitario: true,
+            valorTotalItem: true
+          }
         }
       }
-    }),
-    resolveDocumentoCabecalhoPdf(prisma, empresaId, "MEDICAO")
-  ]));
-  recordPdfPerformanceMetric({ loadDataMs: performance.now() - loadDataStart });
+    })),
+    measurePdfStep("loadHeaderMs", "loadHeaderMs", () => resolveDocumentoCabecalhoPdf(prisma, empresaId, "MEDICAO"))
+  ]);
 
   if (!medicao) {
     return NextResponse.json({ message: "Medicao nao encontrada." }, { status: 404 });
@@ -141,8 +174,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
     tipoRelatorio
   });
 
+  const prepareStart = performance.now();
+  const medicaoPdfItens = medicao.itens.map((item) => ({
+    ...item,
+    quantidadeFaturada: Number(item.quantidadeFaturada),
+    valorUnitario: Number(item.valorUnitario),
+    valorTotalItem: Number(item.valorTotalItem)
+  }));
+  recordPdfPerformanceMetric({
+    loadDataMs: prepareStart - requestStart,
+    prepareMedicaoDataMs: performance.now() - prepareStart,
+    medicaoItemsCount: medicao.itens.length
+  });
+
   const renderStart = performance.now();
-  const buffer = await measurePerformanceStep("renderPdf", () => renderToBuffer(
+  const buffer = await measurePerformanceStep("renderPdfMs", () => renderToBuffer(
     MedicaoPdfDocument({
       logoPath: resolveReportLogoSource(cabecalho.logoUrl),
       codigoMedicao: medicao.codigoMedicao,
@@ -156,15 +202,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
       descontoValor: Number(medicao.descontoValor ?? 0),
       permutaPercentual: Number(medicao.permutaPercentual ?? 0),
       tipoRelatorio,
-      itens: medicao.itens.map((item) => ({
-        ...item,
-        quantidadeFaturada: Number(item.quantidadeFaturada),
-        valorUnitario: Number(item.valorUnitario),
-        valorTotalItem: Number(item.valorTotalItem)
-      }))
+      itens: medicaoPdfItens
     })
   ));
   recordPdfPerformanceMetric({ renderPdfMs: performance.now() - renderStart, pdfSizeBytes: buffer.length });
+  recordPdfPerformanceMetric({ totalDurationMs: performance.now() - requestStart });
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,

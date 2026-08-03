@@ -19,6 +19,7 @@ export type DocumentoCabecalhoPdf = {
 };
 
 type DocumentoCabecalhoConfigInput = {
+  tipo?: TipoDocumentoCabecalho;
   nomeEmpresa?: string | null;
   cnpj?: string | null;
   endereco?: string | null;
@@ -80,7 +81,23 @@ export async function resolveDocumentoCabecalhoPdf(
       }
     }),
     db.documentoCabecalhoConfig.findMany({
-      where: { empresaId }
+      where: {
+        empresaId,
+        OR: [{ tipo }, { usarLogoGlobal: true }]
+      },
+      select: {
+        tipo: true,
+        nomeEmpresa: true,
+        cnpj: true,
+        endereco: true,
+        cidade: true,
+        estado: true,
+        cep: true,
+        telefone: true,
+        email: true,
+        logoUrl: true,
+        usarLogoGlobal: true
+      }
     })
   ]);
 

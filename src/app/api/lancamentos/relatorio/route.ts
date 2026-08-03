@@ -1,4 +1,4 @@
-import { StatusLancamento } from "@prisma/client";
+import { Prisma, StatusLancamento } from "@prisma/client";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { performance } from "node:perf_hooks";
 import { NextRequest, NextResponse } from "next/server";
@@ -66,8 +66,22 @@ function getDataFilter(searchParams: URLSearchParams) {
   return undefined;
 }
 
+async function measurePdfStep<T>(
+  stepName: string,
+  metricName: "loadHeaderMs" | "loadLancamentosMs" | "loadDataMs",
+  callback: () => Promise<T>
+) {
+  const start = performance.now();
+  try {
+    return await measurePerformanceStep(stepName, callback);
+  } finally {
+    recordPdfPerformanceMetric({ [metricName]: performance.now() - start });
+  }
+}
+
 export async function GET(request: NextRequest) {
   return withPerformanceMonitoring(request, { route: "/api/lancamentos/relatorio", method: "GET" }, async () => {
+  const requestStart = performance.now();
   const session = await auth();
 
   if (!session?.user) {
@@ -91,79 +105,93 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Selecione uma empresa para gerar o relatorio." }, { status: 409 });
   }
 
-  const loadDataStart = performance.now();
-  const cabecalho = await measurePerformanceStep("loadHeader", () => resolveDocumentoCabecalhoPdf(prisma, empresaId, "RELATORIO"));
-
-  const medicao = medicaoId
-    ? await measurePerformanceStep("loadMeasurement", () => prisma.medicao.findUnique({
-        where: { id: medicaoId },
-        select: { codigoMedicao: true }
-      }))
-    : null;
-
-  const items = await measurePerformanceStep("loadReportEntries", () => prisma.lancamentoDiario.findMany({
-    where: {
-      data: getDataFilter(searchParams),
-      medicaoItens: medicaoId
-        ? {
-            some: {
-              medicaoId,
-              deletedAt: null,
-              medicao: {
-                deletedAt: null
-              }
-            }
-          }
-        : undefined,
-      clienteId: clienteId || undefined,
-      obraId: obraId || undefined,
-      servicoId: servicoId || undefined,
-      equipamentoId: equipamentoId || undefined,
-      colaboradorId: colaboradorId || undefined,
-      statusValidacao: status ? (status as StatusLancamento) : undefined,
-      ficha: fichaNumero
-        ? {
-            numero: {
-              contains: fichaNumero,
-              mode: "insensitive"
-            }
-          }
-        : undefined,
-      deletedAt: includeDeleted || status === StatusLancamento.CANCELADO ? undefined : null
-    },
-    include: {
-      romaneios: {
-        where: { deletedAt: null },
-        orderBy: { numero: "asc" },
-        select: { numero: true }
-      },
-      ficha: {
-        include: {
-          romaneios: {
-            where: { deletedAt: null },
-            orderBy: { numero: "asc" },
-            select: { numero: true }
-          },
-          _count: {
-            select: {
-              lancamentos: true
+  const reportWhere: Prisma.LancamentoDiarioWhereInput = {
+    empresaId,
+    data: getDataFilter(searchParams),
+    medicaoItens: medicaoId
+      ? {
+          some: {
+            medicaoId,
+            deletedAt: null,
+            medicao: {
+              empresaId,
+              deletedAt: null
             }
           }
         }
+      : undefined,
+    clienteId: clienteId || undefined,
+    obraId: obraId || undefined,
+    servicoId: servicoId || undefined,
+    equipamentoId: equipamentoId || undefined,
+    colaboradorId: colaboradorId || undefined,
+    statusValidacao: status ? (status as StatusLancamento) : undefined,
+    ficha: fichaNumero
+      ? {
+          numero: {
+            contains: fichaNumero,
+            mode: "insensitive"
+          }
+        }
+      : undefined,
+    deletedAt: includeDeleted || status === StatusLancamento.CANCELADO ? undefined : null
+  };
+
+  const [cabecalho, medicao, items] = await Promise.all([
+    measurePdfStep("loadHeaderMs", "loadHeaderMs", () => resolveDocumentoCabecalhoPdf(prisma, empresaId, "RELATORIO")),
+    medicaoId
+      ? measurePerformanceStep("loadMeasurementMs", () => prisma.medicao.findUnique({
+        where: { id: medicaoId },
+        select: { codigoMedicao: true }
+      }))
+      : Promise.resolve(null),
+    measurePdfStep("loadLancamentosMs", "loadLancamentosMs", () => prisma.lancamentoDiario.findMany({
+      where: reportWhere,
+      select: {
+        id: true,
+        fichaId: true,
+        data: true,
+        clienteId: true,
+        obraId: true,
+        quantidadeApontada: true,
+        unidadeApontada: true,
+        quantidadeFaturada: true,
+        unidadeFaturada: true,
+        statusValidacao: true,
+        observacao: true,
+        romaneios: {
+          where: { deletedAt: null },
+          orderBy: { numero: "asc" },
+          select: { numero: true }
+        },
+        ficha: {
+          select: {
+            numero: true,
+            romaneios: {
+              where: { deletedAt: null },
+              orderBy: { numero: "asc" },
+              select: { numero: true }
+            },
+            _count: {
+              select: {
+                lancamentos: true
+              }
+            }
+          }
+        },
+        cliente: { select: { nome: true } },
+        obra: { select: { nome: true } },
+        servico: { select: { tipoServico: true } },
+        material: { select: { descricao: true } },
+        equipamento: { select: { descricao: true, placaOuTag: true } },
+        colaborador: { select: { nome: true } }
       },
-      cliente: true,
-      obra: true,
-      servico: true,
-      material: true,
-      equipamento: true,
-      colaborador: true
-    },
-    orderBy:
-      modo === "romaneios"
-        ? [{ data: "asc" }, { ficha: { numero: "asc" } }, { createdAt: "asc" }]
-        : [{ data: "desc" }, { ficha: { numero: "desc" } }, { createdAt: "desc" }]
-  }));
-  recordPdfPerformanceMetric({ loadDataMs: performance.now() - loadDataStart });
+      orderBy:
+        modo === "romaneios"
+          ? [{ data: "asc" }, { ficha: { numero: "asc" } }, { createdAt: "asc" }]
+          : [{ data: "desc" }, { ficha: { numero: "desc" } }, { createdAt: "desc" }]
+    }))
+  ]);
 
   if (items.length === 0) {
     return NextResponse.json(
@@ -172,6 +200,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const prepareStart = performance.now();
   const filtros = [
     { label: "Periodo inicial", value: searchParams.get("periodoInicial") || "Todos" },
     { label: "Periodo final", value: searchParams.get("periodoFinal") || "Todos" },
@@ -211,11 +240,17 @@ export async function GET(request: NextRequest) {
           ? item.ficha.romaneios.map((romaneio) => romaneio.numero)
           : []
   }));
+  const prepareReportDataMs = performance.now() - prepareStart;
+  recordPdfPerformanceMetric({
+    loadDataMs: prepareStart - requestStart,
+    prepareReportDataMs,
+    lancamentosCount: items.length
+  });
 
   const renderStart = performance.now();
   const buffer =
     modo === "romaneios"
-      ? await measurePerformanceStep("renderPdf", () => renderToBuffer(
+      ? await measurePerformanceStep("renderPdfMs", () => renderToBuffer(
           RomaneiosRelatorioPdfDocument({
             titulo: "Relatorio de romaneios",
             filtros,
@@ -235,7 +270,7 @@ export async function GET(request: NextRequest) {
             }))
           })
         ))
-      : await measurePerformanceStep("renderPdf", () => renderToBuffer(
+      : await measurePerformanceStep("renderPdfMs", () => renderToBuffer(
           LancamentosRelatorioPdfDocument({
             titulo: "Relatorio de historico de lancamentos",
             filtros,
@@ -263,6 +298,7 @@ export async function GET(request: NextRequest) {
           })
         ));
   recordPdfPerformanceMetric({ renderPdfMs: performance.now() - renderStart, pdfSizeBytes: buffer.length });
+  recordPdfPerformanceMetric({ totalDurationMs: performance.now() - requestStart });
 
   return new NextResponse(new Uint8Array(buffer), {
     status: 200,

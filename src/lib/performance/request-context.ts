@@ -17,6 +17,14 @@ export type PerformanceStepMetric = {
 
 export type PerformancePdfMetric = {
   loadDataMs?: number;
+  loadHeaderMs?: number;
+  loadLancamentosMs?: number;
+  loadMedicaoMs?: number;
+  prepareReportDataMs?: number;
+  prepareMedicaoDataMs?: number;
+  totalDurationMs?: number;
+  lancamentosCount?: number;
+  medicaoItemsCount?: number;
   loadAssetsMs?: number;
   renderPdfMs?: number;
   persistPdfMs?: number;
