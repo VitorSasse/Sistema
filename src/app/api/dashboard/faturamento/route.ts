@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
@@ -134,6 +135,7 @@ function resolvePeriod(searchParams: URLSearchParams) {
 }
 
 export async function GET(request: NextRequest) {
+  return withPerformanceMonitoring(request, { route: "/api/dashboard/faturamento", method: "GET" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -355,5 +357,6 @@ export async function GET(request: NextRequest) {
       totalMedicoesComPermuta: permutaClientes.filter((item) => item.valorPermuta > 0).length,
       clientes: permutaClientes
     }
+  });
   });
 }

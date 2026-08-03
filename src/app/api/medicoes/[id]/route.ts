@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import {
   atualizarDadosMedicao,
@@ -11,7 +12,8 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function GET(_: NextRequest, context: RouteContext) {
+export async function GET(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/medicoes/[id]", method: "GET" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -27,9 +29,11 @@ export async function GET(_: NextRequest, context: RouteContext) {
   }
 
   return NextResponse.json(medicao);
+  });
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/medicoes/[id]", method: "PATCH" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -126,9 +130,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       { status: 400 }
     );
   }
+  });
 }
 
-export async function DELETE(_: NextRequest, context: RouteContext) {
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  return withPerformanceMonitoring(request, { route: "/api/medicoes/[id]", method: "DELETE" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -167,4 +173,5 @@ export async function DELETE(_: NextRequest, context: RouteContext) {
       { status: 500 }
     );
   }
+  });
 }

@@ -1,6 +1,7 @@
 import { CriterioControleManutencao } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import {
   calcularProximaManutencao,
@@ -224,6 +225,7 @@ function buildProjection(
 }
 
 export async function GET(request: NextRequest) {
+  return withPerformanceMonitoring(request, { route: "/api/frota/manutencao", method: "GET" }, async () => {
   const session = await auth();
 
   if (!session?.user) {
@@ -393,5 +395,6 @@ export async function GET(request: NextRequest) {
     summary,
     highlights: items.slice(0, 8),
     items
+  });
   });
 }
