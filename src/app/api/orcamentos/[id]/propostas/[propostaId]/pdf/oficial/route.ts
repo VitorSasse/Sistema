@@ -1,6 +1,4 @@
-import { readFile } from "fs/promises";
 import { performance } from "node:perf_hooks";
-import path from "path";
 import { StatusPropostaComercial } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
@@ -8,6 +6,7 @@ import { measurePerformanceStep, recordPdfPerformanceMetric } from "@/lib/perfor
 import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
+import { getOfficialProposalPdfStorage } from "@/server/pdf/orcamento-proposta-official-storage";
 import { renderOrcamentoPropostaPdf } from "@/server/pdf/orcamento-proposta-renderer";
 
 export const runtime = "nodejs";
@@ -15,11 +14,6 @@ export const runtime = "nodejs";
 type RouteContext = {
   params: Promise<{ id: string; propostaId: string }>;
 };
-
-function publicFilePathFromUrl(url: string) {
-  const normalized = url.replace(/^\/+/, "").replaceAll("/", path.sep);
-  return path.join(process.cwd(), "public", normalized);
-}
 
 export async function GET(request: NextRequest, context: RouteContext) {
   return withPerformanceMonitoring(request, { route: "/api/orcamentos/[id]/propostas/[propostaId]/pdf/oficial", method: "GET" }, async () => {
@@ -36,7 +30,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const { id, propostaId } = await context.params;
-  const proposta = await prisma.orcamentoPropostaComercial.findFirst({
+  const lookupStart = performance.now();
+  const proposta = await measurePerformanceStep("lookupOfficialPdfMs", () => prisma.orcamentoPropostaComercial.findFirst({
     where: {
       id: propostaId,
       orcamentoId: id,
@@ -48,48 +43,66 @@ export async function GET(request: NextRequest, context: RouteContext) {
       pdfOficialUrl: true,
       pdfOficialNome: true
     }
-  });
+  }));
+  recordPdfPerformanceMetric({ lookupOfficialPdfMs: performance.now() - lookupStart });
 
   if (!proposta) {
     return NextResponse.json({ message: "Proposta nao encontrada." }, { status: 404 });
   }
 
   if (proposta.status !== StatusPropostaComercial.EMITIDA && proposta.status !== StatusPropostaComercial.REJEITADA && proposta.status !== StatusPropostaComercial.CANCELADA) {
+    recordPdfPerformanceMetric({ fallbackReason: "not_emitted" });
     return NextResponse.json({ message: "Esta proposta ainda nao possui PDF oficial." }, { status: 409 });
   }
 
   const pdfOficialUrl = proposta.pdfOficialUrl;
 
-  if (pdfOficialUrl?.startsWith("/uploads/")) {
+  if (pdfOficialUrl) {
     try {
-      const loadStart = performance.now();
-      const file = await measurePerformanceStep("loadPdfFile", () => readFile(publicFilePathFromUrl(pdfOficialUrl)));
-      recordPdfPerformanceMetric({ loadDataMs: performance.now() - loadStart, pdfSizeBytes: file.length });
-      const fileName = proposta.pdfOficialNome ?? `${proposta.codigo}.pdf`;
+      const readStart = performance.now();
+      const storage = getOfficialProposalPdfStorage();
+      const file = await measurePerformanceStep("readOfficialPdfMs", () => storage.read(pdfOficialUrl));
 
-      return new NextResponse(new Uint8Array(file), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `inline; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
-          "Cache-Control": "private, max-age=300"
-        }
+      if (file) {
+        recordPdfPerformanceMetric({
+          readOfficialPdfMs: performance.now() - readStart,
+          pdfSizeBytes: file.length,
+          fallbackReason: "not_needed"
+        });
+        const fileName = proposta.pdfOficialNome ?? `${proposta.codigo}.pdf`;
+
+        return new NextResponse(new Uint8Array(file), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `inline; filename="${fileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+            "Cache-Control": "private, max-age=300"
+          }
+        });
+      }
+
+      recordPdfPerformanceMetric({
+        readOfficialPdfMs: performance.now() - readStart,
+        fallbackReason: "unsupported_url"
       });
     } catch {
-      // Propostas antigas podem nao ter arquivo fisico; o fallback abaixo usa o snapshot congelado.
+      recordPdfPerformanceMetric({ fallbackReason: "read_error" });
     }
+  } else {
+    recordPdfPerformanceMetric({ fallbackReason: "missing_url" });
   }
 
   try {
     const renderStart = performance.now();
-    const { buffer, fileName } = await measurePerformanceStep("renderPdfFallback", () => renderOrcamentoPropostaPdf({
+    const { buffer, fileName } = await measurePerformanceStep("fallbackRenderMs", () => renderOrcamentoPropostaPdf({
       db: prisma,
       orcamentoId: id,
       empresaId,
       propostaId,
       modo: "OFICIAL"
     }));
-    recordPdfPerformanceMetric({ renderPdfMs: performance.now() - renderStart, pdfSizeBytes: buffer.length });
+    const fallbackRenderMs = performance.now() - renderStart;
+    recordPdfPerformanceMetric({ renderPdfMs: fallbackRenderMs, fallbackRenderMs, pdfSizeBytes: buffer.length });
 
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,

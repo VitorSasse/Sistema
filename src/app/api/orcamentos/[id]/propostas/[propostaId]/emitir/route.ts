@@ -8,7 +8,12 @@ import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { buscarOrcamento } from "@/server/services/orcamentos/service";
-import { renderOrcamentoPropostaPdf } from "@/server/pdf/orcamento-proposta-renderer";
+import { resolveDocumentoCabecalhoPdf } from "@/server/pdf/documento-cabecalho";
+import {
+  getOfficialProposalPdfStorage,
+  OfficialProposalPdfStorageUnavailableError
+} from "@/server/pdf/orcamento-proposta-official-storage";
+import { renderOrcamentoPropostaPdfFromData } from "@/server/pdf/orcamento-proposta-renderer";
 
 export const runtime = "nodejs";
 
@@ -30,21 +35,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const empresaId = requireActiveTenantEmpresaId();
   const { id, propostaId } = await context.params;
-  const proposta = await prisma.orcamentoPropostaComercial.findFirst({
-    where: {
-      id: propostaId,
-      orcamentoId: id,
-      empresaId
-    },
-    select: {
-      id: true,
-      codigo: true,
-      status: true,
-      snapshotJson: true
-    }
-  });
+  const [orcamento, cabecalho] = await Promise.all([
+    measurePerformanceStep("loadProposalDataMs", () => buscarOrcamento(prisma, id)),
+    measurePerformanceStep("resolveHeaderMs", () =>
+      resolveDocumentoCabecalhoPdf(prisma, empresaId, "ORCAMENTO")
+    )
+  ]);
 
-  if (!proposta) {
+  const proposta = orcamento?.propostas.find((item) => item.id === propostaId) ?? null;
+  if (!orcamento || !proposta) {
     return NextResponse.json({ message: "Proposta nao encontrada." }, { status: 404 });
   }
 
@@ -68,10 +67,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const renderStart = performance.now();
 
   try {
-    const rendered = await measurePerformanceStep("renderPdf", () => renderOrcamentoPropostaPdf({
-      db: prisma,
-      orcamentoId: id,
-      empresaId,
+    const rendered = await measurePerformanceStep("renderPdfMs", () => renderOrcamentoPropostaPdfFromData({
+      orcamento,
+      cabecalho,
       propostaId,
       modo: "OFICIAL",
       dataDocumento: emitidaEm
@@ -88,26 +86,54 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const hash = createHash("sha256").update(buffer).digest("hex");
-  const publicUrl = `/api/orcamentos/${id}/propostas/${propostaId}/pdf/oficial`;
+  const apiPublicUrl = `/api/orcamentos/${id}/propostas/${propostaId}/pdf/oficial`;
+  let publicUrl = apiPublicUrl;
 
-  const updated = await prisma.orcamentoPropostaComercial.updateMany({
+  try {
+    const persistStart = performance.now();
+    const storage = getOfficialProposalPdfStorage();
+    const persisted = await measurePerformanceStep("persistPdfMs", () =>
+      storage.save({
+        empresaId,
+        orcamentoId: id,
+        propostaId,
+        fileName,
+        buffer
+      })
+    );
+    publicUrl = persisted.publicUrl;
+    recordPdfPerformanceMetric({
+      persistPdfMs: performance.now() - persistStart,
+      pdfSizeBytes: persisted.sizeBytes
+    });
+  } catch (error) {
+    recordPdfPerformanceMetric({
+      fallbackReason:
+        error instanceof OfficialProposalPdfStorageUnavailableError ? "storage_unavailable" : "persist_error"
+    });
+  }
+
+  const updateProposalStart = performance.now();
+  const proposalUpdateData = {
+    status: StatusPropostaComercial.EMITIDA,
+    emitidaEm,
+    emitidaPorId: permission.session.user.id,
+    pdfOficialUrl: publicUrl,
+    pdfOficialNome: sanitizeFileName(fileName),
+    pdfOficialHash: hash,
+    pdfOficialMime: "application/pdf",
+    pdfOficialTamanhoBytes: buffer.length
+  };
+  const updated = await measurePerformanceStep("updateProposalMs", () => prisma.orcamentoPropostaComercial.updateMany({
     where: {
       id: propostaId,
       orcamentoId: id,
       empresaId,
       status: StatusPropostaComercial.RASCUNHO
     },
-    data: {
-      status: StatusPropostaComercial.EMITIDA,
-      emitidaEm,
-      emitidaPorId: permission.session.user.id,
-      pdfOficialUrl: publicUrl,
-      pdfOficialNome: sanitizeFileName(fileName),
-      pdfOficialHash: hash,
-      pdfOficialMime: "application/pdf",
-      pdfOficialTamanhoBytes: buffer.length
-    }
-  });
+    data: proposalUpdateData
+  }));
+  recordPdfPerformanceMetric({ updateProposalMs: performance.now() - updateProposalStart });
 
   if (updated.count === 0) {
     return NextResponse.json(
@@ -116,12 +142,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const orcamento = await buscarOrcamento(prisma, id);
+  const orcamentoAtualizado = {
+    ...orcamento,
+    propostas: orcamento.propostas.map((item) =>
+      item.id === propostaId
+        ? {
+            ...item,
+            ...proposalUpdateData
+          }
+        : item
+    )
+  };
 
   return NextResponse.json({
     message: "Proposta emitida com sucesso.",
-    pdfOficialUrl: publicUrl,
-    orcamento
+    pdfOficialUrl: apiPublicUrl,
+    orcamento: orcamentoAtualizado
   });
   });
 }

@@ -19,6 +19,19 @@ export type PerformancePdfMetric = {
   loadDataMs?: number;
   loadAssetsMs?: number;
   renderPdfMs?: number;
+  persistPdfMs?: number;
+  updateProposalMs?: number;
+  lookupOfficialPdfMs?: number;
+  readOfficialPdfMs?: number;
+  fallbackRenderMs?: number;
+  fallbackReason?:
+    | "missing_url"
+    | "unsupported_url"
+    | "read_error"
+    | "persist_error"
+    | "storage_unavailable"
+    | "not_emitted"
+    | "not_needed";
   pdfSizeBytes?: number;
 };
 

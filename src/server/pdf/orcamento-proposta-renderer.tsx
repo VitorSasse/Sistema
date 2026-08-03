@@ -2,13 +2,14 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { resolveDocumentoCabecalhoPdf } from "@/server/pdf/documento-cabecalho";
 import { OrcamentoPdfDocument } from "@/server/pdf/orcamento-pdf";
+import type { DocumentoCabecalhoPdf } from "@/server/pdf/documento-cabecalho";
 import {
   montarFrentesComerciais,
   resolverValorGlobalProposta,
   selecionarItensComerciais
 } from "@/server/pdf/orcamento-proposta";
 import { resolveReportLogoSource } from "@/server/pdf/report-logo";
-import { buscarOrcamento } from "@/server/services/orcamentos/service";
+import { buscarOrcamento, type OrcamentoDetalhe } from "@/server/services/orcamentos/service";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -18,6 +19,14 @@ type RenderOrcamentoPropostaPdfParams = {
   db: DbClient;
   orcamentoId: string;
   empresaId: string;
+  propostaId?: string | null;
+  modo: ModoDocumentoProposta;
+  dataDocumento?: Date;
+};
+
+type RenderOrcamentoPropostaPdfFromDataParams = {
+  orcamento: OrcamentoDetalhe;
+  cabecalho: DocumentoCabecalhoPdf;
   propostaId?: string | null;
   modo: ModoDocumentoProposta;
   dataDocumento?: Date;
@@ -216,23 +225,13 @@ function asModoExibicaoValoresPdf(value: unknown) {
     : "SOMENTE_TOTAL_GLOBAL";
 }
 
-export async function renderOrcamentoPropostaPdf({
-  db,
-  orcamentoId,
-  empresaId,
+export async function renderOrcamentoPropostaPdfFromData({
+  orcamento,
+  cabecalho,
   propostaId,
   modo,
   dataDocumento
-}: RenderOrcamentoPropostaPdfParams) {
-  const [orcamento, cabecalho] = await Promise.all([
-    buscarOrcamento(db, orcamentoId),
-    resolveDocumentoCabecalhoPdf(db, empresaId, "ORCAMENTO")
-  ]);
-
-  if (!orcamento) {
-    throw new Error("ORCAMENTO_NAO_ENCONTRADO");
-  }
-
+}: RenderOrcamentoPropostaPdfFromDataParams) {
   const usaFrentes = orcamento.frentes.length > 0;
   const propostaOperacional = propostaId
     ? orcamento.propostas.find((proposta) => proposta.id === propostaId)
@@ -417,6 +416,33 @@ export async function renderOrcamentoPropostaPdf({
   return {
     buffer,
     fileName,
-    proposta: propostaOperacional
+    proposta: propostaOperacional,
+    orcamento
   };
+}
+
+export async function renderOrcamentoPropostaPdf({
+  db,
+  orcamentoId,
+  empresaId,
+  propostaId,
+  modo,
+  dataDocumento
+}: RenderOrcamentoPropostaPdfParams) {
+  const [orcamento, cabecalho] = await Promise.all([
+    buscarOrcamento(db, orcamentoId),
+    resolveDocumentoCabecalhoPdf(db, empresaId, "ORCAMENTO")
+  ]);
+
+  if (!orcamento) {
+    throw new Error("ORCAMENTO_NAO_ENCONTRADO");
+  }
+
+  return renderOrcamentoPropostaPdfFromData({
+    orcamento,
+    cabecalho,
+    propostaId,
+    modo,
+    dataDocumento
+  });
 }
