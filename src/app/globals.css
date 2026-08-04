@@ -3485,6 +3485,15 @@ button {
   transform: none;
 }
 
+.medicao-save-primary {
+  min-height: 40px !important;
+  border-radius: var(--radius-button) !important;
+  border: 1px solid var(--primary) !important;
+  background: var(--primary) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
 .message-inline {
   padding: 12px 14px;
   border-radius: 14px;
