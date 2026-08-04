@@ -5857,6 +5857,7 @@ button {
 }
 
 .programacao-grid-shell {
+  display: block;
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -5918,6 +5919,7 @@ button {
 .programacao-grid,
 .programacao-grid-row {
   display: grid;
+  position: relative;
   grid-template-columns: 250px repeat(var(--programacao-cols, 7), 160px);
   width: max-content;
   min-width: max-content;
@@ -5931,7 +5933,7 @@ button {
 .programacao-grid-head {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 35;
   background: rgba(255, 251, 244, 0.96);
   backdrop-filter: blur(8px);
 }
@@ -5948,13 +5950,19 @@ button {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   position: sticky !important;
+  position: -webkit-sticky !important;
   left: 0;
-  z-index: 40;
+  inset-inline-start: 0;
+  width: 250px;
+  box-sizing: border-box;
+  z-index: 80;
   background: rgba(255, 251, 244, 0.99);
   box-shadow: 16px 0 30px rgba(15, 23, 42, 0.22);
 }
 
 .programacao-day-head {
+  position: relative;
+  z-index: 1;
   text-align: center;
 }
 
@@ -5988,8 +5996,12 @@ button {
   background: rgba(255, 255, 255, 0.82);
   border-right: 1px solid rgba(109, 92, 66, 0.08);
   position: sticky !important;
+  position: -webkit-sticky !important;
   left: 0;
-  z-index: 30;
+  inset-inline-start: 0;
+  width: 250px;
+  box-sizing: border-box;
+  z-index: 70;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 16px 0 30px rgba(15, 23, 42, 0.18);
 }
@@ -6135,13 +6147,15 @@ button {
 
 .programacao-grid-shell.is-month-view .programacao-equipment-card {
   grid-template-columns: 42px minmax(0, 1fr) 78px;
+  width: 240px;
   padding: 12px 10px;
-  z-index: 3;
+  z-index: 70;
   box-shadow: 12px 0 24px rgba(15, 23, 42, 0.12);
 }
 
 .programacao-grid-shell.is-month-view .programacao-equipment-head {
-  z-index: 7;
+  width: 240px;
+  z-index: 80;
   box-shadow: 12px 0 24px rgba(15, 23, 42, 0.14);
 }
 
@@ -6866,6 +6880,11 @@ button {
     grid-template-columns: 220px repeat(var(--programacao-cols, 7), 136px);
     width: max-content;
     min-width: max-content;
+  }
+
+  .programacao-equipment-head,
+  .programacao-equipment-card {
+    width: 220px;
   }
 
   .programacao-analytics-row {
