@@ -510,7 +510,7 @@ export function MedicaoDetailSection(props: {
               <button
                 type="button"
                 disabled={!canEditContent || isPending}
-                className="button-secondary"
+                className="button-primary"
                 onClick={onSaveObservacao}
               >
                 {isPending ? "Salvando..." : "Salvar dados da medicao"}
