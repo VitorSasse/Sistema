@@ -5384,6 +5384,8 @@ button {
 
 .executive-heatmap {
   overflow-x: auto;
+  position: relative;
+  isolation: isolate;
 }
 
 .executive-heatmap-expandable .expandable-chart-trigger {
@@ -5455,7 +5457,7 @@ button {
 .executive-heatmap-label {
   position: sticky;
   left: 0;
-  z-index: 5;
+  z-index: 12;
   padding: 10px 12px;
   background: rgba(9, 18, 29, 0.82);
   border: 1px solid rgba(145, 163, 180, 0.12);
@@ -5463,7 +5465,7 @@ button {
 }
 
 .executive-heatmap-corner {
-  z-index: 8;
+  z-index: 18;
 }
 
 .executive-heatmap-day {
@@ -5856,6 +5858,8 @@ button {
 .programacao-grid-shell {
   overflow: auto;
   scrollbar-gutter: stable both-edges;
+  position: relative;
+  isolation: isolate;
   border-radius: 22px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.48);
@@ -5934,8 +5938,9 @@ button {
   letter-spacing: 0.08em;
   position: sticky;
   left: 0;
-  z-index: 4;
+  z-index: 20;
   background: rgba(255, 251, 244, 0.98);
+  box-shadow: 12px 0 24px rgba(15, 23, 42, 0.14);
 }
 
 .programacao-day-head {
@@ -5973,7 +5978,8 @@ button {
   border-right: 1px solid rgba(109, 92, 66, 0.08);
   position: sticky;
   left: 0;
-  z-index: 1;
+  z-index: 12;
+  box-shadow: 12px 0 24px rgba(15, 23, 42, 0.1);
 }
 
 .programacao-equipment-card.is-row-operando {
