@@ -666,52 +666,18 @@ export function ProgramacaoManager() {
   function renderAgendaGrid(expanded = false) {
     return (
       <div
-        ref={(node) => {
-          if (expanded) {
-            expandedGridShellRef.current = node;
-          } else {
-            gridShellRef.current = node;
-          }
-
-          if (node) node.scrollLeft = agendaScrollLeftRef.current;
-        }}
         className={`programacao-grid-shell ${view === "MES" ? "is-month-view" : ""} ${expanded ? "is-expanded-view" : ""}`}
         tabIndex={0}
         aria-label="Grade da agenda operacional com rolagem horizontal"
-        onScroll={(event) => {
-          const nextScrollLeft = event.currentTarget.scrollLeft;
-          agendaScrollLeftRef.current = nextScrollLeft;
-          const peerGrid = expanded ? gridShellRef.current : expandedGridShellRef.current;
-
-          if (peerGrid && Math.abs(peerGrid.scrollLeft - nextScrollLeft) > 1) {
-            peerGrid.scrollLeft = nextScrollLeft;
-          }
-        }}
         style={{ ["--programacao-cols" as string]: String(days.length) }}
       >
-        <div className="programacao-grid programacao-grid-head">
+        <div className="programacao-equipment-column">
           <div className="programacao-equipment-head">Equipamentos</div>
-          {days.map((day) => {
-            const label = formatDayLabel(day);
-            const isToday = day === toDateInput(new Date());
-            const isWeekend = isWeekendDate(day);
-
-            return (
-              <div
-                key={day}
-                className={`programacao-day-head ${isToday ? "is-today" : ""} ${isWeekend ? "is-weekend" : ""}`}
-              >
-                <strong>{label.weekday}</strong>
-                <span>{label.day}</span>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="programacao-grid-body">
           {dashboardRows.map((row) => (
-            <div key={row.equipamento.id} className="programacao-grid-row">
-              <div className={`programacao-equipment-card ${row.focusStatus === "OPERANDO" ? "is-row-operando" : ""}`}>
+            <div
+              key={row.equipamento.id}
+              className={`programacao-equipment-card ${row.focusStatus === "OPERANDO" ? "is-row-operando" : ""}`}
+            >
                 <div className="programacao-equipment-avatar">
                   {row.equipamento.tipoRecurso === "CAMINHAO" ? "CA" : row.equipamento.tipoRecurso === "MAQUINA" ? "MQ" : "EQ"}
                 </div>
@@ -733,6 +699,51 @@ export function ProgramacaoManager() {
                   <span>{row.revision.label}</span>
                 </div>
               </div>
+          ))}
+        </div>
+
+        <div
+          ref={(node) => {
+            if (expanded) {
+              expandedGridShellRef.current = node;
+            } else {
+              gridShellRef.current = node;
+            }
+
+            if (node) node.scrollLeft = agendaScrollLeftRef.current;
+          }}
+          className="programacao-days-scroll"
+          onScroll={(event) => {
+            const nextScrollLeft = event.currentTarget.scrollLeft;
+            agendaScrollLeftRef.current = nextScrollLeft;
+            const peerGrid = expanded ? gridShellRef.current : expandedGridShellRef.current;
+
+            if (peerGrid && Math.abs(peerGrid.scrollLeft - nextScrollLeft) > 1) {
+              peerGrid.scrollLeft = nextScrollLeft;
+            }
+          }}
+        >
+          <div className="programacao-days-grid programacao-grid-head">
+            {days.map((day) => {
+              const label = formatDayLabel(day);
+              const isToday = day === toDateInput(new Date());
+              const isWeekend = isWeekendDate(day);
+
+              return (
+                <div
+                  key={day}
+                  className={`programacao-day-head ${isToday ? "is-today" : ""} ${isWeekend ? "is-weekend" : ""}`}
+                >
+                  <strong>{label.weekday}</strong>
+                  <span>{label.day}</span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="programacao-days-body">
+            {dashboardRows.map((row) => (
+              <div key={row.equipamento.id} className="programacao-days-row">
 
               {row.cells.map((cell) => {
                 const today = cell.date === toDateInput(new Date());
@@ -793,6 +804,7 @@ export function ProgramacaoManager() {
               })}
             </div>
           ))}
+          </div>
         </div>
       </div>
     );

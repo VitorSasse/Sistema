@@ -5857,12 +5857,13 @@ button {
 }
 
 .programacao-grid-shell {
-  display: block;
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  align-items: start;
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  overflow-x: auto;
-  overflow-y: auto;
+  overflow: hidden;
   scrollbar-gutter: stable both-edges;
   position: relative;
   isolation: isolate;
@@ -5873,17 +5874,29 @@ button {
   scrollbar-color: rgba(21, 91, 82, 0.48) rgba(109, 92, 66, 0.12);
 }
 
-.programacao-grid-shell::-webkit-scrollbar {
+.programacao-days-scroll {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: auto;
+  scrollbar-color: rgba(21, 91, 82, 0.48) rgba(109, 92, 66, 0.12);
+}
+
+.programacao-grid-shell::-webkit-scrollbar,
+.programacao-days-scroll::-webkit-scrollbar {
   width: 14px;
   height: 14px;
 }
 
-.programacao-grid-shell::-webkit-scrollbar-track {
+.programacao-grid-shell::-webkit-scrollbar-track,
+.programacao-days-scroll::-webkit-scrollbar-track {
   background: rgba(109, 92, 66, 0.1);
   border-radius: 999px;
 }
 
-.programacao-grid-shell::-webkit-scrollbar-thumb {
+.programacao-grid-shell::-webkit-scrollbar-thumb,
+.programacao-days-scroll::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg,
       rgba(21, 91, 82, 0.78),
       rgba(15, 70, 63, 0.88));
@@ -5917,7 +5930,9 @@ button {
 }
 
 .programacao-grid,
-.programacao-grid-row {
+.programacao-grid-row,
+.programacao-days-grid,
+.programacao-days-row {
   display: grid;
   position: relative;
   grid-template-columns: 250px repeat(var(--programacao-cols, 7), 160px);
@@ -5928,6 +5943,22 @@ button {
 .programacao-grid-body {
   width: max-content;
   min-width: max-content;
+}
+
+.programacao-equipment-column {
+  display: grid;
+  grid-template-rows: auto;
+  width: 250px;
+  min-width: 250px;
+  position: relative;
+  z-index: 20;
+  background: rgba(255, 251, 244, 0.98);
+  box-shadow: 16px 0 30px rgba(15, 23, 42, 0.18);
+}
+
+.programacao-days-grid,
+.programacao-days-row {
+  grid-template-columns: repeat(var(--programacao-cols, 7), 160px);
 }
 
 .programacao-grid-head {
@@ -6004,6 +6035,7 @@ button {
   z-index: 70;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 16px 0 30px rgba(15, 23, 42, 0.18);
+  min-height: 102px;
 }
 
 .programacao-equipment-card.is-row-operando {
@@ -6140,6 +6172,22 @@ button {
   min-width: max-content;
 }
 
+.programacao-grid-shell.is-month-view {
+  grid-template-columns: 240px minmax(0, 1fr);
+}
+
+.programacao-grid-shell.is-month-view .programacao-equipment-column {
+  width: 240px;
+  min-width: 240px;
+}
+
+.programacao-grid-shell.is-month-view .programacao-days-grid,
+.programacao-grid-shell.is-month-view .programacao-days-row {
+  grid-template-columns: repeat(var(--programacao-cols, 31), 108px);
+  width: max-content;
+  min-width: max-content;
+}
+
 .programacao-grid-shell.is-month-view .programacao-day-head,
 .programacao-grid-shell.is-month-view .programacao-equipment-head {
   padding: 14px 10px;
@@ -6148,6 +6196,7 @@ button {
 .programacao-grid-shell.is-month-view .programacao-equipment-card {
   grid-template-columns: 42px minmax(0, 1fr) 78px;
   width: 240px;
+  min-height: 78px;
   padding: 12px 10px;
   z-index: 70;
   box-shadow: 12px 0 24px rgba(15, 23, 42, 0.12);
@@ -6162,6 +6211,8 @@ button {
 .programacao-grid-shell.is-expanded-view {
   height: 100%;
   max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
   border-radius: 18px;
 }
 
@@ -6510,6 +6561,11 @@ button {
 
 [data-theme="dark"] .programacao-grid-head {
   background: rgba(18, 36, 58, 0.97) !important;
+}
+
+[data-theme="dark"] .programacao-equipment-column {
+  background: rgba(18, 36, 58, 0.98) !important;
+  box-shadow: 16px 0 30px rgba(2, 6, 23, 0.38) !important;
 }
 
 [data-theme="dark"] .programacao-equipment-head,
@@ -6878,6 +6934,22 @@ button {
   .programacao-grid,
   .programacao-grid-row {
     grid-template-columns: 220px repeat(var(--programacao-cols, 7), 136px);
+    width: max-content;
+    min-width: max-content;
+  }
+
+  .programacao-grid-shell {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .programacao-equipment-column {
+    width: 220px;
+    min-width: 220px;
+  }
+
+  .programacao-days-grid,
+  .programacao-days-row {
+    grid-template-columns: repeat(var(--programacao-cols, 7), 136px);
     width: max-content;
     min-width: max-content;
   }
