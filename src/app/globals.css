@@ -5429,12 +5429,13 @@ button {
 
 .executive-heatmap-view.is-expanded .executive-heatmap-head,
 .executive-heatmap-view.is-expanded .executive-heatmap-row {
-  grid-template-columns: 240px repeat(var(--executive-heatmap-cols, 31), minmax(34px, 1fr));
+  grid-template-columns: 240px repeat(var(--executive-heatmap-cols, 31), 34px);
+  min-width: max-content;
 }
 
 .executive-heatmap-head,
 .executive-heatmap-row {
-  grid-template-columns: 220px repeat(var(--executive-heatmap-cols, 31), minmax(28px, 1fr));
+  grid-template-columns: 220px repeat(var(--executive-heatmap-cols, 31), 32px);
   align-items: center;
   min-width: max-content;
 }
@@ -5913,8 +5914,8 @@ button {
 .programacao-grid,
 .programacao-grid-row {
   display: grid;
-  grid-template-columns: 250px repeat(var(--programacao-cols, 7), minmax(160px, 1fr));
-  min-width: fit-content;
+  grid-template-columns: 250px repeat(var(--programacao-cols, 7), 160px);
+  min-width: max-content;
 }
 
 .programacao-grid-head {
@@ -6111,7 +6112,8 @@ button {
 
 .programacao-grid-shell.is-month-view .programacao-grid,
 .programacao-grid-shell.is-month-view .programacao-grid-row {
-  grid-template-columns: 240px repeat(var(--programacao-cols, 31), minmax(108px, 1fr));
+  grid-template-columns: 240px repeat(var(--programacao-cols, 31), 108px);
+  min-width: max-content;
 }
 
 .programacao-grid-shell.is-month-view .programacao-day-head,
@@ -6849,7 +6851,8 @@ button {
 
   .programacao-grid,
   .programacao-grid-row {
-    grid-template-columns: 220px repeat(var(--programacao-cols, 7), minmax(136px, 1fr));
+    grid-template-columns: 220px repeat(var(--programacao-cols, 7), 136px);
+    min-width: max-content;
   }
 
   .programacao-analytics-row {
