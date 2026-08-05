@@ -5857,6 +5857,8 @@ button {
 }
 
 .programacao-grid-shell {
+  --programacao-head-height: 72px;
+  --programacao-row-height: 102px;
   display: grid;
   grid-template-columns: 250px minmax(0, 1fr);
   align-items: start;
@@ -5971,6 +5973,10 @@ button {
 
 .programacao-equipment-head,
 .programacao-day-head {
+  height: var(--programacao-head-height);
+  min-height: var(--programacao-head-height);
+  max-height: var(--programacao-head-height);
+  box-sizing: border-box;
   padding: 18px 14px;
   border-right: 1px solid rgba(109, 92, 66, 0.08);
   border-bottom: 1px solid rgba(109, 92, 66, 0.12);
@@ -6035,7 +6041,10 @@ button {
   z-index: 70;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 16px 0 30px rgba(15, 23, 42, 0.18);
-  min-height: 102px;
+  height: var(--programacao-row-height);
+  min-height: var(--programacao-row-height);
+  max-height: var(--programacao-row-height);
+  overflow: hidden;
 }
 
 .programacao-equipment-card.is-row-operando {
@@ -6062,11 +6071,17 @@ button {
 
 .programacao-equipment-copy strong {
   font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .programacao-equipment-copy span {
   color: var(--muted);
   font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .programacao-equipment-type {
@@ -6115,7 +6130,9 @@ button {
 }
 
 .programacao-cell {
-  min-height: 102px;
+  height: var(--programacao-row-height);
+  min-height: var(--programacao-row-height);
+  max-height: var(--programacao-row-height);
   padding: 14px 12px;
   border: 0;
   border-right: 1px solid rgba(255, 255, 255, 0.54);
@@ -6173,6 +6190,8 @@ button {
 }
 
 .programacao-grid-shell.is-month-view {
+  --programacao-head-height: 58px;
+  --programacao-row-height: 78px;
   grid-template-columns: 240px minmax(0, 1fr);
 }
 
@@ -6190,21 +6209,13 @@ button {
 
 .programacao-grid-shell.is-month-view .programacao-day-head,
 .programacao-grid-shell.is-month-view .programacao-equipment-head {
-  height: 58px;
-  min-height: 58px;
-  max-height: 58px;
   padding: 14px 10px;
-  box-sizing: border-box;
 }
 
 .programacao-grid-shell.is-month-view .programacao-equipment-card {
   grid-template-columns: 42px minmax(0, 1fr) 78px;
   width: 240px;
-  height: 78px;
-  min-height: 78px;
-  max-height: 78px;
   padding: 12px 10px;
-  overflow: hidden;
   z-index: 70;
   box-shadow: 12px 0 24px rgba(15, 23, 42, 0.12);
 }
@@ -6256,9 +6267,6 @@ button {
 }
 
 .programacao-grid-shell.is-month-view .programacao-cell {
-  height: 78px;
-  min-height: 78px;
-  max-height: 78px;
   padding: 10px 8px;
   gap: 6px;
 }
