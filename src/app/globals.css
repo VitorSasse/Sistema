@@ -600,7 +600,7 @@ h3,
 
 .admin-home-hero {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
   gap: 22px;
@@ -5861,6 +5861,7 @@ button {
   --programacao-row-height: 102px;
   display: grid;
   grid-template-columns: 250px minmax(0, 1fr);
+  grid-template-rows: var(--programacao-head-height) auto;
   align-items: start;
   width: 100%;
   max-width: 100%;
@@ -5876,6 +5877,19 @@ button {
   scrollbar-color: rgba(21, 91, 82, 0.48) rgba(109, 92, 66, 0.12);
 }
 
+.programacao-agenda-header {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  position: sticky;
+  top: 0;
+  z-index: 90;
+  background: rgba(255, 251, 244, 0.98);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+}
+
+.programacao-days-header-scroll,
 .programacao-days-scroll {
   min-width: 0;
   max-width: 100%;
@@ -5885,19 +5899,30 @@ button {
   scrollbar-color: rgba(21, 91, 82, 0.48) rgba(109, 92, 66, 0.12);
 }
 
+.programacao-days-header-scroll {
+  scrollbar-width: none;
+}
+
+.programacao-days-header-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 .programacao-grid-shell::-webkit-scrollbar,
+.programacao-days-header-scroll::-webkit-scrollbar,
 .programacao-days-scroll::-webkit-scrollbar {
   width: 14px;
   height: 14px;
 }
 
 .programacao-grid-shell::-webkit-scrollbar-track,
+.programacao-days-header-scroll::-webkit-scrollbar-track,
 .programacao-days-scroll::-webkit-scrollbar-track {
   background: rgba(109, 92, 66, 0.1);
   border-radius: 999px;
 }
 
 .programacao-grid-shell::-webkit-scrollbar-thumb,
+.programacao-days-header-scroll::-webkit-scrollbar-thumb,
 .programacao-days-scroll::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg,
       rgba(21, 91, 82, 0.78),
@@ -5950,12 +5975,19 @@ button {
 .programacao-equipment-column {
   display: grid;
   grid-template-rows: auto;
+  grid-column: 1;
+  grid-row: 2;
   width: 250px;
   min-width: 250px;
   position: relative;
   z-index: 20;
   background: rgba(255, 251, 244, 0.98);
   box-shadow: 16px 0 30px rgba(15, 23, 42, 0.18);
+}
+
+.programacao-days-scroll {
+  grid-column: 2;
+  grid-row: 2;
 }
 
 .programacao-days-grid,
@@ -6192,6 +6224,10 @@ button {
 .programacao-grid-shell.is-month-view {
   --programacao-head-height: 58px;
   --programacao-row-height: 78px;
+  grid-template-columns: 240px minmax(0, 1fr);
+}
+
+.programacao-grid-shell.is-month-view .programacao-agenda-header {
   grid-template-columns: 240px minmax(0, 1fr);
 }
 
@@ -6586,6 +6622,11 @@ button {
   background: rgba(18, 36, 58, 0.97) !important;
 }
 
+[data-theme="dark"] .programacao-agenda-header {
+  background: rgba(18, 36, 58, 0.98) !important;
+  box-shadow: 0 12px 28px rgba(2, 6, 23, 0.38) !important;
+}
+
 [data-theme="dark"] .programacao-equipment-column {
   background: rgba(18, 36, 58, 0.98) !important;
   box-shadow: 16px 0 30px rgba(2, 6, 23, 0.38) !important;
@@ -6962,6 +7003,10 @@ button {
   }
 
   .programacao-grid-shell {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .programacao-agenda-header {
     grid-template-columns: 220px minmax(0, 1fr);
   }
 
