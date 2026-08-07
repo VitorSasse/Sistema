@@ -38,6 +38,7 @@ export type AccessModule =
   | "medicoes"
   | "ordens_compra"
   | "orcamentos"
+  | "execucoes"
   | "relatorios"
   | "pdfs"
   | "usuarios"
@@ -90,6 +91,7 @@ export const accessModules: Array<{
   { id: "leituras", label: "Horimetro e KM", group: "Frota", allowManage: true },
   { id: "medicoes", label: "Medicoes", group: "Financeiro", allowManage: true },
   { id: "orcamentos", label: "Orcamentos", group: "Financeiro", allowManage: true },
+  { id: "execucoes", label: "Execucao e Resultado", group: "Operacional", allowManage: true },
   { id: "relatorios", label: "Relatorios", group: "Relatorios e documentos", allowManage: false },
   { id: "pdfs", label: "PDFs", group: "Relatorios e documentos", allowManage: true },
   { id: "usuarios", label: "Usuarios", group: "Administracao", allowManage: true },
@@ -150,6 +152,7 @@ const roleModulePermissions: Record<RoleCodigo, ModulePermissionMap> = {
     leituras: { view: true, manage: true },
     medicoes: { view: true, manage: true },
     orcamentos: { view: true, manage: true },
+    execucoes: { view: true, manage: true },
     relatorios: { view: true },
     pdfs: { view: true },
     auditoria: { view: true }
@@ -166,6 +169,7 @@ const roleModulePermissions: Record<RoleCodigo, ModulePermissionMap> = {
     agenda_manutencao: { view: true, manage: true },
     leituras: { view: true, manage: true },
     medicoes: { view: true },
+    execucoes: { view: true, manage: true },
     pdfs: { view: true }
   },
   FINANCEIRO: {
@@ -181,6 +185,7 @@ const roleModulePermissions: Record<RoleCodigo, ModulePermissionMap> = {
     ordens_compra: { view: true, manage: true },
     medicoes: { view: true, manage: true },
     orcamentos: { view: true, manage: true },
+    execucoes: { view: true },
     relatorios: { view: true },
     pdfs: { view: true }
   },
@@ -346,6 +351,7 @@ const routeModuleMap: Array<{ prefix: string; module: AccessModule }> = [
   { prefix: "/programacao", module: "programacao" },
   { prefix: "/medicoes", module: "medicoes" },
   { prefix: "/orcamentos", module: "orcamentos" },
+  { prefix: "/execucoes", module: "execucoes" },
   { prefix: "/usuarios", module: "usuarios" },
   { prefix: "/seguranca/cabecalhos-documentos", module: "pdfs" },
   { prefix: "/seguranca/logs-lancamentos", module: "auditoria" },
@@ -378,6 +384,7 @@ const apiModuleMap: Array<{ prefix: string; module: AccessModule }> = [
   { prefix: "/api/programacao", module: "programacao" },
   { prefix: "/api/medicoes", module: "medicoes" },
   { prefix: "/api/orcamentos", module: "orcamentos" },
+  { prefix: "/api/execucoes", module: "execucoes" },
   { prefix: "/api/usuarios", module: "usuarios" },
   { prefix: "/api/seguranca/cabecalhos-documentos", module: "pdfs" },
   { prefix: "/api/seguranca/logs-lancamentos", module: "auditoria" },

@@ -97,6 +97,7 @@ export type CostEnginePlanejamentoFrente = {
 
 export type CostEngineMemoriaRecurso = {
   recursoRef: string;
+  recursoReferenciaId?: string | null;
   frenteRef: string;
   frenteNome: string;
   categoria: string;
@@ -892,6 +893,7 @@ export function resolveFrontCost(
       : 0;
     const memoriaAtual: CostEngineMemoriaRecurso = {
       recursoRef: recurso.ref?.trim() || `${frenteInput.ref}:${memoria.length + 1}`,
+      recursoReferenciaId: recurso.recursoReferenciaId ?? null,
       frenteRef: frenteInput.ref,
       frenteNome,
       categoria: recurso.categoria?.trim() || "RECURSO",

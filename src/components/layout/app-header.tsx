@@ -61,6 +61,7 @@ const routeMeta: Array<{ prefix: string; meta: RouteMeta }> = [
   { prefix: "/lancamentos", meta: { title: "Lancamentos", group: "Operacao" } },
   { prefix: "/medicoes", meta: { title: "Medicoes", group: "Operacao" } },
   { prefix: "/orcamentos", meta: { title: "Orcamentos", group: "Operacao" } },
+  { prefix: "/execucoes", meta: { title: "Execucao e Resultado", group: "Operacao" } },
   { prefix: "/programacao", meta: { title: "Agenda de programacao", group: "Operacao" } },
   { prefix: "/historico", meta: { title: "Historico", group: "Operacao" } },
   { prefix: "/ordens-compra", meta: { title: "Ordens de compra", group: "Financeiro" } },

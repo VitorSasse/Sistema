@@ -152,6 +152,38 @@ enum StatusPropostaComercial {
   CANCELADA
 }
 
+enum OrigemExecucao {
+  DIRETA
+  ORCAMENTO
+}
+
+enum StatusExecucao {
+  RASCUNHO
+  EM_ANDAMENTO
+  CONCLUIDA
+  CANCELADA
+}
+
+enum StatusBoletimDiarioProducao {
+  ABERTO
+  FECHADO
+}
+
+enum OrigemFatoBoletimDiario {
+  MANUAL
+  PRODUCAO
+  APONTAMENTO
+  TELEMETRIA
+  ABASTECIMENTO
+  OUTRO_MODULO
+}
+
+enum OrigemReferenciaPrevistaExecucao {
+  ORCAMENTO
+  PROPOSTA
+  SNAPSHOT_OFICIAL
+}
+
 enum ModoExibicaoValoresPdf {
   SOMENTE_TOTAL_GLOBAL
   SUBTOTAL_POR_FRENTE
@@ -519,6 +551,13 @@ model Empresa {
   orcamentosPropostas          OrcamentoPropostaComercial[]
   orcamentosPropostasOpcionais OrcamentoPropostaOpcional[]
   documentosCabecalhos         DocumentoCabecalhoConfig[]
+  execucoes                    Execucao[]
+  frentesExecutadas            FrenteExecutada[]
+  recursosRealizados           RecursoRealizado[]
+  resultadosExecucao           ResultadoExecucao[]
+  boletinsDiariosProducao      BoletimDiarioProducao[]
+  recursosBoletimDiario        RecursoBoletimDiario[]
+  referenciasPrevistasExecucao ExecucaoReferenciaPrevista[]
 
   @@index([status, nome])
   @@index([deletedAt])
@@ -598,6 +637,7 @@ model Cliente {
   precos            PrecoClienteObra[]
   medicoes          Medicao[]
   orcamentos        Orcamento[]
+  execucoes         Execucao[]
 
   @@unique([empresaId, codigo])
   @@unique([empresaId, cpf])
@@ -632,6 +672,7 @@ model Obra {
   medicoes               Medicao[]
   programacoes           AgendaProgramacao[]
   orcamentos             Orcamento[]
+  execucoes              Execucao[]
 
   @@unique([empresaId, codigo])
   @@index([empresaId])
@@ -775,6 +816,8 @@ model Equipamento {
   alertasManutencao            AlertaManutencao[]
   ordensCompraCentroCusto      OrdemCompra[]                @relation("OrdemCompraCentroCustoEquipamento")
   orcamentoItens               OrcamentoItem[]
+  recursosRealizados           RecursoRealizado[]            @relation("RecursoRealizadoRecurso")
+  recursosBoletimDiario        RecursoBoletimDiario[]        @relation("RecursoBoletimDiarioRecurso")
 
   @@unique([empresaId, placaOuTag])
   @@index([empresaId])
@@ -908,6 +951,8 @@ model Orcamento {
   itens             OrcamentoItem[]
   premissas         OrcamentoPremissa[]
   propostas         OrcamentoPropostaComercial[]
+  execucoesOrigem   Execucao[]                    @relation("ExecucaoOrcamentoOrigem")
+  referenciasPrevistasExecucao ExecucaoReferenciaPrevista[] @relation("ReferenciaPrevistaOrcamentoOrigem")
 
   @@unique([empresaId, codigo])
   @@index([empresaId])
@@ -959,6 +1004,8 @@ model OrcamentoCenario {
   frentes         OrcamentoFrente[]
   premissas       OrcamentoPremissa[]
   propostas       OrcamentoPropostaComercial[]
+  execucoesOrigem Execucao[]                    @relation("ExecucaoCenarioOrigem")
+  referenciasPrevistasExecucao ExecucaoReferenciaPrevista[] @relation("ReferenciaPrevistaCenarioOrigem")
 
   @@index([empresaId])
   @@index([orcamentoId, ordem])
@@ -1136,6 +1183,8 @@ model OrcamentoPropostaComercial {
   cenario             OrcamentoCenario?           @relation(fields: [cenarioId], references: [id], onDelete: SetNull)
   emitidaPor          Usuario?                    @relation("PropostaEmitidaPor", fields: [emitidaPorId], references: [id], onDelete: SetNull)
   opcionais           OrcamentoPropostaOpcional[]
+  execucoesOrigem     Execucao[]                  @relation("ExecucaoPropostaOrigem")
+  referenciasPrevistasExecucao ExecucaoReferenciaPrevista[] @relation("ReferenciaPrevistaPropostaOrigem")
 
   @@index([empresaId])
   @@index([orcamentoId, revisao])
@@ -1164,6 +1213,176 @@ model OrcamentoPropostaOpcional {
 
   @@index([empresaId])
   @@index([propostaId, ordem])
+}
+
+model Execucao {
+  id                String                    @id @default(uuid())
+  empresaId         String
+  clienteId         String
+  obraId            String?
+  descricao         String
+  origem            OrigemExecucao            @default(DIRETA)
+  status            StatusExecucao            @default(RASCUNHO)
+  dataInicio        DateTime?
+  dataFim           DateTime?
+  observacoes       String?
+  orcamentoOrigemId String?
+  propostaOrigemId  String?
+  cenarioOrigemId   String?
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  empresa           Empresa                   @relation(fields: [empresaId], references: [id])
+  cliente           Cliente                   @relation(fields: [clienteId], references: [id])
+  obra              Obra?                     @relation(fields: [obraId], references: [id])
+  orcamentoOrigem   Orcamento?                @relation("ExecucaoOrcamentoOrigem", fields: [orcamentoOrigemId], references: [id], onDelete: SetNull)
+  propostaOrigem    OrcamentoPropostaComercial? @relation("ExecucaoPropostaOrigem", fields: [propostaOrigemId], references: [id], onDelete: SetNull)
+  cenarioOrigem     OrcamentoCenario?         @relation("ExecucaoCenarioOrigem", fields: [cenarioOrigemId], references: [id], onDelete: SetNull)
+  frentes           FrenteExecutada[]
+  resultados        ResultadoExecucao[]
+  boletins          BoletimDiarioProducao[]
+  recursosBoletim   RecursoBoletimDiario[]
+  referenciaPrevista ExecucaoReferenciaPrevista?
+
+  @@index([empresaId])
+  @@index([clienteId, obraId])
+  @@index([status, createdAt])
+  @@index([orcamentoOrigemId])
+  @@index([propostaOrigemId])
+  @@index([cenarioOrigemId])
+}
+
+model FrenteExecutada {
+  id                 String             @id @default(uuid())
+  empresaId          String
+  execucaoId         String
+  nome               String
+  descricao          String?
+  unidade            String
+  quantidadeExecutada Decimal           @db.Decimal(14, 4)
+  receitaRealizada   Decimal            @default(0) @db.Decimal(14, 2)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  empresa            Empresa            @relation(fields: [empresaId], references: [id])
+  execucao           Execucao           @relation(fields: [execucaoId], references: [id], onDelete: Cascade)
+  recursos           RecursoRealizado[]
+  recursosBoletim    RecursoBoletimDiario[]
+
+  @@index([empresaId])
+  @@index([execucaoId])
+}
+
+model RecursoRealizado {
+  id                       String          @id @default(uuid())
+  empresaId                String
+  frenteExecutadaId        String
+  recursoId                String?
+  nomeSnapshot             String
+  quantidadeRealizada      Decimal         @db.Decimal(14, 4)
+  unidadeRealizada         String
+  quantidadeRecursos       Decimal?        @db.Decimal(14, 4)
+  snapshotTecnicoEconomico Json
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+  empresa                  Empresa         @relation(fields: [empresaId], references: [id])
+  frenteExecutada          FrenteExecutada @relation(fields: [frenteExecutadaId], references: [id], onDelete: Cascade)
+  recurso                  Equipamento?    @relation("RecursoRealizadoRecurso", fields: [recursoId], references: [id], onDelete: SetNull)
+
+  @@index([empresaId])
+  @@index([frenteExecutadaId])
+  @@index([recursoId])
+}
+
+model ResultadoExecucao {
+  id                      String   @id @default(uuid())
+  empresaId               String
+  execucaoId              String
+  resultadoOperacionalJson Json
+  economiaJson            Json?
+  createdAt               DateTime @default(now())
+  empresa                 Empresa  @relation(fields: [empresaId], references: [id])
+  execucao                Execucao @relation(fields: [execucaoId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId])
+  @@index([execucaoId, createdAt])
+}
+
+model BoletimDiarioProducao {
+  id            String                       @id @default(uuid())
+  empresaId     String
+  execucaoId    String
+  dataBoletim   DateTime
+  status        StatusBoletimDiarioProducao @default(ABERTO)
+  observacoes   String?
+  fechadoEm     DateTime?
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
+  empresa       Empresa                      @relation(fields: [empresaId], references: [id])
+  execucao      Execucao                     @relation(fields: [execucaoId], references: [id], onDelete: Cascade)
+  recursos      RecursoBoletimDiario[]
+
+  @@unique([execucaoId, dataBoletim])
+  @@index([empresaId])
+  @@index([execucaoId, status])
+  @@index([dataBoletim])
+}
+
+model RecursoBoletimDiario {
+  id                       String                  @id @default(uuid())
+  empresaId                String
+  execucaoId               String
+  boletimId                String
+  frenteExecutadaId        String
+  recursoId                String?
+  nomeSnapshot             String
+  quantidadeRealizada      Decimal                 @db.Decimal(14, 4)
+  unidadeRealizada         String
+  quantidadeRecursos       Decimal?                @db.Decimal(14, 4)
+  origem                   OrigemFatoBoletimDiario @default(MANUAL)
+  origemRegistroTipo       String?
+  origemRegistroId         String?
+  origemRegistroData       DateTime?
+  editavel                 Boolean                 @default(true)
+  snapshotTecnicoEconomico Json
+  observacao               String?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+  empresa                  Empresa                 @relation(fields: [empresaId], references: [id])
+  execucao                 Execucao                @relation(fields: [execucaoId], references: [id], onDelete: Cascade)
+  boletim                  BoletimDiarioProducao   @relation(fields: [boletimId], references: [id], onDelete: Cascade)
+  frenteExecutada          FrenteExecutada         @relation(fields: [frenteExecutadaId], references: [id], onDelete: Cascade)
+  recurso                  Equipamento?            @relation("RecursoBoletimDiarioRecurso", fields: [recursoId], references: [id], onDelete: SetNull)
+
+  @@index([empresaId])
+  @@index([execucaoId])
+  @@index([boletimId])
+  @@index([frenteExecutadaId])
+  @@index([origem])
+  @@index([recursoId])
+  @@index([origemRegistroTipo, origemRegistroId])
+  @@unique([execucaoId, origemRegistroTipo, origemRegistroId])
+}
+
+model ExecucaoReferenciaPrevista {
+  id                    String                           @id @default(uuid())
+  empresaId             String
+  execucaoId            String                           @unique
+  origem                OrigemReferenciaPrevistaExecucao
+  orcamentoOrigemId     String?
+  propostaOrigemId      String?
+  cenarioOrigemId       String?
+  referenciaPrevistaJson Json
+  createdAt             DateTime                         @default(now())
+  updatedAt             DateTime                         @updatedAt
+  empresa               Empresa                          @relation(fields: [empresaId], references: [id])
+  execucao              Execucao                         @relation(fields: [execucaoId], references: [id], onDelete: Cascade)
+  orcamentoOrigem       Orcamento?                       @relation("ReferenciaPrevistaOrcamentoOrigem", fields: [orcamentoOrigemId], references: [id], onDelete: SetNull)
+  propostaOrigem        OrcamentoPropostaComercial?      @relation("ReferenciaPrevistaPropostaOrigem", fields: [propostaOrigemId], references: [id], onDelete: SetNull)
+  cenarioOrigem         OrcamentoCenario?                @relation("ReferenciaPrevistaCenarioOrigem", fields: [cenarioOrigemId], references: [id], onDelete: SetNull)
+
+  @@index([empresaId])
+  @@index([orcamentoOrigemId])
+  @@index([propostaOrigemId])
+  @@index([cenarioOrigemId])
 }
 
 model Material {
@@ -1548,6 +1767,7 @@ model ItemManutencaoExecutada {
   @@index([manutencaoExecutadaId])
   @@index([tipo])
 }
+
 model AlertaManutencao {
   id                         String                 @id @default(uuid())
   empresaId                  String

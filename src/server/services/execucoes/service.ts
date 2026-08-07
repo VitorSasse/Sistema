@@ -1,0 +1,1239 @@
+import { OrigemFatoBoletimDiario, Prisma, StatusBoletimDiarioProducao } from "@prisma/client";
+import {
+  adaptarExecucaoParaEntradaNucleo,
+  executarNucleoComMotorAtual,
+  type EntradaExecucao,
+  type ResultadoNucleoEngenharia,
+  type SnapshotTecnicoEconomicoRecursoRealizado
+} from "@/lib/engineering-core";
+import {
+  boletimDiarioProducaoSchema,
+  recursoBoletimDiarioProducaoSchema,
+  type BoletimDiarioProducaoInput,
+  type RecursoBoletimDiarioProducaoInput
+} from "@/lib/validators/boletim-diario-producao";
+import { execucaoSchema, type ExecucaoInput } from "@/lib/validators/execucao";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
+
+type DbClient = {
+  execucao: {
+    create: (args: Prisma.ExecucaoCreateArgs) => Promise<unknown>;
+    findFirst: (args: Prisma.ExecucaoFindFirstArgs) => Promise<unknown>;
+    findMany: (args: Prisma.ExecucaoFindManyArgs) => Promise<unknown>;
+    update: (args: Prisma.ExecucaoUpdateArgs) => Promise<unknown>;
+  };
+  frenteExecutada: {
+    deleteMany: (args: Prisma.FrenteExecutadaDeleteManyArgs) => Promise<unknown>;
+  };
+  resultadoExecucao: {
+    create: (args: Prisma.ResultadoExecucaoCreateArgs) => Promise<unknown>;
+  };
+  boletimDiarioProducao: {
+    create: (args: Prisma.BoletimDiarioProducaoCreateArgs) => Promise<unknown>;
+    findFirst: (args: Prisma.BoletimDiarioProducaoFindFirstArgs) => Promise<unknown>;
+    update: (args: Prisma.BoletimDiarioProducaoUpdateArgs) => Promise<unknown>;
+  };
+  recursoBoletimDiario: {
+    create: (args: Prisma.RecursoBoletimDiarioCreateArgs) => Promise<unknown>;
+    findFirst?: (args: Prisma.RecursoBoletimDiarioFindFirstArgs) => Promise<unknown>;
+    findMany?: (args: Prisma.RecursoBoletimDiarioFindManyArgs) => Promise<unknown>;
+    delete?: (args: Prisma.RecursoBoletimDiarioDeleteArgs) => Promise<unknown>;
+  };
+  lancamentoDiario?: {
+    findMany: (args: Prisma.LancamentoDiarioFindManyArgs) => Promise<unknown>;
+  };
+};
+
+export const EXECUCAO_RESULTADO_NUCLEO_VERSAO = "engineering-core-v1";
+
+type PersistedRecursoRealizado = {
+  id: string;
+  recursoId?: string | null;
+  nomeSnapshot: string;
+  quantidadeRealizada: unknown;
+  unidadeRealizada: string;
+  quantidadeRecursos?: unknown;
+  snapshotTecnicoEconomico: unknown;
+};
+
+type PersistedFrenteExecutada = {
+  id: string;
+  nome: string;
+  descricao?: string | null;
+  unidade: string;
+  quantidadeExecutada: unknown;
+  receitaRealizada: unknown;
+  recursos?: PersistedRecursoRealizado[];
+};
+
+type PersistedExecucao = {
+  id: string;
+  descricao: string;
+  empresaId: string;
+  frentes?: PersistedFrenteExecutada[];
+  resultados?: unknown[];
+};
+
+type PersistedRecursoBoletimDiario = {
+  id: string;
+  frenteExecutadaId: string;
+  recursoId?: string | null;
+  nomeSnapshot: string;
+  quantidadeRealizada: unknown;
+  unidadeRealizada: string;
+  quantidadeRecursos?: unknown;
+  origem: OrigemFatoBoletimDiario;
+  origemRegistroTipo?: string | null;
+  origemRegistroId?: string | null;
+  origemRegistroData?: Date | null;
+  editavel?: boolean;
+  snapshotTecnicoEconomico: unknown;
+};
+
+type PersistedBoletimDiario = {
+  id: string;
+  empresaId: string;
+  execucaoId: string;
+  dataBoletim: Date;
+  status: StatusBoletimDiarioProducao;
+  recursos?: PersistedRecursoBoletimDiario[];
+};
+
+type PersistedExecucaoComBoletins = PersistedExecucao & {
+  boletins?: PersistedBoletimDiario[];
+};
+
+export const execucaoInclude = {
+  cliente: {
+    select: {
+      id: true,
+      codigo: true,
+      nome: true,
+      nomeFantasia: true
+    }
+  },
+  obra: {
+    select: {
+      id: true,
+      codigo: true,
+      nome: true
+    }
+  },
+  orcamentoOrigem: {
+    select: {
+      id: true,
+      codigo: true,
+      titulo: true
+    }
+  },
+  propostaOrigem: {
+    select: {
+      id: true,
+      codigo: true,
+      revisao: true,
+      status: true
+    }
+  },
+  cenarioOrigem: {
+    select: {
+      id: true,
+      ordem: true,
+      nome: true
+    }
+  },
+  frentes: {
+    include: {
+      recursos: {
+        include: {
+          recurso: {
+            select: {
+              id: true,
+              placaOuTag: true,
+              descricao: true,
+              tipoRecurso: true,
+              classeOperacional: true
+            }
+          }
+        },
+        orderBy: [{ createdAt: "asc" as const }]
+      }
+    },
+    orderBy: [{ createdAt: "asc" as const }]
+  },
+  resultados: {
+    orderBy: [{ createdAt: "desc" as const }]
+  }
+} satisfies Prisma.ExecucaoInclude;
+
+export const boletimDiarioProducaoInclude = {
+  recursos: {
+    include: {
+      frenteExecutada: {
+        select: {
+          id: true,
+          nome: true,
+          execucaoId: true
+        }
+      },
+      recurso: {
+        select: {
+          id: true,
+          placaOuTag: true,
+          descricao: true,
+          tipoRecurso: true,
+          classeOperacional: true
+        }
+      }
+    },
+    orderBy: [{ createdAt: "asc" as const }]
+  },
+  execucao: {
+    include: {
+      frentes: {
+        include: {
+          recursos: {
+            orderBy: [{ createdAt: "asc" as const }]
+          }
+        },
+        orderBy: [{ createdAt: "asc" as const }]
+      },
+      boletins: {
+        where: {
+          status: StatusBoletimDiarioProducao.FECHADO
+        },
+        include: {
+          recursos: {
+            orderBy: [{ createdAt: "asc" as const }]
+          }
+        },
+        orderBy: [{ dataBoletim: "asc" as const }]
+      },
+      resultados: {
+        orderBy: [{ createdAt: "desc" as const }]
+      }
+    }
+  }
+} satisfies Prisma.BoletimDiarioProducaoInclude;
+
+export const execucaoOperacionalInclude = {
+  ...execucaoInclude,
+  boletins: {
+    include: {
+      recursos: {
+        include: {
+          recurso: {
+            select: {
+              id: true,
+              placaOuTag: true,
+              descricao: true,
+              tipoRecurso: true,
+              classeOperacional: true
+            }
+          }
+        },
+        orderBy: [{ createdAt: "asc" as const }]
+      }
+    },
+    orderBy: [{ dataBoletim: "desc" as const }]
+  },
+  referenciaPrevista: true
+} satisfies Prisma.ExecucaoInclude;
+
+function clean(value?: string | null) {
+  const normalized = value?.trim();
+  return normalized ? normalized : null;
+}
+
+function toNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") {
+    return 0;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toSnapshotTecnicoEconomico(value: unknown): SnapshotTecnicoEconomicoRecursoRealizado {
+  return typeof value === "object" && value !== null
+    ? (value as SnapshotTecnicoEconomicoRecursoRealizado)
+    : {};
+}
+
+function requireLancamentoDiarioDelegate(db: DbClient) {
+  if (!db.lancamentoDiario) {
+    throw new Error("FONTE_LANCAMENTO_DIARIO_NAO_DISPONIVEL");
+  }
+
+  return db.lancamentoDiario;
+}
+
+function requireRecursoBoletimReadDelegate(db: DbClient) {
+  if (!db.recursoBoletimDiario.findFirst || !db.recursoBoletimDiario.findMany) {
+    throw new Error("RECURSO_BOLETIM_DIARIO_CONSULTA_NAO_DISPONIVEL");
+  }
+
+  return {
+    findFirst: db.recursoBoletimDiario.findFirst,
+    findMany: db.recursoBoletimDiario.findMany
+  };
+}
+
+function requireRecursoBoletimDeleteDelegate(db: DbClient) {
+  if (!db.recursoBoletimDiario.delete) {
+    throw new Error("RECURSO_BOLETIM_DIARIO_REMOCAO_NAO_DISPONIVEL");
+  }
+
+  return db.recursoBoletimDiario.delete;
+}
+
+function startOfDay(value: Date) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function endOfDay(value: Date) {
+  const date = new Date(value);
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+
+function enumToUnit(value: unknown) {
+  return String(value ?? "").toLowerCase();
+}
+
+function inferOrigemFato(unidade: string) {
+  const normalized = unidade.toLowerCase();
+  return normalized.includes("hora") || normalized === "h" || normalized.includes("diaria")
+    ? OrigemFatoBoletimDiario.APONTAMENTO
+    : OrigemFatoBoletimDiario.PRODUCAO;
+}
+
+function inferBaseEconomicaFromUnidade(value: unknown) {
+  const normalized = String(value ?? "").toUpperCase();
+
+  if (normalized.includes("HORA")) return "HORA";
+  if (normalized.includes("DIARIA") || normalized.includes("DIA")) return "DIA";
+  if (normalized.includes("CARGA")) return "CARGA";
+  if (normalized.includes("M3")) return "M3";
+  if (normalized.includes("KM")) return "KM";
+  return "UNIDADE";
+}
+
+function unidadeCustoFromBase(base: string) {
+  const suffix: Record<string, string> = {
+    HORA: "h",
+    DIA: "dia",
+    CARGA: "carga",
+    VIAGEM: "viagem",
+    KM: "km",
+    M3: "m3",
+    M2: "m2",
+    MES: "mes",
+    UNIDADE: "un"
+  };
+
+  return `R$/${suffix[base] ?? "un"}`;
+}
+
+function buildFrentesCreate(input: ExecucaoInput, empresaId: string) {
+  return input.frentes.map((frente) => ({
+    empresaId,
+    nome: frente.nome,
+    descricao: clean(frente.descricao),
+    unidade: frente.unidade,
+    quantidadeExecutada: frente.quantidadeExecutada,
+    receitaRealizada: frente.receitaRealizada,
+    recursos: {
+      create: frente.recursos.map((recurso) => ({
+        empresaId,
+        recursoId: recurso.recursoId || null,
+        nomeSnapshot: recurso.nomeSnapshot,
+        quantidadeRealizada: recurso.quantidadeRealizada,
+        unidadeRealizada: recurso.unidadeRealizada,
+        quantidadeRecursos: recurso.quantidadeRecursos ?? null,
+        snapshotTecnicoEconomico: recurso.snapshotTecnicoEconomico as Prisma.InputJsonValue
+      }))
+    }
+  }));
+}
+
+function buildRecursosBoletimCreate(input: BoletimDiarioProducaoInput, empresaId: string) {
+  return input.recursos.map((recurso) => ({
+    empresaId,
+    execucaoId: input.execucaoId,
+    frenteExecutadaId: recurso.frenteExecutadaId,
+    recursoId: recurso.recursoId || null,
+    nomeSnapshot: recurso.nomeSnapshot,
+    quantidadeRealizada: recurso.quantidadeRealizada,
+    unidadeRealizada: recurso.unidadeRealizada,
+    quantidadeRecursos: recurso.quantidadeRecursos ?? null,
+    origem: recurso.origem,
+    origemRegistroTipo: clean(recurso.origemRegistroTipo),
+    origemRegistroId: clean(recurso.origemRegistroId),
+    origemRegistroData: recurso.origemRegistroData ?? null,
+    editavel: recurso.editavel ?? true,
+    snapshotTecnicoEconomico: recurso.snapshotTecnicoEconomico as Prisma.InputJsonValue,
+    observacao: clean(recurso.observacao)
+  }));
+}
+
+function buildExecucaoData(input: ExecucaoInput, empresaId: string) {
+  return {
+    empresaId,
+    clienteId: input.clienteId,
+    obraId: input.obraId || null,
+    descricao: input.descricao,
+    origem: input.origem,
+    status: input.status,
+    dataInicio: input.dataInicio ?? null,
+    dataFim: input.dataFim ?? null,
+    observacoes: clean(input.observacoes),
+    orcamentoOrigemId: input.orcamentoOrigemId || null,
+    propostaOrigemId: input.propostaOrigemId || null,
+    cenarioOrigemId: input.cenarioOrigemId || null
+  };
+}
+
+export type SnapshotResultadoExecucao = {
+  resultadoOperacional: Record<string, unknown>;
+  economia: ResultadoNucleoEngenharia["consolidado"]["economia"];
+  economiaUnidades: Array<{
+    id: string;
+    economia: NonNullable<ResultadoNucleoEngenharia["unidades"][number]["economia"]>;
+  }>;
+  dataCalculo: string;
+  versaoNucleo: string;
+};
+
+function removerEconomiaUnidade(unidade: ResultadoNucleoEngenharia["unidades"][number]) {
+  const { economia: _economia, recursos, ...operacional } = unidade;
+
+  return {
+    ...operacional,
+    recursos: recursos.map((recurso) => {
+      const { memoriaCalculo: _memoriaCalculo, ...recursoOperacional } = recurso;
+      return recursoOperacional;
+    })
+  };
+}
+
+function extrairResultadoOperacional(resultado: ResultadoNucleoEngenharia): Record<string, unknown> {
+  const { consolidado, unidades, memoriaCalculo: _memoriaCalculo, ...operacional } = resultado;
+  const { economia: _economia, ...consolidadoOperacional } = consolidado;
+
+  return {
+    ...operacional,
+    consolidado: consolidadoOperacional,
+    unidades: unidades.map(removerEconomiaUnidade)
+  };
+}
+
+export function adaptarExecucaoPersistidaParaEntradaNucleo(execucao: PersistedExecucao): EntradaExecucao {
+  return {
+    execucaoId: execucao.id,
+    nomeTecnico: execucao.descricao,
+    metadados: {
+      empresaId: execucao.empresaId
+    },
+    unidades: (execucao.frentes ?? []).map((frente) => ({
+      id: frente.id,
+      nome: frente.nome,
+      descricaoTecnica: frente.descricao ?? null,
+      quantidadeExecutada: toNumber(frente.quantidadeExecutada),
+      unidade: frente.unidade,
+      receitaRealizada: toNumber(frente.receitaRealizada),
+      recursos: (frente.recursos ?? []).map((recurso) => ({
+        id: recurso.id,
+        recursoId: recurso.recursoId ?? null,
+        nome: recurso.nomeSnapshot,
+        quantidadeRealizada: toNumber(recurso.quantidadeRealizada),
+        unidadeRealizada: recurso.unidadeRealizada,
+        quantidadeRecursos: recurso.quantidadeRecursos === null || recurso.quantidadeRecursos === undefined
+          ? undefined
+          : toNumber(recurso.quantidadeRecursos),
+        snapshotTecnicoEconomico: toSnapshotTecnicoEconomico(recurso.snapshotTecnicoEconomico)
+      }))
+    }))
+  };
+}
+
+export function adaptarExecucaoComBoletinsParaEntradaNucleo(execucao: PersistedExecucaoComBoletins): EntradaExecucao {
+  const recursosPorFrente = new Map<string, PersistedRecursoBoletimDiario[]>();
+
+  for (const boletim of execucao.boletins ?? []) {
+    if (boletim.status !== StatusBoletimDiarioProducao.FECHADO) {
+      continue;
+    }
+
+    for (const recurso of boletim.recursos ?? []) {
+      const atual = recursosPorFrente.get(recurso.frenteExecutadaId) ?? [];
+      atual.push(recurso);
+      recursosPorFrente.set(recurso.frenteExecutadaId, atual);
+    }
+  }
+
+  return {
+    execucaoId: execucao.id,
+    nomeTecnico: execucao.descricao,
+    metadados: {
+      empresaId: execucao.empresaId,
+      origemFatos: "BOLETIM_DIARIO"
+    },
+    unidades: (execucao.frentes ?? []).map((frente) => ({
+      id: frente.id,
+      nome: frente.nome,
+      descricaoTecnica: frente.descricao ?? null,
+      quantidadeExecutada: toNumber(frente.quantidadeExecutada),
+      unidade: frente.unidade,
+      receitaRealizada: toNumber(frente.receitaRealizada),
+      recursos: (recursosPorFrente.get(frente.id) ?? []).map((recurso) => ({
+        id: recurso.id,
+        recursoId: recurso.recursoId ?? null,
+        nome: recurso.nomeSnapshot,
+        quantidadeRealizada: toNumber(recurso.quantidadeRealizada),
+        unidadeRealizada: recurso.unidadeRealizada,
+        quantidadeRecursos: recurso.quantidadeRecursos === null || recurso.quantidadeRecursos === undefined
+          ? undefined
+          : toNumber(recurso.quantidadeRecursos),
+        snapshotTecnicoEconomico: toSnapshotTecnicoEconomico(recurso.snapshotTecnicoEconomico)
+      }))
+    }))
+  };
+}
+
+export function gerarSnapshotResultadoExecucao(resultado: ResultadoNucleoEngenharia): SnapshotResultadoExecucao {
+  return {
+    resultadoOperacional: extrairResultadoOperacional(resultado),
+    economia: resultado.consolidado.economia,
+    economiaUnidades: resultado.unidades
+      .filter((unidade) => Boolean(unidade.economia))
+      .map((unidade) => ({
+        id: unidade.id,
+        economia: unidade.economia as NonNullable<ResultadoNucleoEngenharia["unidades"][number]["economia"]>
+      })),
+    dataCalculo: new Date().toISOString(),
+    versaoNucleo: EXECUCAO_RESULTADO_NUCLEO_VERSAO
+  };
+}
+
+export async function gerarResultadoExecucao(db: DbClient, execucao: PersistedExecucao) {
+  const entrada = adaptarExecucaoPersistidaParaEntradaNucleo(execucao);
+  return gerarResultadoExecucaoDaEntrada(db, execucao.empresaId, execucao.id, entrada);
+}
+
+async function gerarResultadoExecucaoDaEntrada(
+  db: DbClient,
+  empresaId: string,
+  execucaoId: string,
+  entrada: EntradaExecucao
+) {
+  const resultado = executarNucleoComMotorAtual(adaptarExecucaoParaEntradaNucleo(entrada));
+  const snapshot = gerarSnapshotResultadoExecucao(resultado);
+
+  return db.resultadoExecucao.create({
+    data: {
+      empresaId,
+      execucaoId,
+      resultadoOperacionalJson: {
+        resultadoOperacional: snapshot.resultadoOperacional,
+        dataCalculo: snapshot.dataCalculo,
+        versaoNucleo: snapshot.versaoNucleo
+      } as Prisma.InputJsonValue,
+      economiaJson: snapshot.economia
+        ? ({
+          economia: snapshot.economia,
+          unidades: snapshot.economiaUnidades,
+          dataCalculo: snapshot.dataCalculo,
+          versaoNucleo: snapshot.versaoNucleo
+          } as Prisma.InputJsonValue)
+        : Prisma.JsonNull
+    }
+  });
+}
+
+export async function criarExecucao(db: DbClient, input: ExecucaoInput) {
+  const parsed = execucaoSchema.parse(input);
+  const empresaId = requireActiveTenantEmpresaId();
+
+  const created = await db.execucao.create({
+    data: {
+      ...buildExecucaoData(parsed, empresaId),
+      frentes: {
+        create: buildFrentesCreate(parsed, empresaId)
+      }
+    },
+    include: execucaoInclude
+  }) as PersistedExecucao;
+  const resultado = await gerarResultadoExecucao(db, created);
+
+  return {
+    ...created,
+    resultados: [resultado, ...(created.resultados ?? [])]
+  };
+}
+
+export async function buscarExecucao(db: DbClient, id: string) {
+  const empresaId = requireActiveTenantEmpresaId();
+
+  return db.execucao.findFirst({
+    where: {
+      id,
+      empresaId
+    },
+    include: execucaoInclude
+  });
+}
+
+export async function listarExecucoes(db: DbClient) {
+  const empresaId = requireActiveTenantEmpresaId();
+
+  return db.execucao.findMany({
+    where: {
+      empresaId
+    },
+    include: execucaoOperacionalInclude,
+    orderBy: [{ updatedAt: "desc" }]
+  });
+}
+
+export async function buscarExecucaoOperacional(db: DbClient, id: string) {
+  const empresaId = requireActiveTenantEmpresaId();
+
+  return db.execucao.findFirst({
+    where: {
+      id,
+      empresaId
+    },
+    include: execucaoOperacionalInclude
+  });
+}
+
+export async function atualizarExecucao(db: DbClient, id: string, input: ExecucaoInput) {
+  const parsed = execucaoSchema.parse(input);
+  const empresaId = requireActiveTenantEmpresaId();
+  const atual = await db.execucao.findFirst({
+    where: {
+      id,
+      empresaId
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (!atual) {
+    throw new Error("EXECUCAO_NAO_ENCONTRADA");
+  }
+
+  await db.frenteExecutada.deleteMany({
+    where: {
+      execucaoId: id,
+      empresaId
+    }
+  });
+
+  const updated = await db.execucao.update({
+    where: {
+      id
+    },
+    data: {
+      ...buildExecucaoData(parsed, empresaId),
+      frentes: {
+        create: buildFrentesCreate(parsed, empresaId)
+      }
+    },
+    include: execucaoInclude
+  }) as PersistedExecucao;
+  const resultado = await gerarResultadoExecucao(db, updated);
+
+  return {
+    ...updated,
+    resultados: [resultado, ...(updated.resultados ?? [])]
+  };
+}
+
+function validarFrentesDoBoletim(execucao: PersistedExecucao, input: BoletimDiarioProducaoInput) {
+  const frentesDaExecucao = new Set((execucao.frentes ?? []).map((frente) => frente.id));
+
+  for (const recurso of input.recursos) {
+    if (!frentesDaExecucao.has(recurso.frenteExecutadaId)) {
+      throw new Error("FRENTE_EXECUTADA_NAO_PERTENCE_EXECUCAO");
+    }
+  }
+}
+
+export async function criarBoletimDiarioProducao(db: DbClient, input: BoletimDiarioProducaoInput) {
+  const parsed = boletimDiarioProducaoSchema.parse(input);
+  const empresaId = requireActiveTenantEmpresaId();
+  const execucao = await db.execucao.findFirst({
+    where: {
+      id: parsed.execucaoId,
+      empresaId
+    },
+    include: {
+      frentes: {
+        select: {
+          id: true
+        }
+      }
+    }
+  }) as PersistedExecucao | null;
+
+  if (!execucao) {
+    throw new Error("EXECUCAO_NAO_ENCONTRADA");
+  }
+
+  validarFrentesDoBoletim(execucao, parsed);
+
+  return db.boletimDiarioProducao.create({
+    data: {
+      empresaId,
+      execucaoId: parsed.execucaoId,
+      dataBoletim: parsed.dataBoletim,
+      status: StatusBoletimDiarioProducao.ABERTO,
+      observacoes: clean(parsed.observacoes),
+      recursos: {
+        create: buildRecursosBoletimCreate(parsed, empresaId)
+      }
+    },
+    include: boletimDiarioProducaoInclude
+  });
+}
+
+export async function adicionarRecursoBoletimDiarioProducao(
+  db: DbClient,
+  boletimId: string,
+  input: RecursoBoletimDiarioProducaoInput
+) {
+  const parsed = recursoBoletimDiarioProducaoSchema.parse(input);
+  const empresaId = requireActiveTenantEmpresaId();
+  const boletim = await db.boletimDiarioProducao.findFirst({
+    where: {
+      id: boletimId,
+      empresaId
+    },
+    include: boletimDiarioProducaoInclude
+  }) as (PersistedBoletimDiario & { execucao: PersistedExecucao }) | null;
+
+  if (!boletim) {
+    throw new Error("BOLETIM_DIARIO_NAO_ENCONTRADO");
+  }
+
+  if (boletim.status !== StatusBoletimDiarioProducao.ABERTO) {
+    throw new Error("BOLETIM_DIARIO_FECHADO_NAO_PERMITE_ALTERACAO");
+  }
+
+  validarFrentesDoBoletim(boletim.execucao, {
+    execucaoId: boletim.execucaoId,
+    dataBoletim: boletim.dataBoletim,
+    recursos: [parsed]
+  });
+
+  return db.recursoBoletimDiario.create({
+    data: {
+      empresaId,
+      execucaoId: boletim.execucaoId,
+      boletimId,
+      frenteExecutadaId: parsed.frenteExecutadaId,
+      recursoId: parsed.recursoId || null,
+      nomeSnapshot: parsed.nomeSnapshot,
+      quantidadeRealizada: parsed.quantidadeRealizada,
+      unidadeRealizada: parsed.unidadeRealizada,
+      quantidadeRecursos: parsed.quantidadeRecursos ?? null,
+      origem: parsed.origem,
+      origemRegistroTipo: clean(parsed.origemRegistroTipo),
+      origemRegistroId: clean(parsed.origemRegistroId),
+      origemRegistroData: parsed.origemRegistroData ?? null,
+      editavel: parsed.editavel ?? true,
+      snapshotTecnicoEconomico: parsed.snapshotTecnicoEconomico as Prisma.InputJsonValue,
+      observacao: clean(parsed.observacao)
+    },
+    include: {
+      recurso: {
+        select: {
+          id: true,
+          placaOuTag: true,
+          descricao: true,
+          tipoRecurso: true,
+          classeOperacional: true
+        }
+      }
+    }
+  });
+}
+
+const lancamentoFatoSelect = {
+  id: true,
+  empresaId: true,
+  data: true,
+  obraId: true,
+  clienteId: true,
+  servicoId: true,
+  equipamentoId: true,
+  quantidadeApontada: true,
+  unidadeApontada: true,
+  quantidadeFaturada: true,
+  unidadeFaturada: true,
+  origem: true,
+  observacao: true,
+  ficha: {
+    select: {
+      numero: true
+    }
+  },
+  cliente: {
+    select: {
+      id: true,
+      codigo: true,
+      nome: true,
+      nomeFantasia: true
+    }
+  },
+  obra: {
+    select: {
+      id: true,
+      codigo: true,
+      nome: true
+    }
+  },
+  servico: {
+    select: {
+      id: true,
+      codigo: true,
+      tipoServico: true
+    }
+  },
+  equipamento: {
+    select: {
+      id: true,
+      placaOuTag: true,
+      descricao: true,
+      tipoRecurso: true,
+      classeOperacional: true,
+      capacidadeM3: true,
+      unidadeCapacidade: true,
+      unidadeEconomicaPadrao: true,
+      custoPadrao: true
+    }
+  }
+} satisfies Prisma.LancamentoDiarioSelect;
+
+type LancamentoFato = Prisma.LancamentoDiarioGetPayload<{ select: typeof lancamentoFatoSelect }>;
+
+export type FatoOperacionalExistente = {
+  id: string;
+  origemTipo: "LANCAMENTO_DIARIO";
+  origemLabel: string;
+  data: string;
+  cliente: string;
+  obra: string;
+  recursoId: string | null;
+  recurso: string;
+  identificadorRecurso: string;
+  servico: string;
+  quantidade: number;
+  unidade: string;
+  origemFato: OrigemFatoBoletimDiario;
+  statusVinculo: "DISPONIVEL" | "VINCULADO";
+  custoDisponivel: boolean;
+  snapshotTecnicoEconomico: SnapshotTecnicoEconomicoRecursoRealizado;
+};
+
+export type ListarFatosOperacionaisInput = {
+  execucaoId?: string | null;
+  obraId?: string | null;
+  dataInicio?: string | Date | null;
+  dataFim?: string | Date | null;
+  recursoId?: string | null;
+  servicoId?: string | null;
+};
+
+function normalizeFiltroDate(value: string | Date | null | undefined) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function buildSnapshotFato(lancamento: LancamentoFato): SnapshotTecnicoEconomicoRecursoRealizado {
+  const baseEconomica = String(lancamento.equipamento.unidadeEconomicaPadrao ?? inferBaseEconomicaFromUnidade(lancamento.unidadeApontada));
+  const valorCusto = toNumber(lancamento.equipamento.custoPadrao);
+
+  return {
+    categoria: String(lancamento.equipamento.tipoRecurso ?? "EQUIPAMENTO"),
+    classeOperacional: lancamento.equipamento.classeOperacional ?? lancamento.equipamento.descricao,
+    baseEconomica: baseEconomica as SnapshotTecnicoEconomicoRecursoRealizado["baseEconomica"],
+    valorCusto,
+    unidadeCusto: unidadeCustoFromBase(baseEconomica),
+    capacidadePorViagem: toNumber(lancamento.equipamento.capacidadeM3) || undefined,
+    unidadeCapacidade: lancamento.equipamento.unidadeCapacidade ?? undefined,
+    metadados: {
+      versao: 1,
+      origem: valorCusto > 0 ? "BIBLIOTECA_RECURSOS" : "CUSTO_NAO_CADASTRADO",
+      origemRegistroTipo: "LANCAMENTO_DIARIO",
+      origemRegistroId: lancamento.id,
+      origemCusto: valorCusto > 0 ? "CADASTRO_MESTRE_EQUIPAMENTO" : "PENDENTE_CADASTRO_MESTRE"
+    }
+  };
+}
+
+function mapLancamentoToFato(lancamento: LancamentoFato, vinculados: Set<string>): FatoOperacionalExistente {
+  const quantidadeApontada = toNumber(lancamento.quantidadeApontada);
+  const quantidadeFaturada = toNumber(lancamento.quantidadeFaturada);
+  const quantidade = quantidadeApontada > 0 ? quantidadeApontada : quantidadeFaturada;
+  const unidade = quantidadeApontada > 0 ? enumToUnit(lancamento.unidadeApontada) : enumToUnit(lancamento.unidadeFaturada);
+  const snapshot = buildSnapshotFato(lancamento);
+  const clienteNome = lancamento.cliente.nomeFantasia || lancamento.cliente.nome || lancamento.cliente.codigo || "-";
+  const obraNome = lancamento.obra?.nome || lancamento.obra?.codigo || "-";
+  const identificador = lancamento.equipamento.placaOuTag;
+
+  return {
+    id: lancamento.id,
+    origemTipo: "LANCAMENTO_DIARIO",
+    origemLabel: `Ficha ${lancamento.ficha.numero}`,
+    data: lancamento.data.toISOString(),
+    cliente: clienteNome,
+    obra: obraNome,
+    recursoId: lancamento.equipamentoId,
+    recurso: lancamento.equipamento.descricao,
+    identificadorRecurso: identificador,
+    servico: lancamento.servico.tipoServico,
+    quantidade,
+    unidade,
+    origemFato: inferOrigemFato(unidade),
+    statusVinculo: vinculados.has(lancamento.id) ? "VINCULADO" : "DISPONIVEL",
+    custoDisponivel: toNumber(lancamento.equipamento.custoPadrao) > 0,
+    snapshotTecnicoEconomico: snapshot
+  };
+}
+
+export async function listarFatosOperacionaisExistentes(db: DbClient, input: ListarFatosOperacionaisInput = {}) {
+  const empresaId = requireActiveTenantEmpresaId();
+  const lancamentos = requireLancamentoDiarioDelegate(db);
+  const inicio = normalizeFiltroDate(input.dataInicio);
+  const fim = normalizeFiltroDate(input.dataFim);
+
+  const where: Prisma.LancamentoDiarioWhereInput = {
+    empresaId,
+    deletedAt: null,
+    statusValidacao: "VALIDO",
+    ...(input.obraId ? { obraId: input.obraId } : {}),
+    ...(input.recursoId ? { equipamentoId: input.recursoId } : {}),
+    ...(input.servicoId ? { servicoId: input.servicoId } : {}),
+    ...(inicio || fim
+      ? {
+        data: {
+          ...(inicio ? { gte: startOfDay(inicio) } : {}),
+          ...(fim ? { lte: endOfDay(fim) } : {})
+        }
+      }
+      : {})
+  };
+
+  const items = await lancamentos.findMany({
+    where,
+    select: lancamentoFatoSelect,
+    orderBy: [{ data: "asc" }, { ficha: { numero: "asc" } }],
+    take: 250
+  }) as LancamentoFato[];
+
+  let vinculados = new Set<string>();
+  if (input.execucaoId && items.length) {
+    const recursoDelegate = requireRecursoBoletimReadDelegate(db);
+    const existentes = await recursoDelegate.findMany({
+      where: {
+        empresaId,
+        execucaoId: input.execucaoId,
+        origemRegistroTipo: "LANCAMENTO_DIARIO",
+        origemRegistroId: {
+          in: items.map((item) => item.id)
+        }
+      },
+      select: {
+        origemRegistroId: true
+      }
+    }) as Array<{ origemRegistroId: string | null }>;
+    vinculados = new Set(existentes.map((item) => item.origemRegistroId).filter(Boolean) as string[]);
+  }
+
+  return items.map((item) => mapLancamentoToFato(item, vinculados));
+}
+
+export type VincularFatosOperacionaisInput = {
+  execucaoId: string;
+  frenteExecutadaId: string;
+  fatosIds: string[];
+  observacao?: string | null;
+};
+
+export async function vincularFatosOperacionaisExecucao(db: DbClient, input: VincularFatosOperacionaisInput) {
+  const empresaId = requireActiveTenantEmpresaId();
+  const lancamentos = requireLancamentoDiarioDelegate(db);
+  const recursoDelegate = requireRecursoBoletimReadDelegate(db);
+  const execucao = await db.execucao.findFirst({
+    where: {
+      id: input.execucaoId,
+      empresaId
+    },
+    include: {
+      frentes: {
+        select: {
+          id: true
+        }
+      }
+    }
+  }) as PersistedExecucao | null;
+
+  if (!execucao) {
+    throw new Error("EXECUCAO_NAO_ENCONTRADA");
+  }
+
+  const frentes = new Set((execucao.frentes ?? []).map((frente) => frente.id));
+  if (!frentes.has(input.frenteExecutadaId)) {
+    throw new Error("FRENTE_EXECUTADA_NAO_PERTENCE_EXECUCAO");
+  }
+
+  const uniqueIds = Array.from(new Set(input.fatosIds.filter(Boolean)));
+  if (!uniqueIds.length) {
+    throw new Error("NENHUM_FATO_SELECIONADO");
+  }
+
+  const existentes = await recursoDelegate.findMany({
+    where: {
+      empresaId,
+      execucaoId: input.execucaoId,
+      origemRegistroTipo: "LANCAMENTO_DIARIO",
+      origemRegistroId: {
+        in: uniqueIds
+      }
+    },
+    select: {
+      origemRegistroId: true
+    }
+  }) as Array<{ origemRegistroId: string | null }>;
+
+  if (existentes.length) {
+    throw new Error("FATO_OPERACIONAL_JA_VINCULADO_NESTA_EXECUCAO");
+  }
+
+  const fatos = await lancamentos.findMany({
+    where: {
+      empresaId,
+      deletedAt: null,
+      statusValidacao: "VALIDO",
+      id: {
+        in: uniqueIds
+      }
+    },
+    select: lancamentoFatoSelect,
+    orderBy: [{ data: "asc" }]
+  }) as LancamentoFato[];
+
+  if (fatos.length !== uniqueIds.length) {
+    throw new Error("FATO_OPERACIONAL_NAO_ENCONTRADO");
+  }
+
+  const vinculados = [];
+
+  for (const fato of fatos) {
+    const dataBoletim = startOfDay(fato.data);
+    let boletim = await db.boletimDiarioProducao.findFirst({
+      where: {
+        empresaId,
+        execucaoId: input.execucaoId,
+        dataBoletim
+      },
+      select: {
+        id: true,
+        status: true
+      }
+    }) as { id: string; status: StatusBoletimDiarioProducao } | null;
+
+    if (!boletim) {
+      boletim = await db.boletimDiarioProducao.create({
+        data: {
+          empresaId,
+          execucaoId: input.execucaoId,
+          dataBoletim,
+          status: StatusBoletimDiarioProducao.ABERTO
+        },
+        select: {
+          id: true,
+          status: true
+        }
+      }) as { id: string; status: StatusBoletimDiarioProducao };
+    }
+
+    if (boletim.status !== StatusBoletimDiarioProducao.ABERTO) {
+      throw new Error("BOLETIM_DIARIO_FECHADO_NAO_PERMITE_ALTERACAO");
+    }
+
+    const fatoNormalizado = mapLancamentoToFato(fato, new Set());
+    const criado = await db.recursoBoletimDiario.create({
+      data: {
+        empresaId,
+        execucaoId: input.execucaoId,
+        boletimId: boletim.id,
+        frenteExecutadaId: input.frenteExecutadaId,
+        recursoId: fato.equipamentoId,
+        nomeSnapshot: `${fato.equipamento.placaOuTag} - ${fato.equipamento.descricao}`,
+        quantidadeRealizada: fatoNormalizado.quantidade,
+        unidadeRealizada: fatoNormalizado.unidade,
+        quantidadeRecursos: 1,
+        origem: fatoNormalizado.origemFato,
+        origemRegistroTipo: "LANCAMENTO_DIARIO",
+        origemRegistroId: fato.id,
+        origemRegistroData: dataBoletim,
+        editavel: false,
+        snapshotTecnicoEconomico: fatoNormalizado.snapshotTecnicoEconomico as Prisma.InputJsonValue,
+        observacao: clean(input.observacao)
+      }
+    });
+    vinculados.push(criado);
+  }
+
+  return vinculados;
+}
+
+export async function desvincularRecursoBoletimDiario(db: DbClient, id: string) {
+  const empresaId = requireActiveTenantEmpresaId();
+  const findDelegate = requireRecursoBoletimReadDelegate(db);
+  const deleteDelegate = requireRecursoBoletimDeleteDelegate(db);
+  const recurso = await findDelegate.findFirst({
+    where: {
+      id,
+      empresaId
+    },
+    include: {
+      boletim: {
+        select: {
+          status: true
+        }
+      }
+    }
+  }) as { id: string; boletim: { status: StatusBoletimDiarioProducao } } | null;
+
+  if (!recurso) {
+    throw new Error("RECURSO_BOLETIM_DIARIO_NAO_ENCONTRADO");
+  }
+
+  if (recurso.boletim.status !== StatusBoletimDiarioProducao.ABERTO) {
+    throw new Error("BOLETIM_DIARIO_FECHADO_NAO_PERMITE_ALTERACAO");
+  }
+
+  return deleteDelegate({
+    where: {
+      id
+    }
+  });
+}
+
+export async function buscarBoletimDiarioProducao(db: DbClient, id: string) {
+  const empresaId = requireActiveTenantEmpresaId();
+
+  return db.boletimDiarioProducao.findFirst({
+    where: {
+      id,
+      empresaId
+    },
+    include: boletimDiarioProducaoInclude
+  });
+}
+
+export async function fecharBoletimDiarioProducao(db: DbClient, id: string) {
+  const empresaId = requireActiveTenantEmpresaId();
+  const atual = await db.boletimDiarioProducao.findFirst({
+    where: {
+      id,
+      empresaId
+    },
+    include: boletimDiarioProducaoInclude
+  }) as (PersistedBoletimDiario & { execucao: PersistedExecucaoComBoletins }) | null;
+
+  if (!atual) {
+    throw new Error("BOLETIM_DIARIO_NAO_ENCONTRADO");
+  }
+
+  if (atual.status === StatusBoletimDiarioProducao.FECHADO) {
+    throw new Error("BOLETIM_DIARIO_JA_FECHADO");
+  }
+
+  const fechado = await db.boletimDiarioProducao.update({
+    where: {
+      id
+    },
+    data: {
+      status: StatusBoletimDiarioProducao.FECHADO,
+      fechadoEm: new Date()
+    },
+    include: boletimDiarioProducaoInclude
+  }) as PersistedBoletimDiario & { execucao: PersistedExecucaoComBoletins };
+
+  const execucaoComBoletimAtual: PersistedExecucaoComBoletins = {
+    ...fechado.execucao,
+    boletins: [
+      ...(fechado.execucao.boletins ?? []).filter((boletim) => boletim.id !== fechado.id),
+      {
+        id: fechado.id,
+        empresaId: fechado.empresaId,
+        execucaoId: fechado.execucaoId,
+        dataBoletim: fechado.dataBoletim,
+        status: StatusBoletimDiarioProducao.FECHADO,
+        recursos: fechado.recursos ?? []
+      }
+    ]
+  };
+  const entrada = adaptarExecucaoComBoletinsParaEntradaNucleo(execucaoComBoletimAtual);
+  const resultado = await gerarResultadoExecucaoDaEntrada(db, empresaId, fechado.execucaoId, entrada);
+
+  return {
+    ...fechado,
+    resultado
+  };
+}
+
+export async function consolidarExecucaoPorBoletins(db: DbClient, id: string) {
+  const empresaId = requireActiveTenantEmpresaId();
+  const execucao = await db.execucao.findFirst({
+    where: {
+      id,
+      empresaId
+    },
+    include: {
+      frentes: {
+        include: {
+          recursos: {
+            orderBy: [{ createdAt: "asc" as const }]
+          }
+        },
+        orderBy: [{ createdAt: "asc" as const }]
+      },
+      boletins: {
+        where: {
+          status: StatusBoletimDiarioProducao.FECHADO
+        },
+        include: {
+          recursos: {
+            orderBy: [{ createdAt: "asc" as const }]
+          }
+        },
+        orderBy: [{ dataBoletim: "asc" as const }]
+      },
+      resultados: {
+        orderBy: [{ createdAt: "desc" as const }]
+      }
+    }
+  }) as PersistedExecucaoComBoletins | null;
+
+  if (!execucao) {
+    throw new Error("EXECUCAO_NAO_ENCONTRADA");
+  }
+
+  const entrada = adaptarExecucaoComBoletinsParaEntradaNucleo(execucao);
+  const resultado = await gerarResultadoExecucaoDaEntrada(db, empresaId, execucao.id, entrada);
+
+  return {
+    ...execucao,
+    resultados: [resultado, ...(execucao.resultados ?? [])]
+  };
+}

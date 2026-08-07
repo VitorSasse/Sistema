@@ -32,6 +32,7 @@ const navigationGroups = [
     description: "Lancamento diario, consulta e medicao operacional.",
     items: [
       { href: "/orcamentos" as Route, label: "Orcamentos", module: "orcamentos" },
+      { href: "/execucoes" as Route, label: "Execucao e Resultado", module: "execucoes" },
       { href: "/programacao", label: "Agenda de programacao", module: "programacao" },
       { href: "/lancamentos", label: "Lancamentos", module: "lancamentos" },
       { href: "/historico", label: "Historico", module: "historico" },
