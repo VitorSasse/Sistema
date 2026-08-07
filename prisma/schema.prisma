@@ -396,6 +396,11 @@ enum TipoAlertaManutencao {
   LEITURA_INCONSISTENTE
 }
 
+enum TipoItemManutencaoExecutada {
+  PECA
+  SERVICO
+}
+
 model Usuario {
   id                            String                @id @default(uuid())
   empresaId                     String
@@ -499,6 +504,7 @@ model Empresa {
   manutencoesExecutadas        ManutencaoExecutada[]
   alertasManutencao            AlertaManutencao[]
   anexosManutencao             AnexoManutencao[]
+  itensManutencaoExecutada     ItemManutencaoExecutada[]
   medicoes                     Medicao[]
   medicaoItens                 MedicaoItem[]
   historicosAlteracao          HistoricoAlteracao[]
@@ -1516,6 +1522,7 @@ model ManutencaoExecutada {
   executadoPor      Usuario?          @relation("ManutencaoExecutadaPor", fields: [executadoPorId], references: [id])
   registradoPor     Usuario           @relation("ManutencaoRegistradaPor", fields: [registradoPorId], references: [id])
   anexos            AnexoManutencao[]
+  itensServicos     ItemManutencaoExecutada[]
 
   @@index([empresaId])
   @@index([equipamentoId, dataExecucao])
@@ -1523,6 +1530,24 @@ model ManutencaoExecutada {
   @@index([agendaId])
 }
 
+model ItemManutencaoExecutada {
+  id                    String                    @id @default(uuid())
+  empresaId             String
+  manutencaoExecutadaId String
+  tipo                  TipoItemManutencaoExecutada
+  descricao             String
+  quantidade            Decimal?                  @db.Decimal(14, 4)
+  unidade               String?
+  observacao            String?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  empresa               Empresa                   @relation(fields: [empresaId], references: [id])
+  manutencaoExecutada   ManutencaoExecutada       @relation(fields: [manutencaoExecutadaId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId])
+  @@index([manutencaoExecutadaId])
+  @@index([tipo])
+}
 model AlertaManutencao {
   id                         String                 @id @default(uuid())
   empresaId                  String
