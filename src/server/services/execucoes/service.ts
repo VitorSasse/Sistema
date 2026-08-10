@@ -1,4 +1,4 @@
-import { OrigemFatoBoletimDiario, Prisma, StatusBoletimDiarioProducao } from "@prisma/client";
+import { OrigemFatoBoletimDiario, Prisma, StatusBoletimDiarioProducao, StatusLancamento } from "@prisma/client";
 import {
   adaptarExecucaoParaEntradaNucleo,
   executarNucleoComMotorAtual,
@@ -14,6 +14,7 @@ import {
 } from "@/lib/validators/boletim-diario-producao";
 import { execucaoSchema, type ExecucaoInput } from "@/lib/validators/execucao";
 import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
+import { parseDateOnlyEnd, parseDateOnlyStart } from "@/lib/utils/date";
 
 type DbClient = {
   execucao: {
@@ -23,7 +24,9 @@ type DbClient = {
     update: (args: Prisma.ExecucaoUpdateArgs) => Promise<unknown>;
   };
   frenteExecutada: {
+    create?: (args: Prisma.FrenteExecutadaCreateArgs) => Promise<unknown>;
     deleteMany: (args: Prisma.FrenteExecutadaDeleteManyArgs) => Promise<unknown>;
+    update?: (args: Prisma.FrenteExecutadaUpdateArgs) => Promise<unknown>;
   };
   resultadoExecucao: {
     create: (args: Prisma.ResultadoExecucaoCreateArgs) => Promise<unknown>;
@@ -70,6 +73,10 @@ type PersistedExecucao = {
   id: string;
   descricao?: string | null;
   empresaId: string;
+  clienteId?: string | null;
+  obraId?: string | null;
+  origem?: unknown;
+  status?: unknown;
   frentes?: PersistedFrenteExecutada[];
   resultados?: unknown[];
 };
@@ -284,6 +291,22 @@ function requireRecursoBoletimDeleteDelegate(db: DbClient) {
   }
 
   return db.recursoBoletimDiario.delete;
+}
+
+function requireFrenteExecutadaUpdateDelegate(db: DbClient) {
+  if (!db.frenteExecutada.update) {
+    throw new Error("FRENTE_EXECUTADA_ATUALIZACAO_NAO_DISPONIVEL");
+  }
+
+  return db.frenteExecutada.update;
+}
+
+function requireFrenteExecutadaCreateDelegate(db: DbClient) {
+  if (!db.frenteExecutada.create) {
+    throw new Error("FRENTE_EXECUTADA_CRIACAO_NAO_DISPONIVEL");
+  }
+
+  return db.frenteExecutada.create;
 }
 
 function startOfDay(value: Date) {
@@ -666,6 +689,73 @@ export async function atualizarExecucao(db: DbClient, id: string, input: Execuca
   };
 }
 
+export async function atualizarCabecalhoExecucao(db: DbClient, id: string, input: ExecucaoInput) {
+  const parsed = execucaoSchema.parse(input);
+  const empresaId = requireActiveTenantEmpresaId();
+  const atual = await db.execucao.findFirst({
+    where: {
+      id,
+      empresaId
+    },
+    include: {
+      frentes: {
+        orderBy: {
+          createdAt: "asc"
+        },
+        take: 1
+      }
+    }
+  }) as PersistedExecucao | null;
+
+  if (!atual) {
+    throw new Error("EXECUCAO_NAO_ENCONTRADA");
+  }
+
+  await db.execucao.update({
+    where: {
+      id
+    },
+    data: buildExecucaoData(parsed, empresaId)
+  });
+
+  const frenteInput = parsed.frentes[0];
+  const frenteAtual = atual.frentes?.[0];
+  const frenteData = frenteInput ? {
+    nome: clean(frenteInput.nome),
+    descricao: clean(frenteInput.descricao),
+    unidade: clean(frenteInput.unidade),
+    quantidadeExecutada: frenteInput.quantidadeExecutada ?? null,
+    receitaRealizada: frenteInput.receitaRealizada ?? null
+  } : null;
+
+  if (frenteAtual && frenteData) {
+    const updateFrente = requireFrenteExecutadaUpdateDelegate(db);
+    await updateFrente({
+      where: {
+        id: frenteAtual.id
+      },
+      data: frenteData
+    });
+  } else if (!frenteAtual && frenteData && (
+    frenteData.nome ||
+    frenteData.descricao ||
+    frenteData.unidade ||
+    frenteData.quantidadeExecutada !== null ||
+    frenteData.receitaRealizada !== null
+  )) {
+    const createFrente = requireFrenteExecutadaCreateDelegate(db);
+    await createFrente({
+      data: {
+        empresaId,
+        execucaoId: id,
+        ...frenteData
+      }
+    });
+  }
+
+  return buscarExecucaoOperacional(db, id);
+}
+
 function validarFrentesDoBoletim(execucao: PersistedExecucao, input: BoletimDiarioProducaoInput) {
   const frentesDaExecucao = new Set((execucao.frentes ?? []).map((frente) => frente.id));
 
@@ -862,9 +952,15 @@ export type ListarFatosOperacionaisInput = {
   servicoId?: string | null;
 };
 
-function normalizeFiltroDate(value: string | Date | null | undefined) {
+function normalizeFiltroDateStart(value: string | Date | null | undefined) {
   if (!value) return null;
-  const date = value instanceof Date ? value : new Date(value);
+  const date = value instanceof Date ? value : parseDateOnlyStart(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function normalizeFiltroDateEnd(value: string | Date | null | undefined) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : parseDateOnlyEnd(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
@@ -923,13 +1019,15 @@ function mapLancamentoToFato(lancamento: LancamentoFato, vinculados: Set<string>
 export async function listarFatosOperacionaisExistentes(db: DbClient, input: ListarFatosOperacionaisInput = {}) {
   const empresaId = requireActiveTenantEmpresaId();
   const lancamentos = requireLancamentoDiarioDelegate(db);
-  const inicio = normalizeFiltroDate(input.dataInicio);
-  const fim = normalizeFiltroDate(input.dataFim);
+  const inicio = normalizeFiltroDateStart(input.dataInicio);
+  const fim = normalizeFiltroDateEnd(input.dataFim);
 
   const where: Prisma.LancamentoDiarioWhereInput = {
     empresaId,
     deletedAt: null,
-    statusValidacao: "VALIDO",
+    statusValidacao: {
+      not: StatusLancamento.CANCELADO
+    },
     ...(input.obraId ? { obraId: input.obraId } : {}),
     ...(input.recursoId ? { equipamentoId: input.recursoId } : {}),
     ...(input.servicoId ? { servicoId: input.servicoId } : {}),
@@ -1033,7 +1131,9 @@ export async function vincularFatosOperacionaisExecucao(db: DbClient, input: Vin
     where: {
       empresaId,
       deletedAt: null,
-      statusValidacao: "VALIDO",
+      statusValidacao: {
+        not: StatusLancamento.CANCELADO
+      },
       id: {
         in: uniqueIds
       }

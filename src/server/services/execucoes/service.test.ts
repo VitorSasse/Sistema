@@ -11,6 +11,7 @@ import { execucaoSchema, type ExecucaoInput } from "@/lib/validators/execucao";
 import {
   adaptarExecucaoPersistidaParaEntradaNucleo,
   adaptarExecucaoComBoletinsParaEntradaNucleo,
+  atualizarCabecalhoExecucao,
   atualizarExecucao,
   criarBoletimDiarioProducao,
   buscarExecucao,
@@ -132,6 +133,7 @@ function createDbMock() {
         quantidadeFaturada: 93,
         unidadeFaturada: "CARGA",
         origem: "MANUAL",
+        statusValidacao: "MEDIDO",
         observacao: "Fato operacional existente",
         ficha: { numero: "4100" },
         cliente: { id: CLIENTE_ID, codigo: "CLI-001", nome: "Cliente teste", nomeFantasia: "Cliente teste" },
@@ -191,10 +193,9 @@ function createDbMock() {
       update: async (args: Record<string, unknown>) => {
         calls.push({ model: "execucao", action: "update", args });
         const data = args.data as Record<string, unknown>;
-        records.execucao = {
-          ...(records.execucao ?? {}),
-          ...data,
-          frentes: ((data.frentes as Record<string, unknown>).create as Array<Record<string, unknown>>).map(
+        const nestedFrentes = data.frentes as Record<string, unknown> | undefined;
+        const frentes = nestedFrentes?.create
+          ? ((nestedFrentes.create as Array<Record<string, unknown>>).map(
             (frente, index) => ({
               id: index === 0 ? FRENTE_ID : `88888888-8888-4888-8888-8888888888${String(index).padStart(2, "0")}`,
               ...frente,
@@ -205,16 +206,47 @@ function createDbMock() {
                 })
               )
             })
-          ),
+          ))
+          : records.execucao?.frentes;
+        records.execucao = {
+          ...(records.execucao ?? {}),
+          ...data,
+          frentes,
           resultados: []
         };
+        delete records.execucao.frentes;
+        if (frentes) records.execucao.frentes = frentes;
         return records.execucao;
       }
     },
     frenteExecutada: {
+      create: async (args: Record<string, unknown>) => {
+        calls.push({ model: "frenteExecutada", action: "create", args });
+        const data = args.data as Record<string, unknown>;
+        const created = {
+          id: FRENTE_ID,
+          ...data,
+          recursos: []
+        };
+        if (records.execucao) {
+          records.execucao.frentes = [...(((records.execucao.frentes as Array<Record<string, unknown>>) ?? [])), created];
+        }
+        return created;
+      },
       deleteMany: async (args: Record<string, unknown>) => {
         calls.push({ model: "frenteExecutada", action: "deleteMany", args });
         return { count: 1 };
+      },
+      update: async (args: Record<string, unknown>) => {
+        calls.push({ model: "frenteExecutada", action: "update", args });
+        const where = args.where as Record<string, unknown>;
+        const data = args.data as Record<string, unknown>;
+        if (records.execucao) {
+          records.execucao.frentes = ((records.execucao.frentes as Array<Record<string, unknown>>) ?? []).map((frente) =>
+            frente.id === where.id ? { ...frente, ...data } : frente
+          );
+        }
+        return (records.execucao?.frentes as Array<Record<string, unknown>> | undefined)?.find((frente) => frente.id === where.id) ?? null;
       }
     },
     resultadoExecucao: {
@@ -358,6 +390,8 @@ function createDbMock() {
           if (where.obraId && item.obraId !== where.obraId) return false;
           if (where.equipamentoId && item.equipamentoId !== where.equipamentoId) return false;
           if (ids.length && !ids.includes(String(item.id))) return false;
+          const statusNot = (where.statusValidacao as Record<string, unknown> | undefined)?.not;
+          if (statusNot && item.statusValidacao === statusNot) return false;
           return true;
         });
       }
@@ -825,7 +859,7 @@ describe("service de Execucao e Resultado", () => {
   });
 
   it("lista fatos operacionais existentes por obra e periodo com rastreabilidade", async () => {
-    const { db } = createDbMock();
+    const { db, calls } = createDbMock();
     await runTenant(() => criarExecucao(db as never, inputExecucao()));
 
     const fatos = await runTenant(() =>
@@ -833,11 +867,21 @@ describe("service de Execucao e Resultado", () => {
         execucaoId: EXECUCAO_ID,
         obraId: OBRA_ID,
         dataInicio: "2026-08-06",
-        dataFim: "2026-08-06"
+        dataFim: "2026-08-06",
+        recursoId: RECURSO_ID
       })
     );
+    const findManyCall = calls.find((call) => call.model === "lancamentoDiario" && call.action === "findMany");
+    const where = (findManyCall?.args as { where: Record<string, unknown> }).where;
 
     expect(fatos).toHaveLength(1);
+    expect(where).toMatchObject({
+      empresaId: EMPRESA_ID,
+      obraId: OBRA_ID,
+      equipamentoId: RECURSO_ID,
+      deletedAt: null
+    });
+    expect(where.statusValidacao).toEqual({ not: "CANCELADO" });
     expect(fatos[0]).toMatchObject({
       id: "99999999-9999-4999-8999-999999999999",
       origemTipo: "LANCAMENTO_DIARIO",
@@ -852,6 +896,60 @@ describe("service de Execucao e Resultado", () => {
       valorCusto: 120,
       unidadeCusto: "R$/carga"
     });
+  });
+
+  it("complementa cabecalho da execucao direta sem remover boletins ou fatos vinculados", async () => {
+    const { db, calls, records } = createDbMock();
+    await runTenant(() =>
+      criarExecucao(db as never, {
+        clienteId: null,
+        obraId: null,
+        descricao: "",
+        origem: OrigemExecucao.DIRETA,
+        status: StatusExecucao.EM_ANDAMENTO,
+        frentes: []
+      })
+    );
+    await runTenant(() =>
+      criarBoletimDiarioProducao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        dataBoletim: new Date("2026-08-06T00:00:00.000Z"),
+        recursos: []
+      })
+    );
+
+    const atualizada = await runTenant(() =>
+      atualizarCabecalhoExecucao(db as never, EXECUCAO_ID, {
+        clienteId: CLIENTE_ID,
+        obraId: OBRA_ID,
+        descricao: "Execucao direta complementada",
+        origem: OrigemExecucao.DIRETA,
+        status: StatusExecucao.EM_ANDAMENTO,
+        frentes: [
+          {
+            nome: "Servico direto",
+            unidade: "m3",
+            quantidadeExecutada: 100,
+            receitaRealizada: 18000,
+            recursos: []
+          }
+        ]
+      })
+    );
+
+    expect(atualizada).toMatchObject({
+      clienteId: CLIENTE_ID,
+      obraId: OBRA_ID,
+      descricao: "Execucao direta complementada"
+    });
+    expect((records.execucao?.frentes as Array<Record<string, unknown>>)[0]).toMatchObject({
+      nome: "Servico direto",
+      unidade: "m3",
+      quantidadeExecutada: 100,
+      receitaRealizada: 18000
+    });
+    expect(records.boletins).toHaveLength(1);
+    expect(calls.some((call) => call.model === "frenteExecutada" && call.action === "deleteMany")).toBe(false);
   });
 
   it("vincula fato existente criando boletim pela data e preservando referencia original", async () => {

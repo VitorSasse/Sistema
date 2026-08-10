@@ -51,15 +51,16 @@ type Boletim = {
 
 type FrenteExecucao = {
   id: string;
-  nome: string;
-  unidade: string;
+  nome?: string | null;
+  unidade?: string | null;
   quantidadeExecutada: string | number | null;
   receitaRealizada: string | number | null;
 };
 
 type Execucao = {
   id: string;
-  descricao: string;
+  descricao?: string | null;
+  origem?: string | null;
   status: string;
   cliente?: { id?: string; nome?: string | null; nomeFantasia?: string | null; codigo?: string | null } | null;
   obra?: { id?: string; nome?: string | null; codigo?: string | null } | null;
@@ -171,6 +172,20 @@ function initialExecucaoForm() {
   };
 }
 
+function execucaoFormFromSelected(execucao: Execucao | null | undefined) {
+  const frente = execucao?.frentes?.[0];
+
+  return {
+    clienteId: execucao?.cliente?.id ?? "",
+    obraId: execucao?.obra?.id ?? "",
+    descricao: execucao?.descricao ?? "",
+    frenteNome: frente?.nome ?? "",
+    unidade: frente?.unidade ?? "",
+    quantidade: frente?.quantidadeExecutada === null || frente?.quantidadeExecutada === undefined ? "" : String(frente.quantidadeExecutada),
+    receita: frente?.receitaRealizada === null || frente?.receitaRealizada === undefined ? "" : String(frente.receitaRealizada)
+  };
+}
+
 function initialBoletimForm() {
   return {
     dataBoletim: todayInput(),
@@ -246,6 +261,8 @@ export function ExecucoesManager() {
   const [selectedFatos, setSelectedFatos] = useState<string[]>([]);
   const [fatosFilter, setFatosFilter] = useState(initialFatosFilter);
   const [execucaoForm, setExecucaoForm] = useState(initialExecucaoForm);
+  const [headerForm, setHeaderForm] = useState(initialExecucaoForm);
+  const [editingHeader, setEditingHeader] = useState(false);
   const [boletimForm, setBoletimForm] = useState(initialBoletimForm);
   const [recursoForm, setRecursoForm] = useState(initialRecursoForm);
   const [message, setMessage] = useState("");
@@ -276,6 +293,16 @@ export function ExecucoesManager() {
       label: obra.codigo ? `${obra.codigo} - ${obra.nome}` : obra.nome
     })),
     [obrasFiltradas]
+  );
+  const headerObrasFiltradas = headerForm.clienteId
+    ? obras.filter((obra) => obra.clienteId === headerForm.clienteId)
+    : obras;
+  const headerObraOptions = useMemo<SearchableSelectOption[]>(
+    () => headerObrasFiltradas.map((obra) => ({
+      value: obra.id,
+      label: obra.codigo ? `${obra.codigo} - ${obra.nome}` : obra.nome
+    })),
+    [headerObrasFiltradas]
   );
 
   const totais = useMemo(() => {
@@ -382,10 +409,13 @@ export function ExecucoesManager() {
   }, [recursoForm.frenteExecutadaId, selected]);
 
   useEffect(() => {
-    if (selected?.obra?.id && !fatosFilter.obraId) {
-      setFatosFilter((current) => ({ ...current, obraId: selected.obra?.id ?? "" }));
-    }
-  }, [fatosFilter.obraId, selected]);
+    setHeaderForm(execucaoFormFromSelected(selected));
+    setEditingHeader(false);
+  }, [selected?.id]);
+
+  useEffect(() => {
+    setFatosFilter((current) => ({ ...current, obraId: selected?.obra?.id ?? "" }));
+  }, [selected?.id, selected?.obra?.id]);
 
   async function handleCreateExecucao(event: FormEvent) {
     event.preventDefault();
@@ -422,6 +452,51 @@ export function ExecucoesManager() {
       loadOptions().catch((err) => setOptionsError(err instanceof Error ? err.message : "Nao foi possivel recarregar clientes, obras e recursos."));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel abrir a execucao.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSaveHeader(event: FormEvent) {
+    event.preventDefault();
+    if (!selected) return;
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const primeiraFrente = selected.frentes?.[0];
+      const payload = {
+        clienteId: headerForm.clienteId || null,
+        obraId: headerForm.obraId || null,
+        descricao: headerForm.descricao || "",
+        origem: selected.origem || "DIRETA",
+        status: selected.status,
+        frentes: headerForm.frenteNome || headerForm.unidade || headerForm.quantidade || headerForm.receita || primeiraFrente?.id
+          ? [
+            {
+              id: primeiraFrente?.id,
+              nome: headerForm.frenteNome || "",
+              unidade: headerForm.quantidade ? headerForm.unidade : "",
+              quantidadeExecutada: headerForm.quantidade ? Number(headerForm.quantidade) : null,
+              receitaRealizada: headerForm.receita ? Number(headerForm.receita) : null,
+              recursos: []
+            }
+          ]
+          : []
+      };
+      const data = await fetchJson<{ item: Execucao }>(`/api/execucoes/${selected.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload)
+      });
+      setExecucoes((current) => current.map((item) => (item.id === selected.id ? data.item : item)));
+      setSelectedId(data.item.id);
+      setHeaderForm(execucaoFormFromSelected(data.item));
+      setEditingHeader(false);
+      setMessage("Execucao atualizada.");
+      await loadComparativo(data.item.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel atualizar a execucao.");
     } finally {
       setLoading(false);
     }
@@ -616,7 +691,7 @@ export function ExecucoesManager() {
                   loadComparativo(execucao.id).catch(() => undefined);
                 }}
               >
-                <strong>{execucao.descricao}</strong>
+                <strong>{execucao.descricao || "Execucao sem descricao"}</strong>
                 <span>{execucao.cliente?.nomeFantasia || execucao.cliente?.nome || "Cliente nao informado"}</span>
                 <small>{execucao.status}</small>
               </button>
@@ -666,19 +741,83 @@ export function ExecucoesManager() {
 
         <div className="execucoes-main">
           <section className="execucoes-panel">
-            <div className="execucoes-panel-heading">
-              <span className="page-kicker">Cabecalho</span>
-              <strong>{selected?.descricao ?? "Selecione uma execucao"}</strong>
+            <div className="execucoes-panel-heading is-row">
+              <div>
+                <span className="page-kicker">Cabecalho</span>
+                <strong>{selected?.descricao || "Execucao sem descricao"}</strong>
+              </div>
+              {selected ? (
+                <button
+                  className="button-secondary"
+                  type="button"
+                  disabled={loading}
+                  onClick={() => {
+                    setHeaderForm(execucaoFormFromSelected(selected));
+                    setEditingHeader((current) => !current);
+                  }}
+                >
+                  {editingHeader ? "Cancelar edicao" : "Editar execucao"}
+                </button>
+              ) : null}
             </div>
-            <div className="execucoes-summary-grid">
-              <Info label="Cliente" value={selected?.cliente?.nomeFantasia || selected?.cliente?.nome || "-"} />
-              <Info label="Obra" value={selected?.obra?.nome || "-"} />
-              <Info label="Servico / Frente" value={selected?.frentes?.map((frente) => frente.nome).join(", ") || "-"} />
-              <Info label="Situacao" value={selected?.status || "-"} />
-              <Info label="Receita contratada" value={money(totais.receita)} />
-              <Info label="Quantidade prevista" value={number(totais.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "")} />
-              <Info label="Quantidade realizada" value={number(primeiraFrenteComparativo?.quantidade.realizado ?? totais.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "")} />
-            </div>
+            {editingHeader && selected ? (
+              <form className="execucoes-resource-form" onSubmit={handleSaveHeader}>
+                <div className="execucoes-inline">
+                  <SearchableSelect
+                    value={headerForm.clienteId}
+                    onChange={(value) => setHeaderForm((current) => ({ ...current, clienteId: value, obraId: "" }))}
+                    options={clienteOptions}
+                    placeholder={optionsLoading ? "Carregando clientes..." : "Digite codigo ou nome do cliente"}
+                    emptyLabel="Nenhum cliente encontrado."
+                    disabled={optionsLoading}
+                  />
+                  <SearchableSelect
+                    value={headerForm.obraId}
+                    options={headerObraOptions}
+                    placeholder={headerForm.clienteId ? "Digite codigo ou nome da obra" : "Digite para buscar obra em todas as obras"}
+                    emptyLabel="Nenhuma obra encontrada."
+                    disabled={optionsLoading}
+                    onChange={(value) => {
+                      const obra = obras.find((item) => item.id === value);
+                      setHeaderForm((current) => ({
+                        ...current,
+                        obraId: value,
+                        clienteId: obra?.clienteId || current.clienteId
+                      }));
+                    }}
+                  />
+                </div>
+                <input placeholder="Descricao da execucao (opcional)" value={headerForm.descricao} onChange={(event) => setHeaderForm((current) => ({ ...current, descricao: event.target.value }))} />
+                <input placeholder="Frente / servico (opcional)" value={headerForm.frenteNome} onChange={(event) => setHeaderForm((current) => ({ ...current, frenteNome: event.target.value }))} />
+                <div className="execucoes-inline">
+                  <input placeholder="Quantidade executada (opcional)" type="number" step="0.0001" value={headerForm.quantidade} onChange={(event) => setHeaderForm((current) => ({ ...current, quantidade: event.target.value, unidade: event.target.value ? current.unidade : "" }))} />
+                  <select value={headerForm.unidade} onChange={(event) => setHeaderForm((current) => ({ ...current, unidade: event.target.value }))} disabled={!headerForm.quantidade}>
+                    <option value="">{headerForm.quantidade ? "Unidade" : "Sem quantidade"}</option>
+                    {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
+                  </select>
+                </div>
+                <input placeholder="Receita realizada / contratada (opcional)" type="number" step="0.01" value={headerForm.receita} onChange={(event) => setHeaderForm((current) => ({ ...current, receita: event.target.value }))} />
+                <div className="execucoes-inline">
+                  <button className="button-primary" type="submit" disabled={loading}>Salvar execucao</button>
+                  <button className="button-secondary" type="button" disabled={loading} onClick={() => {
+                    setHeaderForm(execucaoFormFromSelected(selected));
+                    setEditingHeader(false);
+                  }}>
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="execucoes-summary-grid">
+                <Info label="Cliente" value={selected?.cliente?.nomeFantasia || selected?.cliente?.nome || "-"} />
+                <Info label="Obra" value={selected?.obra?.nome || "-"} />
+                <Info label="Servico / Frente" value={selected?.frentes?.map((frente) => frente.nome).filter(Boolean).join(", ") || "-"} />
+                <Info label="Situacao" value={selected?.status || "-"} />
+                <Info label="Receita realizada / contratada" value={money(totais.receita)} />
+                <Info label="Quantidade do servico" value={number(totais.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "")} />
+                <Info label="Quantidade realizada consolidada" value={number(primeiraFrenteComparativo?.quantidade.realizado ?? totais.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "")} />
+              </div>
+            )}
           </section>
 
           <section className="execucoes-panel">
@@ -739,7 +878,7 @@ export function ExecucoesManager() {
               </div>
               <div className="execucoes-inline">
                 <select value={recursoForm.frenteExecutadaId} onChange={(event) => setRecursoForm((current) => ({ ...current, frenteExecutadaId: event.target.value }))}>
-                  {(selected?.frentes ?? []).map((frente) => <option key={frente.id} value={frente.id}>Destino: {frente.nome}</option>)}
+                  {(selected?.frentes ?? []).map((frente) => <option key={frente.id} value={frente.id}>Destino: {frente.nome || "Frente sem descricao"}</option>)}
                 </select>
                 <button className="button-primary" type="button" disabled={!selectedFatos.length || loading} onClick={handleVincularFatos}>
                   Vincular selecionados
