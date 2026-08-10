@@ -783,7 +783,7 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
           natureza: "OPERACIONAL",
           nome: "Horas executadas",
           unidadeProducao: "h",
-          quantidadePrevista: 2.45,
+          quantidadePrevista: 4.47,
           modoCusto: "AUTO"
         }
       ],
@@ -797,7 +797,7 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
           recursoNome: "ESC 150 I - HYUNDAI",
           recursoReferenciaId: "eq-esc-150",
           quantidade: 1,
-          quantidadeOperacional: 2.45,
+          quantidadeOperacional: 4.47,
           origemQuantidadeOperacional: "PERSONALIZADA",
           unidadeQuantidadeOperacional: "h",
           unidade: "R$/dia",
@@ -814,7 +814,7 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
         {
           id: "frente-horas",
           nome: "Horas executadas",
-          quantidadeExecutada: 2.45,
+          quantidadeExecutada: 4.47,
           unidade: "h",
           receitaRealizada: 0,
           recursos: [
@@ -822,7 +822,7 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
               id: "exec-recurso-esc-150",
               recursoId: "eq-esc-150",
               nome: "ESC 150 I - HYUNDAI",
-              quantidadeRealizada: 2.45,
+              quantidadeRealizada: 4.47,
               unidadeRealizada: "h",
               quantidadeRecursos: 1,
               snapshotTecnicoEconomico: {
@@ -830,7 +830,7 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
                 baseEconomica: "DIA",
                 valorCusto: 950,
                 unidadeCusto: "R$/dia",
-                quantidadeOperacional: 2.45,
+                quantidadeOperacional: 4.47,
                 unidadeQuantidadeOperacional: "h"
               }
             }
@@ -844,8 +844,8 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
 
     expect(resultadoOrcamento.unidades[0]?.recursos[0]?.horasDia).toBe(8);
     expect(resultadoExecucao.unidades[0]?.recursos[0]?.horasDia).toBe(8);
-    expect(resultadoOrcamento.consolidado.custoOperacionalTotal).toBe(290.94);
-    expect(resultadoExecucao.consolidado.custoOperacionalTotal).toBe(290.94);
+    expect(resultadoOrcamento.consolidado.custoOperacionalTotal).toBe(530.81);
+    expect(resultadoExecucao.consolidado.custoOperacionalTotal).toBe(530.81);
     expect(resultadoExecucao.consolidado.custoOperacionalTotal).toBe(
       resultadoOrcamento.consolidado.custoOperacionalTotal
     );

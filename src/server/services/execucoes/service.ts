@@ -1529,7 +1529,12 @@ export async function consolidarExecucaoPorBoletins(db: DbClient, id: string) {
       },
       boletins: {
         where: {
-          status: StatusBoletimDiarioProducao.FECHADO
+          status: {
+            in: [
+              StatusBoletimDiarioProducao.ABERTO,
+              StatusBoletimDiarioProducao.FECHADO
+            ]
+          }
         },
         include: {
           recursos: {
@@ -1547,8 +1552,6 @@ export async function consolidarExecucaoPorBoletins(db: DbClient, id: string) {
   if (!execucao) {
     throw new Error("EXECUCAO_NAO_ENCONTRADA");
   }
-
-  validarCustosDefinidos((execucao.boletins ?? []).flatMap((boletim) => boletim.recursos ?? []));
 
   const entrada = adaptarExecucaoComBoletinsParaEntradaNucleo(execucao, { incluirBoletinsAbertos: true });
   const resultado = await gerarResultadoExecucaoDaEntrada(db, empresaId, execucao.id, entrada);

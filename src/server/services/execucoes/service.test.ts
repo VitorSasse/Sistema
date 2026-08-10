@@ -922,6 +922,82 @@ describe("service de Execucao e Resultado", () => {
     expect(ultimoResultado.resultadoOperacional.consolidado.custoOperacionalTotal).toBe(11160);
   });
 
+  it("consolida parcialmente boletins abertos com recursos completos e pendentes", async () => {
+    const { db, calls } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+    await runTenant(() =>
+      criarBoletimDiarioProducao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        dataBoletim: new Date("2026-08-07T00:00:00.000Z"),
+        recursos: [
+          {
+            frenteExecutadaId: FRENTE_ID,
+            nomeSnapshot: "ESC 150 I - HYUNDAI",
+            quantidadeRealizada: 4.47,
+            unidadeRealizada: "h",
+            quantidadeRecursos: 1,
+            origem: OrigemFatoBoletimDiario.PRODUCAO,
+            snapshotTecnicoEconomico: {
+              categoria: "EQUIPAMENTO",
+              classeOperacional: "ESC 150 I - HYUNDAI",
+              baseEconomica: "DIA",
+              valorCusto: 950,
+              custoUnitario: 950,
+              unidadeCusto: "R$/dia",
+              quantidadeOperacional: 4.47,
+              unidadeQuantidadeOperacional: "h",
+              metadados: {
+                origem: "BIBLIOTECA_RECURSOS",
+                origemCusto: "PERSONALIZADO_EXECUCAO"
+              }
+            }
+          },
+          {
+            frenteExecutadaId: FRENTE_ID,
+            nomeSnapshot: "Recurso pendente",
+            quantidadeRealizada: 1,
+            unidadeRealizada: "h",
+            quantidadeRecursos: 1,
+            origem: OrigemFatoBoletimDiario.PRODUCAO,
+            snapshotTecnicoEconomico: {
+              categoria: "EQUIPAMENTO",
+              baseEconomica: "DIA",
+              valorCusto: 0,
+              unidadeCusto: "R$/dia",
+              quantidadeOperacional: 1,
+              unidadeQuantidadeOperacional: "h",
+              metadados: {
+                origemCusto: "PENDENTE_CADASTRO_MESTRE"
+              }
+            }
+          }
+        ]
+      })
+    );
+
+    await runTenant(() => consolidarExecucaoPorBoletins(db as never, EXECUCAO_ID));
+
+    const resultadoCalls = calls.filter((call) => call.model === "resultadoExecucao" && call.action === "create");
+    const ultimoResultado = (resultadoCalls.at(-1)?.args as { data: Record<string, unknown> }).data
+      .resultadoOperacionalJson as {
+      resultadoOperacional: {
+        consolidado: {
+          custoOperacionalTotal: number;
+        };
+        unidades: Array<{ recursos: Array<{ nomeTecnico: string; custoTotal: number; baseEconomica: string; horasDia: number }> }>;
+      };
+    };
+
+    expect(ultimoResultado.resultadoOperacional.consolidado.custoOperacionalTotal).toBe(530.81);
+    expect(ultimoResultado.resultadoOperacional.unidades[0].recursos).toHaveLength(1);
+    expect(ultimoResultado.resultadoOperacional.unidades[0].recursos[0]).toMatchObject({
+      nomeTecnico: "ESC 150 I - HYUNDAI",
+      baseEconomica: "DIA",
+      horasDia: 8,
+      custoTotal: 530.81
+    });
+  });
+
   it("lista fatos operacionais existentes por obra e periodo com rastreabilidade", async () => {
     const { db, calls } = createDbMock();
     await runTenant(() => criarExecucao(db as never, inputExecucao()));
