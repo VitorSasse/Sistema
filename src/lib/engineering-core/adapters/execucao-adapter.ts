@@ -15,10 +15,17 @@ export type SnapshotTecnicoEconomicoRecursoRealizado = {
   tipoCalculo?: TipoCalculoRecursoOperacional | null;
   baseEconomica?: BaseEconomicaRecursoOperacional | null;
   valorCusto?: NumeroTecnico;
+  quantidadeOperacional?: NumeroTecnico;
+  unidadeQuantidadeOperacional?: string | null;
   capacidadePorViagem?: NumeroTecnico;
   unidadeCapacidade?: string | null;
   distanciaViagemKm?: NumeroTecnico;
+  quilometrosTotais?: NumeroTecnico;
+  viagensTotais?: NumeroTecnico;
+  cargasTotais?: NumeroTecnico;
+  mesesTotais?: NumeroTecnico;
   horasDia?: NumeroTecnico;
+  horasTotais?: NumeroTecnico;
   diasTrabalhadosMes?: NumeroTecnico;
   metadados?: Record<string, string | number | boolean | null> | null;
 };
@@ -97,9 +104,11 @@ function adaptarRecursoRealizado(
   unidadeOperacionalId: string
 ): RecursoOperacionalNucleoInput {
   const snapshot = recurso.snapshotTecnicoEconomico;
-  const unidadeRealizada = normalizeUnit(recurso.unidadeRealizada);
+  const quantidadeOperacional = snapshot.quantidadeOperacional ?? recurso.quantidadeRealizada;
+  const unidadeQuantidadeOperacional = snapshot.unidadeQuantidadeOperacional ?? recurso.unidadeRealizada;
+  const unidadeRealizada = normalizeUnit(unidadeQuantidadeOperacional);
   const baseEconomica = inferBaseEconomica(recurso.unidadeRealizada, snapshot);
-  const quantidadeRealizada = recurso.quantidadeRealizada;
+  const quantidadeRealizada = quantidadeOperacional;
   const quantidadeRecursos = recurso.quantidadeRecursos ?? 1;
 
   const adapted: RecursoOperacionalNucleoInput = {
@@ -113,7 +122,7 @@ function adaptarRecursoRealizado(
     quantidadeRecursos,
     quantidadeOperacional: quantidadeRealizada,
     origemQuantidadeOperacional: "PERSONALIZADA",
-    unidadeQuantidadeOperacional: recurso.unidadeRealizada,
+    unidadeQuantidadeOperacional,
     custoUnitario: snapshot.custoUnitario ?? snapshot.valorCusto ?? 0,
     unidadeCusto: snapshot.unidadeCusto ?? null,
     tipoCalculo: snapshot.tipoCalculo ?? "AUTOMATICO",
@@ -122,7 +131,12 @@ function adaptarRecursoRealizado(
     capacidadePorViagem: snapshot.capacidadePorViagem,
     unidadeCapacidade: snapshot.unidadeCapacidade ?? null,
     distanciaViagemKm: snapshot.distanciaViagemKm,
+    quilometrosTotais: snapshot.quilometrosTotais,
+    viagensTotais: snapshot.viagensTotais,
+    cargasTotais: snapshot.cargasTotais,
+    mesesTotais: snapshot.mesesTotais,
     horasDia: snapshot.horasDia,
+    horasTotais: snapshot.horasTotais,
     diasTrabalhadosMes: snapshot.diasTrabalhadosMes,
     origem: recurso.recursoId ? "SNAPSHOT" : "INFORMADO",
     metadados: {
@@ -133,23 +147,23 @@ function adaptarRecursoRealizado(
   };
 
   if (baseEconomica === "HORA" || unidadeRealizada === "HORA") {
-    adapted.horasTotais = quantidadeRealizada;
+    adapted.horasTotais = snapshot.horasTotais ?? quantidadeRealizada;
   }
 
   if (baseEconomica === "CARGA" || unidadeRealizada === "CARGA") {
-    adapted.cargasTotais = quantidadeRealizada;
+    adapted.cargasTotais = snapshot.cargasTotais ?? quantidadeRealizada;
   }
 
   if (baseEconomica === "VIAGEM" || unidadeRealizada === "VIAGEM") {
-    adapted.viagensTotais = quantidadeRealizada;
+    adapted.viagensTotais = snapshot.viagensTotais ?? quantidadeRealizada;
   }
 
   if (baseEconomica === "KM" && unidadeRealizada === "KM") {
-    adapted.quilometrosTotais = quantidadeRealizada;
+    adapted.quilometrosTotais = snapshot.quilometrosTotais ?? quantidadeRealizada;
   }
 
   if (baseEconomica === "MES" || unidadeRealizada === "MES") {
-    adapted.mesesTotais = quantidadeRealizada;
+    adapted.mesesTotais = snapshot.mesesTotais ?? quantidadeRealizada;
   }
 
   return adapted;

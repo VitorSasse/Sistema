@@ -40,6 +40,7 @@ type DbClient = {
     create: (args: Prisma.RecursoBoletimDiarioCreateArgs) => Promise<unknown>;
     findFirst?: (args: Prisma.RecursoBoletimDiarioFindFirstArgs) => Promise<unknown>;
     findMany?: (args: Prisma.RecursoBoletimDiarioFindManyArgs) => Promise<unknown>;
+    update?: (args: Prisma.RecursoBoletimDiarioUpdateArgs) => Promise<unknown>;
     delete?: (args: Prisma.RecursoBoletimDiarioDeleteArgs) => Promise<unknown>;
   };
   lancamentoDiario?: {
@@ -266,6 +267,18 @@ function toSnapshotTecnicoEconomico(value: unknown): SnapshotTecnicoEconomicoRec
     : {};
 }
 
+function recursoTemCustoPendente(recurso: { snapshotTecnicoEconomico: unknown }) {
+  const snapshot = toSnapshotTecnicoEconomico(recurso.snapshotTecnicoEconomico);
+  const origem = String(snapshot.metadados?.origemCusto ?? snapshot.metadados?.origem ?? "");
+  return toNumber(snapshot.valorCusto ?? snapshot.custoUnitario) <= 0 || origem.includes("PENDENTE");
+}
+
+function validarCustosDefinidos(recursos: Array<{ snapshotTecnicoEconomico: unknown }>) {
+  if (recursos.some(recursoTemCustoPendente)) {
+    throw new Error("EXISTEM_RECURSOS_COM_CUSTO_PENDENTE");
+  }
+}
+
 function requireLancamentoDiarioDelegate(db: DbClient) {
   if (!db.lancamentoDiario) {
     throw new Error("FONTE_LANCAMENTO_DIARIO_NAO_DISPONIVEL");
@@ -291,6 +304,14 @@ function requireRecursoBoletimDeleteDelegate(db: DbClient) {
   }
 
   return db.recursoBoletimDiario.delete;
+}
+
+function requireRecursoBoletimUpdateDelegate(db: DbClient) {
+  if (!db.recursoBoletimDiario.update) {
+    throw new Error("RECURSO_BOLETIM_DIARIO_ATUALIZACAO_NAO_DISPONIVEL");
+  }
+
+  return db.recursoBoletimDiario.update;
 }
 
 function requireFrenteExecutadaUpdateDelegate(db: DbClient) {
@@ -866,6 +887,71 @@ export async function adicionarRecursoBoletimDiarioProducao(
   });
 }
 
+export async function atualizarRecursoBoletimDiarioProducao(
+  db: DbClient,
+  id: string,
+  input: RecursoBoletimDiarioProducaoInput
+) {
+  const parsed = recursoBoletimDiarioProducaoSchema.parse(input);
+  const empresaId = requireActiveTenantEmpresaId();
+  const findDelegate = requireRecursoBoletimReadDelegate(db);
+  const updateDelegate = requireRecursoBoletimUpdateDelegate(db);
+  const atual = await findDelegate.findFirst({
+    where: {
+      id,
+      empresaId
+    },
+    include: {
+      boletim: {
+        select: {
+          status: true,
+          execucaoId: true
+        }
+      }
+    }
+  }) as (PersistedRecursoBoletimDiario & { boletim: { status: StatusBoletimDiarioProducao; execucaoId: string } }) | null;
+
+  if (!atual) {
+    throw new Error("RECURSO_BOLETIM_DIARIO_NAO_ENCONTRADO");
+  }
+
+  if (atual.boletim.status !== StatusBoletimDiarioProducao.ABERTO) {
+    throw new Error("BOLETIM_DIARIO_FECHADO_NAO_PERMITE_ALTERACAO");
+  }
+
+  return updateDelegate({
+    where: {
+      id
+    },
+    data: {
+      frenteExecutadaId: parsed.frenteExecutadaId,
+      recursoId: parsed.recursoId || null,
+      nomeSnapshot: parsed.nomeSnapshot,
+      quantidadeRealizada: parsed.quantidadeRealizada,
+      unidadeRealizada: parsed.unidadeRealizada,
+      quantidadeRecursos: parsed.quantidadeRecursos ?? null,
+      origem: parsed.origem,
+      origemRegistroTipo: clean(parsed.origemRegistroTipo) ?? atual.origemRegistroTipo ?? null,
+      origemRegistroId: clean(parsed.origemRegistroId) ?? atual.origemRegistroId ?? null,
+      origemRegistroData: parsed.origemRegistroData ?? atual.origemRegistroData ?? null,
+      editavel: parsed.editavel ?? atual.editavel ?? true,
+      snapshotTecnicoEconomico: parsed.snapshotTecnicoEconomico as Prisma.InputJsonValue,
+      observacao: clean(parsed.observacao)
+    },
+    include: {
+      recurso: {
+        select: {
+          id: true,
+          placaOuTag: true,
+          descricao: true,
+          tipoRecurso: true,
+          classeOperacional: true
+        }
+      }
+    }
+  });
+}
+
 const lancamentoFatoSelect = {
   id: true,
   empresaId: true,
@@ -1271,6 +1357,8 @@ export async function fecharBoletimDiarioProducao(db: DbClient, id: string) {
     throw new Error("BOLETIM_DIARIO_JA_FECHADO");
   }
 
+  validarCustosDefinidos(atual.recursos ?? []);
+
   const fechado = await db.boletimDiarioProducao.update({
     where: {
       id
@@ -1341,6 +1429,8 @@ export async function consolidarExecucaoPorBoletins(db: DbClient, id: string) {
   if (!execucao) {
     throw new Error("EXECUCAO_NAO_ENCONTRADA");
   }
+
+  validarCustosDefinidos((execucao.boletins ?? []).flatMap((boletim) => boletim.recursos ?? []));
 
   const entrada = adaptarExecucaoComBoletinsParaEntradaNucleo(execucao);
   const resultado = await gerarResultadoExecucaoDaEntrada(db, empresaId, execucao.id, entrada);

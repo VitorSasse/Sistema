@@ -18,6 +18,7 @@ import {
   fecharBoletimDiarioProducao,
   criarExecucao,
   listarFatosOperacionaisExistentes,
+  atualizarRecursoBoletimDiarioProducao,
   vincularFatosOperacionaisExecucao,
   desvincularRecursoBoletimDiario,
   EXECUCAO_RESULTADO_NUCLEO_VERSAO,
@@ -352,7 +353,8 @@ function createDbMock() {
         return {
           ...recurso,
           boletim: {
-            status: boletim?.status ?? StatusBoletimDiarioProducao.ABERTO
+            status: boletim?.status ?? StatusBoletimDiarioProducao.ABERTO,
+            execucaoId: boletim?.execucaoId ?? EXECUCAO_ID
           }
         };
       },
@@ -378,6 +380,23 @@ function createDbMock() {
           boletim.recursos = ((boletim.recursos as Array<Record<string, unknown>>) ?? []).filter((item) => item.id !== where.id);
         });
         return removed;
+      },
+      update: async (args: Record<string, unknown>) => {
+        calls.push({ model: "recursoBoletimDiario", action: "update", args });
+        const where = args.where as Record<string, unknown>;
+        const data = args.data as Record<string, unknown>;
+        const index = records.recursosBoletim.findIndex((item) => item.id === where.id);
+        if (index < 0) return null;
+        records.recursosBoletim[index] = {
+          ...records.recursosBoletim[index],
+          ...data
+        };
+        records.boletins.forEach((boletim) => {
+          boletim.recursos = ((boletim.recursos as Array<Record<string, unknown>>) ?? []).map((item) =>
+            item.id === where.id ? { ...item, ...data } : item
+          );
+        });
+        return records.recursosBoletim[index];
       }
     },
     lancamentoDiario: {
@@ -978,6 +997,90 @@ describe("service de Execucao e Resultado", () => {
       quantidadeRealizada: 93,
       unidadeRealizada: "carga"
     });
+  });
+
+  it("atualiza configuracao economica do recurso vinculado sem alterar o fato original", async () => {
+    const { db, records, calls } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+    await runTenant(() =>
+      vincularFatosOperacionaisExecucao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        frenteExecutadaId: FRENTE_ID,
+        fatosIds: ["99999999-9999-4999-8999-999999999999"]
+      })
+    );
+
+    await runTenant(() =>
+      atualizarRecursoBoletimDiarioProducao(db as never, "boletim-recurso-extra-1", {
+        frenteExecutadaId: FRENTE_ID,
+        recursoId: RECURSO_ID,
+        nomeSnapshot: "TRUCK-01 - Truck 14 m3",
+        quantidadeRealizada: 93,
+        unidadeRealizada: "carga",
+        quantidadeRecursos: 1,
+        origem: OrigemFatoBoletimDiario.PRODUCAO,
+        origemRegistroTipo: "LANCAMENTO_DIARIO",
+        origemRegistroId: "99999999-9999-4999-8999-999999999999",
+        editavel: false,
+        snapshotTecnicoEconomico: {
+          baseEconomica: "CARGA",
+          valorCusto: 150,
+          custoUnitario: 150,
+          unidadeCusto: "R$/carga",
+          quantidadeOperacional: 93,
+          unidadeQuantidadeOperacional: "carga",
+          metadados: {
+            origem: "BIBLIOTECA_RECURSOS",
+            origemCusto: "PERSONALIZADO_EXECUCAO",
+            valorBibliotecaOriginal: 120,
+            valorCustoUtilizado: 150,
+            motivoPersonalizacao: "Validacao operacional"
+          }
+        }
+      })
+    );
+
+    expect(records.recursosBoletim[0].snapshotTecnicoEconomico).toMatchObject({
+      baseEconomica: "CARGA",
+      valorCusto: 150,
+      metadados: {
+        origemCusto: "PERSONALIZADO_EXECUCAO",
+        valorBibliotecaOriginal: 120
+      }
+    });
+    expect(records.lancamentos[0]).toMatchObject({
+      equipamento: {
+        custoPadrao: 120
+      }
+    });
+    expect(calls.some((call) => call.model === "recursoBoletimDiario" && call.action === "update")).toBe(true);
+  });
+
+  it("bloqueia fechamento quando existe recurso com custo pendente", async () => {
+    const { db, records } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+    await runTenant(() =>
+      criarBoletimDiarioProducao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        dataBoletim: new Date("2026-08-07T00:00:00.000Z"),
+        recursos: [
+          {
+            ...recursosBoletimDiaUm()[0],
+            snapshotTecnicoEconomico: {
+              baseEconomica: "CARGA",
+              valorCusto: 0,
+              unidadeCusto: "R$/carga",
+              metadados: {
+                origemCusto: "PENDENTE_CADASTRO_MESTRE"
+              }
+            }
+          }
+        ]
+      })
+    );
+
+    await expect(runTenant(() => fecharBoletimDiarioProducao(db as never, "boletim-1"))).rejects.toThrow("EXISTEM_RECURSOS_COM_CUSTO_PENDENTE");
+    expect(records.resultados).toHaveLength(1);
   });
 
   it("bloqueia vinculo duplicado do mesmo fato na mesma execucao", async () => {

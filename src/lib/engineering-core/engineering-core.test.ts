@@ -688,6 +688,51 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
     ]);
   });
 
+  it("calcula recurso realizado por km usando parametros economicos do snapshot", () => {
+    const entrada = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: "exec-transporte-km",
+      nomeTecnico: "Execucao transporte por km",
+      unidades: [
+        {
+          id: "frente-transporte",
+          nome: "Transporte executado",
+          quantidadeExecutada: 12,
+          unidade: "viagem",
+          receitaRealizada: 5000,
+          recursos: [
+            {
+              id: "truck-km",
+              recursoId: "eq-truck",
+              nome: "Truck por km",
+              quantidadeRealizada: 12,
+              unidadeRealizada: "viagem",
+              quantidadeRecursos: 2,
+              snapshotTecnicoEconomico: {
+                categoria: "EQUIPAMENTO",
+                baseEconomica: "KM",
+                valorCusto: 8,
+                unidadeCusto: "R$/km",
+                quantidadeOperacional: 12,
+                unidadeQuantidadeOperacional: "viagem",
+                distanciaViagemKm: 18,
+                metadados: {
+                  origemCusto: "PERSONALIZADO_EXECUCAO"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    });
+    const resultado = executarNucleoComMotorAtual(entrada);
+    const recurso = resultado.unidades[0]?.recursos[0];
+
+    expect(recurso?.baseEconomica).toBe("KM");
+    expect(recurso?.viagensTotais).toBe(12);
+    expect(recurso?.distanciaViagemKm).toBe(18);
+    expect(recurso?.custoTotal).toBe(1728);
+  });
+
   it("nao calcula margem percentual quando receita e zero", () => {
     const entrada = adaptarExecucaoParaEntradaNucleo(
       entradaExecucaoPiloto({

@@ -30,13 +30,18 @@ type EquipamentoOption = {
 
 type RecursoBoletim = {
   id: string;
+  boletimId?: string;
+  frenteExecutadaId?: string;
+  recursoId?: string | null;
   origem: string;
   origemRegistroTipo?: string | null;
   origemRegistroId?: string | null;
+  origemRegistroData?: string | null;
   editavel?: boolean;
   nomeSnapshot: string;
   quantidadeRealizada: string | number;
   unidadeRealizada: string;
+  quantidadeRecursos?: string | number | null;
   snapshotTecnicoEconomico?: Record<string, unknown> | null;
   observacao?: string | null;
 };
@@ -208,6 +213,47 @@ function initialRecursoForm(frenteId = "") {
   };
 }
 
+function initialEconomicForm(recurso?: RecursoBoletim | null) {
+  const snapshot = recurso?.snapshotTecnicoEconomico ?? {};
+  const metadados = (snapshot.metadados as Record<string, unknown> | undefined) ?? {};
+  const origemCusto = String(metadados.origemCusto ?? snapshot.origem ?? metadados.origem ?? "");
+  const distanciaIdaKm = metadados.distanciaIdaKm === undefined ? "" : String(metadados.distanciaIdaKm);
+  const distanciaVoltaKm = metadados.distanciaVoltaKm === undefined ? "" : String(metadados.distanciaVoltaKm);
+
+  return {
+    frenteExecutadaId: recurso?.frenteExecutadaId ?? "",
+    recursoId: recurso?.recursoId ?? "",
+    nomeSnapshot: recurso?.nomeSnapshot ?? "",
+    quantidadeRealizada: recurso?.quantidadeRealizada === undefined ? "" : String(recurso.quantidadeRealizada),
+    unidadeRealizada: recurso?.unidadeRealizada ?? "carga",
+    quantidadeRecursos: recurso?.quantidadeRecursos === null || recurso?.quantidadeRecursos === undefined ? "1" : String(recurso.quantidadeRecursos),
+    origem: recurso?.origem ?? "MANUAL",
+    origemRegistroTipo: recurso?.origemRegistroTipo ?? "",
+    origemRegistroId: recurso?.origemRegistroId ?? "",
+    origemRegistroData: recurso?.origemRegistroData ?? "",
+    editavel: recurso?.editavel ?? true,
+    baseEconomica: String(snapshot.baseEconomica ?? "CARGA"),
+    valorCusto: snapshot.valorCusto === undefined ? "" : String(snapshot.valorCusto),
+    unidadeCusto: String(snapshot.unidadeCusto ?? "R$/carga"),
+    origemCusto: origemCusto.includes("PENDENTE") ? "PENDENTE" : origemCusto.includes("PROVISORIO") ? "RECURSO_PROVISORIO" : origemCusto.includes("PERSONALIZADO") ? "PERSONALIZADO_EXECUCAO" : "BIBLIOTECA_RECURSOS",
+    valorBibliotecaOriginal: metadados.valorBibliotecaOriginal === undefined ? "" : String(metadados.valorBibliotecaOriginal),
+    quantidadeOperacional: snapshot.quantidadeOperacional === undefined ? "" : String(snapshot.quantidadeOperacional),
+    unidadeQuantidadeOperacional: String(snapshot.unidadeQuantidadeOperacional ?? recurso?.unidadeRealizada ?? "carga"),
+    capacidadePorViagem: snapshot.capacidadePorViagem === undefined ? "" : String(snapshot.capacidadePorViagem),
+    unidadeCapacidade: String(snapshot.unidadeCapacidade ?? ""),
+    distanciaIdaKm,
+    distanciaVoltaKm,
+    distanciaViagemKm: snapshot.distanciaViagemKm === undefined ? "" : String(snapshot.distanciaViagemKm),
+    quilometrosTotais: snapshot.quilometrosTotais === undefined ? "" : String(snapshot.quilometrosTotais),
+    viagensTotais: snapshot.viagensTotais === undefined ? "" : String(snapshot.viagensTotais),
+    cargasTotais: snapshot.cargasTotais === undefined ? "" : String(snapshot.cargasTotais),
+    horasTotais: snapshot.horasTotais === undefined ? "" : String(snapshot.horasTotais),
+    mesesTotais: snapshot.mesesTotais === undefined ? "" : String(snapshot.mesesTotais),
+    motivoPersonalizacao: String(metadados.motivoPersonalizacao ?? ""),
+    observacao: recurso?.observacao ?? ""
+  };
+}
+
 function initialFatosFilter() {
   return {
     dataInicio: todayInput(),
@@ -220,6 +266,98 @@ function initialFatosFilter() {
 
 function clienteLabel(cliente: ClienteOption) {
   return cliente.codigo ? `${cliente.codigo} - ${cliente.nome}` : cliente.nome;
+}
+
+function unidadeCustoFromBase(base: string) {
+  const map: Record<string, string> = {
+    CARGA: "R$/carga",
+    VIAGEM: "R$/viagem",
+    HORA: "R$/h",
+    DIA: "R$/dia",
+    KM: "R$/km",
+    M3: "R$/m3",
+    M2: "R$/m2",
+    MES: "R$/mes",
+    UNIDADE: "R$/un",
+    CUSTO_FIXO: "R$"
+  };
+  return map[base] ?? "R$/un";
+}
+
+function distanciaCicloKm(form: ReturnType<typeof initialEconomicForm>) {
+  const ida = toNumber(form.distanciaIdaKm);
+  const volta = toNumber(form.distanciaVoltaKm);
+  if (ida > 0 || volta > 0) return ida + volta;
+  return toNumber(form.distanciaViagemKm);
+}
+
+function optionalNumber(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function economicStatus(recurso: RecursoBoletim) {
+  const snapshot = recurso.snapshotTecnicoEconomico ?? {};
+  const metadados = (snapshot.metadados as Record<string, unknown> | undefined) ?? {};
+  const origemCusto = String(metadados.origemCusto ?? metadados.origem ?? snapshot.origem ?? "");
+  const valor = toNumber(snapshot.valorCusto ?? snapshot.custoUnitario);
+
+  if (valor <= 0 || origemCusto.includes("PENDENTE")) return "CUSTO PENDENTE";
+  if (origemCusto.includes("PERSONALIZADO")) return "CUSTO PERSONALIZADO";
+  if (origemCusto.includes("PROVISORIO")) return "RECURSO PROVISORIO";
+  return "CUSTO DEFINIDO";
+}
+
+function economicOriginLabel(recurso: RecursoBoletim) {
+  const snapshot = recurso.snapshotTecnicoEconomico ?? {};
+  const metadados = (snapshot.metadados as Record<string, unknown> | undefined) ?? {};
+  const origem = String(metadados.origemCusto ?? metadados.origem ?? snapshot.origem ?? "");
+
+  if (origem.includes("PERSONALIZADO")) return "Personalizado na execucao";
+  if (origem.includes("PROVISORIO")) return "Recurso provisorio";
+  if (origem.includes("PENDENTE")) return "Pendente";
+  return "Biblioteca";
+}
+
+function buildEconomicSnapshot(form: ReturnType<typeof initialEconomicForm>, previous?: Record<string, unknown> | null) {
+  const existing = previous ?? {};
+  const metadados = (existing.metadados as Record<string, unknown> | undefined) ?? {};
+  const distanciaViagemKm = distanciaCicloKm(form);
+  const origemCusto = form.origemCusto === "PENDENTE" ? "PENDENTE_CONFIGURACAO" : form.origemCusto;
+  const snapshot: Record<string, unknown> = {
+    ...existing,
+    baseEconomica: form.baseEconomica,
+    valorCusto: toNumber(form.valorCusto),
+    custoUnitario: toNumber(form.valorCusto),
+    unidadeCusto: form.unidadeCusto || unidadeCustoFromBase(form.baseEconomica),
+    quantidadeOperacional: optionalNumber(form.quantidadeOperacional) ?? toNumber(form.quantidadeRealizada),
+    unidadeQuantidadeOperacional: form.unidadeQuantidadeOperacional || form.unidadeRealizada,
+    capacidadePorViagem: optionalNumber(form.capacidadePorViagem),
+    unidadeCapacidade: form.unidadeCapacidade || undefined,
+    distanciaViagemKm: distanciaViagemKm > 0 ? distanciaViagemKm : undefined,
+    quilometrosTotais: optionalNumber(form.quilometrosTotais),
+    viagensTotais: optionalNumber(form.viagensTotais),
+    cargasTotais: optionalNumber(form.cargasTotais),
+    horasTotais: optionalNumber(form.horasTotais),
+    mesesTotais: optionalNumber(form.mesesTotais),
+    metadados: {
+      ...metadados,
+      origem: form.origemCusto === "RECURSO_PROVISORIO" ? "RECURSO_PROVISORIO" : String(metadados.origem ?? "BIBLIOTECA_RECURSOS"),
+      origemCusto,
+      valorBibliotecaOriginal: optionalNumber(form.valorBibliotecaOriginal) ?? null,
+      valorCustoUtilizado: toNumber(form.valorCusto),
+      motivoPersonalizacao: form.motivoPersonalizacao || null,
+      distanciaIdaKm: optionalNumber(form.distanciaIdaKm) ?? null,
+      distanciaVoltaKm: optionalNumber(form.distanciaVoltaKm) ?? null
+    }
+  };
+
+  Object.keys(snapshot).forEach((key) => {
+    if (snapshot[key] === undefined) delete snapshot[key];
+  });
+
+  return snapshot;
 }
 
 function normalizeClienteOption(item: { id: string; codigo?: string | null; nome?: string | null; nomeFantasia?: string | null }) {
@@ -265,6 +403,8 @@ export function ExecucoesManager() {
   const [editingHeader, setEditingHeader] = useState(false);
   const [boletimForm, setBoletimForm] = useState(initialBoletimForm);
   const [recursoForm, setRecursoForm] = useState(initialRecursoForm);
+  const [editingRecursoId, setEditingRecursoId] = useState("");
+  const [economicForm, setEconomicForm] = useState(initialEconomicForm);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [optionsError, setOptionsError] = useState("");
@@ -277,6 +417,8 @@ export function ExecucoesManager() {
   );
   const boletins = selected?.boletins ?? [];
   const selectedBoletim = boletins.find((boletim) => boletim.id === selectedBoletimId) ?? boletins[0] ?? null;
+  const fatosDisponiveis = fatos.filter((fato) => fato.statusVinculo === "DISPONIVEL");
+  const recursoEmEdicao = selectedBoletim?.recursos.find((recurso) => recurso.id === editingRecursoId) ?? null;
   const obrasFiltradas = execucaoForm.clienteId
     ? obras.filter((obra) => obra.clienteId === execucaoForm.clienteId)
     : obras;
@@ -417,6 +559,16 @@ export function ExecucoesManager() {
     setFatosFilter((current) => ({ ...current, obraId: selected?.obra?.id ?? "" }));
   }, [selected?.id, selected?.obra?.id]);
 
+  useEffect(() => {
+    if (!recursoEmEdicao) {
+      setEditingRecursoId("");
+      setEconomicForm(initialEconomicForm());
+      return;
+    }
+
+    setEconomicForm(initialEconomicForm(recursoEmEdicao));
+  }, [recursoEmEdicao?.id]);
+
   async function handleCreateExecucao(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
@@ -536,7 +688,8 @@ export function ExecucoesManager() {
       equipamentoId: id,
       nomeSnapshot: equipamento ? `${equipamento.placaOuTag} - ${equipamento.descricao}` : current.nomeSnapshot,
       baseEconomica: equipamento?.unidadeEconomicaPadrao ?? current.baseEconomica,
-      valorCusto: equipamento?.custoPadrao ? String(equipamento.custoPadrao) : current.valorCusto
+      valorCusto: equipamento?.custoPadrao ? String(equipamento.custoPadrao) : current.valorCusto,
+      unidadeCusto: equipamento?.unidadeEconomicaPadrao ? unidadeCustoFromBase(equipamento.unidadeEconomicaPadrao) : current.unidadeCusto
     }));
   }
 
@@ -562,7 +715,15 @@ export function ExecucoesManager() {
             origem: recursoForm.equipamentoId ? "BIBLIOTECA_RECURSOS" : "RECURSO_PROVISORIO",
             baseEconomica: recursoForm.baseEconomica,
             valorCusto: Number(recursoForm.valorCusto),
-            unidadeCusto: recursoForm.unidadeCusto
+            custoUnitario: Number(recursoForm.valorCusto),
+            unidadeCusto: recursoForm.unidadeCusto,
+            quantidadeOperacional: Number(recursoForm.quantidadeRealizada),
+            unidadeQuantidadeOperacional: recursoForm.unidadeRealizada,
+            metadados: {
+              origem: recursoForm.equipamentoId ? "BIBLIOTECA_RECURSOS" : "RECURSO_PROVISORIO",
+              origemCusto: recursoForm.equipamentoId && Number(recursoForm.valorCusto) > 0 ? "BIBLIOTECA_RECURSOS" : recursoForm.equipamentoId ? "PENDENTE_CADASTRO_MESTRE" : "RECURSO_PROVISORIO",
+              valorCustoUtilizado: Number(recursoForm.valorCusto)
+            }
           },
           observacao: recursoForm.observacao
         })
@@ -588,7 +749,8 @@ export function ExecucoesManager() {
       setMessage("Boletim fechado e comparativo atualizado.");
       await refreshSelected(selected.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel fechar o boletim.");
+      const message = err instanceof Error ? err.message : "Nao foi possivel fechar o boletim.";
+      setError(message === "EXISTEM_RECURSOS_COM_CUSTO_PENDENTE" ? "Configure os custos pendentes antes de fechar o boletim." : message);
     } finally {
       setLoading(false);
     }
@@ -605,7 +767,8 @@ export function ExecucoesManager() {
       setMessage("Execucao consolidada.");
       await refreshSelected(selected.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel consolidar.");
+      const message = err instanceof Error ? err.message : "Nao foi possivel consolidar.";
+      setError(message === "EXISTEM_RECURSOS_COM_CUSTO_PENDENTE" ? "Configure os custos pendentes antes de consolidar a execucao." : message);
     } finally {
       setLoading(false);
     }
@@ -618,19 +781,58 @@ export function ExecucoesManager() {
     setMessage("");
 
     try {
-      await fetchJson(`/api/execucoes/${selected.id}/fatos/vincular`, {
+      const data = await fetchJson<{ items: RecursoBoletim[] }>(`/api/execucoes/${selected.id}/fatos/vincular`, {
         method: "POST",
         body: JSON.stringify({
           frenteExecutadaId: recursoForm.frenteExecutadaId,
           fatosIds: selectedFatos
         })
       });
-      setMessage("Fatos vinculados aos boletins da execucao.");
+      const nextBoletimId = data.items[0]?.boletimId ?? "";
+      setMessage(`${data.items.length} fato(s) vinculado(s) aos boletins da execucao.`);
       setSelectedFatos([]);
       await refreshSelected(selected.id);
+      if (nextBoletimId) setSelectedBoletimId(nextBoletimId);
       await loadFatos();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel vincular os fatos.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSaveEconomicConfig(event: FormEvent) {
+    event.preventDefault();
+    if (!selected || !recursoEmEdicao) return;
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await fetchJson<{ item: RecursoBoletim }>(`/api/execucoes/boletins/recursos/${recursoEmEdicao.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          frenteExecutadaId: economicForm.frenteExecutadaId,
+          recursoId: economicForm.recursoId || null,
+          nomeSnapshot: economicForm.nomeSnapshot,
+          quantidadeRealizada: Number(economicForm.quantidadeRealizada),
+          unidadeRealizada: economicForm.unidadeRealizada,
+          quantidadeRecursos: Number(economicForm.quantidadeRecursos || 1),
+          origem: economicForm.origem,
+          origemRegistroTipo: economicForm.origemRegistroTipo || null,
+          origemRegistroId: economicForm.origemRegistroId || null,
+          origemRegistroData: economicForm.origemRegistroData || null,
+          editavel: economicForm.editavel,
+          snapshotTecnicoEconomico: buildEconomicSnapshot(economicForm, recursoEmEdicao.snapshotTecnicoEconomico),
+          observacao: economicForm.observacao
+        })
+      });
+      setEditingRecursoId("");
+      setMessage("Configuracao economica do recurso atualizada.");
+      await refreshSelected(selected.id);
+      await loadFatos();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel salvar o custo do recurso.");
     } finally {
       setLoading(false);
     }
@@ -880,6 +1082,12 @@ export function ExecucoesManager() {
                 <select value={recursoForm.frenteExecutadaId} onChange={(event) => setRecursoForm((current) => ({ ...current, frenteExecutadaId: event.target.value }))}>
                   {(selected?.frentes ?? []).map((frente) => <option key={frente.id} value={frente.id}>Destino: {frente.nome || "Frente sem descricao"}</option>)}
                 </select>
+                <button className="button-secondary" type="button" disabled={!fatosDisponiveis.length || loading} onClick={() => setSelectedFatos(fatosDisponiveis.map((fato) => fato.id))}>
+                  Selecionar todos
+                </button>
+                <button className="button-secondary" type="button" disabled={!selectedFatos.length || loading} onClick={() => setSelectedFatos([])}>
+                  Limpar selecao
+                </button>
                 <button className="button-primary" type="button" disabled={!selectedFatos.length || loading} onClick={handleVincularFatos}>
                   Vincular selecionados
                 </button>
@@ -910,7 +1118,7 @@ export function ExecucoesManager() {
                       <td>{number(fato.quantidade)}</td>
                       <td>{fato.unidade}</td>
                       <td>{fato.obra}</td>
-                      <td>{fato.statusVinculo}{fato.custoDisponivel ? "" : " / custo pendente"}</td>
+                      <td>{fato.statusVinculo}{fato.custoDisponivel ? "" : " / CUSTO PENDENTE"}</td>
                       <td>
                         <input
                           type="checkbox"
@@ -948,7 +1156,10 @@ export function ExecucoesManager() {
                     <th>Recurso</th>
                     <th>Quantidade</th>
                     <th>Unidade</th>
+                    <th>Base</th>
                     <th>Custo</th>
+                    <th>Origem custo</th>
+                    <th>Status economico</th>
                     <th>Referencia</th>
                     <th>Observacoes</th>
                     <th>Acoes</th>
@@ -961,14 +1172,22 @@ export function ExecucoesManager() {
                       <td>{recurso.nomeSnapshot}</td>
                       <td>{number(recurso.quantidadeRealizada)}</td>
                       <td>{recurso.unidadeRealizada}</td>
+                      <td>{String(recurso.snapshotTecnicoEconomico?.baseEconomica ?? "-")}</td>
                       <td>{money(toNumber(recurso.snapshotTecnicoEconomico?.valorCusto))} {String(recurso.snapshotTecnicoEconomico?.unidadeCusto ?? "")}</td>
+                      <td>{economicOriginLabel(recurso)}</td>
+                      <td>{economicStatus(recurso)}</td>
                       <td>{recurso.origemRegistroTipo ? `${recurso.origemRegistroTipo} ${recurso.origemRegistroId}` : "-"}</td>
                       <td>{recurso.observacao || "-"}</td>
                       <td>
                         {selectedBoletim?.status === "ABERTO" ? (
-                          <button className="button-secondary" type="button" disabled={loading} onClick={() => handleDesvincularRecurso(recurso.id)}>
-                            Desvincular
-                          </button>
+                          <div className="execucoes-inline">
+                            <button className="button-secondary" type="button" disabled={loading} onClick={() => setEditingRecursoId(recurso.id)}>
+                              {economicStatus(recurso) === "CUSTO PENDENTE" ? "Configurar custo" : "Editar custo"}
+                            </button>
+                            <button className="button-secondary" type="button" disabled={loading} onClick={() => handleDesvincularRecurso(recurso.id)}>
+                              Desvincular
+                            </button>
+                          </div>
                         ) : "-"}
                       </td>
                     </tr>
@@ -976,6 +1195,73 @@ export function ExecucoesManager() {
                 </tbody>
               </table>
             </div>
+            {selectedBoletim?.status === "ABERTO" && recursoEmEdicao ? (
+              <form className="execucoes-resource-form" onSubmit={handleSaveEconomicConfig}>
+                <div className="execucoes-panel-heading">
+                  <span className="page-kicker">Configuracao economica</span>
+                  <strong>{recursoEmEdicao.nomeSnapshot}</strong>
+                  <p>Informe apenas os parametros economicos. O custo total continua sendo calculado pelo Nucleo de Engenharia.</p>
+                </div>
+                <div className="execucoes-inline">
+                  <select value={economicForm.frenteExecutadaId} onChange={(event) => setEconomicForm((current) => ({ ...current, frenteExecutadaId: event.target.value }))} required>
+                    {(selected?.frentes ?? []).map((frente) => <option key={frente.id} value={frente.id}>{frente.nome || "Frente sem descricao"}</option>)}
+                  </select>
+                  <input placeholder="Nome do recurso" value={economicForm.nomeSnapshot} onChange={(event) => setEconomicForm((current) => ({ ...current, nomeSnapshot: event.target.value }))} required />
+                </div>
+                <div className="execucoes-inline">
+                  <input type="number" step="0.0001" placeholder="Quantidade realizada" value={economicForm.quantidadeRealizada} onChange={(event) => setEconomicForm((current) => ({ ...current, quantidadeRealizada: event.target.value }))} required />
+                  <select value={economicForm.unidadeRealizada} onChange={(event) => setEconomicForm((current) => ({ ...current, unidadeRealizada: event.target.value, unidadeQuantidadeOperacional: current.unidadeQuantidadeOperacional || event.target.value }))}>
+                    {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
+                  </select>
+                  <input type="number" step="0.0001" placeholder="Qtd recursos" value={economicForm.quantidadeRecursos} onChange={(event) => setEconomicForm((current) => ({ ...current, quantidadeRecursos: event.target.value }))} />
+                </div>
+                <div className="execucoes-inline">
+                  <select value={economicForm.origemCusto} onChange={(event) => setEconomicForm((current) => ({ ...current, origemCusto: event.target.value }))}>
+                    <option value="BIBLIOTECA_RECURSOS">Biblioteca</option>
+                    <option value="PERSONALIZADO_EXECUCAO">Personalizado na execucao</option>
+                    <option value="RECURSO_PROVISORIO">Recurso provisorio</option>
+                    <option value="PENDENTE">Custo pendente</option>
+                  </select>
+                  <select value={economicForm.baseEconomica} onChange={(event) => setEconomicForm((current) => ({ ...current, baseEconomica: event.target.value, unidadeCusto: unidadeCustoFromBase(event.target.value) }))}>
+                    {basesEconomicas.map((base) => <option key={base} value={base}>{base}</option>)}
+                  </select>
+                  <input type="number" step="0.01" placeholder="Custo unitario" value={economicForm.valorCusto} onChange={(event) => setEconomicForm((current) => ({ ...current, valorCusto: event.target.value }))} required />
+                  <input placeholder="Unidade economica" value={economicForm.unidadeCusto} onChange={(event) => setEconomicForm((current) => ({ ...current, unidadeCusto: event.target.value }))} required />
+                </div>
+                <div className="execucoes-inline">
+                  <input type="number" step="0.0001" placeholder="Quantidade operacional" value={economicForm.quantidadeOperacional} onChange={(event) => setEconomicForm((current) => ({ ...current, quantidadeOperacional: event.target.value }))} />
+                  <select value={economicForm.unidadeQuantidadeOperacional} onChange={(event) => setEconomicForm((current) => ({ ...current, unidadeQuantidadeOperacional: event.target.value }))}>
+                    {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
+                  </select>
+                  <input type="number" step="0.0001" placeholder="Valor original biblioteca" value={economicForm.valorBibliotecaOriginal} onChange={(event) => setEconomicForm((current) => ({ ...current, valorBibliotecaOriginal: event.target.value }))} />
+                </div>
+                <div className="execucoes-inline">
+                  <input type="number" step="0.0001" placeholder="Capacidade por viagem" value={economicForm.capacidadePorViagem} onChange={(event) => setEconomicForm((current) => ({ ...current, capacidadePorViagem: event.target.value }))} />
+                  <select value={economicForm.unidadeCapacidade} onChange={(event) => setEconomicForm((current) => ({ ...current, unidadeCapacidade: event.target.value }))}>
+                    <option value="">Unidade capacidade</option>
+                    {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
+                  </select>
+                  <input type="number" step="0.0001" placeholder="Distancia ida km" value={economicForm.distanciaIdaKm} onChange={(event) => setEconomicForm((current) => ({ ...current, distanciaIdaKm: event.target.value }))} />
+                  <input type="number" step="0.0001" placeholder="Distancia volta km" value={economicForm.distanciaVoltaKm} onChange={(event) => setEconomicForm((current) => ({ ...current, distanciaVoltaKm: event.target.value }))} />
+                </div>
+                <div className="execucoes-inline">
+                  <input type="number" step="0.0001" placeholder="Distancia do ciclo km" value={economicForm.distanciaViagemKm} onChange={(event) => setEconomicForm((current) => ({ ...current, distanciaViagemKm: event.target.value }))} />
+                  <input type="number" step="0.0001" placeholder="KM totais" value={economicForm.quilometrosTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, quilometrosTotais: event.target.value }))} />
+                  <input type="number" step="0.0001" placeholder="Viagens totais" value={economicForm.viagensTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, viagensTotais: event.target.value }))} />
+                  <input type="number" step="0.0001" placeholder="Cargas totais" value={economicForm.cargasTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, cargasTotais: event.target.value }))} />
+                </div>
+                <div className="execucoes-inline">
+                  <input type="number" step="0.0001" placeholder="Horas totais" value={economicForm.horasTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, horasTotais: event.target.value }))} />
+                  <input type="number" step="0.0001" placeholder="Meses totais" value={economicForm.mesesTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, mesesTotais: event.target.value }))} />
+                  <input placeholder="Motivo da personalizacao" value={economicForm.motivoPersonalizacao} onChange={(event) => setEconomicForm((current) => ({ ...current, motivoPersonalizacao: event.target.value }))} />
+                </div>
+                <textarea placeholder="Observacoes" value={economicForm.observacao} onChange={(event) => setEconomicForm((current) => ({ ...current, observacao: event.target.value }))} />
+                <div className="execucoes-inline">
+                  <button className="button-primary" type="submit" disabled={loading}>Salvar custo</button>
+                  <button className="button-secondary" type="button" disabled={loading} onClick={() => setEditingRecursoId("")}>Cancelar</button>
+                </div>
+              </form>
+            ) : null}
             {selectedBoletim?.status === "ABERTO" ? (
               <form className="execucoes-resource-form" onSubmit={handleAddRecurso}>
                 <select value={recursoForm.frenteExecutadaId} onChange={(event) => setRecursoForm((current) => ({ ...current, frenteExecutadaId: event.target.value }))} required>
@@ -994,7 +1280,7 @@ export function ExecucoesManager() {
                 </div>
                 <div className="execucoes-inline">
                   <input type="number" step="0.0001" placeholder="Qtd recursos" value={recursoForm.quantidadeRecursos} onChange={(event) => setRecursoForm((current) => ({ ...current, quantidadeRecursos: event.target.value }))} />
-                  <select value={recursoForm.baseEconomica} onChange={(event) => setRecursoForm((current) => ({ ...current, baseEconomica: event.target.value }))}>
+                  <select value={recursoForm.baseEconomica} onChange={(event) => setRecursoForm((current) => ({ ...current, baseEconomica: event.target.value, unidadeCusto: unidadeCustoFromBase(event.target.value) }))}>
                     {basesEconomicas.map((base) => <option key={base} value={base}>{base}</option>)}
                   </select>
                 </div>
