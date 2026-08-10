@@ -16,9 +16,11 @@ import {
   criarBoletimDiarioProducao,
   buscarExecucao,
   fecharBoletimDiarioProducao,
+  excluirBoletimDiarioProducao,
   criarExecucao,
   listarFatosOperacionaisExistentes,
   atualizarRecursoBoletimDiarioProducao,
+  consolidarExecucaoPorBoletins,
   vincularFatosOperacionaisExecucao,
   desvincularRecursoBoletimDiario,
   EXECUCAO_RESULTADO_NUCLEO_VERSAO,
@@ -187,6 +189,12 @@ function createDbMock() {
         if (!records.execucao) return null;
         if (where.id && where.id !== records.execucao.id) return null;
         if (where.empresaId && where.empresaId !== records.execucao.empresaId) return null;
+        if ((args.include as Record<string, unknown> | undefined)?.boletins) {
+          return {
+            ...records.execucao,
+            boletins: records.boletins
+          };
+        }
         return records.execucao;
       },
       findMany: async (args: Record<string, unknown>) => {
@@ -329,6 +337,15 @@ function createDbMock() {
             boletins: records.boletins.filter((item) => item.status === StatusBoletimDiarioProducao.FECHADO)
           }
         };
+      },
+      delete: async (args: Record<string, unknown>) => {
+        calls.push({ model: "boletimDiarioProducao", action: "delete", args });
+        const where = args.where as Record<string, unknown>;
+        const index = records.boletins.findIndex((item) => item.id === where.id);
+        if (index < 0) return null;
+        const [removed] = records.boletins.splice(index, 1);
+        records.recursosBoletim = records.recursosBoletim.filter((item) => item.boletimId !== where.id);
+        return removed;
       }
     },
     recursoBoletimDiario: {
@@ -879,6 +896,32 @@ describe("service de Execucao e Resultado", () => {
     expect(resultadoCalls).toHaveLength(3);
   });
 
+  it("consolida execucao considerando recursos de boletim aberto", async () => {
+    const { db, calls } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+    await runTenant(() =>
+      criarBoletimDiarioProducao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        dataBoletim: new Date("2026-08-07T00:00:00.000Z"),
+        recursos: recursosBoletimDiaUm()
+      })
+    );
+
+    await runTenant(() => consolidarExecucaoPorBoletins(db as never, EXECUCAO_ID));
+
+    const resultadoCalls = calls.filter((call) => call.model === "resultadoExecucao" && call.action === "create");
+    const ultimoResultado = (resultadoCalls.at(-1)?.args as { data: Record<string, unknown> }).data
+      .resultadoOperacionalJson as {
+      resultadoOperacional: {
+        consolidado: {
+          custoOperacionalTotal: number;
+        };
+      };
+    };
+
+    expect(ultimoResultado.resultadoOperacional.consolidado.custoOperacionalTotal).toBe(11160);
+  });
+
   it("lista fatos operacionais existentes por obra e periodo com rastreabilidade", async () => {
     const { db, calls } = createDbMock();
     await runTenant(() => criarExecucao(db as never, inputExecucao()));
@@ -1136,6 +1179,71 @@ describe("service de Execucao e Resultado", () => {
         })
       )
     ).rejects.toThrow("FATO_OPERACIONAL_JA_VINCULADO_NESTA_EXECUCAO");
+  });
+
+  it("exclui boletim aberto, preserva lancamento original e permite novo vinculo com material", async () => {
+    const { db, records } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+    await runTenant(() =>
+      vincularFatosOperacionaisExecucao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        frenteExecutadaId: FRENTE_ID,
+        fatosIds: ["99999999-9999-4999-8999-999999999999"]
+      })
+    );
+
+    await runTenant(() => excluirBoletimDiarioProducao(db as never, "boletim-1"));
+
+    const fatosDisponiveis = await runTenant(() =>
+      listarFatosOperacionaisExistentes(db as never, {
+        execucaoId: EXECUCAO_ID,
+        obraId: OBRA_ID,
+        dataInicio: "2026-08-06",
+        dataFim: "2026-08-06",
+        recursoId: RECURSO_ID
+      })
+    );
+
+    expect(records.boletins).toHaveLength(0);
+    expect(records.recursosBoletim).toHaveLength(0);
+    expect(records.lancamentos).toHaveLength(1);
+    expect(records.resultados).toHaveLength(2);
+    expect(fatosDisponiveis[0]).toMatchObject({
+      id: "99999999-9999-4999-8999-999999999999",
+      statusVinculo: "DISPONIVEL"
+    });
+
+    await runTenant(() =>
+      vincularFatosOperacionaisExecucao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        frenteExecutadaId: FRENTE_ID,
+        fatosIds: ["99999999-9999-4999-8999-999999999999"]
+      })
+    );
+
+    expect(records.recursosBoletim[0].snapshotTecnicoEconomico).toMatchObject({
+      materialId: "material-areia",
+      materialCodigo: "MAT-001",
+      materialDescricao: "Areia",
+      materialUnidade: "m3"
+    });
+  });
+
+  it("bloqueia exclusao de boletim fechado", async () => {
+    const { db, records } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+    await runTenant(() =>
+      criarBoletimDiarioProducao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        dataBoletim: new Date("2026-08-07T00:00:00.000Z"),
+        recursos: recursosBoletimDiaUm()
+      })
+    );
+    await runTenant(() => fecharBoletimDiarioProducao(db as never, "boletim-1"));
+
+    await expect(runTenant(() => excluirBoletimDiarioProducao(db as never, "boletim-1"))).rejects.toThrow("BOLETIM_FECHADO_NAO_PODE_SER_EXCLUIDO");
+    expect(records.boletins).toHaveLength(1);
+    expect(records.boletins[0].status).toBe(StatusBoletimDiarioProducao.FECHADO);
   });
 
   it("desvincula recurso do boletim aberto sem excluir o lancamento original", async () => {

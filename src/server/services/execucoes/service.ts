@@ -35,6 +35,7 @@ type DbClient = {
     create: (args: Prisma.BoletimDiarioProducaoCreateArgs) => Promise<unknown>;
     findFirst: (args: Prisma.BoletimDiarioProducaoFindFirstArgs) => Promise<unknown>;
     update: (args: Prisma.BoletimDiarioProducaoUpdateArgs) => Promise<unknown>;
+    delete?: (args: Prisma.BoletimDiarioProducaoDeleteArgs) => Promise<unknown>;
   };
   recursoBoletimDiario: {
     create: (args: Prisma.RecursoBoletimDiarioCreateArgs) => Promise<unknown>;
@@ -207,7 +208,12 @@ export const boletimDiarioProducaoInclude = {
       },
       boletins: {
         where: {
-          status: StatusBoletimDiarioProducao.FECHADO
+          status: {
+            in: [
+              StatusBoletimDiarioProducao.ABERTO,
+              StatusBoletimDiarioProducao.FECHADO
+            ]
+          }
         },
         include: {
           recursos: {
@@ -513,11 +519,14 @@ export function adaptarExecucaoPersistidaParaEntradaNucleo(execucao: PersistedEx
   };
 }
 
-export function adaptarExecucaoComBoletinsParaEntradaNucleo(execucao: PersistedExecucaoComBoletins): EntradaExecucao {
+export function adaptarExecucaoComBoletinsParaEntradaNucleo(
+  execucao: PersistedExecucaoComBoletins,
+  options: { incluirBoletinsAbertos?: boolean } = {}
+): EntradaExecucao {
   const recursosPorFrente = new Map<string, PersistedRecursoBoletimDiario[]>();
 
   for (const boletim of execucao.boletins ?? []) {
-    if (boletim.status !== StatusBoletimDiarioProducao.FECHADO) {
+    if (!options.incluirBoletinsAbertos && boletim.status !== StatusBoletimDiarioProducao.FECHADO) {
       continue;
     }
 
@@ -1366,6 +1375,89 @@ export async function buscarBoletimDiarioProducao(db: DbClient, id: string) {
   });
 }
 
+export async function excluirBoletimDiarioProducao(db: DbClient, id: string) {
+  const empresaId = requireActiveTenantEmpresaId();
+  const boletim = await db.boletimDiarioProducao.findFirst({
+    where: {
+      id,
+      empresaId
+    },
+    include: {
+      recursos: true
+    }
+  }) as {
+    id: string;
+    execucaoId: string;
+    status: StatusBoletimDiarioProducao;
+  } | null;
+
+  if (!boletim) {
+    throw new Error("BOLETIM_DIARIO_NAO_ENCONTRADO");
+  }
+
+  if (boletim.status !== StatusBoletimDiarioProducao.ABERTO) {
+    throw new Error("BOLETIM_FECHADO_NAO_PODE_SER_EXCLUIDO");
+  }
+
+  if (!db.boletimDiarioProducao.delete) {
+    throw new Error("OPERACAO_NAO_SUPORTADA");
+  }
+
+  await db.boletimDiarioProducao.delete({
+    where: {
+      id: boletim.id
+    }
+  });
+
+  const execucao = await db.execucao.findFirst({
+    where: {
+      id: boletim.execucaoId,
+      empresaId
+    },
+    include: {
+      frentes: {
+        include: {
+          recursos: {
+            orderBy: [{ createdAt: "asc" as const }]
+          }
+        },
+        orderBy: [{ createdAt: "asc" as const }]
+      },
+      boletins: {
+        where: {
+          status: {
+            in: [
+              StatusBoletimDiarioProducao.ABERTO,
+              StatusBoletimDiarioProducao.FECHADO
+            ]
+          }
+        },
+        include: {
+          recursos: {
+            orderBy: [{ createdAt: "asc" as const }]
+          }
+        },
+        orderBy: [{ dataBoletim: "asc" as const }]
+      },
+      resultados: {
+        orderBy: [{ createdAt: "desc" as const }]
+      }
+    }
+  }) as PersistedExecucaoComBoletins | null;
+
+  if (!execucao) {
+    throw new Error("EXECUCAO_NAO_ENCONTRADA");
+  }
+
+  const entrada = adaptarExecucaoComBoletinsParaEntradaNucleo(execucao, { incluirBoletinsAbertos: true });
+  const resultado = await gerarResultadoExecucaoDaEntrada(db, empresaId, execucao.id, entrada);
+
+  return {
+    ...execucao,
+    resultados: [resultado, ...(execucao.resultados ?? [])]
+  };
+}
+
 export async function fecharBoletimDiarioProducao(db: DbClient, id: string) {
   const empresaId = requireActiveTenantEmpresaId();
   const atual = await db.boletimDiarioProducao.findFirst({
@@ -1459,7 +1551,7 @@ export async function consolidarExecucaoPorBoletins(db: DbClient, id: string) {
 
   validarCustosDefinidos((execucao.boletins ?? []).flatMap((boletim) => boletim.recursos ?? []));
 
-  const entrada = adaptarExecucaoComBoletinsParaEntradaNucleo(execucao);
+  const entrada = adaptarExecucaoComBoletinsParaEntradaNucleo(execucao, { incluirBoletinsAbertos: true });
   const resultado = await gerarResultadoExecucaoDaEntrada(db, empresaId, execucao.id, entrada);
 
   return {

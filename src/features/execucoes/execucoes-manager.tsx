@@ -414,6 +414,10 @@ function extractRealizado(selected: Execucao | null) {
   };
 }
 
+function hasQuantidadeServico(selected: Execucao | null) {
+  return (selected?.frentes ?? []).some((frente) => frente.quantidadeExecutada !== null && frente.quantidadeExecutada !== undefined && frente.quantidadeExecutada !== "");
+}
+
 export function ExecucoesManager() {
   const [execucoes, setExecucoes] = useState<Execucao[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -452,6 +456,8 @@ export function ExecucoesManager() {
   const showHorasFields = economicBase === "HORA";
   const showDiasFields = economicBase === "DIA" || economicBase === "MES";
   const showMaterialFields = economicForm.componenteEconomico === "MATERIAL" || Boolean(economicForm.materialDescricao);
+  const possuiQuantidadeServico = hasQuantidadeServico(selected);
+  const possuiBoletimAbertoComRecursos = boletins.some((boletim) => boletim.status === "ABERTO" && boletim.recursos.length > 0);
   const obrasFiltradas = execucaoForm.clienteId
     ? obras.filter((obra) => obra.clienteId === execucaoForm.clienteId)
     : obras;
@@ -789,6 +795,32 @@ export function ExecucoesManager() {
     }
   }
 
+  async function handleExcluirBoletim(id: string) {
+    if (!selected) return;
+    const confirmed = window.confirm(
+      "Excluir este boletim removera apenas a consolidacao deste dia. Os lancamentos operacionais originais continuarao preservados e poderao ser vinculados novamente."
+    );
+    if (!confirmed) return;
+
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const currentExecucaoId = selected.id;
+      await fetchJson(`/api/execucoes/boletins/${id}`, { method: "DELETE" });
+      setMessage("Boletim excluido. Os lancamentos originais foram preservados e podem ser vinculados novamente.");
+      setSelectedBoletimId("");
+      await refreshSelected(currentExecucaoId);
+      await loadFatos();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Nao foi possivel excluir o boletim.";
+      setError(message === "BOLETIM_FECHADO_NAO_PODE_SER_EXCLUIDO" ? "Boletim fechado nao pode ser excluido." : message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleConsolidar() {
     if (!selected) return;
     setLoading(true);
@@ -861,7 +893,7 @@ export function ExecucoesManager() {
         })
       });
       setEditingRecursoId("");
-      setMessage("Configuracao economica do recurso atualizada.");
+      setMessage("Configuracao economica atualizada. Use Consolidar Execucao para recalcular o resultado ou feche o boletim.");
       await refreshSelected(selected.id);
       await loadFatos();
     } catch (err) {
@@ -1049,8 +1081,8 @@ export function ExecucoesManager() {
                 <Info label="Servico / Frente" value={selected?.frentes?.map((frente) => frente.nome).filter(Boolean).join(", ") || "-"} />
                 <Info label="Situacao" value={selected?.status || "-"} />
                 <Info label="Receita realizada / contratada" value={money(totais.receita)} />
-                <Info label="Quantidade do servico" value={number(totais.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "")} />
-                <Info label="Quantidade realizada consolidada" value={number(primeiraFrenteComparativo?.quantidade.realizado ?? totais.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "")} />
+                <Info label="Quantidade do servico" value={possuiQuantidadeServico ? number(totais.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "") : "Nao informada"} />
+                <Info label="Quantidade realizada consolidada" value={possuiQuantidadeServico ? number(primeiraFrenteComparativo?.quantidade.realizado ?? totais.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "") : "Nao informada"} />
               </div>
             )}
           </section>
@@ -1069,11 +1101,18 @@ export function ExecucoesManager() {
             </div>
             <div className="execucoes-boletins">
               {boletins.map((boletim) => (
-                <button key={boletim.id} className={`execucoes-boletim${selectedBoletim?.id === boletim.id ? " is-active" : ""}`} type="button" onClick={() => setSelectedBoletimId(boletim.id)}>
-                  <strong>{new Date(boletim.dataBoletim).toLocaleDateString("pt-BR", { timeZone: "UTC" })}</strong>
-                  <span>{boletim.status}</span>
-                  <small>{boletim.recursos.length} recurso(s)</small>
-                </button>
+                <article key={boletim.id} className={`execucoes-boletim${selectedBoletim?.id === boletim.id ? " is-active" : ""}`}>
+                  <button className="execucoes-boletim-main" type="button" onClick={() => setSelectedBoletimId(boletim.id)}>
+                    <strong>{new Date(boletim.dataBoletim).toLocaleDateString("pt-BR", { timeZone: "UTC" })}</strong>
+                    <span>{boletim.status}</span>
+                    <small>{boletim.recursos.length} recurso(s)</small>
+                  </button>
+                  {boletim.status === "ABERTO" ? (
+                    <button className="button-secondary" type="button" disabled={loading} onClick={() => handleExcluirBoletim(boletim.id)}>
+                      Excluir boletim
+                    </button>
+                  ) : null}
+                </article>
               ))}
             </div>
             {selectedBoletim?.status === "ABERTO" ? (
@@ -1217,7 +1256,7 @@ export function ExecucoesManager() {
                       <td>{recurso.observacao || "-"}</td>
                       <td>
                         {selectedBoletim?.status === "ABERTO" ? (
-                          <div className="execucoes-inline">
+                          <div className="execucoes-action-stack">
                             <button className="button-secondary" type="button" disabled={loading} onClick={() => setEditingRecursoId(recurso.id)}>
                               {economicStatus(recurso) === "CUSTO PENDENTE" ? "Configurar custo" : "Editar custo"}
                             </button>
@@ -1365,9 +1404,10 @@ export function ExecucoesManager() {
               <>
                 <div className="empty-state">
                   Execucao sem referencia prevista. O resultado abaixo representa apenas o realizado consolidado pelos boletins.
+                  {possuiBoletimAbertoComRecursos ? " Existem recursos em boletim aberto; use Consolidar Execucao para recalcular sem fechar, ou feche o boletim para homologar o dia." : ""}
                 </div>
                 <div className="execucoes-comparison-grid">
-                  <Info label="Quantidade realizada" value={number(realizado.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "")} />
+                  <Info label="Quantidade realizada" value={possuiQuantidadeServico ? number(realizado.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "") : "Nao informada"} />
                   <Info label="Custo realizado" value={money(realizado.custo)} />
                   <Info label="Receita realizada" value={money(realizado.receita)} />
                   <Info label="Resultado realizado" value={money(realizado.resultado)} />

@@ -235,7 +235,7 @@ function normalizeUnidade(value?: string | null): UnidadeOperacional {
     .replace(/\s+/g, "");
 
   if (!normalized) return "UN";
-  if (normalized.includes("/h") || normalized.includes("hora")) return "HORA";
+  if (normalized === "h" || normalized.includes("/h") || normalized.includes("hora")) return "HORA";
   if (normalized.includes("semana")) return "SEMANA";
   if (normalized.includes("mes")) return "MES";
   if (normalized.includes("dia") || normalized.includes("diaria")) return "DIA";
@@ -296,11 +296,12 @@ export function formatarUnidadeEconomica(value: CostEngineUnidadeEconomicaCusto)
 
 function formatarUnidadeFrente(value?: string | null) {
   const unidade = normalizeUnidade(value);
+  const original = value?.trim() ?? "";
   if (unidade === "M3") return "m3";
   if (unidade === "M2") return "m2";
   if (unidade === "TON") return "t";
   if (unidade === "CARGA") return "carga";
-  if (unidade === "HORA") return "hora";
+  if (unidade === "HORA") return original.toLowerCase() === "h" ? "h" : "hora";
   if (unidade === "SEMANA") return "semana";
   if (unidade === "MES") return "mes";
   if (unidade === "KM") return "km";
@@ -601,6 +602,12 @@ function calcularRecurso(params: {
           baseConversao = quantidadeOperacional;
           custoTotal = quantidadeRecursos * valorCusto * baseConversao;
           formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/dia x ${formatNumber(baseConversao)} dias = ${formatCurrency(custoTotal)}`;
+        } else if (origemQuantidadeOperacional === "PERSONALIZADA" && unidadeOperacional === "HORA") {
+          const horasBase = horasTotais > 0 ? horasTotais : quantidadeOperacional;
+          baseConversao = horasDia > 0 ? horasBase / horasDia : 0;
+          custoTotal = quantidadeRecursos * valorCusto * baseConversao;
+          formula = `${formatNumber(quantidadeRecursos)} x ${formatCurrency(valorCusto)}/dia x ${formatNumber(horasBase)} h / ${formatNumber(horasDia)} h/dia = ${formatCurrency(custoTotal)}`;
+          observacoes.push(`Conversao de horas para diaria usando jornada padrao/configurada de ${formatNumber(horasDia)} h/dia.`);
         } else if (unidadeFrente === "MES") {
           baseConversao = diasTrabalhadosMes * quantidadeOperacional;
           custoTotal = quantidadeRecursos * valorCusto * baseConversao;

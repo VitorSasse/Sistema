@@ -14444,6 +14444,22 @@ button {
   text-align: left;
 }
 
+.execucoes-boletim-main {
+  display: grid;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.execucoes-boletim .button-secondary {
+  width: fit-content;
+  min-height: 30px;
+  padding: 7px 10px;
+}
+
 .execucoes-list-item.is-active,
 .execucoes-boletim.is-active {
   border-color: rgba(255, 113, 26, 0.85);
@@ -14481,6 +14497,20 @@ button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(110px, 0.45fr);
   gap: 8px;
+}
+
+.execucoes-action-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.execucoes-action-stack .button-secondary {
+  width: 100%;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 .execucoes-summary-grid,

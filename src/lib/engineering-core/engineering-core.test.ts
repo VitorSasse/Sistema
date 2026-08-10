@@ -733,6 +733,46 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
     expect(recurso?.custoTotal).toBe(1728);
   });
 
+  it("calcula diaria proporcional quando execucao aponta horas e base economica e DIA", () => {
+    const entrada = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: "exec-dia-proporcional",
+      nomeTecnico: "Execucao diaria proporcional",
+      unidades: [
+          {
+            id: "frente-horas",
+            nome: "Horas executadas",
+            quantidadeExecutada: 4.47,
+            unidade: "h",
+            receitaRealizada: 1000,
+            recursos: [
+            {
+              id: "esc-150",
+              recursoId: "eq-esc-150",
+              nome: "ESC 150 I - HYUNDAI",
+              quantidadeRealizada: 4.47,
+              unidadeRealizada: "h",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                categoria: "EQUIPAMENTO",
+                baseEconomica: "DIA",
+                valorCusto: 950,
+                unidadeCusto: "R$/dia",
+                quantidadeOperacional: 4.47,
+                unidadeQuantidadeOperacional: "h"
+              }
+            }
+          ]
+        }
+      ]
+    });
+    const resultado = executarNucleoComMotorAtual(entrada);
+    const recurso = resultado.unidades[0]?.recursos[0];
+
+    expect(recurso?.baseEconomica).toBe("DIA");
+    expect(recurso?.horasDia).toBe(8);
+    expect(recurso?.custoTotal).toBe(530.81);
+  });
+
   it("nao calcula margem percentual quando receita e zero", () => {
     const entrada = adaptarExecucaoParaEntradaNucleo(
       entradaExecucaoPiloto({
