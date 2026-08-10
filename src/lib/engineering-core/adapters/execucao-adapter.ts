@@ -27,6 +27,11 @@ export type SnapshotTecnicoEconomicoRecursoRealizado = {
   horasDia?: NumeroTecnico;
   horasTotais?: NumeroTecnico;
   diasTrabalhadosMes?: NumeroTecnico;
+  componenteEconomico?: string | null;
+  materialId?: string | null;
+  materialCodigo?: string | null;
+  materialDescricao?: string | null;
+  materialUnidade?: string | null;
   metadados?: Record<string, string | number | boolean | null> | null;
 };
 

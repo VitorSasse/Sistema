@@ -92,6 +92,10 @@ type FatoOperacional = {
   quantidade: number;
   unidade: string;
   origemFato: string;
+  materialId: string | null;
+  materialCodigo: string | null;
+  materialDescricao: string | null;
+  materialUnidade: string | null;
   statusVinculo: "DISPONIVEL" | "VINCULADO";
   custoDisponivel: boolean;
 };
@@ -241,6 +245,11 @@ function initialEconomicForm(recurso?: RecursoBoletim | null) {
     unidadeQuantidadeOperacional: String(snapshot.unidadeQuantidadeOperacional ?? recurso?.unidadeRealizada ?? "carga"),
     capacidadePorViagem: snapshot.capacidadePorViagem === undefined ? "" : String(snapshot.capacidadePorViagem),
     unidadeCapacidade: String(snapshot.unidadeCapacidade ?? ""),
+    componenteEconomico: String(snapshot.componenteEconomico ?? "TRANSPORTE"),
+    materialId: String(snapshot.materialId ?? ""),
+    materialCodigo: String(snapshot.materialCodigo ?? ""),
+    materialDescricao: String(snapshot.materialDescricao ?? ""),
+    materialUnidade: String(snapshot.materialUnidade ?? ""),
     distanciaIdaKm,
     distanciaVoltaKm,
     distanciaViagemKm: snapshot.distanciaViagemKm === undefined ? "" : String(snapshot.distanciaViagemKm),
@@ -304,9 +313,19 @@ function economicStatus(recurso: RecursoBoletim) {
   const valor = toNumber(snapshot.valorCusto ?? snapshot.custoUnitario);
 
   if (valor <= 0 || origemCusto.includes("PENDENTE")) return "CUSTO PENDENTE";
+  if (String(snapshot.baseEconomica ?? "") === "KM" && toNumber(snapshot.distanciaViagemKm ?? snapshot.quilometrosTotais) <= 0) return "DISTANCIA PENDENTE";
   if (origemCusto.includes("PERSONALIZADO")) return "CUSTO PERSONALIZADO";
   if (origemCusto.includes("PROVISORIO")) return "RECURSO PROVISORIO";
   return "CUSTO DEFINIDO";
+}
+
+function economicPendingReason(recurso: RecursoBoletim) {
+  const snapshot = recurso.snapshotTecnicoEconomico ?? {};
+  const metadados = (snapshot.metadados as Record<string, unknown> | undefined) ?? {};
+  const origemCusto = String(metadados.origemCusto ?? "");
+  if (toNumber(snapshot.valorCusto ?? snapshot.custoUnitario) <= 0 || origemCusto.includes("PENDENTE")) return "custo unitario pendente";
+  if (String(snapshot.baseEconomica ?? "") === "KM" && toNumber(snapshot.distanciaViagemKm ?? snapshot.quilometrosTotais) <= 0) return "distancia pendente";
+  return "ok";
 }
 
 function economicOriginLabel(recurso: RecursoBoletim) {
@@ -331,6 +350,11 @@ function buildEconomicSnapshot(form: ReturnType<typeof initialEconomicForm>, pre
     valorCusto: toNumber(form.valorCusto),
     custoUnitario: toNumber(form.valorCusto),
     unidadeCusto: form.unidadeCusto || unidadeCustoFromBase(form.baseEconomica),
+    componenteEconomico: form.componenteEconomico,
+    materialId: form.materialId || undefined,
+    materialCodigo: form.materialCodigo || undefined,
+    materialDescricao: form.materialDescricao || undefined,
+    materialUnidade: form.materialUnidade || undefined,
     quantidadeOperacional: optionalNumber(form.quantidadeOperacional) ?? toNumber(form.quantidadeRealizada),
     unidadeQuantidadeOperacional: form.unidadeQuantidadeOperacional || form.unidadeRealizada,
     capacidadePorViagem: optionalNumber(form.capacidadePorViagem),
@@ -349,7 +373,10 @@ function buildEconomicSnapshot(form: ReturnType<typeof initialEconomicForm>, pre
       valorCustoUtilizado: toNumber(form.valorCusto),
       motivoPersonalizacao: form.motivoPersonalizacao || null,
       distanciaIdaKm: optionalNumber(form.distanciaIdaKm) ?? null,
-      distanciaVoltaKm: optionalNumber(form.distanciaVoltaKm) ?? null
+      distanciaVoltaKm: optionalNumber(form.distanciaVoltaKm) ?? null,
+      materialIdentificado: Boolean(form.materialDescricao),
+      materialDescricao: form.materialDescricao || null,
+      componenteEconomico: form.componenteEconomico
     }
   };
 
@@ -419,6 +446,12 @@ export function ExecucoesManager() {
   const selectedBoletim = boletins.find((boletim) => boletim.id === selectedBoletimId) ?? boletins[0] ?? null;
   const fatosDisponiveis = fatos.filter((fato) => fato.statusVinculo === "DISPONIVEL");
   const recursoEmEdicao = selectedBoletim?.recursos.find((recurso) => recurso.id === editingRecursoId) ?? null;
+  const economicBase = economicForm.baseEconomica;
+  const showTransportFields = economicBase === "KM" || economicBase === "CARGA" || economicBase === "VIAGEM";
+  const showDistanceFields = economicBase === "KM";
+  const showHorasFields = economicBase === "HORA";
+  const showDiasFields = economicBase === "DIA" || economicBase === "MES";
+  const showMaterialFields = economicForm.componenteEconomico === "MATERIAL" || Boolean(economicForm.materialDescricao);
   const obrasFiltradas = execucaoForm.clienteId
     ? obras.filter((obra) => obra.clienteId === execucaoForm.clienteId)
     : obras;
@@ -1103,6 +1136,7 @@ export function ExecucoesManager() {
                     <th>Identificador</th>
                     <th>Qtd</th>
                     <th>Un</th>
+                    <th>Material</th>
                     <th>Obra</th>
                     <th>Status</th>
                     <th>Selecionar</th>
@@ -1117,6 +1151,7 @@ export function ExecucoesManager() {
                       <td>{fato.identificadorRecurso}</td>
                       <td>{number(fato.quantidade)}</td>
                       <td>{fato.unidade}</td>
+                      <td>{fato.materialDescricao ? `${fato.materialCodigo ? `${fato.materialCodigo} - ` : ""}${fato.materialDescricao}` : "-"}</td>
                       <td>{fato.obra}</td>
                       <td>{fato.statusVinculo}{fato.custoDisponivel ? "" : " / CUSTO PENDENTE"}</td>
                       <td>
@@ -1135,7 +1170,7 @@ export function ExecucoesManager() {
                   ))}
                   {!fatos.length ? (
                     <tr>
-                      <td colSpan={9}>Nenhum fato encontrado para os filtros atuais.</td>
+                      <td colSpan={10}>Nenhum fato encontrado para os filtros atuais.</td>
                     </tr>
                   ) : null}
                 </tbody>
@@ -1156,6 +1191,7 @@ export function ExecucoesManager() {
                     <th>Recurso</th>
                     <th>Quantidade</th>
                     <th>Unidade</th>
+                    <th>Material</th>
                     <th>Base</th>
                     <th>Custo</th>
                     <th>Origem custo</th>
@@ -1172,10 +1208,11 @@ export function ExecucoesManager() {
                       <td>{recurso.nomeSnapshot}</td>
                       <td>{number(recurso.quantidadeRealizada)}</td>
                       <td>{recurso.unidadeRealizada}</td>
+                      <td>{String(recurso.snapshotTecnicoEconomico?.materialDescricao ?? "-")}</td>
                       <td>{String(recurso.snapshotTecnicoEconomico?.baseEconomica ?? "-")}</td>
                       <td>{money(toNumber(recurso.snapshotTecnicoEconomico?.valorCusto))} {String(recurso.snapshotTecnicoEconomico?.unidadeCusto ?? "")}</td>
                       <td>{economicOriginLabel(recurso)}</td>
-                      <td>{economicStatus(recurso)}</td>
+                      <td>{economicStatus(recurso)}{economicPendingReason(recurso) === "ok" ? "" : ` / ${economicPendingReason(recurso)}`}</td>
                       <td>{recurso.origemRegistroTipo ? `${recurso.origemRegistroTipo} ${recurso.origemRegistroId}` : "-"}</td>
                       <td>{recurso.observacao || "-"}</td>
                       <td>
@@ -1229,30 +1266,55 @@ export function ExecucoesManager() {
                   <input placeholder="Unidade economica" value={economicForm.unidadeCusto} onChange={(event) => setEconomicForm((current) => ({ ...current, unidadeCusto: event.target.value }))} required />
                 </div>
                 <div className="execucoes-inline">
+                  <input readOnly placeholder="Valor padrao encontrado" value={economicForm.valorBibliotecaOriginal || economicForm.valorCusto || "Nao cadastrado"} />
+                  <input readOnly placeholder="Valor efetivamente utilizado" value={economicForm.valorCusto ? `${money(toNumber(economicForm.valorCusto))} ${economicForm.unidadeCusto}` : "Pendente"} />
+                  <select value={economicForm.componenteEconomico} onChange={(event) => setEconomicForm((current) => ({ ...current, componenteEconomico: event.target.value }))}>
+                    <option value="TRANSPORTE">Transporte</option>
+                    <option value="MAQUINA">Maquina</option>
+                    <option value="MATERIAL">Material</option>
+                    <option value="EQUIPE">Equipe</option>
+                    <option value="OUTRO">Outro</option>
+                  </select>
+                </div>
+                <div className="execucoes-inline">
                   <input type="number" step="0.0001" placeholder="Quantidade operacional" value={economicForm.quantidadeOperacional} onChange={(event) => setEconomicForm((current) => ({ ...current, quantidadeOperacional: event.target.value }))} />
                   <select value={economicForm.unidadeQuantidadeOperacional} onChange={(event) => setEconomicForm((current) => ({ ...current, unidadeQuantidadeOperacional: event.target.value }))}>
                     {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
                   </select>
                   <input type="number" step="0.0001" placeholder="Valor original biblioteca" value={economicForm.valorBibliotecaOriginal} onChange={(event) => setEconomicForm((current) => ({ ...current, valorBibliotecaOriginal: event.target.value }))} />
                 </div>
+                {showMaterialFields ? (
+                  <div className="execucoes-inline">
+                    <input placeholder="Codigo material" value={economicForm.materialCodigo} onChange={(event) => setEconomicForm((current) => ({ ...current, materialCodigo: event.target.value }))} />
+                    <input placeholder="Material transportado" value={economicForm.materialDescricao} onChange={(event) => setEconomicForm((current) => ({ ...current, materialDescricao: event.target.value }))} />
+                    <select value={economicForm.materialUnidade} onChange={(event) => setEconomicForm((current) => ({ ...current, materialUnidade: event.target.value }))}>
+                      <option value="">Unidade material</option>
+                      {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
+                    </select>
+                  </div>
+                ) : null}
+                {showTransportFields ? (
+                  <div className="execucoes-inline">
+                    <input type="number" step="0.0001" placeholder="Capacidade por viagem" value={economicForm.capacidadePorViagem} onChange={(event) => setEconomicForm((current) => ({ ...current, capacidadePorViagem: event.target.value }))} />
+                    <select value={economicForm.unidadeCapacidade} onChange={(event) => setEconomicForm((current) => ({ ...current, unidadeCapacidade: event.target.value }))}>
+                      <option value="">Unidade capacidade</option>
+                      {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
+                    </select>
+                    <input type="number" step="0.0001" placeholder="Viagens totais" value={economicForm.viagensTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, viagensTotais: event.target.value }))} />
+                    <input type="number" step="0.0001" placeholder="Cargas totais" value={economicForm.cargasTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, cargasTotais: event.target.value }))} />
+                  </div>
+                ) : null}
+                {showDistanceFields ? (
+                  <div className="execucoes-inline">
+                    <input type="number" step="0.0001" placeholder="Distancia ida km" value={economicForm.distanciaIdaKm} onChange={(event) => setEconomicForm((current) => ({ ...current, distanciaIdaKm: event.target.value }))} />
+                    <input type="number" step="0.0001" placeholder="Distancia volta km" value={economicForm.distanciaVoltaKm} onChange={(event) => setEconomicForm((current) => ({ ...current, distanciaVoltaKm: event.target.value }))} />
+                    <input type="number" step="0.0001" placeholder="Distancia do ciclo km" value={economicForm.distanciaViagemKm} onChange={(event) => setEconomicForm((current) => ({ ...current, distanciaViagemKm: event.target.value }))} />
+                    <input type="number" step="0.0001" placeholder="KM totais" value={economicForm.quilometrosTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, quilometrosTotais: event.target.value }))} />
+                  </div>
+                ) : null}
                 <div className="execucoes-inline">
-                  <input type="number" step="0.0001" placeholder="Capacidade por viagem" value={economicForm.capacidadePorViagem} onChange={(event) => setEconomicForm((current) => ({ ...current, capacidadePorViagem: event.target.value }))} />
-                  <select value={economicForm.unidadeCapacidade} onChange={(event) => setEconomicForm((current) => ({ ...current, unidadeCapacidade: event.target.value }))}>
-                    <option value="">Unidade capacidade</option>
-                    {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
-                  </select>
-                  <input type="number" step="0.0001" placeholder="Distancia ida km" value={economicForm.distanciaIdaKm} onChange={(event) => setEconomicForm((current) => ({ ...current, distanciaIdaKm: event.target.value }))} />
-                  <input type="number" step="0.0001" placeholder="Distancia volta km" value={economicForm.distanciaVoltaKm} onChange={(event) => setEconomicForm((current) => ({ ...current, distanciaVoltaKm: event.target.value }))} />
-                </div>
-                <div className="execucoes-inline">
-                  <input type="number" step="0.0001" placeholder="Distancia do ciclo km" value={economicForm.distanciaViagemKm} onChange={(event) => setEconomicForm((current) => ({ ...current, distanciaViagemKm: event.target.value }))} />
-                  <input type="number" step="0.0001" placeholder="KM totais" value={economicForm.quilometrosTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, quilometrosTotais: event.target.value }))} />
-                  <input type="number" step="0.0001" placeholder="Viagens totais" value={economicForm.viagensTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, viagensTotais: event.target.value }))} />
-                  <input type="number" step="0.0001" placeholder="Cargas totais" value={economicForm.cargasTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, cargasTotais: event.target.value }))} />
-                </div>
-                <div className="execucoes-inline">
-                  <input type="number" step="0.0001" placeholder="Horas totais" value={economicForm.horasTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, horasTotais: event.target.value }))} />
-                  <input type="number" step="0.0001" placeholder="Meses totais" value={economicForm.mesesTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, mesesTotais: event.target.value }))} />
+                  {showHorasFields ? <input type="number" step="0.0001" placeholder="Horas totais" value={economicForm.horasTotais} onChange={(event) => setEconomicForm((current) => ({ ...current, horasTotais: event.target.value }))} /> : null}
+                  {showDiasFields ? <input type="number" step="0.0001" placeholder={economicBase === "MES" ? "Meses totais" : "Dias totais"} value={economicBase === "MES" ? economicForm.mesesTotais : economicForm.quantidadeOperacional} onChange={(event) => setEconomicForm((current) => economicBase === "MES" ? { ...current, mesesTotais: event.target.value } : { ...current, quantidadeOperacional: event.target.value })} /> : null}
                   <input placeholder="Motivo da personalizacao" value={economicForm.motivoPersonalizacao} onChange={(event) => setEconomicForm((current) => ({ ...current, motivoPersonalizacao: event.target.value }))} />
                 </div>
                 <textarea placeholder="Observacoes" value={economicForm.observacao} onChange={(event) => setEconomicForm((current) => ({ ...current, observacao: event.target.value }))} />

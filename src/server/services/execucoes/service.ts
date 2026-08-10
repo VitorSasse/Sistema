@@ -270,7 +270,9 @@ function toSnapshotTecnicoEconomico(value: unknown): SnapshotTecnicoEconomicoRec
 function recursoTemCustoPendente(recurso: { snapshotTecnicoEconomico: unknown }) {
   const snapshot = toSnapshotTecnicoEconomico(recurso.snapshotTecnicoEconomico);
   const origem = String(snapshot.metadados?.origemCusto ?? snapshot.metadados?.origem ?? "");
-  return toNumber(snapshot.valorCusto ?? snapshot.custoUnitario) <= 0 || origem.includes("PENDENTE");
+  const base = String(snapshot.baseEconomica ?? "");
+  const distancia = toNumber(snapshot.distanciaViagemKm ?? snapshot.quilometrosTotais);
+  return toNumber(snapshot.valorCusto ?? snapshot.custoUnitario) <= 0 || origem.includes("PENDENTE") || (base === "KM" && distancia <= 0);
 }
 
 function validarCustosDefinidos(recursos: Array<{ snapshotTecnicoEconomico: unknown }>) {
@@ -959,6 +961,7 @@ const lancamentoFatoSelect = {
   obraId: true,
   clienteId: true,
   servicoId: true,
+  materialId: true,
   equipamentoId: true,
   quantidadeApontada: true,
   unidadeApontada: true,
@@ -993,6 +996,14 @@ const lancamentoFatoSelect = {
       tipoServico: true
     }
   },
+  material: {
+    select: {
+      id: true,
+      codigoMaterial: true,
+      descricao: true,
+      unidadePadrao: true
+    }
+  },
   equipamento: {
     select: {
       id: true,
@@ -1024,6 +1035,10 @@ export type FatoOperacionalExistente = {
   quantidade: number;
   unidade: string;
   origemFato: OrigemFatoBoletimDiario;
+  materialId: string | null;
+  materialCodigo: string | null;
+  materialDescricao: string | null;
+  materialUnidade: string | null;
   statusVinculo: "DISPONIVEL" | "VINCULADO";
   custoDisponivel: boolean;
   snapshotTecnicoEconomico: SnapshotTecnicoEconomicoRecursoRealizado;
@@ -1053,10 +1068,16 @@ function normalizeFiltroDateEnd(value: string | Date | null | undefined) {
 function buildSnapshotFato(lancamento: LancamentoFato): SnapshotTecnicoEconomicoRecursoRealizado {
   const baseEconomica = String(lancamento.equipamento.unidadeEconomicaPadrao ?? inferBaseEconomicaFromUnidade(lancamento.unidadeApontada));
   const valorCusto = toNumber(lancamento.equipamento.custoPadrao);
+  const materialDescricao = lancamento.material?.descricao ?? null;
 
   return {
     categoria: String(lancamento.equipamento.tipoRecurso ?? "EQUIPAMENTO"),
     classeOperacional: lancamento.equipamento.classeOperacional ?? lancamento.equipamento.descricao,
+    componenteEconomico: "TRANSPORTE",
+    materialId: lancamento.material?.id ?? null,
+    materialCodigo: lancamento.material?.codigoMaterial ?? null,
+    materialDescricao,
+    materialUnidade: lancamento.material?.unidadePadrao ?? null,
     baseEconomica: baseEconomica as SnapshotTecnicoEconomicoRecursoRealizado["baseEconomica"],
     valorCusto,
     unidadeCusto: unidadeCustoFromBase(baseEconomica),
@@ -1067,7 +1088,9 @@ function buildSnapshotFato(lancamento: LancamentoFato): SnapshotTecnicoEconomico
       origem: valorCusto > 0 ? "BIBLIOTECA_RECURSOS" : "CUSTO_NAO_CADASTRADO",
       origemRegistroTipo: "LANCAMENTO_DIARIO",
       origemRegistroId: lancamento.id,
-      origemCusto: valorCusto > 0 ? "CADASTRO_MESTRE_EQUIPAMENTO" : "PENDENTE_CADASTRO_MESTRE"
+      origemCusto: valorCusto > 0 ? "CADASTRO_MESTRE_EQUIPAMENTO" : "PENDENTE_CADASTRO_MESTRE",
+      materialIdentificado: Boolean(materialDescricao),
+      materialDescricao
     }
   };
 }
@@ -1096,6 +1119,10 @@ function mapLancamentoToFato(lancamento: LancamentoFato, vinculados: Set<string>
     quantidade,
     unidade,
     origemFato: inferOrigemFato(unidade),
+    materialId: lancamento.material?.id ?? null,
+    materialCodigo: lancamento.material?.codigoMaterial ?? null,
+    materialDescricao: lancamento.material?.descricao ?? null,
+    materialUnidade: lancamento.material?.unidadePadrao ?? null,
     statusVinculo: vinculados.has(lancamento.id) ? "VINCULADO" : "DISPONIVEL",
     custoDisponivel: toNumber(lancamento.equipamento.custoPadrao) > 0,
     snapshotTecnicoEconomico: snapshot

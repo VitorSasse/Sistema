@@ -128,6 +128,7 @@ function createDbMock() {
         obraId: OBRA_ID,
         clienteId: CLIENTE_ID,
         servicoId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        materialId: "material-areia",
         equipamentoId: RECURSO_ID,
         quantidadeApontada: 93,
         unidadeApontada: "CARGA",
@@ -140,6 +141,7 @@ function createDbMock() {
         cliente: { id: CLIENTE_ID, codigo: "CLI-001", nome: "Cliente teste", nomeFantasia: "Cliente teste" },
         obra: { id: OBRA_ID, codigo: "OBR-001", nome: "Obra teste" },
         servico: { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", codigo: "SER-001", tipoServico: "Transporte" },
+        material: { id: "material-areia", codigoMaterial: "MAT-001", descricao: "Areia", unidadePadrao: "m3" },
         equipamento: {
           id: RECURSO_ID,
           placaOuTag: "TRUCK-01",
@@ -913,8 +915,39 @@ describe("service de Execucao e Resultado", () => {
     expect(fatos[0].snapshotTecnicoEconomico).toMatchObject({
       baseEconomica: "CARGA",
       valorCusto: 120,
-      unidadeCusto: "R$/carga"
+      unidadeCusto: "R$/carga",
+      componenteEconomico: "TRANSPORTE",
+      materialId: "material-areia",
+      materialDescricao: "Areia"
     });
+  });
+
+  it("preserva materiais diferentes em lancamentos do mesmo recurso", async () => {
+    const { db, records } = createDbMock();
+    records.lancamentos.push({
+      ...(records.lancamentos[0] as Record<string, unknown>),
+      id: "88888888-8888-4888-8888-888888888888",
+      materialId: "material-brita",
+      quantidadeApontada: 3,
+      quantidadeFaturada: 3,
+      material: { id: "material-brita", codigoMaterial: "MAT-002", descricao: "Brita Graduada", unidadePadrao: "m3" }
+    });
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+
+    const fatos = await runTenant(() =>
+      listarFatosOperacionaisExistentes(db as never, {
+        execucaoId: EXECUCAO_ID,
+        obraId: OBRA_ID,
+        dataInicio: "2026-08-06",
+        dataFim: "2026-08-06",
+        recursoId: RECURSO_ID
+      })
+    );
+
+    expect(fatos).toHaveLength(2);
+    expect(fatos.map((fato) => fato.materialDescricao)).toEqual(["Areia", "Brita Graduada"]);
+    expect(fatos.map((fato) => fato.snapshotTecnicoEconomico.materialDescricao)).toEqual(["Areia", "Brita Graduada"]);
+    expect(new Set(fatos.map((fato) => fato.id)).size).toBe(2);
   });
 
   it("complementa cabecalho da execucao direta sem remover boletins ou fatos vinculados", async () => {
