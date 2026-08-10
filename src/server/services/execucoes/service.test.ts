@@ -1159,6 +1159,58 @@ describe("service de Execucao e Resultado", () => {
     expect(records.resultados).toHaveLength(1);
   });
 
+  it("fecha boletim com diaria em horas quando custo foi definido sobre metadado antigo pendente", async () => {
+    const { db, records } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+    await runTenant(() =>
+      criarBoletimDiarioProducao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        dataBoletim: new Date("2026-08-07T00:00:00.000Z"),
+        recursos: [
+          {
+            frenteExecutadaId: FRENTE_ID,
+            nomeSnapshot: "ESC 150 I - HYUNDAI",
+            quantidadeRealizada: 2.45,
+            unidadeRealizada: "h",
+            quantidadeRecursos: 1,
+            origem: OrigemFatoBoletimDiario.PRODUCAO,
+            snapshotTecnicoEconomico: {
+              categoria: "EQUIPAMENTO",
+              classeOperacional: "ESC 150 I - HYUNDAI",
+              baseEconomica: "DIA",
+              valorCusto: 950,
+              custoUnitario: 950,
+              unidadeCusto: "R$/dia",
+              quantidadeOperacional: 2.45,
+              unidadeQuantidadeOperacional: "h",
+              metadados: {
+                origem: "BIBLIOTECA_RECURSOS",
+                origemCusto: "PENDENTE_CADASTRO_MESTRE"
+              }
+            }
+          }
+        ]
+      })
+    );
+
+    await runTenant(() => fecharBoletimDiarioProducao(db as never, "boletim-1"));
+
+    const ultimoResultado = records.resultados[0].resultadoOperacionalJson as {
+      resultadoOperacional: {
+        consolidado: { custoOperacionalTotal: number };
+        unidades: Array<{ recursos: Array<{ custoTotal: number; baseEconomica: string; horasDia: number }> }>;
+      };
+    };
+    const recurso = ultimoResultado.resultadoOperacional.unidades[0].recursos[0];
+
+    expect(ultimoResultado.resultadoOperacional.consolidado.custoOperacionalTotal).toBe(290.94);
+    expect(recurso).toMatchObject({
+      baseEconomica: "DIA",
+      horasDia: 8,
+      custoTotal: 290.94
+    });
+  });
+
   it("bloqueia vinculo duplicado do mesmo fato na mesma execucao", async () => {
     const { db } = createDbMock();
     await runTenant(() => criarExecucao(db as never, inputExecucao()));

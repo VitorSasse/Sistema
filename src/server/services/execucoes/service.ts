@@ -275,10 +275,9 @@ function toSnapshotTecnicoEconomico(value: unknown): SnapshotTecnicoEconomicoRec
 
 function recursoTemCustoPendente(recurso: { snapshotTecnicoEconomico: unknown }) {
   const snapshot = toSnapshotTecnicoEconomico(recurso.snapshotTecnicoEconomico);
-  const origem = String(snapshot.metadados?.origemCusto ?? snapshot.metadados?.origem ?? "");
   const base = String(snapshot.baseEconomica ?? "");
   const distancia = toNumber(snapshot.distanciaViagemKm ?? snapshot.quilometrosTotais);
-  return toNumber(snapshot.valorCusto ?? snapshot.custoUnitario) <= 0 || origem.includes("PENDENTE") || (base === "KM" && distancia <= 0);
+  return toNumber(snapshot.valorCusto ?? snapshot.custoUnitario) <= 0 || (base === "KM" && distancia <= 0);
 }
 
 function validarCustosDefinidos(recursos: Array<{ snapshotTecnicoEconomico: unknown }>) {

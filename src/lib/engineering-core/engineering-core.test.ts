@@ -773,6 +773,84 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
     expect(recurso?.custoTotal).toBe(530.81);
   });
 
+  it("mantem equivalencia entre Orcamento e Execucao para recurso em horas com base economica diaria", () => {
+    const entradaOrcamento = adaptarOrcamentoParaEntradaNucleo({
+      id: "orc-horas-dia",
+      titulo: "Orcamento horas por diaria",
+      frentes: [
+        {
+          tempId: "frente-horas",
+          natureza: "OPERACIONAL",
+          nome: "Horas executadas",
+          unidadeProducao: "h",
+          quantidadePrevista: 2.45,
+          modoCusto: "AUTO"
+        }
+      ],
+      itens: [
+        {
+          tempId: "orc-recurso-esc-150",
+          frenteTempId: "frente-horas",
+          tipoItem: "RECURSO",
+          categoriaRecurso: "EQUIPAMENTO",
+          descricao: "ESC 150 I - HYUNDAI",
+          recursoNome: "ESC 150 I - HYUNDAI",
+          recursoReferenciaId: "eq-esc-150",
+          quantidade: 1,
+          quantidadeOperacional: 2.45,
+          origemQuantidadeOperacional: "PERSONALIZADA",
+          unidadeQuantidadeOperacional: "h",
+          unidade: "R$/dia",
+          tipoCalculoRecurso: "AUTOMATICO",
+          unidadeEconomicaCusto: "DIA",
+          valorCusto: 950
+        }
+      ]
+    });
+    const entradaExecucao = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: "exec-horas-dia",
+      nomeTecnico: "Execucao horas por diaria",
+      unidades: [
+        {
+          id: "frente-horas",
+          nome: "Horas executadas",
+          quantidadeExecutada: 2.45,
+          unidade: "h",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: "exec-recurso-esc-150",
+              recursoId: "eq-esc-150",
+              nome: "ESC 150 I - HYUNDAI",
+              quantidadeRealizada: 2.45,
+              unidadeRealizada: "h",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                categoria: "EQUIPAMENTO",
+                baseEconomica: "DIA",
+                valorCusto: 950,
+                unidadeCusto: "R$/dia",
+                quantidadeOperacional: 2.45,
+                unidadeQuantidadeOperacional: "h"
+              }
+            }
+          ]
+        }
+      ]
+    });
+
+    const resultadoOrcamento = executarNucleoComMotorAtual(entradaOrcamento);
+    const resultadoExecucao = executarNucleoComMotorAtual(entradaExecucao);
+
+    expect(resultadoOrcamento.unidades[0]?.recursos[0]?.horasDia).toBe(8);
+    expect(resultadoExecucao.unidades[0]?.recursos[0]?.horasDia).toBe(8);
+    expect(resultadoOrcamento.consolidado.custoOperacionalTotal).toBe(290.94);
+    expect(resultadoExecucao.consolidado.custoOperacionalTotal).toBe(290.94);
+    expect(resultadoExecucao.consolidado.custoOperacionalTotal).toBe(
+      resultadoOrcamento.consolidado.custoOperacionalTotal
+    );
+  });
+
   it("nao calcula margem percentual quando receita e zero", () => {
     const entrada = adaptarExecucaoParaEntradaNucleo(
       entradaExecucaoPiloto({

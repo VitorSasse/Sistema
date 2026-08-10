@@ -220,7 +220,6 @@ function initialRecursoForm(frenteId = "") {
 function initialEconomicForm(recurso?: RecursoBoletim | null) {
   const snapshot = recurso?.snapshotTecnicoEconomico ?? {};
   const metadados = (snapshot.metadados as Record<string, unknown> | undefined) ?? {};
-  const origemCusto = String(metadados.origemCusto ?? snapshot.origem ?? metadados.origem ?? "");
   const distanciaIdaKm = metadados.distanciaIdaKm === undefined ? "" : String(metadados.distanciaIdaKm);
   const distanciaVoltaKm = metadados.distanciaVoltaKm === undefined ? "" : String(metadados.distanciaVoltaKm);
 
@@ -239,7 +238,7 @@ function initialEconomicForm(recurso?: RecursoBoletim | null) {
     baseEconomica: String(snapshot.baseEconomica ?? "CARGA"),
     valorCusto: snapshot.valorCusto === undefined ? "" : String(snapshot.valorCusto),
     unidadeCusto: String(snapshot.unidadeCusto ?? "R$/carga"),
-    origemCusto: origemCusto.includes("PENDENTE") ? "PENDENTE" : origemCusto.includes("PROVISORIO") ? "RECURSO_PROVISORIO" : origemCusto.includes("PERSONALIZADO") ? "PERSONALIZADO_EXECUCAO" : "BIBLIOTECA_RECURSOS",
+    origemCusto: resolveEconomicOriginValue(snapshot),
     valorBibliotecaOriginal: metadados.valorBibliotecaOriginal === undefined ? "" : String(metadados.valorBibliotecaOriginal),
     quantidadeOperacional: snapshot.quantidadeOperacional === undefined ? "" : String(snapshot.quantidadeOperacional),
     unidadeQuantidadeOperacional: String(snapshot.unidadeQuantidadeOperacional ?? recurso?.unidadeRealizada ?? "carga"),
@@ -306,26 +305,39 @@ function optionalNumber(value: string | number | null | undefined) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function economicPendingReasonFromSnapshot(snapshot: Record<string, unknown>) {
+  const valor = toNumber(snapshot.valorCusto ?? snapshot.custoUnitario);
+  const base = String(snapshot.baseEconomica ?? "");
+
+  if (valor <= 0) return "custo unitario pendente";
+  if (base === "KM" && toNumber(snapshot.distanciaViagemKm ?? snapshot.quilometrosTotais) <= 0) {
+    return "distancia pendente";
+  }
+
+  return "ok";
+}
+
+function resolveEconomicOriginValue(snapshot: Record<string, unknown>) {
+  const metadados = (snapshot.metadados as Record<string, unknown> | undefined) ?? {};
+  const origemCusto = String(metadados.origemCusto ?? snapshot.origem ?? metadados.origem ?? "");
+  const pendingReason = economicPendingReasonFromSnapshot(snapshot);
+
+  if (pendingReason !== "ok") return "PENDENTE";
+  if (origemCusto.includes("PROVISORIO")) return "RECURSO_PROVISORIO";
+  if (origemCusto.includes("PERSONALIZADO") || origemCusto.includes("PENDENTE")) return "PERSONALIZADO_EXECUCAO";
+  return "BIBLIOTECA_RECURSOS";
+}
+
 function economicStatus(recurso: RecursoBoletim) {
   const snapshot = recurso.snapshotTecnicoEconomico ?? {};
-  const metadados = (snapshot.metadados as Record<string, unknown> | undefined) ?? {};
-  const origemCusto = String(metadados.origemCusto ?? metadados.origem ?? snapshot.origem ?? "");
-  const valor = toNumber(snapshot.valorCusto ?? snapshot.custoUnitario);
+  const pendingReason = economicPendingReasonFromSnapshot(snapshot);
 
-  if (valor <= 0 || origemCusto.includes("PENDENTE")) return "CUSTO PENDENTE";
-  if (String(snapshot.baseEconomica ?? "") === "KM" && toNumber(snapshot.distanciaViagemKm ?? snapshot.quilometrosTotais) <= 0) return "DISTANCIA PENDENTE";
-  if (origemCusto.includes("PERSONALIZADO")) return "CUSTO PERSONALIZADO";
-  if (origemCusto.includes("PROVISORIO")) return "RECURSO PROVISORIO";
+  if (pendingReason !== "ok") return "CUSTO PENDENTE";
   return "CUSTO DEFINIDO";
 }
 
 function economicPendingReason(recurso: RecursoBoletim) {
-  const snapshot = recurso.snapshotTecnicoEconomico ?? {};
-  const metadados = (snapshot.metadados as Record<string, unknown> | undefined) ?? {};
-  const origemCusto = String(metadados.origemCusto ?? "");
-  if (toNumber(snapshot.valorCusto ?? snapshot.custoUnitario) <= 0 || origemCusto.includes("PENDENTE")) return "custo unitario pendente";
-  if (String(snapshot.baseEconomica ?? "") === "KM" && toNumber(snapshot.distanciaViagemKm ?? snapshot.quilometrosTotais) <= 0) return "distancia pendente";
-  return "ok";
+  return economicPendingReasonFromSnapshot(recurso.snapshotTecnicoEconomico ?? {});
 }
 
 function economicOriginLabel(recurso: RecursoBoletim) {
@@ -335,7 +347,9 @@ function economicOriginLabel(recurso: RecursoBoletim) {
 
   if (origem.includes("PERSONALIZADO")) return "Personalizado na execucao";
   if (origem.includes("PROVISORIO")) return "Recurso provisorio";
-  if (origem.includes("PENDENTE")) return "Pendente";
+  if (origem.includes("PENDENTE")) {
+    return economicPendingReasonFromSnapshot(snapshot) === "ok" ? "Personalizado na execucao" : "Pendente";
+  }
   return "Biblioteca";
 }
 
@@ -343,12 +357,20 @@ function buildEconomicSnapshot(form: ReturnType<typeof initialEconomicForm>, pre
   const existing = previous ?? {};
   const metadados = (existing.metadados as Record<string, unknown> | undefined) ?? {};
   const distanciaViagemKm = distanciaCicloKm(form);
-  const origemCusto = form.origemCusto === "PENDENTE" ? "PENDENTE_CONFIGURACAO" : form.origemCusto;
+  const valorCusto = toNumber(form.valorCusto);
+  const possuiPendenciaReal =
+    valorCusto <= 0 ||
+    (form.baseEconomica === "KM" && distanciaViagemKm <= 0 && toNumber(form.quilometrosTotais) <= 0);
+  const origemCusto = possuiPendenciaReal
+    ? "PENDENTE_CONFIGURACAO"
+    : form.origemCusto === "PENDENTE"
+      ? "PERSONALIZADO_EXECUCAO"
+      : form.origemCusto;
   const snapshot: Record<string, unknown> = {
     ...existing,
     baseEconomica: form.baseEconomica,
-    valorCusto: toNumber(form.valorCusto),
-    custoUnitario: toNumber(form.valorCusto),
+    valorCusto,
+    custoUnitario: valorCusto,
     unidadeCusto: form.unidadeCusto || unidadeCustoFromBase(form.baseEconomica),
     componenteEconomico: form.componenteEconomico,
     materialId: form.materialId || undefined,
@@ -370,7 +392,7 @@ function buildEconomicSnapshot(form: ReturnType<typeof initialEconomicForm>, pre
       origem: form.origemCusto === "RECURSO_PROVISORIO" ? "RECURSO_PROVISORIO" : String(metadados.origem ?? "BIBLIOTECA_RECURSOS"),
       origemCusto,
       valorBibliotecaOriginal: optionalNumber(form.valorBibliotecaOriginal) ?? null,
-      valorCustoUtilizado: toNumber(form.valorCusto),
+      valorCustoUtilizado: valorCusto,
       motivoPersonalizacao: form.motivoPersonalizacao || null,
       distanciaIdaKm: optionalNumber(form.distanciaIdaKm) ?? null,
       distanciaVoltaKm: optionalNumber(form.distanciaVoltaKm) ?? null,
