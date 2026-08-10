@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/form/searchable-select";
 import { loadOperationalOptions } from "@/lib/client/operational-options";
 
 type ClienteOption = {
@@ -52,8 +53,8 @@ type FrenteExecucao = {
   id: string;
   nome: string;
   unidade: string;
-  quantidadeExecutada: string | number;
-  receitaRealizada: string | number;
+  quantidadeExecutada: string | number | null;
+  receitaRealizada: string | number | null;
 };
 
 type Execucao = {
@@ -163,8 +164,8 @@ function initialExecucaoForm() {
     clienteId: "",
     obraId: "",
     descricao: "",
-    frenteNome: "Aterro Compactado",
-    unidade: "m3",
+    frenteNome: "",
+    unidade: "",
     quantidade: "",
     receita: ""
   };
@@ -262,6 +263,20 @@ export function ExecucoesManager() {
   const obrasFiltradas = execucaoForm.clienteId
     ? obras.filter((obra) => obra.clienteId === execucaoForm.clienteId)
     : obras;
+  const clienteOptions = useMemo<SearchableSelectOption[]>(
+    () => clientes.map((cliente) => ({
+      value: cliente.id,
+      label: clienteLabel(cliente)
+    })),
+    [clientes]
+  );
+  const obraOptions = useMemo<SearchableSelectOption[]>(
+    () => obrasFiltradas.map((obra) => ({
+      value: obra.id,
+      label: obra.codigo ? `${obra.codigo} - ${obra.nome}` : obra.nome
+    })),
+    [obrasFiltradas]
+  );
 
   const totais = useMemo(() => {
     const frentes = selected?.frentes ?? [];
@@ -380,20 +395,22 @@ export function ExecucoesManager() {
 
     try {
       const payload = {
-        clienteId: execucaoForm.clienteId,
+        clienteId: execucaoForm.clienteId || null,
         obraId: execucaoForm.obraId || null,
-        descricao: execucaoForm.descricao,
+        descricao: execucaoForm.descricao || "",
         origem: "DIRETA",
         status: "EM_ANDAMENTO",
-        frentes: [
-          {
-            nome: execucaoForm.frenteNome,
-            unidade: execucaoForm.unidade,
-            quantidadeExecutada: Number(execucaoForm.quantidade),
-            receitaRealizada: Number(execucaoForm.receita),
-            recursos: []
-          }
-        ]
+        frentes: execucaoForm.frenteNome || execucaoForm.unidade || execucaoForm.quantidade || execucaoForm.receita
+          ? [
+            {
+              nome: execucaoForm.frenteNome || "",
+              unidade: execucaoForm.quantidade ? execucaoForm.unidade : "",
+              quantidadeExecutada: execucaoForm.quantidade ? Number(execucaoForm.quantidade) : null,
+              receitaRealizada: execucaoForm.receita ? Number(execucaoForm.receita) : null,
+              recursos: []
+            }
+            ]
+          : []
       };
       const data = await fetchJson<{ item: Execucao }>("/api/execucoes", {
         method: "POST",
@@ -610,42 +627,39 @@ export function ExecucoesManager() {
 
           <form className="execucoes-create-form" onSubmit={handleCreateExecucao}>
             <span className="page-kicker">Nova execucao direta</span>
-            <select
+            <SearchableSelect
               value={execucaoForm.clienteId}
-              onChange={(event) => setExecucaoForm((current) => ({ ...current, clienteId: event.target.value, obraId: "" }))}
-              required
+              onChange={(value) => setExecucaoForm((current) => ({ ...current, clienteId: value, obraId: "" }))}
+              options={clienteOptions}
+              placeholder={optionsLoading ? "Carregando clientes..." : "Digite codigo ou nome do cliente"}
+              emptyLabel="Nenhum cliente encontrado."
               disabled={optionsLoading}
-            >
-              <option value="">{optionsLoading ? "Carregando clientes..." : "Cliente"}</option>
-              {clientes.map((cliente) => (
-                <option key={cliente.id} value={cliente.id}>{clienteLabel(cliente)}</option>
-              ))}
-            </select>
-            <select
+            />
+            <SearchableSelect
               value={execucaoForm.obraId}
-              onChange={(event) => setExecucaoForm((current) => ({ ...current, obraId: event.target.value }))}
-              disabled={optionsLoading || !execucaoForm.clienteId}
-            >
-              <option value="">
-                {!execucaoForm.clienteId
-                  ? "Selecione um cliente para listar obras"
-                  : optionsLoading
-                    ? "Carregando obras..."
-                    : "Obra opcional"}
-              </option>
-              {obrasFiltradas.map((obra) => (
-                <option key={obra.id} value={obra.id}>{obra.codigo ? `${obra.codigo} - ` : ""}{obra.nome}</option>
-              ))}
-            </select>
-            <input placeholder="Descricao da execucao" value={execucaoForm.descricao} onChange={(event) => setExecucaoForm((current) => ({ ...current, descricao: event.target.value }))} required />
-            <input placeholder="Frente / servico" value={execucaoForm.frenteNome} onChange={(event) => setExecucaoForm((current) => ({ ...current, frenteNome: event.target.value }))} required />
+              options={obraOptions}
+              placeholder={execucaoForm.clienteId ? "Digite codigo ou nome da obra" : "Digite para buscar obra em todas as obras"}
+              emptyLabel="Nenhuma obra encontrada."
+              disabled={optionsLoading}
+              onChange={(value) => {
+                const obra = obras.find((item) => item.id === value);
+                setExecucaoForm((current) => ({
+                  ...current,
+                  obraId: value,
+                  clienteId: obra?.clienteId || current.clienteId
+                }));
+              }}
+            />
+            <input placeholder="Descricao da execucao (opcional)" value={execucaoForm.descricao} onChange={(event) => setExecucaoForm((current) => ({ ...current, descricao: event.target.value }))} />
+            <input placeholder="Frente / servico (opcional)" value={execucaoForm.frenteNome} onChange={(event) => setExecucaoForm((current) => ({ ...current, frenteNome: event.target.value }))} />
             <div className="execucoes-inline">
-              <input placeholder="Quantidade" type="number" step="0.0001" value={execucaoForm.quantidade} onChange={(event) => setExecucaoForm((current) => ({ ...current, quantidade: event.target.value }))} required />
-              <select value={execucaoForm.unidade} onChange={(event) => setExecucaoForm((current) => ({ ...current, unidade: event.target.value }))}>
+              <input placeholder="Quantidade (opcional)" type="number" step="0.0001" value={execucaoForm.quantidade} onChange={(event) => setExecucaoForm((current) => ({ ...current, quantidade: event.target.value, unidade: event.target.value ? current.unidade : "" }))} />
+              <select value={execucaoForm.unidade} onChange={(event) => setExecucaoForm((current) => ({ ...current, unidade: event.target.value }))} disabled={!execucaoForm.quantidade}>
+                <option value="">{execucaoForm.quantidade ? "Unidade" : "Sem quantidade"}</option>
                 {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
               </select>
             </div>
-            <input placeholder="Receita contratada" type="number" step="0.01" value={execucaoForm.receita} onChange={(event) => setExecucaoForm((current) => ({ ...current, receita: event.target.value }))} required />
+            <input placeholder="Receita contratada (opcional)" type="number" step="0.01" value={execucaoForm.receita} onChange={(event) => setExecucaoForm((current) => ({ ...current, receita: event.target.value }))} />
             <button className="button-primary" type="submit" disabled={loading}>Abrir execucao</button>
           </form>
         </aside>

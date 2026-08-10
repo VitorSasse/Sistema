@@ -58,9 +58,9 @@ type PersistedRecursoRealizado = {
 
 type PersistedFrenteExecutada = {
   id: string;
-  nome: string;
+  nome?: string | null;
   descricao?: string | null;
-  unidade: string;
+  unidade?: string | null;
   quantidadeExecutada: unknown;
   receitaRealizada: unknown;
   recursos?: PersistedRecursoRealizado[];
@@ -68,7 +68,7 @@ type PersistedFrenteExecutada = {
 
 type PersistedExecucao = {
   id: string;
-  descricao: string;
+  descricao?: string | null;
   empresaId: string;
   frentes?: PersistedFrenteExecutada[];
   resultados?: unknown[];
@@ -337,13 +337,22 @@ function unidadeCustoFromBase(base: string) {
 }
 
 function buildFrentesCreate(input: ExecucaoInput, empresaId: string) {
-  return input.frentes.map((frente) => ({
+  return input.frentes.filter((frente) =>
+    Boolean(
+      frente.nome?.trim() ||
+      frente.descricao?.trim() ||
+      frente.unidade?.trim() ||
+      frente.quantidadeExecutada !== null && frente.quantidadeExecutada !== undefined ||
+      frente.receitaRealizada !== null && frente.receitaRealizada !== undefined ||
+      frente.recursos.length
+    )
+  ).map((frente) => ({
     empresaId,
-    nome: frente.nome,
+    nome: clean(frente.nome),
     descricao: clean(frente.descricao),
-    unidade: frente.unidade,
-    quantidadeExecutada: frente.quantidadeExecutada,
-    receitaRealizada: frente.receitaRealizada,
+    unidade: clean(frente.unidade),
+    quantidadeExecutada: frente.quantidadeExecutada ?? null,
+    receitaRealizada: frente.receitaRealizada ?? null,
     recursos: {
       create: frente.recursos.map((recurso) => ({
         empresaId,
@@ -381,9 +390,9 @@ function buildRecursosBoletimCreate(input: BoletimDiarioProducaoInput, empresaId
 function buildExecucaoData(input: ExecucaoInput, empresaId: string) {
   return {
     empresaId,
-    clienteId: input.clienteId,
+    clienteId: input.clienteId || null,
     obraId: input.obraId || null,
-    descricao: input.descricao,
+    descricao: clean(input.descricao),
     origem: input.origem,
     status: input.status,
     dataInicio: input.dataInicio ?? null,
@@ -432,16 +441,16 @@ function extrairResultadoOperacional(resultado: ResultadoNucleoEngenharia): Reco
 export function adaptarExecucaoPersistidaParaEntradaNucleo(execucao: PersistedExecucao): EntradaExecucao {
   return {
     execucaoId: execucao.id,
-    nomeTecnico: execucao.descricao,
+    nomeTecnico: execucao.descricao ?? "Execucao sem descricao",
     metadados: {
       empresaId: execucao.empresaId
     },
     unidades: (execucao.frentes ?? []).map((frente) => ({
       id: frente.id,
-      nome: frente.nome,
+      nome: frente.nome ?? "Frente sem descricao",
       descricaoTecnica: frente.descricao ?? null,
       quantidadeExecutada: toNumber(frente.quantidadeExecutada),
-      unidade: frente.unidade,
+      unidade: frente.unidade ?? "",
       receitaRealizada: toNumber(frente.receitaRealizada),
       recursos: (frente.recursos ?? []).map((recurso) => ({
         id: recurso.id,
@@ -475,17 +484,17 @@ export function adaptarExecucaoComBoletinsParaEntradaNucleo(execucao: PersistedE
 
   return {
     execucaoId: execucao.id,
-    nomeTecnico: execucao.descricao,
+    nomeTecnico: execucao.descricao ?? "Execucao sem descricao",
     metadados: {
       empresaId: execucao.empresaId,
       origemFatos: "BOLETIM_DIARIO"
     },
     unidades: (execucao.frentes ?? []).map((frente) => ({
       id: frente.id,
-      nome: frente.nome,
+      nome: frente.nome ?? "Frente sem descricao",
       descricaoTecnica: frente.descricao ?? null,
       quantidadeExecutada: toNumber(frente.quantidadeExecutada),
-      unidade: frente.unidade,
+      unidade: frente.unidade ?? "",
       receitaRealizada: toNumber(frente.receitaRealizada),
       recursos: (recursosPorFrente.get(frente.id) ?? []).map((recurso) => ({
         id: recurso.id,
@@ -520,6 +529,10 @@ export function gerarSnapshotResultadoExecucao(resultado: ResultadoNucleoEngenha
 export async function gerarResultadoExecucao(db: DbClient, execucao: PersistedExecucao) {
   const entrada = adaptarExecucaoPersistidaParaEntradaNucleo(execucao);
   return gerarResultadoExecucaoDaEntrada(db, execucao.empresaId, execucao.id, entrada);
+}
+
+function canGenerateInitialResult(execucao: PersistedExecucao) {
+  return Boolean((execucao.frentes ?? []).length);
 }
 
 async function gerarResultadoExecucaoDaEntrada(
@@ -565,11 +578,11 @@ export async function criarExecucao(db: DbClient, input: ExecucaoInput) {
     },
     include: execucaoInclude
   }) as PersistedExecucao;
-  const resultado = await gerarResultadoExecucao(db, created);
+  const resultado = canGenerateInitialResult(created) ? await gerarResultadoExecucao(db, created) : null;
 
   return {
     ...created,
-    resultados: [resultado, ...(created.resultados ?? [])]
+    resultados: resultado ? [resultado, ...(created.resultados ?? [])] : (created.resultados ?? [])
   };
 }
 
@@ -645,11 +658,11 @@ export async function atualizarExecucao(db: DbClient, id: string, input: Execuca
     },
     include: execucaoInclude
   }) as PersistedExecucao;
-  const resultado = await gerarResultadoExecucao(db, updated);
+  const resultado = canGenerateInitialResult(updated) ? await gerarResultadoExecucao(db, updated) : null;
 
   return {
     ...updated,
-    resultados: [resultado, ...(updated.resultados ?? [])]
+    resultados: resultado ? [resultado, ...(updated.resultados ?? [])] : (updated.resultados ?? [])
   };
 }
 

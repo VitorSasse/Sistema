@@ -1218,9 +1218,9 @@ model OrcamentoPropostaOpcional {
 model Execucao {
   id                String                    @id @default(uuid())
   empresaId         String
-  clienteId         String
+  clienteId         String?
   obraId            String?
-  descricao         String
+  descricao         String?
   origem            OrigemExecucao            @default(DIRETA)
   status            StatusExecucao            @default(RASCUNHO)
   dataInicio        DateTime?
@@ -1232,7 +1232,7 @@ model Execucao {
   createdAt         DateTime                  @default(now())
   updatedAt         DateTime                  @updatedAt
   empresa           Empresa                   @relation(fields: [empresaId], references: [id])
-  cliente           Cliente                   @relation(fields: [clienteId], references: [id])
+  cliente           Cliente?                  @relation(fields: [clienteId], references: [id])
   obra              Obra?                     @relation(fields: [obraId], references: [id])
   orcamentoOrigem   Orcamento?                @relation("ExecucaoOrcamentoOrigem", fields: [orcamentoOrigemId], references: [id], onDelete: SetNull)
   propostaOrigem    OrcamentoPropostaComercial? @relation("ExecucaoPropostaOrigem", fields: [propostaOrigemId], references: [id], onDelete: SetNull)
@@ -1255,11 +1255,11 @@ model FrenteExecutada {
   id                 String             @id @default(uuid())
   empresaId          String
   execucaoId         String
-  nome               String
+  nome               String?
   descricao          String?
-  unidade            String
-  quantidadeExecutada Decimal           @db.Decimal(14, 4)
-  receitaRealizada   Decimal            @default(0) @db.Decimal(14, 2)
+  unidade            String?
+  quantidadeExecutada Decimal?          @db.Decimal(14, 4)
+  receitaRealizada   Decimal?           @db.Decimal(14, 2)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   empresa            Empresa            @relation(fields: [empresaId], references: [id])

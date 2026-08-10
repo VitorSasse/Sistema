@@ -505,6 +505,30 @@ function runTenant<T>(callback: () => T | Promise<T>) {
 }
 
 describe("service de Execucao e Resultado", () => {
+  it("cria execucao direta incompleta sem dados ficticios", async () => {
+    const { db, calls } = createDbMock();
+    const created = await runTenant(() =>
+      criarExecucao(db as never, {
+        clienteId: null,
+        obraId: null,
+        descricao: "",
+        origem: OrigemExecucao.DIRETA,
+        status: StatusExecucao.EM_ANDAMENTO,
+        frentes: []
+      })
+    );
+
+    expect(created).toMatchObject({
+      empresaId: EMPRESA_ID,
+      clienteId: null,
+      obraId: null,
+      descricao: null,
+      frentes: [],
+      resultados: []
+    });
+    expect(calls.some((call) => call.model === "resultadoExecucao" && call.action === "create")).toBe(false);
+  });
+
   it("cria execucao com frente executada e recurso realizado", async () => {
     const { db } = createDbMock();
     const created = await runTenant(() => criarExecucao(db as never, inputExecucao()));

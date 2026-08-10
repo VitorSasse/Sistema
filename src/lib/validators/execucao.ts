@@ -23,6 +23,19 @@ function numeroDecimal(max = 999999999) {
   );
 }
 
+function numeroDecimalOpcional(max = 999999999) {
+  return z.preprocess(
+    (value) => {
+      if (value === null || value === undefined || value === "") {
+        return null;
+      }
+
+      return parseDecimalInput(value);
+    },
+    z.number().finite().min(0).max(max).nullable().optional()
+  );
+}
+
 function optionalDateOnly() {
   return z.preprocess(
     (value) => (typeof value === "string" && value.trim() ? parseOptionalDateOnlyStart(value) : value || null),
@@ -47,18 +60,26 @@ export const recursoRealizadoSchema = z.object({
 
 export const frenteExecutadaSchema = z.object({
   id: z.string().uuid().optional(),
-  nome: z.string().trim().min(2).max(160),
+  nome: z.string().trim().max(160).optional().or(z.literal("")),
   descricao: z.string().trim().max(700).optional().or(z.literal("")),
-  unidade: z.string().trim().min(1).max(40),
-  quantidadeExecutada: numeroDecimal(999999999),
-  receitaRealizada: numeroDecimal(999999999),
+  unidade: z.string().trim().max(40).optional().or(z.literal("")),
+  quantidadeExecutada: numeroDecimalOpcional(999999999),
+  receitaRealizada: numeroDecimalOpcional(999999999),
   recursos: z.array(recursoRealizadoSchema).default([])
+}).superRefine((frente, ctx) => {
+  if (frente.quantidadeExecutada !== null && frente.quantidadeExecutada !== undefined && !frente.unidade?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["unidade"],
+      message: "Informe a unidade quando houver quantidade executada."
+    });
+  }
 });
 
 export const execucaoSchema = z.object({
-  clienteId: z.string().uuid(),
+  clienteId: optionalUuid(),
   obraId: optionalUuid(),
-  descricao: z.string().trim().min(2).max(240),
+  descricao: z.string().trim().max(240).optional().or(z.literal("")),
   origem: z.nativeEnum(OrigemExecucao).default(OrigemExecucao.DIRETA),
   status: z.nativeEnum(StatusExecucao).default(StatusExecucao.RASCUNHO),
   dataInicio: optionalDateOnly(),
@@ -68,6 +89,36 @@ export const execucaoSchema = z.object({
   propostaOrigemId: optionalUuid(),
   cenarioOrigemId: optionalUuid(),
   frentes: z.array(frenteExecutadaSchema).default([])
+}).superRefine((execucao, ctx) => {
+  if (execucao.origem === OrigemExecucao.DIRETA) {
+    return;
+  }
+
+  if (!execucao.clienteId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["clienteId"],
+      message: "Cliente e obrigatorio para execucao originada de orcamento ou proposta."
+    });
+  }
+
+  if (!execucao.descricao?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["descricao"],
+      message: "Descricao e obrigatoria para execucao originada de orcamento ou proposta."
+    });
+  }
+
+  execucao.frentes.forEach((frente, index) => {
+    if (!frente.nome?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["frentes", index, "nome"],
+        message: "Frente/servico e obrigatorio para execucao originada de orcamento ou proposta."
+      });
+    }
+  });
 });
 
 export type ExecucaoInput = z.infer<typeof execucaoSchema>;
