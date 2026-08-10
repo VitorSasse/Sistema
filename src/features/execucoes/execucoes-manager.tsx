@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { loadOperationalOptions } from "@/lib/client/operational-options";
 
 type ClienteOption = {
   id: string;
@@ -201,6 +202,18 @@ function initialFatosFilter() {
   };
 }
 
+function clienteLabel(cliente: ClienteOption) {
+  return cliente.codigo ? `${cliente.codigo} - ${cliente.nome}` : cliente.nome;
+}
+
+function normalizeClienteOption(item: { id: string; codigo?: string | null; nome?: string | null; nomeFantasia?: string | null }) {
+  return {
+    id: item.id,
+    codigo: item.codigo ?? null,
+    nome: item.nomeFantasia || item.nome || item.codigo || "Cliente sem nome"
+  };
+}
+
 function extractRealizado(selected: Execucao | null) {
   const latest = selected?.resultados?.[0];
   const operacional = latest?.resultadoOperacionalJson?.resultadoOperacional as Record<string, unknown> | undefined;
@@ -236,7 +249,9 @@ export function ExecucoesManager() {
   const [recursoForm, setRecursoForm] = useState(initialRecursoForm);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [optionsError, setOptionsError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [optionsLoading, setOptionsLoading] = useState(false);
 
   const selected = useMemo(
     () => execucoes.find((execucao) => execucao.id === selectedId) ?? execucoes[0] ?? null,
@@ -257,16 +272,9 @@ export function ExecucoesManager() {
   }, [selected]);
   const realizado = useMemo(() => extractRealizado(selected), [selected]);
 
-  async function loadAll(preferSelectedId = selected?.id) {
-    const [execucoesData, opcoesData] = await Promise.all([
-      fetchJson<{ items: Execucao[] }>("/api/execucoes"),
-      fetchJson<{ clientes: ClienteOption[]; obras: ObraOption[]; equipamentos: EquipamentoOption[] }>("/api/opcoes/operacionais")
-    ]);
-
+  async function loadExecucoes(preferSelectedId = selected?.id) {
+    const execucoesData = await fetchJson<{ items: Execucao[] }>("/api/execucoes");
     setExecucoes(execucoesData.items);
-    setClientes(opcoesData.clientes);
-    setObras(opcoesData.obras);
-    setEquipamentos(opcoesData.equipamentos);
 
     const nextSelectedId = preferSelectedId && execucoesData.items.some((item) => item.id === preferSelectedId)
       ? preferSelectedId
@@ -276,6 +284,43 @@ export function ExecucoesManager() {
     if (nextSelectedId) {
       await loadComparativo(nextSelectedId);
     }
+  }
+
+  async function loadOptions() {
+    setOptionsLoading(true);
+    setOptionsError("");
+
+    try {
+      const opcoesData = await loadOperationalOptions();
+      setClientes((opcoesData.clientes ?? []).map(normalizeClienteOption));
+      setObras((opcoesData.obras ?? []).map((obra) => ({
+        id: obra.id,
+        codigo: obra.codigo ?? null,
+        nome: obra.nome || obra.codigo || "Obra sem nome",
+        clienteId: obra.clienteId ?? ""
+      })));
+      setEquipamentos((opcoesData.equipamentos ?? []).map((equipamento) => ({
+        id: equipamento.id,
+        descricao: equipamento.descricao || equipamento.placaOuTag || "Recurso sem descricao",
+        placaOuTag: equipamento.placaOuTag || "-",
+        classeOperacional: equipamento.classeOperacional ?? null,
+        capacidadeM3: equipamento.capacidadeM3 ?? null,
+        unidadeCapacidade: equipamento.unidadeCapacidade ?? null,
+        unidadeEconomicaPadrao: equipamento.unidadeEconomicaPadrao ?? null,
+        custoPadrao: equipamento.custoPadrao ?? null
+      })));
+    } catch (err) {
+      setOptionsError(err instanceof Error ? err.message : "Nao foi possivel carregar clientes, obras e recursos.");
+    } finally {
+      setOptionsLoading(false);
+    }
+  }
+
+  async function loadAll(preferSelectedId = selected?.id) {
+    await Promise.all([
+      loadExecucoes(preferSelectedId),
+      loadOptions()
+    ]);
   }
 
   async function refreshSelected(id = selected?.id) {
@@ -310,7 +355,8 @@ export function ExecucoesManager() {
   }
 
   useEffect(() => {
-    loadAll().catch((err) => setError(err instanceof Error ? err.message : "Falha ao carregar execucoes."));
+    loadExecucoes().catch((err) => setError(err instanceof Error ? err.message : "Falha ao carregar execucoes."));
+    loadOptions().catch((err) => setOptionsError(err instanceof Error ? err.message : "Nao foi possivel carregar clientes, obras e recursos."));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -355,7 +401,8 @@ export function ExecucoesManager() {
       });
       setExecucaoForm(initialExecucaoForm());
       setMessage("Execucao aberta.");
-      await loadAll(data.item.id);
+      await loadExecucoes(data.item.id);
+      loadOptions().catch((err) => setOptionsError(err instanceof Error ? err.message : "Nao foi possivel recarregar clientes, obras e recursos."));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel abrir a execucao.");
     } finally {
@@ -532,6 +579,7 @@ export function ExecucoesManager() {
 
       {message ? <div className="execucoes-alert is-success">{message}</div> : null}
       {error ? <div className="execucoes-alert is-error">{error}</div> : null}
+      {optionsError ? <div className="execucoes-alert is-error">{optionsError}</div> : null}
 
       <section className="execucoes-grid">
         <aside className="execucoes-panel execucoes-list">
@@ -562,14 +610,29 @@ export function ExecucoesManager() {
 
           <form className="execucoes-create-form" onSubmit={handleCreateExecucao}>
             <span className="page-kicker">Nova execucao direta</span>
-            <select value={execucaoForm.clienteId} onChange={(event) => setExecucaoForm((current) => ({ ...current, clienteId: event.target.value, obraId: "" }))} required>
-              <option value="">Cliente</option>
+            <select
+              value={execucaoForm.clienteId}
+              onChange={(event) => setExecucaoForm((current) => ({ ...current, clienteId: event.target.value, obraId: "" }))}
+              required
+              disabled={optionsLoading}
+            >
+              <option value="">{optionsLoading ? "Carregando clientes..." : "Cliente"}</option>
               {clientes.map((cliente) => (
-                <option key={cliente.id} value={cliente.id}>{cliente.codigo ? `${cliente.codigo} - ` : ""}{cliente.nome}</option>
+                <option key={cliente.id} value={cliente.id}>{clienteLabel(cliente)}</option>
               ))}
             </select>
-            <select value={execucaoForm.obraId} onChange={(event) => setExecucaoForm((current) => ({ ...current, obraId: event.target.value }))}>
-              <option value="">Obra opcional</option>
+            <select
+              value={execucaoForm.obraId}
+              onChange={(event) => setExecucaoForm((current) => ({ ...current, obraId: event.target.value }))}
+              disabled={optionsLoading || !execucaoForm.clienteId}
+            >
+              <option value="">
+                {!execucaoForm.clienteId
+                  ? "Selecione um cliente para listar obras"
+                  : optionsLoading
+                    ? "Carregando obras..."
+                    : "Obra opcional"}
+              </option>
               {obrasFiltradas.map((obra) => (
                 <option key={obra.id} value={obra.id}>{obra.codigo ? `${obra.codigo} - ` : ""}{obra.nome}</option>
               ))}
