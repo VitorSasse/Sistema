@@ -851,6 +851,155 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
     );
   });
 
+  it("usa jornada diaria personalizada em Orcamento e Execucao sem criar regra propria", () => {
+    const entradaOrcamento = adaptarOrcamentoParaEntradaNucleo({
+      id: "orc-horas-dia-personalizado",
+      titulo: "Orcamento horas por diaria personalizada",
+      frentes: [
+        {
+          tempId: "frente-horas",
+          natureza: "OPERACIONAL",
+          nome: "Horas executadas",
+          unidadeProducao: "h",
+          quantidadePrevista: 4.47,
+          modoCusto: "AUTO"
+        }
+      ],
+      itens: [
+        {
+          tempId: "orc-recurso-esc-150",
+          frenteTempId: "frente-horas",
+          tipoItem: "RECURSO",
+          categoriaRecurso: "EQUIPAMENTO",
+          descricao: "ESC 150 I - HYUNDAI",
+          recursoNome: "ESC 150 I - HYUNDAI",
+          recursoReferenciaId: "eq-esc-150",
+          quantidade: 1,
+          quantidadeOperacional: 4.47,
+          origemQuantidadeOperacional: "PERSONALIZADA",
+          unidadeQuantidadeOperacional: "h",
+          unidade: "R$/dia",
+          tipoCalculoRecurso: "AUTOMATICO",
+          unidadeEconomicaCusto: "DIA",
+          valorCusto: 950,
+          horasDia: 10
+        }
+      ]
+    });
+    const entradaExecucao = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: "exec-horas-dia-personalizado",
+      nomeTecnico: "Execucao horas por diaria personalizada",
+      unidades: [
+        {
+          id: "frente-horas",
+          nome: "Horas executadas",
+          quantidadeExecutada: 4.47,
+          unidade: "h",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: "exec-recurso-esc-150",
+              recursoId: "eq-esc-150",
+              nome: "ESC 150 I - HYUNDAI",
+              quantidadeRealizada: 4.47,
+              unidadeRealizada: "h",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                categoria: "EQUIPAMENTO",
+                baseEconomica: "DIA",
+                valorCusto: 950,
+                unidadeCusto: "R$/dia",
+                quantidadeOperacional: 4.47,
+                unidadeQuantidadeOperacional: "h",
+                horasDia: 10,
+                metadados: {
+                  jornadaPadraoOriginal: 8,
+                  jornadaUtilizada: 10,
+                  origemJornada: "PERSONALIZADA_EXECUCAO"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    });
+
+    const resultadoOrcamento = executarNucleoComMotorAtual(entradaOrcamento);
+    const resultadoExecucao = executarNucleoComMotorAtual(entradaExecucao);
+
+    expect(resultadoOrcamento.unidades[0]?.recursos[0]?.horasDia).toBe(10);
+    expect(resultadoExecucao.unidades[0]?.recursos[0]?.horasDia).toBe(10);
+    expect(resultadoOrcamento.consolidado.custoOperacionalTotal).toBe(424.65);
+    expect(resultadoExecucao.consolidado.custoOperacionalTotal).toBe(424.65);
+    expect(resultadoExecucao.consolidado.custoOperacionalTotal).toBe(
+      resultadoOrcamento.consolidado.custoOperacionalTotal
+    );
+  });
+
+  it("nao deixa jornada diaria alterar recurso com base economica por hora", () => {
+    const entradaBase = {
+      execucaoId: "exec-hora",
+      nomeTecnico: "Execucao por hora",
+      unidades: [
+        {
+          id: "frente-horas",
+          nome: "Horas executadas",
+          quantidadeExecutada: 4.47,
+          unidade: "h",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: "exec-recurso-hora",
+              recursoId: "eq-hora",
+              nome: "Recurso por hora",
+              quantidadeRealizada: 4.47,
+              unidadeRealizada: "h",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                categoria: "EQUIPAMENTO",
+                baseEconomica: "HORA" as const,
+                valorCusto: 100,
+                unidadeCusto: "R$/h",
+                quantidadeOperacional: 4.47,
+                unidadeQuantidadeOperacional: "h"
+              }
+            }
+          ]
+        }
+      ]
+    };
+    const resultadoPadrao = executarNucleoComMotorAtual(adaptarExecucaoParaEntradaNucleo({
+      ...entradaBase,
+      unidades: entradaBase.unidades.map((unidade) => ({
+        ...unidade,
+        recursos: unidade.recursos.map((recurso) => ({
+          ...recurso,
+          snapshotTecnicoEconomico: {
+            ...recurso.snapshotTecnicoEconomico,
+            horasDia: 8
+          }
+        }))
+      }))
+    }));
+    const resultadoPersonalizado = executarNucleoComMotorAtual(adaptarExecucaoParaEntradaNucleo({
+      ...entradaBase,
+      unidades: entradaBase.unidades.map((unidade) => ({
+        ...unidade,
+        recursos: unidade.recursos.map((recurso) => ({
+          ...recurso,
+          snapshotTecnicoEconomico: {
+            ...recurso.snapshotTecnicoEconomico,
+            horasDia: 10
+          }
+        }))
+      }))
+    }));
+
+    expect(resultadoPadrao.consolidado.custoOperacionalTotal).toBe(447);
+    expect(resultadoPersonalizado.consolidado.custoOperacionalTotal).toBe(447);
+    expect(resultadoPersonalizado.consolidado.custoOperacionalTotal).toBe(resultadoPadrao.consolidado.custoOperacionalTotal);
+  });
+
   it("nao calcula margem percentual quando receita e zero", () => {
     const entrada = adaptarExecucaoParaEntradaNucleo(
       entradaExecucaoPiloto({

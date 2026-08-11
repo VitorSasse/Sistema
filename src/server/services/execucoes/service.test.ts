@@ -1151,6 +1151,94 @@ describe("service de Execucao e Resultado", () => {
     });
   });
 
+  it("mantem fato vinculado fora da elegibilidade e mostra novo lancamento posterior como disponivel", async () => {
+    const { db, records } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+    await runTenant(() =>
+      vincularFatosOperacionaisExecucao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        frenteExecutadaId: FRENTE_ID,
+        fatosIds: ["99999999-9999-4999-8999-999999999999"]
+      })
+    );
+    records.lancamentos.push({
+      ...(records.lancamentos[0] as Record<string, unknown>),
+      id: "88888888-8888-4888-8888-888888888888",
+      data: new Date("2026-08-06T00:00:00.000Z"),
+      ficha: { numero: "4101" },
+      quantidadeApontada: 9,
+      quantidadeFaturada: 9
+    });
+
+    const fatos = await runTenant(() =>
+      listarFatosOperacionaisExistentes(db as never, {
+        execucaoId: EXECUCAO_ID,
+        obraId: OBRA_ID,
+        dataInicio: "2026-08-06",
+        dataFim: "2026-08-06"
+      })
+    );
+
+    expect(fatos).toHaveLength(2);
+    expect(fatos.find((fato) => fato.id === "99999999-9999-4999-8999-999999999999")).toMatchObject({
+      statusVinculo: "VINCULADO"
+    });
+    expect(fatos.find((fato) => fato.id === "88888888-8888-4888-8888-888888888888")).toMatchObject({
+      statusVinculo: "DISPONIVEL",
+      quantidade: 9
+    });
+  });
+
+  it("reutiliza boletim aberto da mesma data ao vincular novo lancamento", async () => {
+    const { db, records } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+    await runTenant(() =>
+      criarBoletimDiarioProducao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        dataBoletim: new Date("2026-08-06T00:00:00.000Z"),
+        recursos: []
+      })
+    );
+
+    await runTenant(() =>
+      vincularFatosOperacionaisExecucao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        frenteExecutadaId: FRENTE_ID,
+        fatosIds: ["99999999-9999-4999-8999-999999999999"]
+      })
+    );
+
+    expect(records.boletins).toHaveLength(1);
+    expect(records.recursosBoletim[0]).toMatchObject({
+      boletimId: "boletim-1",
+      origemRegistroId: "99999999-9999-4999-8999-999999999999"
+    });
+  });
+
+  it("bloqueia vinculo quando a data do lancamento possui boletim fechado", async () => {
+    const { db, records } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+    await runTenant(() =>
+      criarBoletimDiarioProducao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        dataBoletim: new Date("2026-08-06T00:00:00.000Z"),
+        recursos: []
+      })
+    );
+    records.boletins[0].status = StatusBoletimDiarioProducao.FECHADO;
+
+    await expect(
+      runTenant(() =>
+        vincularFatosOperacionaisExecucao(db as never, {
+          execucaoId: EXECUCAO_ID,
+          frenteExecutadaId: FRENTE_ID,
+          fatosIds: ["99999999-9999-4999-8999-999999999999"]
+        })
+      )
+    ).rejects.toThrow("BOLETIM_DIARIO_FECHADO_NAO_PERMITE_ALTERACAO");
+    expect(records.recursosBoletim).toHaveLength(0);
+  });
+
   it("atualiza configuracao economica do recurso vinculado sem alterar o fato original", async () => {
     const { db, records, calls } = createDbMock();
     await runTenant(() => criarExecucao(db as never, inputExecucao()));

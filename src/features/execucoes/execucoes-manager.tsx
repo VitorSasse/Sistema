@@ -132,6 +132,7 @@ type Comparativo = {
 
 const unidades = ["m3", "m2", "h", "dia", "diaria", "carga", "viagem", "km", "mes", "un"];
 const basesEconomicas = ["CARGA", "VIAGEM", "HORA", "DIA", "KM", "M3", "M2", "MES", "UNIDADE", "CUSTO_FIXO"];
+const JORNADA_PADRAO_EXECUCAO_HORAS_DIA = 8;
 
 function todayInput() {
   return new Date().toISOString().slice(0, 10);
@@ -255,6 +256,7 @@ function initialEconomicForm(recurso?: RecursoBoletim | null) {
     quilometrosTotais: snapshot.quilometrosTotais === undefined ? "" : String(snapshot.quilometrosTotais),
     viagensTotais: snapshot.viagensTotais === undefined ? "" : String(snapshot.viagensTotais),
     cargasTotais: snapshot.cargasTotais === undefined ? "" : String(snapshot.cargasTotais),
+    horasDia: snapshot.horasDia === undefined ? String(JORNADA_PADRAO_EXECUCAO_HORAS_DIA) : String(snapshot.horasDia),
     horasTotais: snapshot.horasTotais === undefined ? "" : String(snapshot.horasTotais),
     mesesTotais: snapshot.mesesTotais === undefined ? "" : String(snapshot.mesesTotais),
     motivoPersonalizacao: String(metadados.motivoPersonalizacao ?? ""),
@@ -374,6 +376,9 @@ function buildEconomicSnapshot(form: ReturnType<typeof initialEconomicForm>, pre
   const metadados = (existing.metadados as Record<string, unknown> | undefined) ?? {};
   const distanciaViagemKm = distanciaCicloKm(form);
   const valorCusto = toNumber(form.valorCusto);
+  const horasDia = optionalNumber(form.horasDia) ?? JORNADA_PADRAO_EXECUCAO_HORAS_DIA;
+  const jornadaPadraoOriginal = toNumber(metadados.jornadaPadraoOriginal) || JORNADA_PADRAO_EXECUCAO_HORAS_DIA;
+  const origemJornada = horasDia === jornadaPadraoOriginal ? "PADRAO" : "PERSONALIZADA_EXECUCAO";
   const possuiPendenciaReal =
     valorCusto <= 0 ||
     (form.baseEconomica === "KM" && distanciaViagemKm <= 0 && toNumber(form.quilometrosTotais) <= 0);
@@ -401,6 +406,7 @@ function buildEconomicSnapshot(form: ReturnType<typeof initialEconomicForm>, pre
     quilometrosTotais: optionalNumber(form.quilometrosTotais),
     viagensTotais: optionalNumber(form.viagensTotais),
     cargasTotais: optionalNumber(form.cargasTotais),
+    horasDia,
     horasTotais: optionalNumber(form.horasTotais),
     mesesTotais: optionalNumber(form.mesesTotais),
     metadados: {
@@ -410,6 +416,9 @@ function buildEconomicSnapshot(form: ReturnType<typeof initialEconomicForm>, pre
       valorBibliotecaOriginal: optionalNumber(form.valorBibliotecaOriginal) ?? null,
       valorCustoUtilizado: valorCusto,
       motivoPersonalizacao: form.motivoPersonalizacao || null,
+      jornadaPadraoOriginal,
+      jornadaUtilizada: horasDia,
+      origemJornada,
       distanciaIdaKm: optionalNumber(form.distanciaIdaKm) ?? null,
       distanciaVoltaKm: optionalNumber(form.distanciaVoltaKm) ?? null,
       materialIdentificado: Boolean(form.materialDescricao),
@@ -462,6 +471,25 @@ function countPendingEconomicResources(boletins: Boletim[]) {
   }, 0);
 }
 
+function findResultadoRecurso(recurso: RecursoBoletim, recursosCalculados: Array<Record<string, unknown>>) {
+  return recursosCalculados.find((calculado) => String(calculado.id ?? "") === recurso.id)
+    ?? recursosCalculados.find((calculado) => (
+      String(calculado.referenciaTecnicaId ?? "") === String(recurso.recursoId ?? "") &&
+      String(calculado.nomeTecnico ?? "") === recurso.nomeSnapshot
+    ))
+    ?? null;
+}
+
+function dateKey(value: string | Date | null | undefined) {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function boletimStatusByDate(boletins: Boletim[]) {
+  return new Map(boletins.map((boletim) => [dateKey(boletim.dataBoletim), boletim.status]));
+}
+
 export function ExecucoesManager() {
   const [execucoes, setExecucoes] = useState<Execucao[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -472,6 +500,7 @@ export function ExecucoesManager() {
   const [comparativo, setComparativo] = useState<Comparativo | null>(null);
   const [fatos, setFatos] = useState<FatoOperacional[]>([]);
   const [selectedFatos, setSelectedFatos] = useState<string[]>([]);
+  const [fatosPanelOpen, setFatosPanelOpen] = useState(false);
   const [fatosFilter, setFatosFilter] = useState(initialFatosFilter);
   const [execucaoForm, setExecucaoForm] = useState(initialExecucaoForm);
   const [headerForm, setHeaderForm] = useState(initialExecucaoForm);
@@ -492,13 +521,20 @@ export function ExecucoesManager() {
   );
   const boletins = selected?.boletins ?? [];
   const selectedBoletim = boletins.find((boletim) => boletim.id === selectedBoletimId) ?? boletins[0] ?? null;
+  const statusBoletimPorData = useMemo(() => boletimStatusByDate(boletins), [boletins]);
   const fatosDisponiveis = fatos.filter((fato) => fato.statusVinculo === "DISPONIVEL");
+  const fatosComBoletimFechado = fatosDisponiveis.filter((fato) => statusBoletimPorData.get(dateKey(fato.data)) === "FECHADO");
+  const fatosVinculaveis = fatosDisponiveis.filter((fato) => statusBoletimPorData.get(dateKey(fato.data)) !== "FECHADO");
   const recursoEmEdicao = selectedBoletim?.recursos.find((recurso) => recurso.id === editingRecursoId) ?? null;
   const economicBase = economicForm.baseEconomica;
   const showDistanceFields = economicBase === "KM";
   const showMaterialFields = economicForm.componenteEconomico === "MATERIAL" || Boolean(economicForm.materialDescricao);
   const isBibliotecaCost = economicForm.origemCusto === "BIBLIOTECA_RECURSOS";
   const isPersonalizedCost = economicForm.origemCusto === "PERSONALIZADO_EXECUCAO" || economicForm.origemCusto === "RECURSO_PROVISORIO" || economicForm.origemCusto === "PENDENTE";
+  const showJornadaDiaria = economicBase === "DIA" && (
+    economicForm.unidadeRealizada.toLowerCase().startsWith("h") ||
+    economicForm.unidadeQuantidadeOperacional.toLowerCase().startsWith("h")
+  );
   const distanciaCiclo = distanciaCicloKm(economicForm);
   const possuiQuantidadeServico = hasQuantidadeServico(selected);
   const possuiBoletimAbertoComRecursos = boletins.some((boletim) => boletim.status === "ABERTO" && boletim.recursos.length > 0);
@@ -539,6 +575,7 @@ export function ExecucoesManager() {
     };
   }, [selected]);
   const realizado = useMemo(() => extractRealizado(selected), [selected]);
+  const resultadoRecursoEmEdicao = recursoEmEdicao ? findResultadoRecurso(recursoEmEdicao, realizado.recursos) : null;
 
   async function loadExecucoes(preferSelectedId = selected?.id) {
     const execucoesData = await fetchJson<{ items: Execucao[] }>("/api/execucoes");
@@ -620,6 +657,7 @@ export function ExecucoesManager() {
     const data = await fetchJson<{ items: FatoOperacional[] }>(`/api/execucoes/fatos?${params.toString()}`);
     setFatos(data.items);
     setSelectedFatos((current) => current.filter((id) => data.items.some((item) => item.id === id && item.statusVinculo === "DISPONIVEL")));
+    setFatosPanelOpen(data.items.some((item) => item.statusVinculo === "DISPONIVEL"));
   }
 
   useEffect(() => {
@@ -895,7 +933,8 @@ export function ExecucoesManager() {
   }
 
   async function handleVincularFatos() {
-    if (!selected || !recursoForm.frenteExecutadaId || !selectedFatos.length) return;
+    const fatosParaVincular = selectedFatos.filter((id) => fatosVinculaveis.some((fato) => fato.id === id));
+    if (!selected || !recursoForm.frenteExecutadaId || !fatosParaVincular.length) return;
     setLoading(true);
     setError("");
     setMessage("");
@@ -905,12 +944,13 @@ export function ExecucoesManager() {
         method: "POST",
         body: JSON.stringify({
           frenteExecutadaId: recursoForm.frenteExecutadaId,
-          fatosIds: selectedFatos
+          fatosIds: fatosParaVincular
         })
       });
       const nextBoletimId = data.items[0]?.boletimId ?? "";
       setMessage(`${data.items.length} fato(s) vinculado(s) aos boletins da execucao.`);
       setSelectedFatos([]);
+      setFatosPanelOpen(false);
       await refreshSelected(selected.id);
       if (nextBoletimId) setSelectedBoletimId(nextBoletimId);
       await loadFatos();
@@ -1180,13 +1220,20 @@ export function ExecucoesManager() {
           <section className="execucoes-panel">
             <div className="execucoes-panel-heading is-row">
               <div>
-                <span className="page-kicker">Fatos encontrados</span>
-                <strong>Vincular lancamentos existentes</strong>
-                <p>Selecione fatos ja registrados na BasePro. A correcao do dado deve ocorrer no lancamento original.</p>
+                <span className="page-kicker">Lancamentos elegiveis</span>
+                <strong>{fatosDisponiveis.length ? `${fatosDisponiveis.length} novo(s) lancamento(s) encontrado(s)` : "Nenhum novo lancamento elegivel"}</strong>
+                <p>Mostra apenas fatos ainda nao vinculados a esta Execucao. Os fatos ja usados ficam nos boletins.</p>
               </div>
-              <button className="button-secondary" type="button" disabled={!selected || loading} onClick={() => loadFatos().catch((err) => setError(err instanceof Error ? err.message : "Falha ao buscar fatos."))}>
-                Buscar fatos
-              </button>
+              <div className="section-row-actions">
+                <button className="button-secondary" type="button" disabled={!selected || loading} onClick={() => loadFatos().catch((err) => setError(err instanceof Error ? err.message : "Falha ao buscar lancamentos elegiveis."))}>
+                  Atualizar elegiveis
+                </button>
+                {fatosDisponiveis.length ? (
+                  <button className="button-secondary" type="button" disabled={loading} onClick={() => setFatosPanelOpen((current) => !current)}>
+                    {fatosPanelOpen ? "Ocultar" : "Visualizar"}
+                  </button>
+                ) : null}
+              </div>
             </div>
             <div className="execucoes-resource-form">
               <div className="execucoes-inline">
@@ -1209,7 +1256,7 @@ export function ExecucoesManager() {
                 <select value={recursoForm.frenteExecutadaId} onChange={(event) => setRecursoForm((current) => ({ ...current, frenteExecutadaId: event.target.value }))}>
                   {(selected?.frentes ?? []).map((frente) => <option key={frente.id} value={frente.id}>Destino: {frente.nome || "Frente sem descricao"}</option>)}
                 </select>
-                <button className="button-secondary" type="button" disabled={!fatosDisponiveis.length || loading} onClick={() => setSelectedFatos(fatosDisponiveis.map((fato) => fato.id))}>
+                <button className="button-secondary" type="button" disabled={!fatosVinculaveis.length || loading} onClick={() => setSelectedFatos(fatosVinculaveis.map((fato) => fato.id))}>
                   Selecionar todos
                 </button>
                 <button className="button-secondary" type="button" disabled={!selectedFatos.length || loading} onClick={() => setSelectedFatos([])}>
@@ -1220,56 +1267,68 @@ export function ExecucoesManager() {
                 </button>
               </div>
             </div>
-            <div className="data-table-wrap">
-              <table className="data-table data-table-compact">
-                <thead>
-                  <tr>
-                    <th>Data</th>
-                    <th>Origem</th>
-                    <th>Recurso</th>
-                    <th>Identificador</th>
-                    <th>Qtd</th>
-                    <th>Un</th>
-                    <th>Material</th>
-                    <th>Obra</th>
-                    <th>Status</th>
-                    <th>Selecionar</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {fatos.map((fato) => (
-                    <tr key={fato.id}>
-                      <td>{new Date(fato.data).toLocaleDateString("pt-BR", { timeZone: "UTC" })}</td>
-                      <td>{fato.origemLabel}</td>
-                      <td>{fato.recurso}</td>
-                      <td>{fato.identificadorRecurso}</td>
-                      <td>{number(fato.quantidade)}</td>
-                      <td>{fato.unidade}</td>
-                      <td>{fato.materialDescricao ? `${fato.materialCodigo ? `${fato.materialCodigo} - ` : ""}${fato.materialDescricao}` : "-"}</td>
-                      <td>{fato.obra}</td>
-                      <td>{fato.statusVinculo}{fato.custoDisponivel ? "" : " / CUSTO PENDENTE"}</td>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selectedFatos.includes(fato.id)}
-                          disabled={fato.statusVinculo === "VINCULADO"}
-                          onChange={(event) => {
-                            setSelectedFatos((current) => event.target.checked
-                              ? [...current, fato.id]
-                              : current.filter((id) => id !== fato.id));
-                          }}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                  {!fatos.length ? (
+            {fatosDisponiveis.length ? (
+              <div className="execucoes-economics-note">
+                {fatosVinculaveis.length} lancamento(s) pronto(s) para vinculo.
+                {fatosComBoletimFechado.length ? ` ${fatosComBoletimFechado.length} lancamento(s) pertencem a data com boletim fechado e exigem tratamento explicito.` : ""}
+              </div>
+            ) : (
+              <div className="execucoes-economics-note">
+                Todos os lancamentos encontrados ja foram vinculados, ou nao ha novos lancamentos elegiveis para os filtros atuais.
+              </div>
+            )}
+            {fatosPanelOpen && fatosDisponiveis.length ? (
+              <div className="data-table-wrap">
+                <table className="data-table data-table-compact">
+                  <thead>
                     <tr>
-                      <td colSpan={10}>Nenhum fato encontrado para os filtros atuais.</td>
+                      <th>Data</th>
+                      <th>Origem</th>
+                      <th>Recurso</th>
+                      <th>Identificador</th>
+                      <th>Qtd</th>
+                      <th>Un</th>
+                      <th>Material</th>
+                      <th>Obra</th>
+                      <th>Status</th>
+                      <th>Selecionar</th>
                     </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {fatosDisponiveis.map((fato) => {
+                      const boletimStatus = statusBoletimPorData.get(dateKey(fato.data));
+                      const bloqueadoPorBoletimFechado = boletimStatus === "FECHADO";
+
+                      return (
+                        <tr key={fato.id}>
+                          <td>{new Date(fato.data).toLocaleDateString("pt-BR", { timeZone: "UTC" })}</td>
+                          <td>{fato.origemLabel}</td>
+                          <td>{fato.recurso}</td>
+                          <td>{fato.identificadorRecurso}</td>
+                          <td>{number(fato.quantidade)}</td>
+                          <td>{fato.unidade}</td>
+                          <td>{fato.materialDescricao ? `${fato.materialCodigo ? `${fato.materialCodigo} - ` : ""}${fato.materialDescricao}` : "-"}</td>
+                          <td>{fato.obra}</td>
+                          <td>{bloqueadoPorBoletimFechado ? "BOLETIM FECHADO" : fato.custoDisponivel ? "ELEGIVEL" : "ELEGIVEL / CUSTO PENDENTE"}</td>
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selectedFatos.includes(fato.id)}
+                              disabled={bloqueadoPorBoletimFechado}
+                              onChange={(event) => {
+                                setSelectedFatos((current) => event.target.checked
+                                  ? [...current, fato.id]
+                                  : current.filter((id) => id !== fato.id));
+                              }}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
           </section>
 
           <section className="execucoes-panel">
@@ -1288,41 +1347,44 @@ export function ExecucoesManager() {
                     <th>Material</th>
                     <th>Base</th>
                     <th>Custo</th>
+                    <th>Custo realizado</th>
                     <th>Origem custo</th>
                     <th>Status economico</th>
-                    <th>Referencia</th>
                     <th>Observacoes</th>
                     <th>Acoes</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(selectedBoletim?.recursos ?? []).map((recurso) => (
-                    <tr key={recurso.id}>
-                      <td>{recurso.origem}{recurso.editavel === false ? " / Fato existente" : " / Manual"}</td>
-                      <td>{recurso.nomeSnapshot}</td>
-                      <td>{number(recurso.quantidadeRealizada)}</td>
-                      <td>{recurso.unidadeRealizada}</td>
-                      <td>{String(recurso.snapshotTecnicoEconomico?.materialDescricao ?? "-")}</td>
-                      <td>{String(recurso.snapshotTecnicoEconomico?.baseEconomica ?? "-")}</td>
-                      <td>{money(toNumber(recurso.snapshotTecnicoEconomico?.valorCusto))} {String(recurso.snapshotTecnicoEconomico?.unidadeCusto ?? "")}</td>
-                      <td>{economicOriginLabel(recurso)}</td>
-                      <td>{economicStatus(recurso)}{economicPendingReason(recurso) === "ok" ? "" : ` / ${economicPendingReason(recurso)}`}</td>
-                      <td>{recurso.origemRegistroTipo ? `${recurso.origemRegistroTipo} ${recurso.origemRegistroId}` : "-"}</td>
-                      <td>{recurso.observacao || "-"}</td>
-                      <td>
-                        {selectedBoletim?.status === "ABERTO" ? (
-                          <div className="execucoes-action-stack">
-                            <button className="button-secondary" type="button" disabled={loading} onClick={() => setEditingRecursoId(recurso.id)}>
-                              {economicStatus(recurso) === "CUSTO PENDENTE" ? "Configurar custo" : "Editar custo"}
-                            </button>
-                            <button className="button-secondary" type="button" disabled={loading} onClick={() => handleDesvincularRecurso(recurso.id)}>
-                              Desvincular
-                            </button>
-                          </div>
-                        ) : "-"}
-                      </td>
-                    </tr>
-                  ))}
+                  {(selectedBoletim?.recursos ?? []).map((recurso) => {
+                    const resultadoRecurso = findResultadoRecurso(recurso, realizado.recursos);
+                    return (
+                      <tr key={recurso.id}>
+                        <td>{recurso.origem}{recurso.editavel === false ? " / Fato existente" : " / Manual"}</td>
+                        <td title={recurso.origemRegistroTipo ? `${recurso.origemRegistroTipo} ${recurso.origemRegistroId}` : recurso.recursoId ?? undefined}>{recurso.nomeSnapshot}</td>
+                        <td>{number(recurso.quantidadeRealizada)}</td>
+                        <td>{recurso.unidadeRealizada}</td>
+                        <td>{String(recurso.snapshotTecnicoEconomico?.materialDescricao ?? "-")}</td>
+                        <td>{String(recurso.snapshotTecnicoEconomico?.baseEconomica ?? "-")}</td>
+                        <td>{money(toNumber(recurso.snapshotTecnicoEconomico?.valorCusto))} {String(recurso.snapshotTecnicoEconomico?.unidadeCusto ?? "")}</td>
+                        <td>{resultadoRecurso ? money(toNumber(resultadoRecurso.custoTotal)) : "-"}</td>
+                        <td>{economicOriginLabel(recurso)}</td>
+                        <td>{economicStatus(recurso)}{economicPendingReason(recurso) === "ok" ? "" : ` / ${economicPendingReason(recurso)}`}</td>
+                        <td>{recurso.observacao || "-"}</td>
+                        <td>
+                          {selectedBoletim?.status === "ABERTO" ? (
+                            <div className="execucoes-action-stack">
+                              <button className="button-secondary" type="button" disabled={loading} onClick={() => setEditingRecursoId(recurso.id)}>
+                                {economicStatus(recurso) === "CUSTO PENDENTE" ? "Configurar custo" : "Editar custo"}
+                              </button>
+                              <button className="button-secondary" type="button" disabled={loading} onClick={() => handleDesvincularRecurso(recurso.id)}>
+                                Desvincular
+                              </button>
+                            </div>
+                          ) : "-"}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1418,9 +1480,33 @@ export function ExecucoesManager() {
                     </div>
                   </div>
                 ) : null}
-                {economicBase === "DIA" && economicForm.unidadeRealizada.toLowerCase().startsWith("h") ? (
-                  <div className="execucoes-economics-note">
-                    Conversao de horas para diaria feita pelo Motor com a jornada diaria homologada do Orcamento.
+                {showJornadaDiaria ? (
+                  <div className="execucoes-economics-dynamic">
+                    <div className="execucoes-inline">
+                      <label>
+                        <span>Jornada diaria</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          placeholder={`${JORNADA_PADRAO_EXECUCAO_HORAS_DIA} h/dia`}
+                          value={economicForm.horasDia}
+                          onChange={(event) => setEconomicForm((current) => ({ ...current, horasDia: event.target.value }))}
+                        />
+                      </label>
+                      <Info
+                        label="Origem da jornada"
+                        value={toNumber(economicForm.horasDia) === JORNADA_PADRAO_EXECUCAO_HORAS_DIA ? "Padrao" : "Personalizada na execucao"}
+                      />
+                    </div>
+                    <div className="execucoes-economics-summary">
+                      <Info label="Quantidade realizada" value={number(economicForm.quantidadeRealizada, ` ${economicForm.unidadeRealizada}`)} />
+                      <Info label="Custo unitario" value={economicForm.valorCusto ? `${money(toNumber(economicForm.valorCusto))}/dia` : "Pendente"} />
+                      <Info label="Custo realizado" value={resultadoRecursoEmEdicao ? money(toNumber(resultadoRecursoEmEdicao.custoTotal)) : "Calcule pelo Nucleo"} />
+                    </div>
+                    <div className="execucoes-economics-note">
+                      A UI envia quantidade, unidade, custo diario e jornada diaria. O Nucleo interpreta e calcula o custo realizado.
+                    </div>
                   </div>
                 ) : null}
                 {economicBase === "CARGA" || economicBase === "VIAGEM" ? (
