@@ -11,6 +11,7 @@ import type {
   RecursoOperacionalNucleoInput,
   ResultadoNucleoEngenharia,
   ResultadoRecursoOperacionalNucleo,
+  StatusCalculoRecursoNucleo,
   ResultadoUnidadeOperacionalNucleo
 } from "./contracts";
 import { calcularResultadoEconomicoNucleo } from "./economic-composition";
@@ -162,6 +163,78 @@ function componenteResumo(recurso: ResultadoRecursoOperacionalNucleo) {
   };
 }
 
+function componenteStatusNaoRetornado(recursoEntrada: RecursoOperacionalNucleoInput): StatusCalculoRecursoNucleo {
+  const statusEconomico = recursoEntrada.metadados?.statusEconomico;
+  if (statusEconomico === "SEM_CUSTO") return "SEM_CUSTO";
+  if (statusEconomico === "NAO_INFORMADO") return "NAO_INFORMADO";
+  return "PENDENTE";
+}
+
+function mapRecursoNaoRetornado(recursoEntrada: RecursoOperacionalNucleoInput): ResultadoRecursoOperacionalNucleo {
+  const id = recursoEntrada.id ?? metadadoString(recursoEntrada, "recursoRealizadoId") ?? "recurso-sem-id";
+  const recursoRealizadoId = metadadoString(recursoEntrada, "recursoRealizadoId") ?? id;
+  const recursoBoletimId = metadadoString(recursoEntrada, "recursoBoletimId") ?? recursoRealizadoId;
+  const statusCalculo = componenteStatusNaoRetornado(recursoEntrada);
+  const componenteEconomico = metadadoString(recursoEntrada, "componenteEconomico");
+  const observacao = statusCalculo === "SEM_CUSTO"
+    ? "Componente sem custo econômico aplicável."
+    : "Componente enviado ao Núcleo, mas não retornou custo calculado pelo Motor.";
+
+  return {
+    id,
+    recursoRealizadoId,
+    recursoBoletimId,
+    origemRegistroTipo: metadadoString(recursoEntrada, "origemRegistroTipo"),
+    origemRegistroId: metadadoString(recursoEntrada, "origemRegistroId"),
+    componenteEconomico,
+    unidadeOperacionalId: recursoEntrada.unidadeOperacionalId,
+    referenciaTecnicaId: recursoEntrada.referenciaTecnicaId ?? null,
+    nomeTecnico: recursoEntrada.nomeTecnico ?? "Recurso",
+    categoria: recursoEntrada.categoria ?? "RECURSO",
+    quantidadeRecursos: Number(recursoEntrada.quantidadeRecursos ?? 0),
+    quantidadeOperacional: Number(recursoEntrada.quantidadeOperacional ?? 0),
+    origemQuantidadeOperacional: recursoEntrada.origemQuantidadeOperacional ?? "PERSONALIZADA",
+    unidadeQuantidadeOperacional: recursoEntrada.unidadeQuantidadeOperacional ?? "",
+    custoUnitario: Number(recursoEntrada.custoUnitario ?? recursoEntrada.valorCusto ?? 0),
+    unidadeCustoOriginal: recursoEntrada.unidadeCusto ?? "",
+    unidadeCustoFormatada: recursoEntrada.unidadeCusto ?? "",
+    tipoCalculo: recursoEntrada.tipoCalculo ?? "AUTOMATICO",
+    baseEconomica: recursoEntrada.baseEconomica ?? "UNIDADE",
+    horasDia: Number(recursoEntrada.horasDia ?? 0),
+    horasTotais: Number(recursoEntrada.horasTotais ?? 0),
+    viagensDia: Number(recursoEntrada.viagensDia ?? 0),
+    viagensTotais: Number(recursoEntrada.viagensTotais ?? 0),
+    distanciaViagemKm: Number(recursoEntrada.distanciaViagemKm ?? 0),
+    quilometrosTotais: Number(recursoEntrada.quilometrosTotais ?? 0),
+    capacidadePorViagem: Number(recursoEntrada.capacidadePorViagem ?? 0),
+    unidadeCapacidade: recursoEntrada.unidadeCapacidade ?? "",
+    viagensTeoricas: 0,
+    viagensOperacionais: 0,
+    custoPorViagem: 0,
+    viagensMediasPorRecurso: 0,
+    demandaLogisticaCalculavel: false,
+    prazoUtilizadoDemanda: 0,
+    volumeDiarioExigidoFrota: 0,
+    volumeDiarioExigidoPorRecurso: 0,
+    viagensPorDiaFrota: 0,
+    viagensPorRecursoPorDia: 0,
+    cargasTotais: Number(recursoEntrada.cargasTotais ?? 0),
+    mesesTotais: Number(recursoEntrada.mesesTotais ?? 0),
+    diasTrabalhadosMes: Number(recursoEntrada.diasTrabalhadosMes ?? 0),
+    custoTotal: 0,
+    custoUnitarioUnidadeOperacional: 0,
+    statusCalculo,
+    memoriaCalculo: {
+      unidadeOperacionalId: recursoEntrada.unidadeOperacionalId,
+      recursoId: recursoBoletimId,
+      descricao: recursoEntrada.nomeTecnico ?? "Recurso",
+      formula: statusCalculo === "SEM_CUSTO" ? "Componente sem custo." : "Pendente de cálculo pelo Motor.",
+      observacoes: [observacao]
+    },
+    avisos: [mapAviso(observacao, recursoEntrada.unidadeOperacionalId, recursoEntrada.id)]
+  };
+}
+
 function agregarComponentesPorRecurso(
   recursos: ResultadoRecursoOperacionalNucleo[]
 ): ResultadoRecursoOperacionalNucleo[] {
@@ -181,7 +254,14 @@ function agregarComponentesPorRecurso(
     const custoTotal = grupo.reduce((total, recurso) => total + recurso.custoTotal, 0);
     const avisos = grupo.flatMap((recurso) => recurso.avisos);
     const componentes = grupo.map(componenteResumo);
-    const algumPendente = grupo.some((recurso) => recurso.statusCalculo === "PENDENTE");
+    const algumCalculado = grupo.some((recurso) => recurso.statusCalculo === "CALCULADO");
+    const algumPendente = grupo.some((recurso) => recurso.statusCalculo === "PENDENTE" || recurso.statusCalculo === "NAO_INFORMADO");
+    const todosSemCusto = grupo.every((recurso) => recurso.statusCalculo === "SEM_CUSTO");
+    const statusCalculo: StatusCalculoRecursoNucleo = algumPendente
+      ? "PENDENTE"
+      : todosSemCusto && !algumCalculado
+        ? "SEM_CUSTO"
+        : "CALCULADO";
 
     return {
       ...principal,
@@ -189,7 +269,7 @@ function agregarComponentesPorRecurso(
       componenteEconomico: "TOTAL",
       nomeTecnico: principal.nomeTecnico,
       custoTotal: Math.round((custoTotal + Number.EPSILON) * 100) / 100,
-      statusCalculo: algumPendente ? "PENDENTE" : "CALCULADO",
+      statusCalculo,
       componentesEconomicos: componentes,
       avisos,
       memoriaCalculo: {
@@ -241,15 +321,24 @@ function mapUnidade(
     custoManual: frente.custoManual,
     custoCalculadoRecursos: frente.custoCalculadoRecursos,
     origemCusto: frente.origemCusto,
-    recursos: agregarComponentesPorRecurso(frente.recursos.map((recurso) => {
-      const recursoEntrada = recursosEntradaPorId.get(recurso.recursoRef)
+    recursos: (() => {
+      const idsRetornados = new Set<string>();
+      const recursosCalculados = frente.recursos.map((recurso) => {
+        const recursoEntrada = recursosEntradaPorId.get(recurso.recursoRef)
         ?? unidadeEntrada?.recursos.find((entradaRecurso) =>
           Boolean(entradaRecurso.referenciaTecnicaId) &&
           entradaRecurso.referenciaTecnicaId === recurso.recursoReferenciaId &&
           entradaRecurso.nomeTecnico === recurso.descricao
         );
-      return mapRecurso(recurso, recursoEntrada);
-    })),
+        if (recursoEntrada?.id) idsRetornados.add(recursoEntrada.id);
+        return mapRecurso(recurso, recursoEntrada);
+      });
+      const recursosNaoRetornados = (unidadeEntrada?.recursos ?? [])
+        .filter((recurso) => recurso.id && !idsRetornados.has(recurso.id))
+        .map(mapRecursoNaoRetornado);
+
+      return agregarComponentesPorRecurso([...recursosCalculados, ...recursosNaoRetornados]);
+    })(),
     avisos: frente.recursos.flatMap((recurso) =>
       recurso.observacoes.map((observacao) => mapAviso(observacao, frente.ref, recurso.recursoRef))
     )

@@ -108,6 +108,8 @@ export type MemoriaCalculoNucleo = {
   observacoes: string[];
 };
 
+export type StatusCalculoRecursoNucleo = "CALCULADO" | "PENDENTE" | "SEM_CUSTO" | "NAO_INFORMADO";
+
 export type ResultadoRecursoOperacionalNucleo = {
   id: string;
   recursoRealizadoId?: string | null;
@@ -160,10 +162,10 @@ export type ResultadoRecursoOperacionalNucleo = {
     quantidadeOperacional: number;
     unidadeQuantidadeOperacional: string;
     custoTotal: number;
-    statusCalculo: "CALCULADO" | "PENDENTE";
+    statusCalculo: StatusCalculoRecursoNucleo;
   }>;
   custoUnitarioUnidadeOperacional: number;
-  statusCalculo: "CALCULADO" | "PENDENTE";
+  statusCalculo: StatusCalculoRecursoNucleo;
   memoriaCalculo: MemoriaCalculoNucleo;
   avisos: AvisoNucleoEngenharia[];
 };

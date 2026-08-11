@@ -166,7 +166,7 @@ function calcularQuantidadeMaterialDerivada(
   return 0;
 }
 
-function buildComponentesEconomicos(
+export function buildComponentesEconomicosRecursoRealizado(
   recurso: RecursoRealizado
 ): SnapshotComponenteEconomicoRecursoRealizado[] {
   const snapshot = recurso.snapshotTecnicoEconomico;
@@ -198,8 +198,9 @@ function buildComponentesEconomicos(
     metadados: snapshot.metadados
   }];
 
-  const materialValorCusto = toNumber(snapshot.materialValorCusto);
-  if (snapshot.materialId && materialValorCusto > 0) {
+  const possuiMaterial = Boolean(snapshot.materialId || snapshot.materialDescricao);
+  if (possuiMaterial) {
+    const materialValorCusto = toNumber(snapshot.materialValorCusto);
     componentes.push({
       tipo: "MATERIAL",
       nome: snapshot.materialDescricao ?? "Material",
@@ -216,6 +217,7 @@ function buildComponentesEconomicos(
       materialDescricao: snapshot.materialDescricao,
       materialUnidade: snapshot.materialUnidade,
       metadados: {
+        statusEconomico: materialValorCusto > 0 ? "DEFINIDO" : "SEM_CUSTO",
         materialId: snapshot.materialId ?? null,
         materialCodigo: snapshot.materialCodigo ?? null,
         materialDescricao: snapshot.materialDescricao ?? null,
@@ -248,7 +250,8 @@ function adaptarComponenteEconomico(
   const quantidadeRealizada = quantidadeOperacional;
   const quantidadeRecursos = recurso.quantidadeRecursos ?? 1;
   const suffix = componentId(componente.id ?? tipoComponente, `componente-${index + 1}`);
-  const recursoId = index === 0 && buildComponentesEconomicos(recurso).length === 1
+  const totalComponentes = buildComponentesEconomicosRecursoRealizado(recurso).length;
+  const recursoId = index === 0 && totalComponentes === 1
     ? recurso.id
     : `${recurso.id}:${suffix}`;
 
@@ -325,7 +328,7 @@ function adaptarRecursoRealizado(
   recurso: RecursoRealizado,
   unidadeOperacionalId: string
 ): RecursoOperacionalNucleoInput[] {
-  return buildComponentesEconomicos(recurso).map((componente, index) =>
+  return buildComponentesEconomicosRecursoRealizado(recurso).map((componente, index) =>
     adaptarComponenteEconomico(recurso, unidadeOperacionalId, componente, index)
   );
 }

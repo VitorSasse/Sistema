@@ -984,17 +984,23 @@ describe("service de Execucao e Resultado", () => {
         consolidado: {
           custoOperacionalTotal: number;
         };
-        unidades: Array<{ recursos: Array<{ nomeTecnico: string; custoTotal: number; baseEconomica: string; horasDia: number }> }>;
+        unidades: Array<{ recursos: Array<{ nomeTecnico: string; custoTotal: number; baseEconomica: string; horasDia: number; statusCalculo: string }> }>;
       };
     };
 
     expect(ultimoResultado.resultadoOperacional.consolidado.custoOperacionalTotal).toBe(530.81);
-    expect(ultimoResultado.resultadoOperacional.unidades[0].recursos).toHaveLength(1);
+    expect(ultimoResultado.resultadoOperacional.unidades[0].recursos).toHaveLength(2);
     expect(ultimoResultado.resultadoOperacional.unidades[0].recursos[0]).toMatchObject({
       nomeTecnico: "ESC 150 I - HYUNDAI",
       baseEconomica: "DIA",
       horasDia: 8,
+      statusCalculo: "CALCULADO",
       custoTotal: 530.81
+    });
+    expect(ultimoResultado.resultadoOperacional.unidades[0].recursos[1]).toMatchObject({
+      nomeTecnico: "Recurso pendente",
+      statusCalculo: "PENDENTE",
+      custoTotal: 0
     });
   });
 
@@ -1395,6 +1401,69 @@ describe("service de Execucao e Resultado", () => {
       horasDia: 8,
       custoTotal: custoEsperado
     });
+  });
+
+  it("fecha boletim quando recurso composto possui componente calculavel e material sem custo", async () => {
+    const { db, records } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+    await runTenant(() =>
+      criarBoletimDiarioProducao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        dataBoletim: new Date("2026-08-07T00:00:00.000Z"),
+        recursos: [
+          {
+            frenteExecutadaId: FRENTE_ID,
+            nomeSnapshot: "Caminhao com material sem custo",
+            quantidadeRealizada: 5,
+            unidadeRealizada: "carga",
+            quantidadeRecursos: 1,
+            origem: OrigemFatoBoletimDiario.PRODUCAO,
+            snapshotTecnicoEconomico: {
+              categoria: "CAMINHAO",
+              baseEconomica: "KM",
+              valorCusto: 8,
+              custoUnitario: 8,
+              unidadeCusto: "R$/km",
+              quantidadeOperacional: 5,
+              unidadeQuantidadeOperacional: "carga",
+              distanciaViagemKm: 12,
+              materialId: "material-sem-custo",
+              materialDescricao: "Material sem custo",
+              materialUnidade: "m3",
+              materialBaseEconomica: "M3"
+            }
+          }
+        ]
+      })
+    );
+
+    await runTenant(() => fecharBoletimDiarioProducao(db as never, "boletim-1"));
+
+    const ultimoResultado = records.resultados[0].resultadoOperacionalJson as {
+      resultadoOperacional: {
+        unidades: Array<{
+          recursos: Array<{
+            custoTotal: number;
+            statusCalculo: string;
+            componentesEconomicos?: Array<{
+              tipo: string;
+              statusCalculo: string;
+              custoTotal: number;
+            }>;
+          }>;
+        }>;
+      };
+    };
+    const recurso = ultimoResultado.resultadoOperacional.unidades[0].recursos[0];
+
+    expect(recurso.custoTotal).toBe(480);
+    expect(recurso.statusCalculo).toBe("CALCULADO");
+    expect(recurso.componentesEconomicos).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ tipo: "TRANSPORTE", statusCalculo: "CALCULADO", custoTotal: 480 }),
+        expect.objectContaining({ tipo: "MATERIAL", statusCalculo: "SEM_CUSTO", custoTotal: 0 })
+      ])
+    );
   });
 
   it("bloqueia vinculo duplicado do mesmo fato na mesma execucao", async () => {

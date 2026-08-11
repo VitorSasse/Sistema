@@ -1,6 +1,7 @@
 import { OrigemFatoBoletimDiario, Prisma, StatusBoletimDiarioProducao, StatusLancamento } from "@prisma/client";
 import {
   adaptarExecucaoParaEntradaNucleo,
+  buildComponentesEconomicosRecursoRealizado,
   executarNucleoComMotorAtual,
   type EntradaExecucao,
   type ResultadoNucleoEngenharia,
@@ -275,9 +276,30 @@ function toSnapshotTecnicoEconomico(value: unknown): SnapshotTecnicoEconomicoRec
 
 function recursoTemCustoPendente(recurso: { snapshotTecnicoEconomico: unknown }) {
   const snapshot = toSnapshotTecnicoEconomico(recurso.snapshotTecnicoEconomico);
-  const base = String(snapshot.baseEconomica ?? "");
-  const distancia = toNumber(snapshot.distanciaViagemKm ?? snapshot.quilometrosTotais);
-  return toNumber(snapshot.valorCusto ?? snapshot.custoUnitario) <= 0 || (base === "KM" && distancia <= 0);
+  const componentes = buildComponentesEconomicosRecursoRealizado({
+    id: "validacao-recurso",
+    nome: snapshot.descricaoTecnica ?? "Recurso",
+    quantidadeRealizada: snapshot.quantidadeOperacional ?? 0,
+    unidadeRealizada: snapshot.unidadeQuantidadeOperacional ?? "",
+    quantidadeRecursos: 1,
+    snapshotTecnicoEconomico: snapshot
+  });
+  const componenteCalculavel = componentes.some((componente) => {
+    const valor = toNumber(componente.valorCusto ?? componente.custoUnitario);
+    const base = String(componente.baseEconomica ?? snapshot.baseEconomica ?? "");
+    const distancia = toNumber(componente.distanciaViagemKm ?? componente.quilometrosTotais ?? snapshot.distanciaViagemKm ?? snapshot.quilometrosTotais);
+
+    if (valor <= 0) return false;
+    if (base === "KM" && distancia <= 0) return false;
+    return true;
+  });
+  const todosSemCusto = componentes.length > 0 && componentes.every((componente) => {
+    const statusEconomico = componente.metadados?.statusEconomico;
+    const valor = toNumber(componente.valorCusto ?? componente.custoUnitario);
+    return statusEconomico === "SEM_CUSTO" || (componente.tipo === "MATERIAL" && valor <= 0);
+  });
+
+  return !componenteCalculavel && !todosSemCusto;
 }
 
 function validarCustosDefinidos(recursos: Array<{ snapshotTecnicoEconomico: unknown }>) {

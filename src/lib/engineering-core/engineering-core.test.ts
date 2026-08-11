@@ -958,7 +958,7 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
     const recursoAgregado = resultado.unidades[0]?.recursos[0];
     const transporte = recursoAgregado?.componentesEconomicos?.find((recurso) => recurso.tipo === "TRANSPORTE");
     const material = recursoAgregado?.componentesEconomicos?.find((recurso) => recurso.tipo === "MATERIAL");
-    const custoTransporte = roundMoneyTest(cargas * distancia * custoKm);
+    const custoTransporte = roundMoneyTest(cargas * roundMoneyTest(distancia * custoKm));
     const custoMaterial = roundMoneyTest(quantidadeMaterial * custoMaterialM3);
 
     expect(entrada.unidades[0]?.recursos).toHaveLength(2);
@@ -984,6 +984,137 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
       custoTotal: custoMaterial
     });
     expect(resultado.consolidado.custoOperacionalTotal).toBe(roundMoneyTest(custoTransporte + custoMaterial));
+  });
+
+  it("mantem material sem custo rastreavel sem bloquear transporte calculavel", () => {
+    const cargas = 4;
+    const distancia = 9.5;
+    const custoKm = 6.75;
+    const entrada = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: "exec-material-sem-custo",
+      nomeTecnico: "Execucao com material sem custo",
+      unidades: [
+        {
+          id: "frente-material-sem-custo",
+          nome: "Transporte com material sem custo",
+          quantidadeExecutada: 56,
+          unidade: "m3",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: "recurso-material-sem-custo",
+              recursoId: "eq-truck",
+              nome: "Truck com material sem custo",
+              quantidadeRealizada: cargas,
+              unidadeRealizada: "carga",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                categoria: "CAMINHAO",
+                baseEconomica: "KM",
+                valorCusto: custoKm,
+                unidadeCusto: "R$/km",
+                quantidadeOperacional: cargas,
+                unidadeQuantidadeOperacional: "carga",
+                distanciaViagemKm: distancia,
+                materialId: "mat-sem-custo",
+                materialDescricao: "Material sem custo",
+                materialUnidade: "m3",
+                materialBaseEconomica: "M3"
+              }
+            }
+          ]
+        }
+      ]
+    });
+    const resultado = executarNucleoComMotorAtual(entrada);
+    const recurso = resultado.unidades[0]?.recursos[0];
+    const material = recurso?.componentesEconomicos?.find((item) => item.tipo === "MATERIAL");
+    const transporte = recurso?.componentesEconomicos?.find((item) => item.tipo === "TRANSPORTE");
+    const custoTransporte = roundMoneyTest(cargas * roundMoneyTest(distancia * custoKm));
+
+    expect(entrada.unidades[0]?.recursos).toHaveLength(2);
+    expect(recurso).toMatchObject({
+      recursoBoletimId: "recurso-material-sem-custo",
+      statusCalculo: "CALCULADO",
+      custoTotal: custoTransporte
+    });
+    expect(transporte).toMatchObject({
+      tipo: "TRANSPORTE",
+      statusCalculo: "CALCULADO",
+      custoTotal: custoTransporte
+    });
+    expect(material).toMatchObject({
+      tipo: "MATERIAL",
+      statusCalculo: "SEM_CUSTO",
+      custoTotal: 0
+    });
+    expect(resultado.consolidado.custoOperacionalTotal).toBe(custoTransporte);
+  });
+
+  it("preserva componente pendente sem descartar componente material calculavel", () => {
+    const quantidadeMaterial = 36;
+    const custoMaterial = 28.4;
+    const entrada = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: "exec-componente-pendente",
+      nomeTecnico: "Execucao com componente pendente",
+      unidades: [
+        {
+          id: "frente-componente-pendente",
+          nome: "Transporte pendente com material calculavel",
+          quantidadeExecutada: quantidadeMaterial,
+          unidade: "m3",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: "recurso-componente-pendente",
+              recursoId: "eq-truck",
+              nome: "Truck com transporte pendente",
+              quantidadeRealizada: 3,
+              unidadeRealizada: "carga",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                categoria: "CAMINHAO",
+                baseEconomica: "KM",
+                valorCusto: 7.2,
+                unidadeCusto: "R$/km",
+                quantidadeOperacional: 3,
+                unidadeQuantidadeOperacional: "carga",
+                materialId: "mat-calculavel",
+                materialDescricao: "Material calculavel",
+                materialUnidade: "m3",
+                materialBaseEconomica: "M3",
+                materialQuantidade: quantidadeMaterial,
+                materialValorCusto: custoMaterial,
+                materialUnidadeCusto: "R$/m3"
+              }
+            }
+          ]
+        }
+      ]
+    });
+    const resultado = executarNucleoComMotorAtual(entrada);
+    const recurso = resultado.unidades[0]?.recursos[0];
+    const transporte = recurso?.componentesEconomicos?.find((item) => item.tipo === "TRANSPORTE");
+    const material = recurso?.componentesEconomicos?.find((item) => item.tipo === "MATERIAL");
+    const custoMaterialTotal = roundMoneyTest(quantidadeMaterial * custoMaterial);
+
+    expect(resultado.unidades[0]?.recursos).toHaveLength(1);
+    expect(recurso).toMatchObject({
+      recursoBoletimId: "recurso-componente-pendente",
+      statusCalculo: "PENDENTE",
+      custoTotal: custoMaterialTotal
+    });
+    expect(transporte).toMatchObject({
+      tipo: "TRANSPORTE",
+      statusCalculo: "PENDENTE",
+      custoTotal: 0
+    });
+    expect(material).toMatchObject({
+      tipo: "MATERIAL",
+      statusCalculo: "CALCULADO",
+      custoTotal: custoMaterialTotal
+    });
+    expect(resultado.consolidado.custoOperacionalTotal).toBe(custoMaterialTotal);
   });
 
   it("preserva identificadores quando dois fatos usam o mesmo equipamento e a mesma base economica", () => {
