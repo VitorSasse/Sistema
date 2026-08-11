@@ -944,7 +944,10 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
                 materialUnidade: "m3",
                 materialBaseEconomica: "M3",
                 materialValorCusto: custoMaterialM3,
-                materialUnidadeCusto: "R$/m3"
+                materialUnidadeCusto: "R$/m3",
+                metadados: {
+                  componenteEconomico: "TRANSPORTE"
+                }
               }
             }
           ]
@@ -952,9 +955,9 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
       ]
     });
     const resultado = executarNucleoComMotorAtual(entrada);
-    const recursos = resultado.unidades[0]?.recursos ?? [];
-    const transporte = recursos.find((recurso) => recurso.componenteEconomico === "TRANSPORTE");
-    const material = recursos.find((recurso) => recurso.componenteEconomico === "MATERIAL");
+    const recursoAgregado = resultado.unidades[0]?.recursos[0];
+    const transporte = recursoAgregado?.componentesEconomicos?.find((recurso) => recurso.tipo === "TRANSPORTE");
+    const material = recursoAgregado?.componentesEconomicos?.find((recurso) => recurso.tipo === "MATERIAL");
     const custoTransporte = roundMoneyTest(cargas * distancia * custoKm);
     const custoMaterial = roundMoneyTest(quantidadeMaterial * custoMaterialM3);
 
@@ -964,19 +967,87 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
       "recurso-composto-1"
     ]);
     expect(entrada.unidades[0]?.recursos.find((recurso) => recurso.metadados?.componenteEconomico === "MATERIAL")?.quantidadeOperacional).toBe(quantidadeMaterial);
-    expect(transporte).toMatchObject({
+    expect(resultado.unidades[0]?.recursos).toHaveLength(1);
+    expect(recursoAgregado).toMatchObject({
       recursoBoletimId: "recurso-composto-1",
-      componenteEconomico: "TRANSPORTE",
+      componenteEconomico: "TOTAL",
+      custoTotal: roundMoneyTest(custoTransporte + custoMaterial)
+    });
+    expect(transporte).toMatchObject({
+      tipo: "TRANSPORTE",
       baseEconomica: "KM",
       custoTotal: custoTransporte
     });
     expect(material).toMatchObject({
-      recursoBoletimId: "recurso-composto-1",
-      componenteEconomico: "MATERIAL",
+      tipo: "MATERIAL",
       baseEconomica: "M3",
       custoTotal: custoMaterial
     });
     expect(resultado.consolidado.custoOperacionalTotal).toBe(roundMoneyTest(custoTransporte + custoMaterial));
+  });
+
+  it("preserva identificadores quando dois fatos usam o mesmo equipamento e a mesma base economica", () => {
+    const entrada = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: "exec-maquina-repetida",
+      nomeTecnico: "Execucao com maquina repetida",
+      unidades: [
+        {
+          id: "frente-maquina-repetida",
+          nome: "Frente com maquina repetida",
+          quantidadeExecutada: 1,
+          unidade: "un",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: "fato-maquina-1",
+              recursoId: "eq-esc",
+              origemRegistroTipo: "LANCAMENTO_DIARIO",
+              origemRegistroId: "lancamento-1",
+              nome: "Escavadeira",
+              quantidadeRealizada: 2,
+              unidadeRealizada: "h",
+              snapshotTecnicoEconomico: {
+                categoria: "MAQUINA",
+                baseEconomica: "DIA",
+                valorCusto: 800,
+                unidadeCusto: "R$/dia",
+                quantidadeOperacional: 2,
+                unidadeQuantidadeOperacional: "h",
+                horasDia: 8
+              }
+            },
+            {
+              id: "fato-maquina-2",
+              recursoId: "eq-esc",
+              origemRegistroTipo: "LANCAMENTO_DIARIO",
+              origemRegistroId: "lancamento-2",
+              nome: "Escavadeira",
+              quantidadeRealizada: 5,
+              unidadeRealizada: "h",
+              snapshotTecnicoEconomico: {
+                categoria: "MAQUINA",
+                baseEconomica: "DIA",
+                valorCusto: 800,
+                unidadeCusto: "R$/dia",
+                quantidadeOperacional: 5,
+                unidadeQuantidadeOperacional: "h",
+                horasDia: 8
+              }
+            }
+          ]
+        }
+      ]
+    });
+    const resultado = executarNucleoComMotorAtual(entrada);
+    const recursos = resultado.unidades[0]?.recursos ?? [];
+
+    expect(recursos).toHaveLength(2);
+    expect(recursos.map((recurso) => recurso.recursoBoletimId)).toEqual(["fato-maquina-1", "fato-maquina-2"]);
+    expect(recursos.map((recurso) => recurso.origemRegistroId)).toEqual(["lancamento-1", "lancamento-2"]);
+    expect(recursos.map((recurso) => recurso.custoTotal)).toEqual([
+      roundMoneyTest((2 / 8) * 800),
+      roundMoneyTest((5 / 8) * 800)
+    ]);
   });
 
   it("calcula recursos heterogeneos sem reutilizar custo realizado entre componentes", () => {

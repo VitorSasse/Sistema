@@ -281,10 +281,9 @@ function adaptarComponenteEconomico(
     diasTrabalhadosMes: componente.diasTrabalhadosMes ?? snapshot.diasTrabalhadosMes,
     origem: recurso.recursoId ? "SNAPSHOT" : "INFORMADO",
     metadados: {
+      ...(snapshot.metadados ?? {}),
+      ...(componente.metadados ?? {}),
       origem: recurso.recursoId ? "BIBLIOTECA_RECURSOS" : "RECURSO_PROVISORIO",
-      recursoRealizadoId: recurso.id,
-      recursoBoletimId: recurso.id,
-      componenteEconomico: tipoComponente,
       unidadeRealizada: recurso.unidadeRealizada,
       unidadeQuantidadeOperacionalOriginal: unidadeQuantidadeOriginal,
       origemRegistroTipo: recurso.origemRegistroTipo ?? null,
@@ -293,29 +292,30 @@ function adaptarComponenteEconomico(
       materialCodigo: componente.materialCodigo ?? snapshot.materialCodigo ?? null,
       materialDescricao: componente.materialDescricao ?? snapshot.materialDescricao ?? null,
       materialUnidade: componente.materialUnidade ?? snapshot.materialUnidade ?? null,
-      ...(snapshot.metadados ?? {}),
-      ...(componente.metadados ?? {})
+      recursoRealizadoId: recurso.id,
+      recursoBoletimId: recurso.id,
+      componenteEconomico: tipoComponente
     }
   };
 
   if (baseEconomica === "HORA" || unidadeOperacionalNormalizada === "HORA") {
-    adapted.horasTotais = snapshot.horasTotais ?? quantidadeRealizada;
+    adapted.horasTotais = componente.horasTotais ?? snapshot.horasTotais ?? quantidadeRealizada;
   }
 
   if (baseEconomica === "CARGA" || unidadeRealizada === "CARGA") {
-    adapted.cargasTotais = snapshot.cargasTotais ?? quantidadeRealizada;
+    adapted.cargasTotais = componente.cargasTotais ?? snapshot.cargasTotais ?? quantidadeRealizada;
   }
 
   if (baseEconomica === "VIAGEM" || unidadeOperacionalNormalizada === "VIAGEM") {
-    adapted.viagensTotais = snapshot.viagensTotais ?? quantidadeRealizada;
+    adapted.viagensTotais = componente.viagensTotais ?? snapshot.viagensTotais ?? quantidadeRealizada;
   }
 
   if (baseEconomica === "KM" && unidadeOperacionalNormalizada === "KM") {
-    adapted.quilometrosTotais = snapshot.quilometrosTotais ?? quantidadeRealizada;
+    adapted.quilometrosTotais = componente.quilometrosTotais ?? snapshot.quilometrosTotais ?? quantidadeRealizada;
   }
 
   if (baseEconomica === "MES" || unidadeOperacionalNormalizada === "MES") {
-    adapted.mesesTotais = snapshot.mesesTotais ?? quantidadeRealizada;
+    adapted.mesesTotais = componente.mesesTotais ?? snapshot.mesesTotais ?? quantidadeRealizada;
   }
 
   return adapted;

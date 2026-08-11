@@ -147,11 +147,72 @@ function mapRecurso(
   };
 }
 
+function componenteResumo(recurso: ResultadoRecursoOperacionalNucleo) {
+  return {
+    id: recurso.id,
+    tipo: recurso.componenteEconomico ?? null,
+    nomeTecnico: recurso.nomeTecnico,
+    baseEconomica: recurso.baseEconomica,
+    custoUnitario: recurso.custoUnitario,
+    unidadeCustoFormatada: recurso.unidadeCustoFormatada,
+    quantidadeOperacional: recurso.quantidadeOperacional,
+    unidadeQuantidadeOperacional: recurso.unidadeQuantidadeOperacional,
+    custoTotal: recurso.custoTotal,
+    statusCalculo: recurso.statusCalculo
+  };
+}
+
+function agregarComponentesPorRecurso(
+  recursos: ResultadoRecursoOperacionalNucleo[]
+): ResultadoRecursoOperacionalNucleo[] {
+  const grupos = new Map<string, ResultadoRecursoOperacionalNucleo[]>();
+
+  for (const recurso of recursos) {
+    const chave = recurso.recursoBoletimId ?? recurso.recursoRealizadoId ?? recurso.id;
+    grupos.set(chave, [...(grupos.get(chave) ?? []), recurso]);
+  }
+
+  return Array.from(grupos.values()).map((grupo) => {
+    if (grupo.length === 1 && !grupo[0].componenteEconomico) {
+      return grupo[0];
+    }
+
+    const principal = grupo[0];
+    const custoTotal = grupo.reduce((total, recurso) => total + recurso.custoTotal, 0);
+    const avisos = grupo.flatMap((recurso) => recurso.avisos);
+    const componentes = grupo.map(componenteResumo);
+    const algumPendente = grupo.some((recurso) => recurso.statusCalculo === "PENDENTE");
+
+    return {
+      ...principal,
+      id: principal.recursoBoletimId ?? principal.recursoRealizadoId ?? principal.id,
+      componenteEconomico: "TOTAL",
+      nomeTecnico: principal.nomeTecnico,
+      custoTotal: Math.round((custoTotal + Number.EPSILON) * 100) / 100,
+      statusCalculo: algumPendente ? "PENDENTE" : "CALCULADO",
+      componentesEconomicos: componentes,
+      avisos,
+      memoriaCalculo: {
+        unidadeOperacionalId: principal.unidadeOperacionalId,
+        recursoId: principal.recursoBoletimId ?? principal.recursoRealizadoId ?? principal.id,
+        descricao: principal.nomeTecnico,
+        formula: componentes
+          .map((componente) => `${componente.tipo ?? "COMPONENTE"}: ${componente.custoTotal}`)
+          .join(" + "),
+        observacoes: ["Custo total composto pelo engineering-core a partir dos componentes calculados pelo Motor."]
+      }
+    };
+  });
+}
+
 function mapUnidade(
   frente: CostEngineResultado["frentes"][number],
   entrada?: EntradaNucleoEngenharia
 ): ResultadoUnidadeOperacionalNucleo {
   const unidadeEntrada = entrada?.unidades.find((unidade) => unidade.id === frente.ref);
+  const recursosEntradaPorId = new Map((unidadeEntrada?.recursos ?? [])
+    .filter((recurso) => recurso.id)
+    .map((recurso) => [recurso.id as string, recurso]));
   const economia = calcularResultadoEconomicoNucleo({
     receita: unidadeEntrada?.receita,
     custo: frente.custoDireto
@@ -180,17 +241,15 @@ function mapUnidade(
     custoManual: frente.custoManual,
     custoCalculadoRecursos: frente.custoCalculadoRecursos,
     origemCusto: frente.origemCusto,
-    recursos: frente.recursos.map((recurso) => {
-      const recursoEntrada = unidadeEntrada?.recursos.find((entradaRecurso) =>
-        entradaRecurso.id === recurso.recursoRef ||
-        (
+    recursos: agregarComponentesPorRecurso(frente.recursos.map((recurso) => {
+      const recursoEntrada = recursosEntradaPorId.get(recurso.recursoRef)
+        ?? unidadeEntrada?.recursos.find((entradaRecurso) =>
           Boolean(entradaRecurso.referenciaTecnicaId) &&
           entradaRecurso.referenciaTecnicaId === recurso.recursoReferenciaId &&
           entradaRecurso.nomeTecnico === recurso.descricao
-        )
-      );
+        );
       return mapRecurso(recurso, recursoEntrada);
-    }),
+    })),
     avisos: frente.recursos.flatMap((recurso) =>
       recurso.observacoes.map((observacao) => mapAviso(observacao, frente.ref, recurso.recursoRef))
     )

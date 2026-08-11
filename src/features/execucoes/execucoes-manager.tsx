@@ -545,17 +545,10 @@ function findResultadoRecurso(recurso: RecursoBoletim, recursosCalculados: Array
 
 function custoRealizadoRecursoLabel(
   recurso: RecursoBoletim,
-  resultadoRecurso: Record<string, unknown> | Array<Record<string, unknown>> | null,
+  resultadoRecurso: Record<string, unknown> | null,
   possuiResultado: boolean
 ) {
-  const resultados = Array.isArray(resultadoRecurso)
-    ? resultadoRecurso
-    : resultadoRecurso
-      ? [resultadoRecurso]
-      : [];
-  if (resultados.length) {
-    return money(resultados.reduce((total, item) => total + toNumber(item.custoTotal), 0));
-  }
+  if (resultadoRecurso) return money(toNumber(resultadoRecurso.custoTotal));
   if (economicPendingReason(recurso) !== "ok") return "Pendente";
   return possuiResultado ? "Nao retornado pelo Nucleo" : "Aguardando consolidacao";
 }
@@ -655,7 +648,7 @@ export function ExecucoesManager() {
     };
   }, [selected]);
   const realizado = useMemo(() => extractRealizado(selected), [selected]);
-  const resultadosRecursoEmEdicao = recursoEmEdicao ? findResultadosRecurso(recursoEmEdicao, realizado.recursos) : [];
+  const resultadoRecursoEmEdicao = recursoEmEdicao ? findResultadoRecurso(recursoEmEdicao, realizado.recursos) : null;
 
   async function loadExecucoes(preferSelectedId = selected?.id) {
     const execucoesData = await fetchJson<{ items: Execucao[] }>("/api/execucoes");
@@ -1436,10 +1429,11 @@ export function ExecucoesManager() {
                 </thead>
                 <tbody>
                   {(selectedBoletim?.recursos ?? []).map((recurso) => {
-                    const resultadosRecurso = findResultadosRecurso(recurso, realizado.recursos);
-                    const custoRealizadoLabel = custoRealizadoRecursoLabel(recurso, resultadosRecurso, Boolean(selected?.resultados?.length));
-                    const detalheCusto = resultadosRecurso.map((item) =>
-                      `${String(item.componenteEconomico ?? "COMPONENTE")}: ${money(toNumber(item.custoTotal))}`
+                    const resultadoRecurso = findResultadoRecurso(recurso, realizado.recursos);
+                    const componentesResultado = (resultadoRecurso?.componentesEconomicos as Array<Record<string, unknown>> | undefined) ?? [];
+                    const custoRealizadoLabel = custoRealizadoRecursoLabel(recurso, resultadoRecurso, Boolean(selected?.resultados?.length));
+                    const detalheCusto = componentesResultado.map((item) =>
+                      `${String(item.tipo ?? "COMPONENTE")}: ${money(toNumber(item.custoTotal))}`
                     ).join(" | ");
                     return (
                       <tr key={recurso.id}>
@@ -1643,7 +1637,7 @@ export function ExecucoesManager() {
                       <Info
                         label="Custo realizado"
                         value={recursoEmEdicao
-                          ? custoRealizadoRecursoLabel(recursoEmEdicao, resultadosRecursoEmEdicao, Boolean(selected?.resultados?.length))
+                          ? custoRealizadoRecursoLabel(recursoEmEdicao, resultadoRecursoEmEdicao, Boolean(selected?.resultados?.length))
                           : "Aguardando consolidacao"}
                       />
                     </div>

@@ -150,6 +150,18 @@ export type ResultadoRecursoOperacionalNucleo = {
   mesesTotais: number;
   diasTrabalhadosMes: number;
   custoTotal: number;
+  componentesEconomicos?: Array<{
+    id: string;
+    tipo: string | null;
+    nomeTecnico: string;
+    baseEconomica: BaseEconomicaRecursoOperacional;
+    custoUnitario: number;
+    unidadeCustoFormatada: string;
+    quantidadeOperacional: number;
+    unidadeQuantidadeOperacional: string;
+    custoTotal: number;
+    statusCalculo: "CALCULADO" | "PENDENTE";
+  }>;
   custoUnitarioUnidadeOperacional: number;
   statusCalculo: "CALCULADO" | "PENDENTE";
   memoriaCalculo: MemoriaCalculoNucleo;
