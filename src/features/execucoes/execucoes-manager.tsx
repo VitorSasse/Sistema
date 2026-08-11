@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/form/searchable-select";
 import { loadOperationalOptions } from "@/lib/client/operational-options";
+import { avaliarSnapshotTecnicoEconomico } from "@/lib/engineering-core/economic-resource-status";
 
 type ClienteOption = {
   id: string;
@@ -328,64 +329,10 @@ function optionalNumber(value: string | number | null | undefined) {
 }
 
 function economicPendingReasonFromSnapshot(snapshot: Record<string, unknown>) {
-  const componentes = economicComponentsFromSnapshot(snapshot);
-  const algumCalculavel = componentes.some((componente) => componentIsCalculable(componente, snapshot));
-  const todosSemCusto = componentes.length > 0 && componentes.every((componente) => componentIsNoCost(componente));
+  const avaliacao = avaliarSnapshotTecnicoEconomico(snapshot);
 
-  if (algumCalculavel || todosSemCusto) return "ok";
-  if (componentes.some((componente) => String(componente.baseEconomica ?? "") === "KM")) {
-    return "distancia ou custo do transporte pendente";
-  }
-
-  return "custo unitario pendente";
-}
-
-function economicComponentsFromSnapshot(snapshot: Record<string, unknown>) {
-  const explicit = snapshot.componentesEconomicos;
-  if (Array.isArray(explicit) && explicit.length) {
-    return explicit as Array<Record<string, unknown>>;
-  }
-
-  const componentes: Array<Record<string, unknown>> = [{
-    tipo: snapshot.componenteEconomico ?? "TRANSPORTE",
-    baseEconomica: snapshot.baseEconomica,
-    valorCusto: snapshot.valorCusto,
-    custoUnitario: snapshot.custoUnitario,
-    distanciaViagemKm: snapshot.distanciaViagemKm,
-    quilometrosTotais: snapshot.quilometrosTotais,
-    metadados: snapshot.metadados
-  }];
-
-  if (snapshot.materialId || snapshot.materialDescricao) {
-    const materialValorCusto = toNumber(snapshot.materialValorCusto);
-    componentes.push({
-      tipo: "MATERIAL",
-      baseEconomica: snapshot.materialBaseEconomica,
-      valorCusto: snapshot.materialValorCusto,
-      custoUnitario: snapshot.materialValorCusto,
-      metadados: {
-        statusEconomico: materialValorCusto > 0 ? "DEFINIDO" : "SEM_CUSTO"
-      }
-    });
-  }
-
-  return componentes;
-}
-
-function componentIsNoCost(componente: Record<string, unknown>) {
-  const metadados = (componente.metadados as Record<string, unknown> | undefined) ?? {};
-  const valor = toNumber(componente.valorCusto ?? componente.custoUnitario);
-  return metadados.statusEconomico === "SEM_CUSTO" || (String(componente.tipo ?? "") === "MATERIAL" && valor <= 0);
-}
-
-function componentIsCalculable(componente: Record<string, unknown>, fallback: Record<string, unknown>) {
-  const valor = toNumber(componente.valorCusto ?? componente.custoUnitario);
-  const base = String(componente.baseEconomica ?? fallback.baseEconomica ?? "");
-  const distancia = toNumber(componente.distanciaViagemKm ?? componente.quilometrosTotais ?? fallback.distanciaViagemKm ?? fallback.quilometrosTotais);
-
-  if (valor <= 0) return false;
-  if (base === "KM" && distancia <= 0) return false;
-  return true;
+  if (avaliacao.status === "CUSTO_DEFINIDO" || avaliacao.status === "SEM_CUSTO") return "ok";
+  return avaliacao.motivo;
 }
 
 function resolveEconomicOriginValue(snapshot: Record<string, unknown>) {

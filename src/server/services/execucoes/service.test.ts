@@ -15,6 +15,7 @@ import {
   atualizarExecucao,
   criarBoletimDiarioProducao,
   buscarExecucao,
+  buscarExecucaoOperacional,
   fecharBoletimDiarioProducao,
   excluirBoletimDiarioProducao,
   criarExecucao,
@@ -1002,6 +1003,52 @@ describe("service de Execucao e Resultado", () => {
       statusCalculo: "PENDENTE",
       custoTotal: 0
     });
+  });
+
+  it("ignora resultado obsoleto que nao cobre todos os recursos atuais dos boletins", async () => {
+    const { db, records } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+    await runTenant(() =>
+      criarBoletimDiarioProducao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        dataBoletim: new Date("2026-08-07T00:00:00.000Z"),
+        recursos: [
+          ...recursosBoletimDiaUm(),
+          ...recursosBoletimDiaDois()
+        ]
+      })
+    );
+    const resultadoObsoleto = {
+      id: "resultado-obsoleto",
+      empresaId: EMPRESA_ID,
+      execucaoId: EXECUCAO_ID,
+      createdAt: new Date("2026-08-07T10:00:00.000Z"),
+      resultadoOperacionalJson: {
+        resultadoOperacional: {
+          unidades: [
+            {
+              recursos: [
+                {
+                  id: "boletim-recurso-1-1",
+                  recursoBoletimId: "boletim-recurso-1-1",
+                  custoTotal: 11160,
+                  statusCalculo: "CALCULADO"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    };
+    records.resultados.unshift(resultadoObsoleto);
+    if (records.execucao) {
+      records.execucao.resultados = records.resultados;
+    }
+
+    const execucao = await runTenant(() => buscarExecucaoOperacional(db as never, EXECUCAO_ID));
+
+    expect(execucao?.boletins?.[0].recursos).toHaveLength(2);
+    expect(execucao?.resultados).toHaveLength(0);
   });
 
   it("lista fatos operacionais existentes por obra e periodo com rastreabilidade", async () => {

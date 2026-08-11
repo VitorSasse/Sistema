@@ -1,7 +1,7 @@
 import { OrigemFatoBoletimDiario, Prisma, StatusBoletimDiarioProducao, StatusLancamento } from "@prisma/client";
 import {
   adaptarExecucaoParaEntradaNucleo,
-  buildComponentesEconomicosRecursoRealizado,
+  avaliarSnapshotTecnicoEconomico,
   executarNucleoComMotorAtual,
   type EntradaExecucao,
   type ResultadoNucleoEngenharia,
@@ -276,30 +276,9 @@ function toSnapshotTecnicoEconomico(value: unknown): SnapshotTecnicoEconomicoRec
 
 function recursoTemCustoPendente(recurso: { snapshotTecnicoEconomico: unknown }) {
   const snapshot = toSnapshotTecnicoEconomico(recurso.snapshotTecnicoEconomico);
-  const componentes = buildComponentesEconomicosRecursoRealizado({
-    id: "validacao-recurso",
-    nome: snapshot.descricaoTecnica ?? "Recurso",
-    quantidadeRealizada: snapshot.quantidadeOperacional ?? 0,
-    unidadeRealizada: snapshot.unidadeQuantidadeOperacional ?? "",
-    quantidadeRecursos: 1,
-    snapshotTecnicoEconomico: snapshot
-  });
-  const componenteCalculavel = componentes.some((componente) => {
-    const valor = toNumber(componente.valorCusto ?? componente.custoUnitario);
-    const base = String(componente.baseEconomica ?? snapshot.baseEconomica ?? "");
-    const distancia = toNumber(componente.distanciaViagemKm ?? componente.quilometrosTotais ?? snapshot.distanciaViagemKm ?? snapshot.quilometrosTotais);
+  const avaliacao = avaliarSnapshotTecnicoEconomico(snapshot);
 
-    if (valor <= 0) return false;
-    if (base === "KM" && distancia <= 0) return false;
-    return true;
-  });
-  const todosSemCusto = componentes.length > 0 && componentes.every((componente) => {
-    const statusEconomico = componente.metadados?.statusEconomico;
-    const valor = toNumber(componente.valorCusto ?? componente.custoUnitario);
-    return statusEconomico === "SEM_CUSTO" || (componente.tipo === "MATERIAL" && valor <= 0);
-  });
-
-  return !componenteCalculavel && !todosSemCusto;
+  return avaliacao.status === "CUSTO_PENDENTE" || avaliacao.status === "NAO_INFORMADO";
 }
 
 function validarCustosDefinidos(recursos: Array<{ snapshotTecnicoEconomico: unknown }>) {
@@ -606,6 +585,53 @@ export function gerarSnapshotResultadoExecucao(resultado: ResultadoNucleoEngenha
   };
 }
 
+function recursosResultadoIds(resultado: unknown) {
+  const json = resultado as Record<string, unknown> | null | undefined;
+  const operacional = (json?.resultadoOperacional ?? json) as Record<string, unknown> | null | undefined;
+  const unidades = (operacional?.unidades as Array<Record<string, unknown>> | undefined) ?? [];
+  const recursos = unidades.flatMap((unidade) =>
+    (unidade.recursos as Array<Record<string, unknown>> | undefined) ?? []
+  );
+
+  return new Set(recursos.flatMap((recurso) => [
+    recurso.recursoBoletimId,
+    recurso.recursoRealizadoId,
+    recurso.id
+  ].filter((value): value is string => typeof value === "string" && Boolean(value))));
+}
+
+function recursoAtualIds(execucao: PersistedExecucaoComBoletins | PersistedExecucao) {
+  const boletins = (execucao as PersistedExecucaoComBoletins).boletins ?? [];
+  const recursosBoletim = boletins.flatMap((boletim) => boletim.recursos ?? []);
+
+  if (recursosBoletim.length) {
+    return recursosBoletim.map((recurso) => recurso.id);
+  }
+
+  return (execucao.frentes ?? []).flatMap((frente) => (frente.recursos ?? []).map((recurso) => recurso.id));
+}
+
+function resultadoCobreRecursosAtuais(
+  execucao: PersistedExecucaoComBoletins | PersistedExecucao,
+  resultado: { resultadoOperacionalJson: unknown }
+) {
+  const idsAtuais = recursoAtualIds(execucao);
+  if (!idsAtuais.length) return true;
+
+  const idsResultado = recursosResultadoIds(resultado.resultadoOperacionalJson);
+  return idsAtuais.every((id) => idsResultado.has(id));
+}
+
+function removerResultadosObsoletos<T extends PersistedExecucao | PersistedExecucaoComBoletins>(execucao: T): T {
+  const resultados = (execucao.resultados ?? []) as Array<{ resultadoOperacionalJson: unknown }>;
+  if (!resultados.length) return execucao;
+
+  return {
+    ...execucao,
+    resultados: resultados.filter((resultado) => resultadoCobreRecursosAtuais(execucao, resultado))
+  };
+}
+
 export async function gerarResultadoExecucao(db: DbClient, execucao: PersistedExecucao) {
   const entrada = adaptarExecucaoPersistidaParaEntradaNucleo(execucao);
   return gerarResultadoExecucaoDaEntrada(db, execucao.empresaId, execucao.id, entrada);
@@ -681,25 +707,29 @@ export async function buscarExecucao(db: DbClient, id: string) {
 export async function listarExecucoes(db: DbClient) {
   const empresaId = requireActiveTenantEmpresaId();
 
-  return db.execucao.findMany({
+  const execucoes = await db.execucao.findMany({
     where: {
       empresaId
     },
     include: execucaoOperacionalInclude,
     orderBy: [{ updatedAt: "desc" }]
-  });
+  }) as PersistedExecucaoComBoletins[];
+
+  return execucoes.map(removerResultadosObsoletos);
 }
 
 export async function buscarExecucaoOperacional(db: DbClient, id: string) {
   const empresaId = requireActiveTenantEmpresaId();
 
-  return db.execucao.findFirst({
+  const execucao = await db.execucao.findFirst({
     where: {
       id,
       empresaId
     },
     include: execucaoOperacionalInclude
-  });
+  }) as PersistedExecucaoComBoletins | null;
+
+  return execucao ? removerResultadosObsoletos(execucao) : null;
 }
 
 export async function atualizarExecucao(db: DbClient, id: string, input: ExecucaoInput) {
