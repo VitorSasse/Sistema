@@ -1377,12 +1377,13 @@ describe("service de Execucao e Resultado", () => {
       };
     };
     const recurso = ultimoResultado.resultadoOperacional.unidades[0].recursos[0];
+    const custoEsperado = Math.round(((2.45 / 8) * 950 + Number.EPSILON) * 100) / 100;
     const somaRecursos = ultimoResultado.resultadoOperacional.unidades[0].recursos.reduce(
       (total, item) => total + item.custoTotal,
       0
     );
 
-    expect(ultimoResultado.resultadoOperacional.consolidado.custoOperacionalTotal).toBe(290.94);
+    expect(ultimoResultado.resultadoOperacional.consolidado.custoOperacionalTotal).toBe(custoEsperado);
     expect(somaRecursos).toBe(ultimoResultado.resultadoOperacional.consolidado.custoOperacionalTotal);
     expect(recurso).toMatchObject({
       id: "boletim-recurso-1-1",
@@ -1392,7 +1393,7 @@ describe("service de Execucao e Resultado", () => {
       origemRegistroId: null,
       baseEconomica: "DIA",
       horasDia: 8,
-      custoTotal: 290.94
+      custoTotal: custoEsperado
     });
   });
 

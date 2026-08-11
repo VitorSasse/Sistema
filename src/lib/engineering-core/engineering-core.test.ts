@@ -55,6 +55,10 @@ function expectEquivalencia(input: EntradaNucleoEngenharia) {
   return { legado, neutro };
 }
 
+function roundMoneyTest(value: number) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 function baseInput(overrides: Partial<EntradaNucleoEngenharia> = {}): EntradaNucleoEngenharia {
   return {
     contextoDeCalculo: "ORCAMENTO",
@@ -934,6 +938,158 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
     expect(resultadoExecucao.consolidado.custoOperacionalTotal).toBe(
       resultadoOrcamento.consolidado.custoOperacionalTotal
     );
+  });
+
+  it.each([
+    { quantidade: 2.45, custo: 950, jornada: 8 },
+    { quantidade: 4.47, custo: 950, jornada: 8 },
+    { quantidade: 4.47, custo: 1200, jornada: 8 },
+    { quantidade: 4.47, custo: 950, jornada: 10 }
+  ])(
+    "calcula custo por diaria dinamicamente para $quantidade h, custo $custo e jornada $jornada h/dia",
+    ({ quantidade, custo, jornada }) => {
+      const entrada = adaptarExecucaoParaEntradaNucleo({
+        execucaoId: `exec-dinamico-${quantidade}-${custo}-${jornada}`,
+        nomeTecnico: "Execucao dinamica horas por diaria",
+        unidades: [
+          {
+            id: "frente-dinamica",
+            nome: "Frente dinamica",
+            quantidadeExecutada: quantidade,
+            unidade: "h",
+            receitaRealizada: 0,
+            recursos: [
+              {
+                id: `recurso-${quantidade}-${custo}-${jornada}`,
+                recursoId: "eq-esc-150",
+                nome: "ESC 150 I - HYUNDAI",
+                quantidadeRealizada: quantidade,
+                unidadeRealizada: "h",
+                quantidadeRecursos: 1,
+                snapshotTecnicoEconomico: {
+                  categoria: "EQUIPAMENTO",
+                  baseEconomica: "DIA",
+                  valorCusto: custo,
+                  unidadeCusto: "R$/dia",
+                  quantidadeOperacional: quantidade,
+                  unidadeQuantidadeOperacional: "h",
+                  horasDia: jornada
+                }
+              }
+            ]
+          }
+        ]
+      });
+      const resultado = executarNucleoComMotorAtual(entrada);
+      const esperado = roundMoneyTest((quantidade / jornada) * custo);
+
+      expect(resultado.unidades[0]?.recursos[0]?.custoTotal).toBe(esperado);
+      expect(resultado.consolidado.custoOperacionalTotal).toBe(esperado);
+    }
+  );
+
+  it("mantem equivalencia entre Orcamento e Execucao apenas para entradas tecnicas iguais", () => {
+    const recursoBase = {
+      categoria: "EQUIPAMENTO",
+      baseEconomica: "DIA" as const,
+      valorCusto: 950,
+      unidadeCusto: "R$/dia",
+      quantidadeOperacional: 4.47,
+      unidadeQuantidadeOperacional: "h",
+      horasDia: 8
+    };
+    const entradaOrcamento = adaptarOrcamentoParaEntradaNucleo({
+      id: "orc-equivalencia-dinamica",
+      titulo: "Orcamento equivalencia dinamica",
+      frentes: [
+        {
+          tempId: "frente-equivalencia",
+          natureza: "OPERACIONAL",
+          nome: "Horas executadas",
+          unidadeProducao: "h",
+          quantidadePrevista: 4.47,
+          modoCusto: "AUTO"
+        }
+      ],
+      itens: [
+        {
+          tempId: "orc-recurso-equivalencia",
+          frenteTempId: "frente-equivalencia",
+          tipoItem: "RECURSO",
+          categoriaRecurso: "EQUIPAMENTO",
+          descricao: "ESC 150 I - HYUNDAI",
+          recursoNome: "ESC 150 I - HYUNDAI",
+          recursoReferenciaId: "eq-esc-150",
+          quantidade: 1,
+          quantidadeOperacional: 4.47,
+          origemQuantidadeOperacional: "PERSONALIZADA",
+          unidadeQuantidadeOperacional: "h",
+          unidade: "R$/dia",
+          tipoCalculoRecurso: "AUTOMATICO",
+          unidadeEconomicaCusto: "DIA",
+          valorCusto: 950,
+          horasDia: 8
+        }
+      ]
+    });
+    const entradaExecucaoIgual = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: "exec-equivalencia-dinamica",
+      nomeTecnico: "Execucao equivalencia dinamica",
+      unidades: [
+        {
+          id: "frente-equivalencia",
+          nome: "Horas executadas",
+          quantidadeExecutada: 4.47,
+          unidade: "h",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: "exec-recurso-equivalencia",
+              recursoId: "eq-esc-150",
+              nome: "ESC 150 I - HYUNDAI",
+              quantidadeRealizada: 4.47,
+              unidadeRealizada: "h",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: recursoBase
+            }
+          ]
+        }
+      ]
+    });
+    const entradaExecucaoDiferente = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: "exec-equivalencia-dinamica-diferente",
+      nomeTecnico: "Execucao equivalencia dinamica diferente",
+      unidades: [
+        {
+          id: "frente-equivalencia",
+          nome: "Horas executadas",
+          quantidadeExecutada: 2.45,
+          unidade: "h",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: "exec-recurso-equivalencia-diferente",
+              recursoId: "eq-esc-150",
+              nome: "ESC 150 I - HYUNDAI",
+              quantidadeRealizada: 2.45,
+              unidadeRealizada: "h",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                ...recursoBase,
+                quantidadeOperacional: 2.45
+              }
+            }
+          ]
+        }
+      ]
+    });
+
+    const resultadoOrcamento = executarNucleoComMotorAtual(entradaOrcamento);
+    const resultadoExecucaoIgual = executarNucleoComMotorAtual(entradaExecucaoIgual);
+    const resultadoExecucaoDiferente = executarNucleoComMotorAtual(entradaExecucaoDiferente);
+
+    expect(resultadoExecucaoIgual.consolidado.custoOperacionalTotal).toBe(resultadoOrcamento.consolidado.custoOperacionalTotal);
+    expect(resultadoExecucaoDiferente.consolidado.custoOperacionalTotal).not.toBe(resultadoExecucaoIgual.consolidado.custoOperacionalTotal);
   });
 
   it("nao deixa jornada diaria alterar recurso com base economica por hora", () => {

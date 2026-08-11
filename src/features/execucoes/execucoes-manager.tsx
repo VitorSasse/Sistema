@@ -483,10 +483,6 @@ function findResultadoRecurso(recurso: RecursoBoletim, recursosCalculados: Array
       String(calculado.origemRegistroId ?? "") === String(recurso.origemRegistroId) &&
       String(calculado.origemRegistroTipo ?? "") === String(recurso.origemRegistroTipo ?? "")
     ))
-    ?? recursosCalculados.find((calculado) => (
-      String(calculado.referenciaTecnicaId ?? "") === String(recurso.recursoId ?? "") &&
-      String(calculado.nomeTecnico ?? "") === recurso.nomeSnapshot
-    ))
     ?? null;
 }
 
