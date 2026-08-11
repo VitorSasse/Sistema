@@ -314,11 +314,7 @@ function mapUnidade(
     nome: frente.nome,
     unidade: frente.unidade,
     quantidade: frente.quantidade,
-    economia: {
-      receita: economia.receita,
-      resultado: economia.resultado,
-      margemPercentual: economia.margemPercentual
-    },
+    economia,
     produtividade: frente.produtividadeDia,
     produtividadeResultante: frente.produtividadeResultante,
     prazoTeorico: frente.prazoTeoricoDias,
@@ -383,18 +379,15 @@ export function converterResultadoCostEngineParaNucleo(
   ) ?? 0;
   const economiaTotal = calcularResultadoEconomicoNucleo({
     receita: receitaTotal,
-    custo: resultado.custoDiretoTotal
+    custo: resultado.custoDiretoTotal,
+    encargos: entrada?.encargosEconomicos ?? []
   });
 
   return {
     contextoDeCalculo,
     consolidado: {
       custoOperacionalTotal: resultado.custoDiretoTotal,
-      economia: {
-        receita: economiaTotal.receita,
-        resultado: economiaTotal.resultado,
-        margemPercentual: economiaTotal.margemPercentual
-      },
+      economia: economiaTotal,
       quantidadeTotal: resultado.quantidadeTotal,
       prazoEstimadoTotal: resultado.prazoEstimadoTotalDias,
       custoOperacionalUnitarioMedio: resultado.custoDiretoUnitarioMedio,

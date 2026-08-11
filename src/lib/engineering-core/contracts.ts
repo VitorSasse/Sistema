@@ -28,6 +28,47 @@ export type BaseEconomicaRecursoOperacional =
 
 export type MetadadosTecnicos = Record<string, string | number | boolean | null>;
 
+export type FormaCalculoEncargoEconomicoNucleo = "PERCENTUAL_SOBRE_RECEITA" | "VALOR_INFORMADO";
+
+export type OrigemEncargoEconomicoNucleo = "MANUAL" | "OUTRO_MODULO";
+
+export type StatusEncargosEconomicosNucleo = "SEM_ENCARGOS" | "COM_ENCARGOS" | "ENCARGOS_PENDENTES";
+
+export type EncargoEconomicoNucleoInput = {
+  id?: string | null;
+  tipo: string;
+  descricao: string;
+  formaCalculo: FormaCalculoEncargoEconomicoNucleo;
+  percentual?: NumeroTecnico;
+  valorInformado?: NumeroTecnico;
+  observacao?: string | null;
+  origem?: OrigemEncargoEconomicoNucleo;
+};
+
+export type ResultadoEncargoEconomicoNucleo = {
+  id?: string | null;
+  tipo: string;
+  descricao: string;
+  formaCalculo: FormaCalculoEncargoEconomicoNucleo;
+  percentual: number | null;
+  valorInformado: number | null;
+  valorCalculado: number;
+  origem: OrigemEncargoEconomicoNucleo;
+  observacao?: string | null;
+  status: "CALCULADO" | "PENDENTE";
+};
+
+export type ResultadoEconomicoNucleo = {
+  receita: number;
+  custo: number;
+  encargosEconomicos: number;
+  custoTotalExecucao: number;
+  resultado: number;
+  margemPercentual: number | null;
+  statusEncargos: StatusEncargosEconomicosNucleo;
+  encargos: ResultadoEncargoEconomicoNucleo[];
+};
+
 export type ValorComOrigem<TValue = NumeroTecnico> = {
   valor: TValue;
   unidade?: string | null;
@@ -89,6 +130,7 @@ export type EntradaNucleoEngenharia = {
   analiseId?: string | null;
   nomeTecnico?: string | null;
   metadados?: MetadadosTecnicos;
+  encargosEconomicos?: EncargoEconomicoNucleoInput[];
   unidades: UnidadeOperacionalNucleoInput[];
 };
 
@@ -175,11 +217,7 @@ export type ResultadoUnidadeOperacionalNucleo = {
   nome: string;
   unidade: string;
   quantidade: number;
-  economia?: {
-    receita: number;
-    resultado: number;
-    margemPercentual: number | null;
-  };
+  economia?: ResultadoEconomicoNucleo;
   produtividade: number;
   produtividadeResultante: number;
   prazoTeorico: number;
@@ -212,11 +250,7 @@ export type ResultadoNucleoEngenharia = {
   contextoDeCalculo: ContextoDeCalculo;
   consolidado: {
     custoOperacionalTotal: number;
-    economia?: {
-      receita: number;
-      resultado: number;
-      margemPercentual: number | null;
-    };
+    economia?: ResultadoEconomicoNucleo;
     quantidadeTotal: number;
     prazoEstimadoTotal: number;
     custoOperacionalUnitarioMedio: number;

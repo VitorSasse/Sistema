@@ -14544,6 +14544,32 @@ button {
   gap: 10px;
 }
 
+.execucoes-checkline {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text) !important;
+  font-size: 0.86rem !important;
+  letter-spacing: 0 !important;
+}
+
+.execucoes-checkline input {
+  width: auto !important;
+}
+
+.execucoes-encargos-list {
+  display: grid;
+  gap: 10px;
+}
+
+.execucoes-encargo-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(180px, 1.2fr) minmax(160px, 0.9fr) minmax(120px, 0.7fr) minmax(160px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .execucoes-action-stack {
   display: inline-flex;
   flex-direction: column;
@@ -14674,6 +14700,10 @@ button {
   .execucoes-comparison-grid,
   .execucoes-economics-summary,
   .execucoes-economics-origin {
+    grid-template-columns: 1fr;
+  }
+
+  .execucoes-encargo-row {
     grid-template-columns: 1fr;
   }
 }

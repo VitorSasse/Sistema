@@ -1753,8 +1753,67 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
     expect(calcularResultadoEconomicoNucleo({ receita: 1000, custo: 750 })).toEqual({
       receita: 1000,
       custo: 750,
+      encargosEconomicos: 0,
+      custoTotalExecucao: 750,
       resultado: 250,
-      margemPercentual: 25
+      margemPercentual: 25,
+      statusEncargos: "SEM_ENCARGOS",
+      encargos: []
+    });
+  });
+
+  it("aplica encargos economicos opcionais sem alterar custo operacional", () => {
+    const resultado = calcularResultadoEconomicoNucleo({
+      receita: 1000,
+      custo: 750,
+      encargos: [
+        {
+          id: "enc-percentual",
+          tipo: "RETENCAO",
+          descricao: "Retencao comercial",
+          formaCalculo: "PERCENTUAL_SOBRE_RECEITA",
+          percentual: 10,
+          origem: "MANUAL"
+        },
+        {
+          id: "enc-fixo",
+          tipo: "TAXA",
+          descricao: "Taxa informada",
+          formaCalculo: "VALOR_INFORMADO",
+          valorInformado: 50,
+          origem: "MANUAL"
+        }
+      ]
+    });
+
+    expect(resultado.custo).toBe(750);
+    expect(resultado.encargosEconomicos).toBe(150);
+    expect(resultado.custoTotalExecucao).toBe(900);
+    expect(resultado.resultado).toBe(100);
+    expect(resultado.margemPercentual).toBe(10);
+    expect(resultado.statusEncargos).toBe("COM_ENCARGOS");
+    expect(resultado.encargos.map((encargo) => encargo.valorCalculado)).toEqual([100, 50]);
+  });
+
+  it("marca encargos incompletos como pendentes sem inventar valor", () => {
+    const resultado = calcularResultadoEconomicoNucleo({
+      receita: 1000,
+      custo: 750,
+      encargos: [
+        {
+          tipo: "IMPOSTO",
+          descricao: "Encargo sem percentual",
+          formaCalculo: "PERCENTUAL_SOBRE_RECEITA"
+        }
+      ]
+    });
+
+    expect(resultado.encargosEconomicos).toBe(0);
+    expect(resultado.resultado).toBe(250);
+    expect(resultado.statusEncargos).toBe("ENCARGOS_PENDENTES");
+    expect(resultado.encargos[0]).toMatchObject({
+      status: "PENDENTE",
+      valorCalculado: 0
     });
   });
 });

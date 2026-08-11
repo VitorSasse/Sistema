@@ -178,6 +178,22 @@ enum OrigemFatoBoletimDiario {
   OUTRO_MODULO
 }
 
+enum EstadoEncargosExecucao {
+  SEM_ENCARGOS
+  COM_ENCARGOS
+  ENCARGOS_PENDENTES
+}
+
+enum FormaCalculoEncargoExecucao {
+  PERCENTUAL_SOBRE_RECEITA
+  VALOR_INFORMADO
+}
+
+enum OrigemEncargoExecucao {
+  MANUAL
+  OUTRO_MODULO
+}
+
 enum OrigemReferenciaPrevistaExecucao {
   ORCAMENTO
   PROPOSTA
@@ -557,6 +573,7 @@ model Empresa {
   resultadosExecucao           ResultadoExecucao[]
   boletinsDiariosProducao      BoletimDiarioProducao[]
   recursosBoletimDiario        RecursoBoletimDiario[]
+  encargosEconomicosExecucao   EncargoEconomicoExecucao[]
   referenciasPrevistasExecucao ExecucaoReferenciaPrevista[]
 
   @@index([status, nome])
@@ -1229,6 +1246,7 @@ model Execucao {
   orcamentoOrigemId String?
   propostaOrigemId  String?
   cenarioOrigemId   String?
+  estadoEncargos    EstadoEncargosExecucao @default(SEM_ENCARGOS)
   createdAt         DateTime                  @default(now())
   updatedAt         DateTime                  @updatedAt
   empresa           Empresa                   @relation(fields: [empresaId], references: [id])
@@ -1241,6 +1259,7 @@ model Execucao {
   resultados        ResultadoExecucao[]
   boletins          BoletimDiarioProducao[]
   recursosBoletim   RecursoBoletimDiario[]
+  encargosEconomicos EncargoEconomicoExecucao[]
   referenciaPrevista ExecucaoReferenciaPrevista?
 
   @@index([empresaId])
@@ -1249,6 +1268,28 @@ model Execucao {
   @@index([orcamentoOrigemId])
   @@index([propostaOrigemId])
   @@index([cenarioOrigemId])
+  @@index([estadoEncargos])
+}
+
+model EncargoEconomicoExecucao {
+  id             String                     @id @default(uuid())
+  empresaId      String
+  execucaoId     String
+  tipo           String
+  descricao      String
+  formaCalculo   FormaCalculoEncargoExecucao
+  percentual     Decimal?                   @db.Decimal(10, 4)
+  valorInformado Decimal?                   @db.Decimal(14, 2)
+  observacao     String?
+  origem         OrigemEncargoExecucao      @default(MANUAL)
+  createdAt      DateTime                   @default(now())
+  updatedAt      DateTime                   @updatedAt
+  empresa        Empresa                    @relation(fields: [empresaId], references: [id])
+  execucao       Execucao                   @relation(fields: [execucaoId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId])
+  @@index([execucaoId])
+  @@index([origem])
 }
 
 model FrenteExecutada {

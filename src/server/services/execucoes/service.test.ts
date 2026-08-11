@@ -1,5 +1,8 @@
 import {
+  EstadoEncargosExecucao,
+  FormaCalculoEncargoExecucao,
   OrigemExecucao,
+  OrigemEncargoExecucao,
   OrigemFatoBoletimDiario,
   RoleUsuarioEmpresa,
   StatusBoletimDiarioProducao,
@@ -22,6 +25,7 @@ import {
   listarFatosOperacionaisExistentes,
   atualizarRecursoBoletimDiarioProducao,
   consolidarExecucaoPorBoletins,
+  salvarEncargosEconomicosExecucao,
   vincularFatosOperacionaisExecucao,
   desvincularRecursoBoletimDiario,
   EXECUCAO_RESULTADO_NUCLEO_VERSAO,
@@ -123,6 +127,7 @@ function createDbMock() {
     resultados: [] as Array<Record<string, unknown>>,
     boletins: [] as Array<Record<string, unknown>>,
     recursosBoletim: [] as Array<Record<string, unknown>>,
+    encargos: [] as Array<Record<string, unknown>>,
     lancamentos: [
       {
         id: "99999999-9999-4999-8999-999999999999",
@@ -168,6 +173,7 @@ function createDbMock() {
         records.execucao = {
           id: EXECUCAO_ID,
           ...data,
+          encargosEconomicos: records.encargos,
           frentes: ((data.frentes as Record<string, unknown>).create as Array<Record<string, unknown>>).map(
             (frente, index) => ({
               id: index === 0 ? FRENTE_ID : `66666666-6666-4666-8666-6666666666${String(index).padStart(2, "0")}`,
@@ -193,14 +199,18 @@ function createDbMock() {
         if ((args.include as Record<string, unknown> | undefined)?.boletins) {
           return {
             ...records.execucao,
-            boletins: records.boletins
+            boletins: records.boletins,
+            encargosEconomicos: records.encargos
           };
         }
-        return records.execucao;
+        return {
+          ...records.execucao,
+          encargosEconomicos: records.encargos
+        };
       },
       findMany: async (args: Record<string, unknown>) => {
         calls.push({ model: "execucao", action: "findMany", args });
-        return records.execucao ? [records.execucao] : [];
+        return records.execucao ? [{ ...records.execucao, encargosEconomicos: records.encargos }] : [];
       },
       update: async (args: Record<string, unknown>) => {
         calls.push({ model: "execucao", action: "update", args });
@@ -224,7 +234,7 @@ function createDbMock() {
           ...(records.execucao ?? {}),
           ...data,
           frentes,
-          resultados: []
+          resultados: data.estadoEncargos ? records.resultados : []
         };
         delete records.execucao.frentes;
         if (frentes) records.execucao.frentes = frentes;
@@ -314,7 +324,8 @@ function createDbMock() {
           ...boletim,
           execucao: {
             ...records.execucao,
-            boletins: records.boletins.filter((item) => item.status === StatusBoletimDiarioProducao.FECHADO)
+            boletins: records.boletins.filter((item) => item.status === StatusBoletimDiarioProducao.FECHADO),
+            encargosEconomicos: records.encargos
           }
         };
       },
@@ -335,7 +346,8 @@ function createDbMock() {
           ...records.boletins[index],
           execucao: {
             ...records.execucao,
-            boletins: records.boletins.filter((item) => item.status === StatusBoletimDiarioProducao.FECHADO)
+            boletins: records.boletins.filter((item) => item.status === StatusBoletimDiarioProducao.FECHADO),
+            encargosEconomicos: records.encargos
           }
         };
       },
@@ -417,6 +429,30 @@ function createDbMock() {
           );
         });
         return records.recursosBoletim[index];
+      }
+    },
+    encargoEconomicoExecucao: {
+      deleteMany: async (args: Record<string, unknown>) => {
+        calls.push({ model: "encargoEconomicoExecucao", action: "deleteMany", args });
+        const where = args.where as Record<string, unknown>;
+        const before = records.encargos.length;
+        records.encargos = records.encargos.filter((item) => item.execucaoId !== where.execucaoId || item.empresaId !== where.empresaId);
+        return { count: before - records.encargos.length };
+      },
+      createMany: async (args: Record<string, unknown>) => {
+        calls.push({ model: "encargoEconomicoExecucao", action: "createMany", args });
+        const data = (args.data ?? []) as Array<Record<string, unknown>>;
+        records.encargos.push(...data.map((item, index) => ({
+          id: `encargo-${records.encargos.length + index + 1}`,
+          createdAt: new Date("2026-08-06T12:00:00.000Z"),
+          updatedAt: new Date("2026-08-06T12:00:00.000Z"),
+          origem: OrigemEncargoExecucao.MANUAL,
+          ...item
+        })));
+        if (records.execucao) {
+          records.execucao.encargosEconomicos = records.encargos;
+        }
+        return { count: data.length };
       }
     },
     lancamentoDiario: {
@@ -723,8 +759,13 @@ describe("service de Execucao e Resultado", () => {
     ]);
     expect(economiaJson.economia).toEqual({
       receita: 45960.06,
+      custo: 18240,
+      encargosEconomicos: 0,
+      custoTotalExecucao: 18240,
       resultado: 27720.06,
-      margemPercentual: 60.31
+      margemPercentual: 60.31,
+      statusEncargos: "SEM_ENCARGOS",
+      encargos: []
     });
     expect(resultadoOperacionalJson.versaoNucleo).toBe(EXECUCAO_RESULTADO_NUCLEO_VERSAO);
     expect(economiaJson.versaoNucleo).toBe(EXECUCAO_RESULTADO_NUCLEO_VERSAO);
@@ -753,6 +794,44 @@ describe("service de Execucao e Resultado", () => {
     });
     expect(JSON.stringify(entrada)).not.toContain("custoTotal");
     expect(JSON.stringify(entrada)).not.toContain("margemPercentual");
+  });
+
+  it("salva encargos economicos separados dos recursos e envia ao bloco economia do nucleo", async () => {
+    const { db, records } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputCasoPiloto()));
+
+    await runTenant(() =>
+      salvarEncargosEconomicosExecucao(db as never, EXECUCAO_ID, {
+        estadoEncargos: EstadoEncargosExecucao.COM_ENCARGOS,
+        encargos: [
+          {
+            tipo: "RETENCAO",
+            descricao: "Retencao comercial",
+            formaCalculo: FormaCalculoEncargoExecucao.PERCENTUAL_SOBRE_RECEITA,
+            percentual: 10,
+            origem: OrigemEncargoExecucao.MANUAL
+          },
+          {
+            tipo: "TAXA",
+            descricao: "Taxa informada",
+            formaCalculo: FormaCalculoEncargoExecucao.VALOR_INFORMADO,
+            valorInformado: 100,
+            origem: OrigemEncargoExecucao.MANUAL
+          }
+        ]
+      })
+    );
+    const resultado = await runTenant(() => consolidarExecucaoPorBoletins(db as never, EXECUCAO_ID));
+    const economiaJson = (resultado as { resultados: Array<{ economiaJson: Record<string, unknown> }> }).resultados[0].economiaJson;
+    const economia = economiaJson.economia as Record<string, unknown>;
+
+    expect(records.execucao?.estadoEncargos).toBe(EstadoEncargosExecucao.COM_ENCARGOS);
+    expect(records.encargos).toHaveLength(2);
+    expect(records.recursosBoletim).toHaveLength(0);
+    expect(economia.encargosEconomicos).toBe(4696.01);
+    expect(economia.custoTotalExecucao).toBe(4696.01);
+    expect(economia.statusEncargos).toBe("COM_ENCARGOS");
+    expect(economia.encargos).toHaveLength(2);
   });
 
   it("alterar um recurso modifica apenas fatos enviados ao nucleo e gera novo snapshot", async () => {

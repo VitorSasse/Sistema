@@ -1,5 +1,6 @@
 import type {
   BaseEconomicaRecursoOperacional,
+  EncargoEconomicoNucleoInput,
   EntradaNucleoEngenharia,
   NumeroTecnico,
   RecursoOperacionalNucleoInput,
@@ -95,6 +96,7 @@ export type EntradaExecucao = {
   execucaoId: string;
   nomeTecnico: string;
   unidades: UnidadeExecutada[];
+  encargosEconomicos?: EncargoEconomicoNucleoInput[];
   metadados?: Record<string, string | number | boolean | null> | null;
 };
 
@@ -342,6 +344,7 @@ export function adaptarExecucaoParaEntradaNucleo(input: EntradaExecucao): Entrad
       origem: "EXECUCAO",
       ...(input.metadados ?? {})
     },
+    encargosEconomicos: input.encargosEconomicos ?? [],
     unidades: input.unidades.map((unidade) => ({
       id: unidade.id,
       nome: unidade.nome,

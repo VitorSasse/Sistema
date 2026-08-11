@@ -68,15 +68,28 @@ type Execucao = {
   descricao?: string | null;
   origem?: string | null;
   status: string;
+  estadoEncargos?: "SEM_ENCARGOS" | "COM_ENCARGOS" | "ENCARGOS_PENDENTES";
   cliente?: { id?: string; nome?: string | null; nomeFantasia?: string | null; codigo?: string | null } | null;
   obra?: { id?: string; nome?: string | null; codigo?: string | null } | null;
   frentes: FrenteExecucao[];
+  encargosEconomicos?: EncargoEconomicoExecucao[];
   boletins?: Boletim[];
   resultados?: Array<{
     id: string;
     resultadoOperacionalJson?: Record<string, unknown> | null;
     economiaJson?: Record<string, unknown> | null;
   }>;
+};
+
+type EncargoEconomicoExecucao = {
+  id?: string;
+  tipo: string;
+  descricao: string;
+  formaCalculo: "PERCENTUAL_SOBRE_RECEITA" | "VALOR_INFORMADO";
+  percentual?: string | number | null;
+  valorInformado?: string | number | null;
+  observacao?: string | null;
+  origem?: "MANUAL" | "OUTRO_MODULO";
 };
 
 type FatoOperacional = {
@@ -134,6 +147,10 @@ type Comparativo = {
 const unidades = ["m3", "m2", "h", "dia", "diaria", "carga", "viagem", "km", "mes", "un"];
 const basesEconomicas = ["CARGA", "VIAGEM", "HORA", "DIA", "KM", "M3", "M2", "MES", "UNIDADE", "CUSTO_FIXO"];
 const JORNADA_PADRAO_EXECUCAO_HORAS_DIA = 8;
+const formasCalculoEncargo = [
+  { value: "PERCENTUAL_SOBRE_RECEITA", label: "Percentual sobre receita" },
+  { value: "VALOR_INFORMADO", label: "Valor informado" }
+] as const;
 
 function todayInput() {
   return new Date().toISOString().slice(0, 10);
@@ -216,6 +233,37 @@ function initialRecursoForm(frenteId = "") {
     valorCusto: "",
     unidadeCusto: "R$/carga",
     observacao: ""
+  };
+}
+
+function newEncargo(): EncargoEconomicoExecucao {
+  return {
+    tipo: "",
+    descricao: "",
+    formaCalculo: "PERCENTUAL_SOBRE_RECEITA",
+    percentual: "",
+    valorInformado: "",
+    observacao: "",
+    origem: "MANUAL"
+  };
+}
+
+function encargosFormFromSelected(execucao: Execucao | null | undefined) {
+  const encargos = execucao?.encargosEconomicos ?? [];
+  return {
+    possuiEncargos: execucao?.estadoEncargos === "COM_ENCARGOS" ||
+      execucao?.estadoEncargos === "ENCARGOS_PENDENTES" ||
+      encargos.length > 0,
+    encargos: encargos.length ? encargos.map((encargo) => ({
+      id: encargo.id,
+      tipo: encargo.tipo,
+      descricao: encargo.descricao,
+      formaCalculo: encargo.formaCalculo,
+      percentual: encargo.percentual === null || encargo.percentual === undefined ? "" : String(encargo.percentual),
+      valorInformado: encargo.valorInformado === null || encargo.valorInformado === undefined ? "" : String(encargo.valorInformado),
+      observacao: encargo.observacao ?? "",
+      origem: encargo.origem ?? "MANUAL"
+    })) : [newEncargo()]
   };
 }
 
@@ -504,6 +552,10 @@ function extractRealizado(selected: Execucao | null) {
 
   return {
     custo: toNumber(consolidado?.custoOperacionalTotal),
+    encargos: toNumber(economia?.encargosEconomicos),
+    custoTotalExecucao: toNumber(economia?.custoTotalExecucao ?? consolidado?.custoOperacionalTotal),
+    statusEncargos: String(economia?.statusEncargos ?? "SEM_ENCARGOS"),
+    encargosDetalhes: (economia?.encargos as Array<Record<string, unknown>> | undefined) ?? [],
     quantidade: toNumber(consolidado?.quantidadeTotal),
     receita: toNumber(economia?.receita),
     resultado: toNumber(economia?.resultado),
@@ -582,6 +634,7 @@ export function ExecucoesManager() {
   const [fatosFilter, setFatosFilter] = useState(initialFatosFilter);
   const [execucaoForm, setExecucaoForm] = useState(initialExecucaoForm);
   const [headerForm, setHeaderForm] = useState(initialExecucaoForm);
+  const [encargosForm, setEncargosForm] = useState(() => encargosFormFromSelected(null));
   const [editingHeader, setEditingHeader] = useState(false);
   const [boletimForm, setBoletimForm] = useState(initialBoletimForm);
   const [recursoForm, setRecursoForm] = useState(initialRecursoForm);
@@ -752,8 +805,9 @@ export function ExecucoesManager() {
 
   useEffect(() => {
     setHeaderForm(execucaoFormFromSelected(selected));
+    setEncargosForm(encargosFormFromSelected(selected));
     setEditingHeader(false);
-  }, [selected?.id]);
+  }, [selected?.id, selected?.estadoEncargos, selected?.encargosEconomicos?.length]);
 
   useEffect(() => {
     setFatosFilter((current) => ({ ...current, obraId: selected?.obra?.id ?? "" }));
@@ -849,6 +903,54 @@ export function ExecucoesManager() {
       await loadComparativo(data.item.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Nao foi possivel atualizar a execucao.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function updateEncargo(index: number, patch: Partial<EncargoEconomicoExecucao>) {
+    setEncargosForm((current) => ({
+      ...current,
+      encargos: current.encargos.map((encargo, currentIndex) =>
+        currentIndex === index ? { ...encargo, ...patch } : encargo
+      )
+    }));
+  }
+
+  async function handleSaveEncargos(event: FormEvent) {
+    event.preventDefault();
+    if (!selected) return;
+    setLoading(true);
+    setError("");
+    setMessage("");
+
+    try {
+      const encargos = encargosForm.possuiEncargos
+        ? encargosForm.encargos
+          .filter((encargo) => encargo.tipo.trim() || encargo.descricao.trim())
+          .map((encargo) => ({
+            tipo: encargo.tipo,
+            descricao: encargo.descricao,
+            formaCalculo: encargo.formaCalculo,
+            percentual: encargo.formaCalculo === "PERCENTUAL_SOBRE_RECEITA" && encargo.percentual !== "" ? Number(encargo.percentual) : undefined,
+            valorInformado: encargo.formaCalculo === "VALOR_INFORMADO" && encargo.valorInformado !== "" ? Number(encargo.valorInformado) : undefined,
+            observacao: encargo.observacao || null,
+            origem: encargo.origem ?? "MANUAL"
+          }))
+        : [];
+      const data = await fetchJson<{ item: Execucao }>(`/api/execucoes/${selected.id}/encargos`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          estadoEncargos: encargosForm.possuiEncargos ? "COM_ENCARGOS" : "SEM_ENCARGOS",
+          encargos
+        })
+      });
+      setExecucoes((current) => current.map((item) => (item.id === selected.id ? data.item : item)));
+      setEncargosForm(encargosFormFromSelected(data.item));
+      setMessage("Encargos economicos atualizados. Consolide a execucao para atualizar o resultado.");
+      await loadComparativo(data.item.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Nao foi possivel salvar os encargos economicos.");
     } finally {
       setLoading(false);
     }
@@ -1258,6 +1360,111 @@ export function ExecucoesManager() {
                 <Info label="Quantidade realizada consolidada" value={possuiQuantidadeServico ? number(primeiraFrenteComparativo?.quantidade.realizado ?? totais.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "") : "Nao informada"} />
               </div>
             )}
+          </section>
+
+          <section className="execucoes-panel">
+            <div className="execucoes-panel-heading">
+              <span className="page-kicker">Encargos economicos</span>
+              <strong>Composicao economica opcional</strong>
+              <p>Encargos nao sao recursos operacionais. Eles afetam apenas o resultado economico da execucao.</p>
+            </div>
+            <form className="execucoes-resource-form" onSubmit={handleSaveEncargos}>
+              <label className="execucoes-checkline">
+                <input
+                  type="checkbox"
+                  checked={encargosForm.possuiEncargos}
+                  disabled={!selected || loading}
+                  onChange={(event) => setEncargosForm((current) => ({
+                    possuiEncargos: event.target.checked,
+                    encargos: current.encargos.length ? current.encargos : [newEncargo()]
+                  }))}
+                />
+                Esta execucao possui encargos economicos?
+              </label>
+              {!encargosForm.possuiEncargos ? (
+                <div className="execucoes-economics-note">
+                  Sem encargos economicos. Este e um estado valido e nao gera pendencia.
+                </div>
+              ) : (
+                <div className="execucoes-encargos-list">
+                  {encargosForm.encargos.map((encargo, index) => (
+                    <div className="execucoes-encargo-row" key={`${encargo.id ?? "novo"}-${index}`}>
+                      <input
+                        placeholder="Tipo do encargo"
+                        value={encargo.tipo}
+                        onChange={(event) => updateEncargo(index, { tipo: event.target.value })}
+                        required
+                      />
+                      <input
+                        placeholder="Descricao"
+                        value={encargo.descricao}
+                        onChange={(event) => updateEncargo(index, { descricao: event.target.value })}
+                        required
+                      />
+                      <select
+                        value={encargo.formaCalculo}
+                        onChange={(event) => updateEncargo(index, {
+                          formaCalculo: event.target.value as EncargoEconomicoExecucao["formaCalculo"],
+                          percentual: "",
+                          valorInformado: ""
+                        })}
+                      >
+                        {formasCalculoEncargo.map((forma) => (
+                          <option key={forma.value} value={forma.value}>{forma.label}</option>
+                        ))}
+                      </select>
+                      {encargo.formaCalculo === "PERCENTUAL_SOBRE_RECEITA" ? (
+                        <input
+                          type="number"
+                          step="0.0001"
+                          placeholder="% sobre receita"
+                          value={encargo.percentual ?? ""}
+                          onChange={(event) => updateEncargo(index, { percentual: event.target.value })}
+                        />
+                      ) : (
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="Valor informado"
+                          value={encargo.valorInformado ?? ""}
+                          onChange={(event) => updateEncargo(index, { valorInformado: event.target.value })}
+                        />
+                      )}
+                      <input
+                        placeholder="Observacao"
+                        value={encargo.observacao ?? ""}
+                        onChange={(event) => updateEncargo(index, { observacao: event.target.value })}
+                      />
+                      <button
+                        className="button-secondary"
+                        type="button"
+                        disabled={loading}
+                        onClick={() => setEncargosForm((current) => ({
+                          ...current,
+                          encargos: current.encargos.length > 1
+                            ? current.encargos.filter((_, currentIndex) => currentIndex !== index)
+                            : [newEncargo()]
+                        }))}
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    disabled={loading}
+                    onClick={() => setEncargosForm((current) => ({
+                      ...current,
+                      encargos: [...current.encargos, newEncargo()]
+                    }))}
+                  >
+                    Adicionar encargo
+                  </button>
+                </div>
+              )}
+              <button className="button-primary" type="submit" disabled={!selected || loading}>Salvar encargos</button>
+            </form>
           </section>
 
           <section className="execucoes-panel">
@@ -1675,6 +1882,11 @@ export function ExecucoesManager() {
             ) : null}
             {selectedBoletim?.status === "ABERTO" ? (
               <form className="execucoes-resource-form" onSubmit={handleAddRecurso}>
+                <div className="execucoes-panel-heading">
+                  <span className="page-kicker">Recurso complementar</span>
+                  <strong>Registrar recurso operacional complementar</strong>
+                  <p>Use para recursos executados que nao vieram dos lancamentos. O custo continua sendo calculado pelo Nucleo.</p>
+                </div>
                 <select value={recursoForm.frenteExecutadaId} onChange={(event) => setRecursoForm((current) => ({ ...current, frenteExecutadaId: event.target.value }))} required>
                   {(selected?.frentes ?? []).map((frente) => <option key={frente.id} value={frente.id}>{frente.nome}</option>)}
                 </select>
@@ -1719,11 +1931,26 @@ export function ExecucoesManager() {
                 </div>
                 <div className="execucoes-comparison-grid">
                   <Info label="Quantidade realizada" value={possuiQuantidadeServico ? number(realizado.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "") : "Nao informada"} />
-                  <Info label="Custo realizado" value={money(realizado.custo)} />
+                  <Info label="Custo operacional" value={money(realizado.custo)} />
+                  <Info label="Encargos economicos" value={money(realizado.encargos)} />
+                  <Info label="Custo total da execucao" value={money(realizado.custoTotalExecucao)} />
                   <Info label="Receita realizada" value={money(realizado.receita)} />
                   <Info label="Resultado realizado" value={money(realizado.resultado)} />
                   <Info label="Margem realizada" value={realizado.margem === null ? "-" : number(realizado.margem, "%")} />
+                  <Info label="Status encargos" value={realizado.statusEncargos.replaceAll("_", " ")} />
                 </div>
+                {realizado.encargosDetalhes.length ? (
+                  <details className="execucoes-economics-note">
+                    <summary>Composicao dos encargos</summary>
+                    <ul>
+                      {realizado.encargosDetalhes.map((encargo, index) => (
+                        <li key={`${String(encargo.id ?? index)}-${index}`}>
+                          {String(encargo.descricao ?? encargo.tipo ?? "Encargo")}: {money(toNumber(encargo.valorCalculado))} ({String(encargo.formaCalculo ?? "-")})
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
                 <div className="data-table-wrap">
                   <table className="data-table data-table-compact">
                     <thead>

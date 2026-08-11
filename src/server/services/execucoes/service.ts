@@ -1,4 +1,12 @@
-import { OrigemFatoBoletimDiario, Prisma, StatusBoletimDiarioProducao, StatusLancamento } from "@prisma/client";
+import {
+  EstadoEncargosExecucao,
+  FormaCalculoEncargoExecucao,
+  OrigemEncargoExecucao,
+  OrigemFatoBoletimDiario,
+  Prisma,
+  StatusBoletimDiarioProducao,
+  StatusLancamento
+} from "@prisma/client";
 import {
   adaptarExecucaoParaEntradaNucleo,
   avaliarSnapshotTecnicoEconomico,
@@ -14,6 +22,10 @@ import {
   type RecursoBoletimDiarioProducaoInput
 } from "@/lib/validators/boletim-diario-producao";
 import { execucaoSchema, type ExecucaoInput } from "@/lib/validators/execucao";
+import {
+  salvarEncargosEconomicosExecucaoSchema,
+  type SalvarEncargosEconomicosExecucaoInput
+} from "@/lib/validators/execucao-encargos";
 import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseDateOnlyEnd, parseDateOnlyStart } from "@/lib/utils/date";
 
@@ -44,6 +56,10 @@ type DbClient = {
     findMany?: (args: Prisma.RecursoBoletimDiarioFindManyArgs) => Promise<unknown>;
     update?: (args: Prisma.RecursoBoletimDiarioUpdateArgs) => Promise<unknown>;
     delete?: (args: Prisma.RecursoBoletimDiarioDeleteArgs) => Promise<unknown>;
+  };
+  encargoEconomicoExecucao?: {
+    deleteMany: (args: Prisma.EncargoEconomicoExecucaoDeleteManyArgs) => Promise<unknown>;
+    createMany: (args: Prisma.EncargoEconomicoExecucaoCreateManyArgs) => Promise<unknown>;
   };
   lancamentoDiario?: {
     findMany: (args: Prisma.LancamentoDiarioFindManyArgs) => Promise<unknown>;
@@ -80,8 +96,21 @@ type PersistedExecucao = {
   obraId?: string | null;
   origem?: unknown;
   status?: unknown;
+  estadoEncargos?: EstadoEncargosExecucao | string | null;
   frentes?: PersistedFrenteExecutada[];
   resultados?: unknown[];
+  encargosEconomicos?: PersistedEncargoEconomicoExecucao[];
+};
+
+type PersistedEncargoEconomicoExecucao = {
+  id: string;
+  tipo: string;
+  descricao: string;
+  formaCalculo: FormaCalculoEncargoExecucao | string;
+  percentual?: unknown;
+  valorInformado?: unknown;
+  observacao?: string | null;
+  origem: OrigemEncargoExecucao | string;
 };
 
 type PersistedRecursoBoletimDiario = {
@@ -172,6 +201,9 @@ export const execucaoInclude = {
   },
   resultados: {
     orderBy: [{ createdAt: "desc" as const }]
+  },
+  encargosEconomicos: {
+    orderBy: [{ createdAt: "asc" as const }]
   }
 } satisfies Prisma.ExecucaoInclude;
 
@@ -225,6 +257,9 @@ export const boletimDiarioProducaoInclude = {
       },
       resultados: {
         orderBy: [{ createdAt: "desc" as const }]
+      },
+      encargosEconomicos: {
+        orderBy: [{ createdAt: "asc" as const }]
       }
     }
   }
@@ -251,7 +286,10 @@ export const execucaoOperacionalInclude = {
     },
     orderBy: [{ dataBoletim: "desc" as const }]
   },
-  referenciaPrevista: true
+  referenciaPrevista: true,
+  encargosEconomicos: {
+    orderBy: [{ createdAt: "asc" as const }]
+  }
 } satisfies Prisma.ExecucaoInclude;
 
 function clean(value?: string | null) {
@@ -272,6 +310,19 @@ function toSnapshotTecnicoEconomico(value: unknown): SnapshotTecnicoEconomicoRec
   return typeof value === "object" && value !== null
     ? (value as SnapshotTecnicoEconomicoRecursoRealizado)
     : {};
+}
+
+function adaptarEncargosEconomicosExecucao(encargos?: PersistedEncargoEconomicoExecucao[]) {
+  return (encargos ?? []).map((encargo) => ({
+    id: encargo.id,
+    tipo: encargo.tipo,
+    descricao: encargo.descricao,
+    formaCalculo: encargo.formaCalculo as FormaCalculoEncargoExecucao,
+    percentual: encargo.percentual === null || encargo.percentual === undefined ? undefined : toNumber(encargo.percentual),
+    valorInformado: encargo.valorInformado === null || encargo.valorInformado === undefined ? undefined : toNumber(encargo.valorInformado),
+    observacao: encargo.observacao ?? null,
+    origem: encargo.origem as OrigemEncargoExecucao
+  }));
 }
 
 function recursoTemCustoPendente(recurso: { snapshotTecnicoEconomico: unknown }) {
@@ -320,6 +371,14 @@ function requireRecursoBoletimUpdateDelegate(db: DbClient) {
   }
 
   return db.recursoBoletimDiario.update;
+}
+
+function requireEncargoEconomicoDelegate(db: DbClient) {
+  if (!db.encargoEconomicoExecucao) {
+    throw new Error("ENCARGO_ECONOMICO_EXECUCAO_NAO_DISPONIVEL");
+  }
+
+  return db.encargoEconomicoExecucao;
 }
 
 function requireFrenteExecutadaUpdateDelegate(db: DbClient) {
@@ -497,6 +556,7 @@ export function adaptarExecucaoPersistidaParaEntradaNucleo(execucao: PersistedEx
     metadados: {
       empresaId: execucao.empresaId
     },
+    encargosEconomicos: adaptarEncargosEconomicosExecucao(execucao.encargosEconomicos),
     unidades: (execucao.frentes ?? []).map((frente) => ({
       id: frente.id,
       nome: frente.nome ?? "Frente sem descricao",
@@ -546,6 +606,7 @@ export function adaptarExecucaoComBoletinsParaEntradaNucleo(
       empresaId: execucao.empresaId,
       origemFatos: "BOLETIM_DIARIO"
     },
+    encargosEconomicos: adaptarEncargosEconomicosExecucao(execucao.encargosEconomicos),
     unidades: (execucao.frentes ?? []).map((frente) => ({
       id: frente.id,
       nome: frente.nome ?? "Frente sem descricao",
@@ -702,6 +763,28 @@ function resultadoMantemAssinaturaEconomicaAtual(
   });
 }
 
+function assinaturaEncargos(encargos: PersistedEncargoEconomicoExecucao[] | Array<Record<string, unknown>> | undefined) {
+  return JSON.stringify((encargos ?? []).map((encargo) => ({
+    id: String(encargo.id ?? ""),
+    tipo: toComparableText(encargo.tipo),
+    descricao: toComparableText(encargo.descricao),
+    formaCalculo: toComparableText(encargo.formaCalculo),
+    percentual: toComparableNumber(encargo.percentual),
+    valorInformado: toComparableNumber(encargo.valorInformado),
+    origem: toComparableText(encargo.origem)
+  })));
+}
+
+function resultadoMantemEncargosAtuais(
+  execucao: PersistedExecucaoComBoletins | PersistedExecucao,
+  resultado: { economiaJson?: unknown }
+) {
+  const economiaJson = resultado.economiaJson as Record<string, unknown> | null | undefined;
+  const economia = economiaJson?.economia as Record<string, unknown> | null | undefined;
+  const encargosResultado = economia?.encargos as Array<Record<string, unknown>> | undefined;
+  return assinaturaEncargos(execucao.encargosEconomicos) === assinaturaEncargos(encargosResultado);
+}
+
 function recursoAtualIds(execucao: PersistedExecucaoComBoletins | PersistedExecucao) {
   const boletins = (execucao as PersistedExecucaoComBoletins).boletins ?? [];
   const recursosBoletim = boletins.flatMap((boletim) => boletim.recursos ?? []);
@@ -715,17 +798,19 @@ function recursoAtualIds(execucao: PersistedExecucaoComBoletins | PersistedExecu
 
 function resultadoCobreRecursosAtuais(
   execucao: PersistedExecucaoComBoletins | PersistedExecucao,
-  resultado: { resultadoOperacionalJson: unknown }
+  resultado: { resultadoOperacionalJson: unknown; economiaJson?: unknown }
 ) {
   const idsAtuais = recursoAtualIds(execucao);
-  if (!idsAtuais.length) return true;
+  if (!idsAtuais.length) return resultadoMantemEncargosAtuais(execucao, resultado);
 
   const idsResultado = recursosResultadoIds(resultado.resultadoOperacionalJson);
-  return idsAtuais.every((id) => idsResultado.has(id)) && resultadoMantemAssinaturaEconomicaAtual(execucao, resultado);
+  return idsAtuais.every((id) => idsResultado.has(id)) &&
+    resultadoMantemAssinaturaEconomicaAtual(execucao, resultado) &&
+    resultadoMantemEncargosAtuais(execucao, resultado);
 }
 
 function removerResultadosObsoletos<T extends PersistedExecucao | PersistedExecucaoComBoletins>(execucao: T): T {
-  const resultados = (execucao.resultados ?? []) as Array<{ resultadoOperacionalJson: unknown }>;
+  const resultados = (execucao.resultados ?? []) as Array<{ resultadoOperacionalJson: unknown; economiaJson?: unknown }>;
   if (!resultados.length) return execucao;
 
   return {
@@ -941,6 +1026,84 @@ export async function atualizarCabecalhoExecucao(db: DbClient, id: string, input
       }
     });
   }
+
+  return buscarExecucaoOperacional(db, id);
+}
+
+function encargoTemParametrosCompletos(encargo: SalvarEncargosEconomicosExecucaoInput["encargos"][number]) {
+  if (encargo.formaCalculo === FormaCalculoEncargoExecucao.PERCENTUAL_SOBRE_RECEITA) {
+    return encargo.percentual !== undefined;
+  }
+
+  return encargo.valorInformado !== undefined;
+}
+
+function resolverEstadoEncargos(input: SalvarEncargosEconomicosExecucaoInput) {
+  if (input.estadoEncargos === EstadoEncargosExecucao.SEM_ENCARGOS) {
+    return EstadoEncargosExecucao.SEM_ENCARGOS;
+  }
+
+  if (!input.encargos.length || input.encargos.some((encargo) => !encargoTemParametrosCompletos(encargo))) {
+    return EstadoEncargosExecucao.ENCARGOS_PENDENTES;
+  }
+
+  return EstadoEncargosExecucao.COM_ENCARGOS;
+}
+
+export async function salvarEncargosEconomicosExecucao(
+  db: DbClient,
+  id: string,
+  input: SalvarEncargosEconomicosExecucaoInput
+) {
+  const parsed = salvarEncargosEconomicosExecucaoSchema.parse(input);
+  const empresaId = requireActiveTenantEmpresaId();
+  const atual = await db.execucao.findFirst({
+    where: {
+      id,
+      empresaId
+    },
+    select: {
+      id: true
+    }
+  });
+
+  if (!atual) {
+    throw new Error("EXECUCAO_NAO_ENCONTRADA");
+  }
+
+  const estadoEncargos = resolverEstadoEncargos(parsed);
+  const encargosDelegate = requireEncargoEconomicoDelegate(db);
+  await encargosDelegate.deleteMany({
+    where: {
+      execucaoId: id,
+      empresaId
+    }
+  });
+
+  if (estadoEncargos !== EstadoEncargosExecucao.SEM_ENCARGOS && parsed.encargos.length) {
+    await encargosDelegate.createMany({
+      data: parsed.encargos.map((encargo) => ({
+        empresaId,
+        execucaoId: id,
+        tipo: encargo.tipo.trim(),
+        descricao: encargo.descricao.trim(),
+        formaCalculo: encargo.formaCalculo,
+        percentual: encargo.percentual ?? null,
+        valorInformado: encargo.valorInformado ?? null,
+        observacao: clean(encargo.observacao),
+        origem: encargo.origem
+      }))
+    });
+  }
+
+  await db.execucao.update({
+    where: {
+      id
+    },
+    data: {
+      estadoEncargos
+    }
+  });
 
   return buscarExecucaoOperacional(db, id);
 }
@@ -1598,6 +1761,9 @@ export async function excluirBoletimDiarioProducao(db: DbClient, id: string) {
       },
       resultados: {
         orderBy: [{ createdAt: "desc" as const }]
+      },
+      encargosEconomicos: {
+        orderBy: [{ createdAt: "asc" as const }]
       }
     }
   }) as PersistedExecucaoComBoletins | null;
