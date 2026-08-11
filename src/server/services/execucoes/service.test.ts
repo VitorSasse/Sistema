@@ -1051,6 +1051,68 @@ describe("service de Execucao e Resultado", () => {
     expect(execucao?.resultados).toHaveLength(0);
   });
 
+  it("ignora resultado obsoleto que cobre ids mas nao a configuracao economica atual", async () => {
+    const { db, records } = createDbMock();
+    await runTenant(() => criarExecucao(db as never, inputExecucao()));
+    await runTenant(() =>
+      criarBoletimDiarioProducao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        dataBoletim: new Date("2026-08-07T00:00:00.000Z"),
+        recursos: [
+          ...recursosBoletimDiaUm(),
+          ...recursosBoletimDiaDois()
+        ]
+      })
+    );
+    const resultadoComAssinaturaAntiga = {
+      id: "resultado-assinatura-antiga",
+      empresaId: EMPRESA_ID,
+      execucaoId: EXECUCAO_ID,
+      createdAt: new Date("2026-08-07T10:00:00.000Z"),
+      resultadoOperacionalJson: {
+        resultadoOperacional: {
+          unidades: [
+            {
+              recursos: [
+                {
+                  id: "boletim-recurso-1-1",
+                  recursoBoletimId: "boletim-recurso-1-1",
+                  baseEconomica: "CARGA",
+                  custoUnitario: 99,
+                  quantidadeOperacional: 93,
+                  unidadeQuantidadeOperacional: "cargas",
+                  unidadeCustoFormatada: "R$/carga",
+                  custoTotal: 9207,
+                  statusCalculo: "CALCULADO"
+                },
+                {
+                  id: "boletim-recurso-1-2",
+                  recursoBoletimId: "boletim-recurso-1-2",
+                  baseEconomica: "DIA",
+                  custoUnitario: 900,
+                  quantidadeOperacional: 2,
+                  unidadeQuantidadeOperacional: "diarias",
+                  unidadeCustoFormatada: "R$/dia",
+                  custoTotal: 1800,
+                  statusCalculo: "CALCULADO"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    };
+    records.resultados.unshift(resultadoComAssinaturaAntiga);
+    if (records.execucao) {
+      records.execucao.resultados = records.resultados;
+    }
+
+    const execucao = await runTenant(() => buscarExecucaoOperacional(db as never, EXECUCAO_ID));
+
+    expect(execucao?.boletins?.[0].recursos).toHaveLength(2);
+    expect(execucao?.resultados).toHaveLength(0);
+  });
+
   it("lista fatos operacionais existentes por obra e periodo com rastreabilidade", async () => {
     const { db, calls } = createDbMock();
     await runTenant(() => criarExecucao(db as never, inputExecucao()));

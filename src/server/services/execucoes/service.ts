@@ -600,6 +600,108 @@ function recursosResultadoIds(resultado: unknown) {
   ].filter((value): value is string => typeof value === "string" && Boolean(value))));
 }
 
+function toComparableNumber(value: unknown) {
+  if (value === null || value === undefined || value === "") return 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round((parsed + Number.EPSILON) * 1_000_000) / 1_000_000 : 0;
+}
+
+function toComparableText(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/²/g, "2")
+    .replace(/³/g, "3")
+    .toUpperCase();
+}
+
+function assinaturaComponenteEconomico(value: Record<string, unknown>) {
+  const baseEconomica = toComparableText(value.baseEconomica);
+  const assinaturaBase: Record<string, unknown> = {
+    baseEconomica: toComparableText(value.baseEconomica),
+    custoUnitario: toComparableNumber(value.custoUnitario ?? value.valorCusto),
+    quantidadeRecursos: toComparableNumber(value.quantidadeRecursos ?? 1),
+    quantidadeOperacional: toComparableNumber(value.quantidadeOperacional),
+    unidadeQuantidadeOperacional: toComparableText(value.unidadeQuantidadeOperacional),
+    unidadeCusto: toComparableText(value.unidadeCusto ?? value.unidadeCustoFormatada ?? value.unidadeCustoOriginal),
+    capacidadePorViagem: toComparableNumber(value.capacidadePorViagem),
+    unidadeCapacidade: toComparableText(value.unidadeCapacidade)
+  };
+
+  if (baseEconomica === "DIA" || baseEconomica === "HORA") {
+    assinaturaBase.horasDia = toComparableNumber(value.horasDia);
+    assinaturaBase.horasTotais = toComparableNumber(value.horasTotais);
+  }
+
+  if (baseEconomica === "KM") {
+    assinaturaBase.distanciaViagemKm = toComparableNumber(value.distanciaViagemKm);
+    assinaturaBase.quilometrosTotais = toComparableNumber(value.quilometrosTotais);
+    assinaturaBase.viagensTotais = toComparableNumber(value.viagensTotais);
+    assinaturaBase.cargasTotais = toComparableNumber(value.cargasTotais);
+  }
+
+  if (baseEconomica === "VIAGEM") {
+    assinaturaBase.viagensTotais = toComparableNumber(value.viagensTotais);
+  }
+
+  if (baseEconomica === "CARGA") {
+    assinaturaBase.cargasTotais = toComparableNumber(value.cargasTotais);
+  }
+
+  if (baseEconomica === "MES") {
+    assinaturaBase.mesesTotais = toComparableNumber(value.mesesTotais);
+    assinaturaBase.diasTrabalhadosMes = toComparableNumber(value.diasTrabalhadosMes);
+  }
+
+  return JSON.stringify(assinaturaBase);
+}
+
+function componentesResultado(resultado: unknown) {
+  const json = resultado as Record<string, unknown> | null | undefined;
+  const operacional = (json?.resultadoOperacional ?? json) as Record<string, unknown> | null | undefined;
+  const unidades = (operacional?.unidades as Array<Record<string, unknown>> | undefined) ?? [];
+  const recursos = unidades.flatMap((unidade) =>
+    (unidade.recursos as Array<Record<string, unknown>> | undefined) ?? []
+  );
+  const componentes = recursos.flatMap((recurso) => {
+    const explicit = recurso.componentesEconomicos as Array<Record<string, unknown>> | undefined;
+    return Array.isArray(explicit) && explicit.length ? explicit : [recurso];
+  });
+
+  return new Map(componentes.flatMap((componente) => {
+    const id = componente.id;
+    return typeof id === "string" && id ? [[id, componente] as const] : [];
+  }));
+}
+
+function componentesAtuaisExecucao(execucao: PersistedExecucaoComBoletins | PersistedExecucao) {
+  const boletins = (execucao as PersistedExecucaoComBoletins).boletins ?? [];
+  const entrada = boletins.length
+    ? adaptarExecucaoComBoletinsParaEntradaNucleo(execucao as PersistedExecucaoComBoletins, { incluirBoletinsAbertos: true })
+    : adaptarExecucaoPersistidaParaEntradaNucleo(execucao as PersistedExecucao);
+
+  return adaptarExecucaoParaEntradaNucleo(entrada).unidades.flatMap((unidade) => unidade.recursos);
+}
+
+function resultadoMantemAssinaturaEconomicaAtual(
+  execucao: PersistedExecucaoComBoletins | PersistedExecucao,
+  resultado: { resultadoOperacionalJson: unknown }
+) {
+  const componentesAtuais = componentesAtuaisExecucao(execucao);
+  if (!componentesAtuais.length) return true;
+
+  const resultadoPorComponente = componentesResultado(resultado.resultadoOperacionalJson);
+  return componentesAtuais.every((componenteAtual) => {
+    if (!componenteAtual.id) return true;
+
+    const componenteResultado = resultadoPorComponente.get(componenteAtual.id);
+    if (!componenteResultado) return false;
+
+    return assinaturaComponenteEconomico(componenteResultado) === assinaturaComponenteEconomico(componenteAtual as unknown as Record<string, unknown>);
+  });
+}
+
 function recursoAtualIds(execucao: PersistedExecucaoComBoletins | PersistedExecucao) {
   const boletins = (execucao as PersistedExecucaoComBoletins).boletins ?? [];
   const recursosBoletim = boletins.flatMap((boletim) => boletim.recursos ?? []);
@@ -619,7 +721,7 @@ function resultadoCobreRecursosAtuais(
   if (!idsAtuais.length) return true;
 
   const idsResultado = recursosResultadoIds(resultado.resultadoOperacionalJson);
-  return idsAtuais.every((id) => idsResultado.has(id));
+  return idsAtuais.every((id) => idsResultado.has(id)) && resultadoMantemAssinaturaEconomicaAtual(execucao, resultado);
 }
 
 function removerResultadosObsoletos<T extends PersistedExecucao | PersistedExecucaoComBoletins>(execucao: T): T {
