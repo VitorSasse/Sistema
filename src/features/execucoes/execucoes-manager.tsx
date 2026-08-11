@@ -232,6 +232,10 @@ function initialRecursoForm(frenteId = "") {
     baseEconomica: "CARGA",
     valorCusto: "",
     unidadeCusto: "R$/carga",
+    distanciaIdaKm: "",
+    distanciaVoltaKm: "",
+    distanciaViagemKm: "",
+    horasDia: String(JORNADA_PADRAO_EXECUCAO_HORAS_DIA),
     observacao: ""
   };
 }
@@ -363,11 +367,45 @@ function baseEconomicaLabel(base: string) {
   return map[base] ?? base;
 }
 
-function distanciaCicloKm(form: ReturnType<typeof initialEconomicForm>) {
+function distanciaCicloKm(form: {
+  distanciaIdaKm?: string | number | null;
+  distanciaVoltaKm?: string | number | null;
+  distanciaViagemKm?: string | number | null;
+}) {
   const ida = toNumber(form.distanciaIdaKm);
   const volta = toNumber(form.distanciaVoltaKm);
   if (ida > 0 || volta > 0) return ida + volta;
   return toNumber(form.distanciaViagemKm);
+}
+
+function unidadeOperacionalPadraoPorBase(base: string, atual: string) {
+  const map: Record<string, string> = {
+    CARGA: "carga",
+    VIAGEM: "viagem",
+    KM: "viagem",
+    HORA: "h",
+    M3: "m3",
+    M2: "m2",
+    MES: "mes",
+    UNIDADE: "unidade"
+  };
+  return map[base] ?? atual;
+}
+
+function quantidadeLabelPorBase(base: string) {
+  const map: Record<string, string> = {
+    CARGA: "Quantidade de cargas",
+    VIAGEM: "Quantidade de viagens",
+    KM: "Quantidade de viagens",
+    HORA: "Quantidade de horas",
+    DIA: "Quantidade realizada",
+    M3: "Quantidade em m3",
+    M2: "Quantidade em m2",
+    MES: "Quantidade de meses",
+    UNIDADE: "Quantidade",
+    CUSTO_FIXO: "Quantidade"
+  };
+  return map[base] ?? "Quantidade";
 }
 
 function optionalNumber(value: string | number | null | undefined) {
@@ -667,6 +705,11 @@ export function ExecucoesManager() {
     economicForm.unidadeQuantidadeOperacional.toLowerCase().startsWith("h")
   );
   const distanciaCiclo = distanciaCicloKm(economicForm);
+  const recursoBase = recursoForm.baseEconomica;
+  const recursoDistanciaCiclo = distanciaCicloKm(recursoForm);
+  const showRecursoDistanceFields = recursoBase === "KM";
+  const showRecursoJornadaDiaria = recursoBase === "DIA" && recursoForm.unidadeRealizada.toLowerCase().startsWith("h");
+  const recursoQuantidadeLabel = quantidadeLabelPorBase(recursoBase);
   const possuiQuantidadeServico = hasQuantidadeServico(selected);
   const possuiBoletimAbertoComRecursos = boletins.some((boletim) => boletim.status === "ABERTO" && boletim.recursos.length > 0);
   const recursosPendentesEconomicos = countPendingEconomicResources(boletins);
@@ -1003,30 +1046,50 @@ export function ExecucoesManager() {
     setMessage("");
 
     try {
+      const quantidadeRealizada = Number(recursoForm.quantidadeRealizada);
+      const quantidadeRecursos = Number(recursoForm.quantidadeRecursos || 1);
+      const valorCusto = Number(recursoForm.valorCusto);
+      const distanciaViagemKm = distanciaCicloKm(recursoForm);
+      const unidadeQuantidadeOperacional = recursoForm.baseEconomica === "KM"
+        ? "viagem"
+        : recursoForm.unidadeRealizada;
+      const snapshotTecnicoEconomico = {
+        origem: recursoForm.equipamentoId ? "BIBLIOTECA_RECURSOS" : "RECURSO_PROVISORIO",
+        baseEconomica: recursoForm.baseEconomica,
+        valorCusto,
+        custoUnitario: valorCusto,
+        unidadeCusto: recursoForm.unidadeCusto,
+        quantidadeOperacional: quantidadeRealizada,
+        unidadeQuantidadeOperacional,
+        distanciaViagemKm: recursoForm.baseEconomica === "KM" && distanciaViagemKm > 0 ? distanciaViagemKm : undefined,
+        viagensTotais: recursoForm.baseEconomica === "KM" || recursoForm.baseEconomica === "VIAGEM" ? quantidadeRealizada : undefined,
+        cargasTotais: recursoForm.baseEconomica === "CARGA" ? quantidadeRealizada : undefined,
+        horasTotais: recursoForm.baseEconomica === "HORA" || recursoForm.unidadeRealizada.toLowerCase().startsWith("h") ? quantidadeRealizada : undefined,
+        horasDia: recursoForm.baseEconomica === "DIA" ? optionalNumber(recursoForm.horasDia) ?? JORNADA_PADRAO_EXECUCAO_HORAS_DIA : undefined,
+        mesesTotais: recursoForm.baseEconomica === "MES" ? quantidadeRealizada : undefined,
+        metadados: {
+          origem: recursoForm.equipamentoId ? "BIBLIOTECA_RECURSOS" : "RECURSO_PROVISORIO",
+          origemCusto: recursoForm.equipamentoId && valorCusto > 0 ? "BIBLIOTECA_RECURSOS" : recursoForm.equipamentoId ? "PENDENTE_CADASTRO_MESTRE" : "RECURSO_PROVISORIO",
+          valorCustoUtilizado: valorCusto,
+          distanciaIdaKm: recursoForm.baseEconomica === "KM" ? optionalNumber(recursoForm.distanciaIdaKm) : undefined,
+          distanciaVoltaKm: recursoForm.baseEconomica === "KM" ? optionalNumber(recursoForm.distanciaVoltaKm) : undefined,
+          distanciaCicloKm: recursoForm.baseEconomica === "KM" && distanciaViagemKm > 0 ? distanciaViagemKm : undefined,
+          jornadaPadraoOriginal: recursoForm.baseEconomica === "DIA" ? JORNADA_PADRAO_EXECUCAO_HORAS_DIA : undefined,
+          jornadaUtilizada: recursoForm.baseEconomica === "DIA" ? optionalNumber(recursoForm.horasDia) ?? JORNADA_PADRAO_EXECUCAO_HORAS_DIA : undefined,
+          origemJornada: recursoForm.baseEconomica === "DIA" && optionalNumber(recursoForm.horasDia) !== JORNADA_PADRAO_EXECUCAO_HORAS_DIA ? "PERSONALIZADA_EXECUCAO" : undefined
+        }
+      };
       await fetchJson(`/api/execucoes/boletins/${selectedBoletim.id}/recursos`, {
         method: "POST",
         body: JSON.stringify({
           frenteExecutadaId: recursoForm.frenteExecutadaId,
           recursoId: recursoForm.equipamentoId || null,
           nomeSnapshot: recursoForm.nomeSnapshot,
-          quantidadeRealizada: Number(recursoForm.quantidadeRealizada),
+          quantidadeRealizada,
           unidadeRealizada: recursoForm.unidadeRealizada,
-          quantidadeRecursos: Number(recursoForm.quantidadeRecursos || 1),
+          quantidadeRecursos,
           origem: "MANUAL",
-          snapshotTecnicoEconomico: {
-            origem: recursoForm.equipamentoId ? "BIBLIOTECA_RECURSOS" : "RECURSO_PROVISORIO",
-            baseEconomica: recursoForm.baseEconomica,
-            valorCusto: Number(recursoForm.valorCusto),
-            custoUnitario: Number(recursoForm.valorCusto),
-            unidadeCusto: recursoForm.unidadeCusto,
-            quantidadeOperacional: Number(recursoForm.quantidadeRealizada),
-            unidadeQuantidadeOperacional: recursoForm.unidadeRealizada,
-            metadados: {
-              origem: recursoForm.equipamentoId ? "BIBLIOTECA_RECURSOS" : "RECURSO_PROVISORIO",
-              origemCusto: recursoForm.equipamentoId && Number(recursoForm.valorCusto) > 0 ? "BIBLIOTECA_RECURSOS" : recursoForm.equipamentoId ? "PENDENTE_CADASTRO_MESTRE" : "RECURSO_PROVISORIO",
-              valorCustoUtilizado: Number(recursoForm.valorCusto)
-            }
-          },
+          snapshotTecnicoEconomico,
           observacao: recursoForm.observacao
         })
       });
@@ -1896,21 +1959,55 @@ export function ExecucoesManager() {
                 </select>
                 <input placeholder="Nome do recurso" value={recursoForm.nomeSnapshot} onChange={(event) => setRecursoForm((current) => ({ ...current, nomeSnapshot: event.target.value }))} required />
                 <div className="execucoes-inline">
-                  <input type="number" step="0.0001" placeholder="Quantidade" value={recursoForm.quantidadeRealizada} onChange={(event) => setRecursoForm((current) => ({ ...current, quantidadeRealizada: event.target.value }))} required />
+                  <input type="number" step="0.0001" placeholder={recursoQuantidadeLabel} value={recursoForm.quantidadeRealizada} onChange={(event) => setRecursoForm((current) => ({ ...current, quantidadeRealizada: event.target.value }))} required />
                   <select value={recursoForm.unidadeRealizada} onChange={(event) => setRecursoForm((current) => ({ ...current, unidadeRealizada: event.target.value }))}>
                     {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
                   </select>
                 </div>
                 <div className="execucoes-inline">
                   <input type="number" step="0.0001" placeholder="Qtd recursos" value={recursoForm.quantidadeRecursos} onChange={(event) => setRecursoForm((current) => ({ ...current, quantidadeRecursos: event.target.value }))} />
-                  <select value={recursoForm.baseEconomica} onChange={(event) => setRecursoForm((current) => ({ ...current, baseEconomica: event.target.value, unidadeCusto: unidadeCustoFromBase(event.target.value) }))}>
-                    {basesEconomicas.map((base) => <option key={base} value={base}>{base}</option>)}
+                  <select
+                    value={recursoForm.baseEconomica}
+                    onChange={(event) => {
+                      const base = event.target.value;
+                      setRecursoForm((current) => ({
+                        ...current,
+                        baseEconomica: base,
+                        unidadeRealizada: unidadeOperacionalPadraoPorBase(base, current.unidadeRealizada),
+                        unidadeCusto: unidadeCustoFromBase(base)
+                      }));
+                    }}
+                  >
+                    {basesEconomicas.map((base) => <option key={base} value={base}>{baseEconomicaLabel(base)}</option>)}
                   </select>
                 </div>
                 <div className="execucoes-inline">
                   <input type="number" step="0.01" placeholder="Custo unitario" value={recursoForm.valorCusto} onChange={(event) => setRecursoForm((current) => ({ ...current, valorCusto: event.target.value }))} required />
                   <input placeholder="Unidade economica" value={recursoForm.unidadeCusto} onChange={(event) => setRecursoForm((current) => ({ ...current, unidadeCusto: event.target.value }))} required />
                 </div>
+                {showRecursoDistanceFields ? (
+                  <div className="execucoes-economics-block">
+                    <div className="execucoes-inline">
+                      <label>
+                        <span>Distancia ida (km)</span>
+                        <input type="number" step="0.0001" placeholder="Km ida" value={recursoForm.distanciaIdaKm} onChange={(event) => setRecursoForm((current) => ({ ...current, distanciaIdaKm: event.target.value }))} />
+                      </label>
+                      <label>
+                        <span>Distancia volta (km)</span>
+                        <input type="number" step="0.0001" placeholder="Km volta" value={recursoForm.distanciaVoltaKm} onChange={(event) => setRecursoForm((current) => ({ ...current, distanciaVoltaKm: event.target.value }))} />
+                      </label>
+                    </div>
+                    <div className="execucoes-economics-note">
+                      Distancia do ciclo: {recursoDistanciaCiclo > 0 ? number(recursoDistanciaCiclo, " km") : "informe ida e volta"}
+                    </div>
+                  </div>
+                ) : null}
+                {showRecursoJornadaDiaria ? (
+                  <label>
+                    <span>Jornada diaria</span>
+                    <input type="number" step="0.01" min="0" placeholder="8 h/dia" value={recursoForm.horasDia} onChange={(event) => setRecursoForm((current) => ({ ...current, horasDia: event.target.value }))} />
+                  </label>
+                ) : null}
                 <textarea placeholder="Observacoes" value={recursoForm.observacao} onChange={(event) => setRecursoForm((current) => ({ ...current, observacao: event.target.value }))} />
                 <button className="button-primary" type="submit" disabled={loading}>Adicionar recurso</button>
               </form>

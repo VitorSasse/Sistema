@@ -831,6 +831,239 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
     }
   );
 
+  it.each([
+    { viagens: 2, custoViagem: 180 },
+    { viagens: 5, custoViagem: 240 }
+  ])("calcula recurso provisorio por viagem de forma dinamica", ({ viagens, custoViagem }) => {
+    const entrada = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: `exec-provisorio-viagem-${viagens}-${custoViagem}`,
+      nomeTecnico: "Execucao com recurso provisorio por viagem",
+      unidades: [
+        {
+          id: "frente-provisoria-viagem",
+          nome: "Frente provisoria por viagem",
+          quantidadeExecutada: viagens,
+          unidade: "viagem",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: `provisorio-viagem-${viagens}-${custoViagem}`,
+              recursoId: null,
+              nome: "Recurso provisorio",
+              quantidadeRealizada: viagens,
+              unidadeRealizada: "viagem",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                baseEconomica: "VIAGEM",
+                valorCusto: custoViagem,
+                unidadeCusto: "R$/viagem",
+                quantidadeOperacional: viagens,
+                unidadeQuantidadeOperacional: "viagem",
+                viagensTotais: viagens,
+                metadados: {
+                  origem: "RECURSO_PROVISORIO"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    });
+    const resultado = executarNucleoComMotorAtual(entrada);
+    const esperado = roundMoneyTest(viagens * custoViagem);
+
+    expect(resultado.unidades[0]?.recursos[0]?.statusCalculo).toBe("CALCULADO");
+    expect(resultado.unidades[0]?.recursos[0]?.custoTotal).toBe(esperado);
+  });
+
+  it.each([
+    { viagens: 4, ida: 5, volta: 7, custoKm: 10 },
+    { viagens: 6, ida: 3, volta: 4, custoKm: 8.5 }
+  ])("calcula recurso provisorio por KM com distancia de ciclo do snapshot", ({ viagens, ida, volta, custoKm }) => {
+    const distancia = ida + volta;
+    const entrada = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: `exec-provisorio-km-${viagens}-${distancia}-${custoKm}`,
+      nomeTecnico: "Execucao com recurso provisorio por km",
+      unidades: [
+        {
+          id: "frente-provisoria-km",
+          nome: "Frente provisoria por km",
+          quantidadeExecutada: viagens,
+          unidade: "viagem",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: `provisorio-km-${viagens}-${distancia}-${custoKm}`,
+              recursoId: null,
+              nome: "Recurso provisorio",
+              quantidadeRealizada: viagens,
+              unidadeRealizada: "viagem",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                baseEconomica: "KM",
+                valorCusto: custoKm,
+                unidadeCusto: "R$/km",
+                quantidadeOperacional: viagens,
+                unidadeQuantidadeOperacional: "viagem",
+                distanciaViagemKm: distancia,
+                viagensTotais: viagens,
+                metadados: {
+                  origem: "RECURSO_PROVISORIO",
+                  distanciaIdaKm: ida,
+                  distanciaVoltaKm: volta
+                }
+              }
+            }
+          ]
+        }
+      ]
+    });
+    const resultado = executarNucleoComMotorAtual(entrada);
+    const recurso = resultado.unidades[0]?.recursos[0];
+    const esperado = roundMoneyTest(viagens * distancia * custoKm);
+
+    expect(entrada.unidades[0]?.recursos[0]?.distanciaViagemKm).toBe(distancia);
+    expect(entrada.unidades[0]?.recursos[0]?.viagensTotais).toBe(viagens);
+    expect(recurso?.statusCalculo).toBe("CALCULADO");
+    expect(recurso?.custoTotal).toBe(esperado);
+  });
+
+  it("mantem equivalencia entre recurso importado e recurso provisorio com a mesma entrada tecnica", () => {
+    const snapshotTecnicoEconomico = {
+      baseEconomica: "KM" as const,
+      valorCusto: 9,
+      unidadeCusto: "R$/km",
+      quantidadeOperacional: 3,
+      unidadeQuantidadeOperacional: "viagem",
+      distanciaViagemKm: 14,
+      viagensTotais: 3,
+      metadados: {
+        origem: "RECURSO_PROVISORIO"
+      }
+    };
+    const criarEntrada = (recursoId: string | null) => adaptarExecucaoParaEntradaNucleo({
+      execucaoId: recursoId ? "exec-importado-equivalente" : "exec-provisorio-equivalente",
+      nomeTecnico: "Execucao equivalente",
+      unidades: [
+        {
+          id: "frente-equivalente",
+          nome: "Frente equivalente",
+          quantidadeExecutada: 3,
+          unidade: "viagem",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: recursoId ? "recurso-importado" : "recurso-provisorio",
+              recursoId,
+              nome: "Recurso de transporte",
+              quantidadeRealizada: 3,
+              unidadeRealizada: "viagem",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico
+            }
+          ]
+        }
+      ]
+    });
+
+    const resultadoImportado = executarNucleoComMotorAtual(criarEntrada("eq-transporte"));
+    const resultadoProvisorio = executarNucleoComMotorAtual(criarEntrada(null));
+
+    expect(resultadoProvisorio.consolidado.custoOperacionalTotal).toBe(
+      resultadoImportado.consolidado.custoOperacionalTotal
+    );
+  });
+
+  it.each([
+    { horas: 1.5, custoHora: 120 },
+    { horas: 3.25, custoHora: 150 }
+  ])("calcula recurso provisorio por hora de forma dinamica", ({ horas, custoHora }) => {
+    const entrada = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: `exec-provisorio-hora-${horas}-${custoHora}`,
+      nomeTecnico: "Execucao com recurso provisorio por hora",
+      unidades: [
+        {
+          id: "frente-provisoria-hora",
+          nome: "Frente provisoria por hora",
+          quantidadeExecutada: horas,
+          unidade: "h",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: `provisorio-hora-${horas}-${custoHora}`,
+              recursoId: null,
+              nome: "Recurso provisorio",
+              quantidadeRealizada: horas,
+              unidadeRealizada: "h",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                baseEconomica: "HORA",
+                valorCusto: custoHora,
+                unidadeCusto: "R$/h",
+                quantidadeOperacional: horas,
+                unidadeQuantidadeOperacional: "h",
+                horasTotais: horas,
+                metadados: {
+                  origem: "RECURSO_PROVISORIO"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    });
+    const resultado = executarNucleoComMotorAtual(entrada);
+    const esperado = roundMoneyTest(horas * custoHora);
+
+    expect(resultado.unidades[0]?.recursos[0]?.custoTotal).toBe(esperado);
+  });
+
+  it.each([
+    { horas: 2, custoDia: 800, jornada: 8 },
+    { horas: 2, custoDia: 800, jornada: 10 },
+    { horas: 5, custoDia: 950, jornada: 8 }
+  ])("calcula recurso provisorio por dia usando jornada enviada ao nucleo", ({ horas, custoDia, jornada }) => {
+    const entrada = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: `exec-provisorio-dia-${horas}-${custoDia}-${jornada}`,
+      nomeTecnico: "Execucao com recurso provisorio por dia",
+      unidades: [
+        {
+          id: "frente-provisoria-dia",
+          nome: "Frente provisoria por dia",
+          quantidadeExecutada: horas,
+          unidade: "h",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: `provisorio-dia-${horas}-${custoDia}-${jornada}`,
+              recursoId: null,
+              nome: "Recurso provisorio",
+              quantidadeRealizada: horas,
+              unidadeRealizada: "h",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                baseEconomica: "DIA",
+                valorCusto: custoDia,
+                unidadeCusto: "R$/dia",
+                quantidadeOperacional: horas,
+                unidadeQuantidadeOperacional: "h",
+                horasDia: jornada,
+                horasTotais: horas,
+                metadados: {
+                  origem: "RECURSO_PROVISORIO"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    });
+    const resultado = executarNucleoComMotorAtual(entrada);
+    const esperado = roundMoneyTest((horas / jornada) * custoDia);
+
+    expect(resultado.unidades[0]?.recursos[0]?.custoTotal).toBe(esperado);
+  });
+
   it("mantem equivalencia entre Orcamento e Execucao para transporte por KM com cargas realizadas", () => {
     const entradaOrcamento = adaptarOrcamentoParaEntradaNucleo({
       id: "orc-carga-km",
