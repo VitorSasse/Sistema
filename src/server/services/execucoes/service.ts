@@ -506,6 +506,8 @@ export function adaptarExecucaoPersistidaParaEntradaNucleo(execucao: PersistedEx
       recursos: (frente.recursos ?? []).map((recurso) => ({
         id: recurso.id,
         recursoId: recurso.recursoId ?? null,
+        origemRegistroTipo: null,
+        origemRegistroId: null,
         nome: recurso.nomeSnapshot,
         quantidadeRealizada: toNumber(recurso.quantidadeRealizada),
         unidadeRealizada: recurso.unidadeRealizada,
@@ -553,6 +555,8 @@ export function adaptarExecucaoComBoletinsParaEntradaNucleo(
       recursos: (recursosPorFrente.get(frente.id) ?? []).map((recurso) => ({
         id: recurso.id,
         recursoId: recurso.recursoId ?? null,
+        origemRegistroTipo: recurso.origemRegistroTipo ?? null,
+        origemRegistroId: recurso.origemRegistroId ?? null,
         nome: recurso.nomeSnapshot,
         quantidadeRealizada: toNumber(recurso.quantidadeRealizada),
         unidadeRealizada: recurso.unidadeRealizada,

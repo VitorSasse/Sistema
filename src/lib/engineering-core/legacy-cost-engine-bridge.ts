@@ -8,6 +8,7 @@ import type {
   EntradaNucleoEngenharia,
   GrupoUnidadeNucleo,
   MemoriaCalculoNucleo,
+  RecursoOperacionalNucleoInput,
   ResultadoNucleoEngenharia,
   ResultadoRecursoOperacionalNucleo,
   ResultadoUnidadeOperacionalNucleo
@@ -82,9 +83,26 @@ function mapMemoria(recurso: CostEngineResultado["memoria"][number]): MemoriaCal
   };
 }
 
-function mapRecurso(recurso: CostEngineResultado["memoria"][number]): ResultadoRecursoOperacionalNucleo {
+function metadadoString(
+  recursoEntrada: RecursoOperacionalNucleoInput | undefined,
+  key: string
+) {
+  const value = recursoEntrada?.metadados?.[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function mapRecurso(
+  recurso: CostEngineResultado["memoria"][number],
+  recursoEntrada?: RecursoOperacionalNucleoInput
+): ResultadoRecursoOperacionalNucleo {
+  const recursoRealizadoId = recursoEntrada?.id ?? recurso.recursoRef;
+
   return {
     id: recurso.recursoRef,
+    recursoRealizadoId,
+    recursoBoletimId: recursoRealizadoId,
+    origemRegistroTipo: metadadoString(recursoEntrada, "origemRegistroTipo"),
+    origemRegistroId: metadadoString(recursoEntrada, "origemRegistroId"),
     unidadeOperacionalId: recurso.frenteRef,
     referenciaTecnicaId: recurso.recursoReferenciaId ?? null,
     nomeTecnico: recurso.descricao,
@@ -160,7 +178,17 @@ function mapUnidade(
     custoManual: frente.custoManual,
     custoCalculadoRecursos: frente.custoCalculadoRecursos,
     origemCusto: frente.origemCusto,
-    recursos: frente.recursos.map(mapRecurso),
+    recursos: frente.recursos.map((recurso) => {
+      const recursoEntrada = unidadeEntrada?.recursos.find((entradaRecurso) =>
+        entradaRecurso.id === recurso.recursoRef ||
+        (
+          Boolean(entradaRecurso.referenciaTecnicaId) &&
+          entradaRecurso.referenciaTecnicaId === recurso.recursoReferenciaId &&
+          entradaRecurso.nomeTecnico === recurso.descricao
+        )
+      );
+      return mapRecurso(recurso, recursoEntrada);
+    }),
     avisos: frente.recursos.flatMap((recurso) =>
       recurso.observacoes.map((observacao) => mapAviso(observacao, frente.ref, recurso.recursoRef))
     )

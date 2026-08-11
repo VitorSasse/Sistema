@@ -110,6 +110,10 @@ export type MemoriaCalculoNucleo = {
 
 export type ResultadoRecursoOperacionalNucleo = {
   id: string;
+  recursoRealizadoId?: string | null;
+  recursoBoletimId?: string | null;
+  origemRegistroTipo?: string | null;
+  origemRegistroId?: string | null;
   unidadeOperacionalId: string;
   referenciaTecnicaId?: string | null;
   nomeTecnico: string;

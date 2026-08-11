@@ -1362,13 +1362,34 @@ describe("service de Execucao e Resultado", () => {
     const ultimoResultado = records.resultados[0].resultadoOperacionalJson as {
       resultadoOperacional: {
         consolidado: { custoOperacionalTotal: number };
-        unidades: Array<{ recursos: Array<{ custoTotal: number; baseEconomica: string; horasDia: number }> }>;
+        unidades: Array<{
+          recursos: Array<{
+            id: string;
+            recursoRealizadoId: string;
+            recursoBoletimId: string;
+            origemRegistroTipo: string | null;
+            origemRegistroId: string | null;
+            custoTotal: number;
+            baseEconomica: string;
+            horasDia: number;
+          }>;
+        }>;
       };
     };
     const recurso = ultimoResultado.resultadoOperacional.unidades[0].recursos[0];
+    const somaRecursos = ultimoResultado.resultadoOperacional.unidades[0].recursos.reduce(
+      (total, item) => total + item.custoTotal,
+      0
+    );
 
     expect(ultimoResultado.resultadoOperacional.consolidado.custoOperacionalTotal).toBe(290.94);
+    expect(somaRecursos).toBe(ultimoResultado.resultadoOperacional.consolidado.custoOperacionalTotal);
     expect(recurso).toMatchObject({
+      id: "boletim-recurso-1-1",
+      recursoRealizadoId: "boletim-recurso-1-1",
+      recursoBoletimId: "boletim-recurso-1-1",
+      origemRegistroTipo: null,
+      origemRegistroId: null,
       baseEconomica: "DIA",
       horasDia: 8,
       custoTotal: 290.94

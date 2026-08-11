@@ -444,7 +444,8 @@ function normalizeClienteOption(item: { id: string; codigo?: string | null; nome
 
 function extractRealizado(selected: Execucao | null) {
   const latest = selected?.resultados?.[0];
-  const operacional = latest?.resultadoOperacionalJson?.resultadoOperacional as Record<string, unknown> | undefined;
+  const resultadoOperacionalJson = latest?.resultadoOperacionalJson as Record<string, unknown> | undefined;
+  const operacional = (resultadoOperacionalJson?.resultadoOperacional ?? resultadoOperacionalJson) as Record<string, unknown> | undefined;
   const economiaJson = latest?.economiaJson as Record<string, unknown> | undefined;
   const consolidado = operacional?.consolidado as Record<string, unknown> | undefined;
   const economia = economiaJson?.economia as Record<string, unknown> | undefined;
@@ -472,12 +473,31 @@ function countPendingEconomicResources(boletins: Boletim[]) {
 }
 
 function findResultadoRecurso(recurso: RecursoBoletim, recursosCalculados: Array<Record<string, unknown>>) {
-  return recursosCalculados.find((calculado) => String(calculado.id ?? "") === recurso.id)
+  return recursosCalculados.find((calculado) => (
+    String(calculado.recursoRealizadoId ?? "") === recurso.id ||
+    String(calculado.recursoBoletimId ?? "") === recurso.id ||
+    String(calculado.id ?? "") === recurso.id
+  ))
+    ?? recursosCalculados.find((calculado) => (
+      Boolean(recurso.origemRegistroId) &&
+      String(calculado.origemRegistroId ?? "") === String(recurso.origemRegistroId) &&
+      String(calculado.origemRegistroTipo ?? "") === String(recurso.origemRegistroTipo ?? "")
+    ))
     ?? recursosCalculados.find((calculado) => (
       String(calculado.referenciaTecnicaId ?? "") === String(recurso.recursoId ?? "") &&
       String(calculado.nomeTecnico ?? "") === recurso.nomeSnapshot
     ))
     ?? null;
+}
+
+function custoRealizadoRecursoLabel(
+  recurso: RecursoBoletim,
+  resultadoRecurso: Record<string, unknown> | null,
+  possuiResultado: boolean
+) {
+  if (resultadoRecurso) return money(toNumber(resultadoRecurso.custoTotal));
+  if (economicPendingReason(recurso) !== "ok") return "Pendente";
+  return possuiResultado ? "Nao retornado pelo Nucleo" : "Aguardando consolidacao";
 }
 
 function dateKey(value: string | Date | null | undefined) {
@@ -1357,6 +1377,7 @@ export function ExecucoesManager() {
                 <tbody>
                   {(selectedBoletim?.recursos ?? []).map((recurso) => {
                     const resultadoRecurso = findResultadoRecurso(recurso, realizado.recursos);
+                    const custoRealizadoLabel = custoRealizadoRecursoLabel(recurso, resultadoRecurso, Boolean(selected?.resultados?.length));
                     return (
                       <tr key={recurso.id}>
                         <td>{recurso.origem}{recurso.editavel === false ? " / Fato existente" : " / Manual"}</td>
@@ -1366,7 +1387,7 @@ export function ExecucoesManager() {
                         <td>{String(recurso.snapshotTecnicoEconomico?.materialDescricao ?? "-")}</td>
                         <td>{String(recurso.snapshotTecnicoEconomico?.baseEconomica ?? "-")}</td>
                         <td>{money(toNumber(recurso.snapshotTecnicoEconomico?.valorCusto))} {String(recurso.snapshotTecnicoEconomico?.unidadeCusto ?? "")}</td>
-                        <td>{resultadoRecurso ? money(toNumber(resultadoRecurso.custoTotal)) : "-"}</td>
+                        <td>{custoRealizadoLabel}</td>
                         <td>{economicOriginLabel(recurso)}</td>
                         <td>{economicStatus(recurso)}{economicPendingReason(recurso) === "ok" ? "" : ` / ${economicPendingReason(recurso)}`}</td>
                         <td>{recurso.observacao || "-"}</td>
@@ -1502,7 +1523,12 @@ export function ExecucoesManager() {
                     <div className="execucoes-economics-summary">
                       <Info label="Quantidade realizada" value={number(economicForm.quantidadeRealizada, ` ${economicForm.unidadeRealizada}`)} />
                       <Info label="Custo unitario" value={economicForm.valorCusto ? `${money(toNumber(economicForm.valorCusto))}/dia` : "Pendente"} />
-                      <Info label="Custo realizado" value={resultadoRecursoEmEdicao ? money(toNumber(resultadoRecursoEmEdicao.custoTotal)) : "Calcule pelo Nucleo"} />
+                      <Info
+                        label="Custo realizado"
+                        value={recursoEmEdicao
+                          ? custoRealizadoRecursoLabel(recursoEmEdicao, resultadoRecursoEmEdicao, Boolean(selected?.resultados?.length))
+                          : "Aguardando consolidacao"}
+                      />
                     </div>
                     <div className="execucoes-economics-note">
                       A UI envia quantidade, unidade, custo diario e jornada diaria. O Nucleo interpreta e calcula o custo realizado.

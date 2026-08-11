@@ -38,6 +38,8 @@ export type SnapshotTecnicoEconomicoRecursoRealizado = {
 export type RecursoRealizado = {
   id: string;
   recursoId?: string | null;
+  origemRegistroTipo?: string | null;
+  origemRegistroId?: string | null;
   nome: string;
   quantidadeRealizada: NumeroTecnico;
   unidadeRealizada: string;
@@ -147,6 +149,8 @@ function adaptarRecursoRealizado(
     metadados: {
       origem: recurso.recursoId ? "BIBLIOTECA_RECURSOS" : "RECURSO_PROVISORIO",
       unidadeRealizada: recurso.unidadeRealizada,
+      origemRegistroTipo: recurso.origemRegistroTipo ?? null,
+      origemRegistroId: recurso.origemRegistroId ?? null,
       ...(snapshot.metadados ?? {})
     }
   };
