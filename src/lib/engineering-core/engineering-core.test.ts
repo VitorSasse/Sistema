@@ -737,6 +737,339 @@ describe("primeiro consumo do nucleo por Execucao e Resultado", () => {
     expect(recurso?.custoTotal).toBe(1728);
   });
 
+  it("adapta carga realizada como viagem operacional quando a base economica e KM", () => {
+    const entrada = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: "exec-carga-km",
+      nomeTecnico: "Execucao transporte por carga e km",
+      unidades: [
+        {
+          id: "frente-transporte-carga",
+          nome: "Transporte por carga",
+          quantidadeExecutada: 5,
+          unidade: "carga",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: "caminhao-carga-km",
+              recursoId: "eq-caminhao",
+              nome: "Caminhao",
+              quantidadeRealizada: 5,
+              unidadeRealizada: "carga",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                categoria: "CAMINHAO",
+                baseEconomica: "KM",
+                valorCusto: 8,
+                unidadeCusto: "R$/km",
+                quantidadeOperacional: 5,
+                unidadeQuantidadeOperacional: "carga",
+                distanciaViagemKm: 10.5,
+                capacidadePorViagem: 14,
+                unidadeCapacidade: "m3"
+              }
+            }
+          ]
+        }
+      ]
+    });
+    const resultado = executarNucleoComMotorAtual(entrada);
+    const recurso = resultado.unidades[0]?.recursos[0];
+    const esperado = roundMoneyTest(5 * 10.5 * 8);
+
+    expect(entrada.unidades[0]?.recursos[0]?.unidadeQuantidadeOperacional).toBe("viagem");
+    expect(entrada.unidades[0]?.recursos[0]?.viagensTotais).toBe(5);
+    expect(recurso?.statusCalculo).toBe("CALCULADO");
+    expect(recurso?.viagensOperacionais).toBe(5);
+    expect(recurso?.custoTotal).toBe(esperado);
+  });
+
+  it.each([
+    { cargas: 5, distancia: 10.5, custoKm: 8 },
+    { cargas: 7, distancia: 10.5, custoKm: 8 },
+    { cargas: 5, distancia: 12.25, custoKm: 8 },
+    { cargas: 5, distancia: 10.5, custoKm: 9.5 }
+  ])(
+    "calcula transporte por KM dinamicamente para $cargas cargas, $distancia km/ciclo e custo $custoKm",
+    ({ cargas, distancia, custoKm }) => {
+      const entrada = adaptarExecucaoParaEntradaNucleo({
+        execucaoId: `exec-km-dinamico-${cargas}-${distancia}-${custoKm}`,
+        nomeTecnico: "Execucao dinamica transporte por km",
+        unidades: [
+          {
+            id: "frente-km-dinamica",
+            nome: "Transporte por carga",
+            quantidadeExecutada: cargas,
+            unidade: "carga",
+            receitaRealizada: 0,
+            recursos: [
+              {
+                id: `caminhao-${cargas}-${distancia}-${custoKm}`,
+                recursoId: "eq-caminhao",
+                nome: "Caminhao",
+                quantidadeRealizada: cargas,
+                unidadeRealizada: "carga",
+                quantidadeRecursos: 1,
+                snapshotTecnicoEconomico: {
+                  categoria: "CAMINHAO",
+                  baseEconomica: "KM",
+                  valorCusto: custoKm,
+                  unidadeCusto: "R$/km",
+                  quantidadeOperacional: cargas,
+                  unidadeQuantidadeOperacional: "carga",
+                  distanciaViagemKm: distancia
+                }
+              }
+            ]
+          }
+        ]
+      });
+      const resultado = executarNucleoComMotorAtual(entrada);
+      const esperado = roundMoneyTest(cargas * distancia * custoKm);
+
+      expect(resultado.unidades[0]?.recursos[0]?.custoTotal).toBe(esperado);
+      expect(resultado.consolidado.custoOperacionalTotal).toBe(esperado);
+    }
+  );
+
+  it("mantem equivalencia entre Orcamento e Execucao para transporte por KM com cargas realizadas", () => {
+    const entradaOrcamento = adaptarOrcamentoParaEntradaNucleo({
+      id: "orc-carga-km",
+      titulo: "Orcamento transporte por km",
+      frentes: [
+        {
+          tempId: "frente-carga-km",
+          natureza: "OPERACIONAL",
+          nome: "Transporte por carga",
+          unidadeProducao: "carga",
+          quantidadePrevista: 5,
+          modoCusto: "AUTO"
+        }
+      ],
+      itens: [
+        {
+          tempId: "orc-caminhao-carga-km",
+          frenteTempId: "frente-carga-km",
+          tipoItem: "RECURSO",
+          categoriaRecurso: "CAMINHAO",
+          descricao: "Caminhao",
+          recursoNome: "Caminhao",
+          recursoReferenciaId: "eq-caminhao",
+          quantidade: 1,
+          quantidadeOperacional: 5,
+          origemQuantidadeOperacional: "PERSONALIZADA",
+          unidadeQuantidadeOperacional: "viagem",
+          unidade: "R$/km",
+          tipoCalculoRecurso: "AUTOMATICO",
+          unidadeEconomicaCusto: "KM",
+          valorCusto: 8,
+          distanciaViagemKm: 10.5
+        }
+      ]
+    });
+    const entradaExecucao = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: "exec-carga-km-equivalencia",
+      nomeTecnico: "Execucao transporte por km",
+      unidades: [
+        {
+          id: "frente-carga-km",
+          nome: "Transporte por carga",
+          quantidadeExecutada: 5,
+          unidade: "carga",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: "exec-caminhao-carga-km",
+              recursoId: "eq-caminhao",
+              nome: "Caminhao",
+              quantidadeRealizada: 5,
+              unidadeRealizada: "carga",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                categoria: "CAMINHAO",
+                baseEconomica: "KM",
+                valorCusto: 8,
+                unidadeCusto: "R$/km",
+                quantidadeOperacional: 5,
+                unidadeQuantidadeOperacional: "carga",
+                distanciaViagemKm: 10.5
+              }
+            }
+          ]
+        }
+      ]
+    });
+    const resultadoOrcamento = executarNucleoComMotorAtual(entradaOrcamento);
+    const resultadoExecucao = executarNucleoComMotorAtual(entradaExecucao);
+
+    expect(resultadoExecucao.consolidado.custoOperacionalTotal).toBe(resultadoOrcamento.consolidado.custoOperacionalTotal);
+  });
+
+  it("mantem transporte e material como componentes economicos separados e rastreaveis", () => {
+    const cargas = 6;
+    const distancia = 11.25;
+    const custoKm = 7.8;
+    const quantidadeMaterial = 84;
+    const custoMaterialM3 = 32.5;
+    const entrada = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: "exec-componentes-economicos",
+      nomeTecnico: "Execucao com transporte e material",
+      unidades: [
+        {
+          id: "frente-componentes",
+          nome: "Transporte com fornecimento",
+          quantidadeExecutada: quantidadeMaterial,
+          unidade: "m3",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: "recurso-composto-1",
+              recursoId: "eq-truck",
+              nome: "Truck com material",
+              quantidadeRealizada: cargas,
+              unidadeRealizada: "carga",
+              quantidadeRecursos: 1,
+              snapshotTecnicoEconomico: {
+                categoria: "CAMINHAO",
+                baseEconomica: "KM",
+                valorCusto: custoKm,
+                unidadeCusto: "R$/km",
+                quantidadeOperacional: cargas,
+                unidadeQuantidadeOperacional: "carga",
+                distanciaViagemKm: distancia,
+                capacidadePorViagem: quantidadeMaterial / cargas,
+                unidadeCapacidade: "m3",
+                materialId: "mat-bgs",
+                materialCodigo: "MAT-BGS",
+                materialDescricao: "Material granular",
+                materialUnidade: "m3",
+                materialBaseEconomica: "M3",
+                materialValorCusto: custoMaterialM3,
+                materialUnidadeCusto: "R$/m3"
+              }
+            }
+          ]
+        }
+      ]
+    });
+    const resultado = executarNucleoComMotorAtual(entrada);
+    const recursos = resultado.unidades[0]?.recursos ?? [];
+    const transporte = recursos.find((recurso) => recurso.componenteEconomico === "TRANSPORTE");
+    const material = recursos.find((recurso) => recurso.componenteEconomico === "MATERIAL");
+    const custoTransporte = roundMoneyTest(cargas * distancia * custoKm);
+    const custoMaterial = roundMoneyTest(quantidadeMaterial * custoMaterialM3);
+
+    expect(entrada.unidades[0]?.recursos).toHaveLength(2);
+    expect(entrada.unidades[0]?.recursos.map((recurso) => recurso.metadados?.recursoBoletimId)).toEqual([
+      "recurso-composto-1",
+      "recurso-composto-1"
+    ]);
+    expect(entrada.unidades[0]?.recursos.find((recurso) => recurso.metadados?.componenteEconomico === "MATERIAL")?.quantidadeOperacional).toBe(quantidadeMaterial);
+    expect(transporte).toMatchObject({
+      recursoBoletimId: "recurso-composto-1",
+      componenteEconomico: "TRANSPORTE",
+      baseEconomica: "KM",
+      custoTotal: custoTransporte
+    });
+    expect(material).toMatchObject({
+      recursoBoletimId: "recurso-composto-1",
+      componenteEconomico: "MATERIAL",
+      baseEconomica: "M3",
+      custoTotal: custoMaterial
+    });
+    expect(resultado.consolidado.custoOperacionalTotal).toBe(roundMoneyTest(custoTransporte + custoMaterial));
+  });
+
+  it("calcula recursos heterogeneos sem reutilizar custo realizado entre componentes", () => {
+    const entrada = adaptarExecucaoParaEntradaNucleo({
+      execucaoId: "exec-recursos-heterogeneos",
+      nomeTecnico: "Execucao heterogenea",
+      unidades: [
+        {
+          id: "frente-heterogenea",
+          nome: "Frente heterogenea",
+          quantidadeExecutada: 1,
+          unidade: "un",
+          receitaRealizada: 0,
+          recursos: [
+            {
+              id: "maq-hora",
+              recursoId: "eq-hora",
+              nome: "Maquina por hora",
+              quantidadeRealizada: 3.25,
+              unidadeRealizada: "h",
+              snapshotTecnicoEconomico: {
+                categoria: "EQUIPAMENTO",
+                baseEconomica: "HORA",
+                valorCusto: 180,
+                unidadeCusto: "R$/h",
+                quantidadeOperacional: 3.25,
+                unidadeQuantidadeOperacional: "h"
+              }
+            },
+            {
+              id: "maq-dia",
+              recursoId: "eq-dia",
+              nome: "Maquina por dia",
+              quantidadeRealizada: 5.5,
+              unidadeRealizada: "h",
+              snapshotTecnicoEconomico: {
+                categoria: "EQUIPAMENTO",
+                baseEconomica: "DIA",
+                valorCusto: 960,
+                unidadeCusto: "R$/dia",
+                quantidadeOperacional: 5.5,
+                unidadeQuantidadeOperacional: "h",
+                horasDia: 10
+              }
+            },
+            {
+              id: "truck-carga",
+              recursoId: "eq-carga",
+              nome: "Caminhao por carga",
+              quantidadeRealizada: 8,
+              unidadeRealizada: "carga",
+              snapshotTecnicoEconomico: {
+                categoria: "CAMINHAO",
+                baseEconomica: "CARGA",
+                valorCusto: 140,
+                unidadeCusto: "R$/carga",
+                quantidadeOperacional: 8,
+                unidadeQuantidadeOperacional: "carga"
+              }
+            },
+            {
+              id: "truck-km",
+              recursoId: "eq-km",
+              nome: "Caminhao por km",
+              quantidadeRealizada: 9,
+              unidadeRealizada: "carga",
+              snapshotTecnicoEconomico: {
+                categoria: "CAMINHAO",
+                baseEconomica: "KM",
+                valorCusto: 6.5,
+                unidadeCusto: "R$/km",
+                quantidadeOperacional: 9,
+                unidadeQuantidadeOperacional: "carga",
+                distanciaViagemKm: 14.2
+              }
+            }
+          ]
+        }
+      ]
+    });
+    const resultado = executarNucleoComMotorAtual(entrada);
+    const custos = resultado.unidades[0]?.recursos.map((recurso) => recurso.custoTotal) ?? [];
+
+    expect(custos).toEqual([
+      roundMoneyTest(3.25 * 180),
+      roundMoneyTest((5.5 / 10) * 960),
+      roundMoneyTest(8 * 140),
+      roundMoneyTest(9 * 14.2 * 6.5)
+    ]);
+    expect(new Set(custos).size).toBe(custos.length);
+    expect(resultado.consolidado.custoOperacionalTotal).toBe(roundMoneyTest(custos.reduce((total, custo) => total + custo, 0)));
+  });
+
   it("calcula diaria proporcional quando execucao aponta horas e base economica e DIA", () => {
     const entrada = adaptarExecucaoParaEntradaNucleo({
       execucaoId: "exec-dia-proporcional",

@@ -95,14 +95,16 @@ function mapRecurso(
   recurso: CostEngineResultado["memoria"][number],
   recursoEntrada?: RecursoOperacionalNucleoInput
 ): ResultadoRecursoOperacionalNucleo {
-  const recursoRealizadoId = recursoEntrada?.id ?? recurso.recursoRef;
+  const recursoRealizadoId = metadadoString(recursoEntrada, "recursoRealizadoId") ?? recursoEntrada?.id ?? recurso.recursoRef;
+  const recursoBoletimId = metadadoString(recursoEntrada, "recursoBoletimId") ?? recursoRealizadoId;
 
   return {
     id: recurso.recursoRef,
     recursoRealizadoId,
-    recursoBoletimId: recursoRealizadoId,
+    recursoBoletimId,
     origemRegistroTipo: metadadoString(recursoEntrada, "origemRegistroTipo"),
     origemRegistroId: metadadoString(recursoEntrada, "origemRegistroId"),
+    componenteEconomico: metadadoString(recursoEntrada, "componenteEconomico"),
     unidadeOperacionalId: recurso.frenteRef,
     referenciaTecnicaId: recurso.recursoReferenciaId ?? null,
     nomeTecnico: recurso.descricao,

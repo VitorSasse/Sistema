@@ -114,6 +114,7 @@ export type ResultadoRecursoOperacionalNucleo = {
   recursoBoletimId?: string | null;
   origemRegistroTipo?: string | null;
   origemRegistroId?: string | null;
+  componenteEconomico?: string | null;
   unidadeOperacionalId: string;
   referenciaTecnicaId?: string | null;
   nomeTecnico: string;

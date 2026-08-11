@@ -250,6 +250,10 @@ function initialEconomicForm(recurso?: RecursoBoletim | null) {
     materialCodigo: String(snapshot.materialCodigo ?? ""),
     materialDescricao: String(snapshot.materialDescricao ?? ""),
     materialUnidade: String(snapshot.materialUnidade ?? ""),
+    materialQuantidade: snapshot.materialQuantidade === undefined ? "" : String(snapshot.materialQuantidade),
+    materialBaseEconomica: String(snapshot.materialBaseEconomica ?? (snapshot.materialUnidade ? String(snapshot.materialUnidade).toUpperCase() : "M3")),
+    materialValorCusto: snapshot.materialValorCusto === undefined ? "" : String(snapshot.materialValorCusto),
+    materialUnidadeCusto: String(snapshot.materialUnidadeCusto ?? (snapshot.materialUnidade ? `R$/${snapshot.materialUnidade}` : "R$/m3")),
     distanciaIdaKm,
     distanciaVoltaKm,
     distanciaViagemKm: snapshot.distanciaViagemKm === undefined ? "" : String(snapshot.distanciaViagemKm),
@@ -398,6 +402,10 @@ function buildEconomicSnapshot(form: ReturnType<typeof initialEconomicForm>, pre
     materialCodigo: form.materialCodigo || undefined,
     materialDescricao: form.materialDescricao || undefined,
     materialUnidade: form.materialUnidade || undefined,
+    materialQuantidade: optionalNumber(form.materialQuantidade),
+    materialBaseEconomica: form.materialBaseEconomica || undefined,
+    materialValorCusto: optionalNumber(form.materialValorCusto),
+    materialUnidadeCusto: form.materialUnidadeCusto || undefined,
     quantidadeOperacional: optionalNumber(form.quantidadeOperacional) ?? toNumber(form.quantidadeRealizada),
     unidadeQuantidadeOperacional: form.unidadeQuantidadeOperacional || form.unidadeRealizada,
     capacidadePorViagem: optionalNumber(form.capacidadePorViagem),
@@ -426,6 +434,49 @@ function buildEconomicSnapshot(form: ReturnType<typeof initialEconomicForm>, pre
       componenteEconomico: form.componenteEconomico
     }
   };
+
+  const materialValorCusto = optionalNumber(form.materialValorCusto);
+  if (form.materialId && materialValorCusto && materialValorCusto > 0) {
+    snapshot.componentesEconomicos = [
+      {
+        tipo: "TRANSPORTE",
+        nome: form.nomeSnapshot,
+        categoria: existing.categoria,
+        classeOperacional: existing.classeOperacional,
+        baseEconomica: form.baseEconomica,
+        valorCusto,
+        custoUnitario: valorCusto,
+        unidadeCusto: form.unidadeCusto || unidadeCustoFromBase(form.baseEconomica),
+        quantidadeOperacional: optionalNumber(form.quantidadeOperacional) ?? toNumber(form.quantidadeRealizada),
+        unidadeQuantidadeOperacional: form.unidadeQuantidadeOperacional || form.unidadeRealizada,
+        capacidadePorViagem: optionalNumber(form.capacidadePorViagem),
+        unidadeCapacidade: form.unidadeCapacidade || undefined,
+        distanciaViagemKm: distanciaViagemKm > 0 ? distanciaViagemKm : undefined,
+        quilometrosTotais: optionalNumber(form.quilometrosTotais),
+        viagensTotais: optionalNumber(form.viagensTotais),
+        cargasTotais: optionalNumber(form.cargasTotais),
+        horasDia,
+        horasTotais: optionalNumber(form.horasTotais),
+        mesesTotais: optionalNumber(form.mesesTotais)
+      },
+      {
+        tipo: "MATERIAL",
+        nome: form.materialDescricao || "Material",
+        categoria: "MATERIAL",
+        classeOperacional: form.materialDescricao || undefined,
+        baseEconomica: form.materialBaseEconomica || "M3",
+        valorCusto: materialValorCusto,
+        custoUnitario: materialValorCusto,
+        unidadeCusto: form.materialUnidadeCusto || unidadeCustoFromBase(form.materialBaseEconomica || "M3"),
+        quantidadeOperacional: optionalNumber(form.materialQuantidade),
+        unidadeQuantidadeOperacional: form.materialUnidade || undefined,
+        materialId: form.materialId,
+        materialCodigo: form.materialCodigo || undefined,
+        materialDescricao: form.materialDescricao || undefined,
+        materialUnidade: form.materialUnidade || undefined
+      }
+    ];
+  }
 
   Object.keys(snapshot).forEach((key) => {
     if (snapshot[key] === undefined) delete snapshot[key];
@@ -472,26 +523,39 @@ function countPendingEconomicResources(boletins: Boletim[]) {
   }, 0);
 }
 
-function findResultadoRecurso(recurso: RecursoBoletim, recursosCalculados: Array<Record<string, unknown>>) {
-  return recursosCalculados.find((calculado) => (
+function findResultadosRecurso(recurso: RecursoBoletim, recursosCalculados: Array<Record<string, unknown>>) {
+  const diretos = recursosCalculados.filter((calculado) => (
     String(calculado.recursoRealizadoId ?? "") === recurso.id ||
     String(calculado.recursoBoletimId ?? "") === recurso.id ||
     String(calculado.id ?? "") === recurso.id
-  ))
-    ?? recursosCalculados.find((calculado) => (
-      Boolean(recurso.origemRegistroId) &&
-      String(calculado.origemRegistroId ?? "") === String(recurso.origemRegistroId) &&
-      String(calculado.origemRegistroTipo ?? "") === String(recurso.origemRegistroTipo ?? "")
-    ))
-    ?? null;
+  ));
+
+  if (diretos.length) return diretos;
+
+  return recursosCalculados.filter((calculado) => (
+    Boolean(recurso.origemRegistroId) &&
+    String(calculado.origemRegistroId ?? "") === String(recurso.origemRegistroId) &&
+    String(calculado.origemRegistroTipo ?? "") === String(recurso.origemRegistroTipo ?? "")
+  ));
+}
+
+function findResultadoRecurso(recurso: RecursoBoletim, recursosCalculados: Array<Record<string, unknown>>) {
+  return findResultadosRecurso(recurso, recursosCalculados)[0] ?? null;
 }
 
 function custoRealizadoRecursoLabel(
   recurso: RecursoBoletim,
-  resultadoRecurso: Record<string, unknown> | null,
+  resultadoRecurso: Record<string, unknown> | Array<Record<string, unknown>> | null,
   possuiResultado: boolean
 ) {
-  if (resultadoRecurso) return money(toNumber(resultadoRecurso.custoTotal));
+  const resultados = Array.isArray(resultadoRecurso)
+    ? resultadoRecurso
+    : resultadoRecurso
+      ? [resultadoRecurso]
+      : [];
+  if (resultados.length) {
+    return money(resultados.reduce((total, item) => total + toNumber(item.custoTotal), 0));
+  }
   if (economicPendingReason(recurso) !== "ok") return "Pendente";
   return possuiResultado ? "Nao retornado pelo Nucleo" : "Aguardando consolidacao";
 }
@@ -591,7 +655,7 @@ export function ExecucoesManager() {
     };
   }, [selected]);
   const realizado = useMemo(() => extractRealizado(selected), [selected]);
-  const resultadoRecursoEmEdicao = recursoEmEdicao ? findResultadoRecurso(recursoEmEdicao, realizado.recursos) : null;
+  const resultadosRecursoEmEdicao = recursoEmEdicao ? findResultadosRecurso(recursoEmEdicao, realizado.recursos) : [];
 
   async function loadExecucoes(preferSelectedId = selected?.id) {
     const execucoesData = await fetchJson<{ items: Execucao[] }>("/api/execucoes");
@@ -1372,8 +1436,11 @@ export function ExecucoesManager() {
                 </thead>
                 <tbody>
                   {(selectedBoletim?.recursos ?? []).map((recurso) => {
-                    const resultadoRecurso = findResultadoRecurso(recurso, realizado.recursos);
-                    const custoRealizadoLabel = custoRealizadoRecursoLabel(recurso, resultadoRecurso, Boolean(selected?.resultados?.length));
+                    const resultadosRecurso = findResultadosRecurso(recurso, realizado.recursos);
+                    const custoRealizadoLabel = custoRealizadoRecursoLabel(recurso, resultadosRecurso, Boolean(selected?.resultados?.length));
+                    const detalheCusto = resultadosRecurso.map((item) =>
+                      `${String(item.componenteEconomico ?? "COMPONENTE")}: ${money(toNumber(item.custoTotal))}`
+                    ).join(" | ");
                     return (
                       <tr key={recurso.id}>
                         <td>{recurso.origem}{recurso.editavel === false ? " / Fato existente" : " / Manual"}</td>
@@ -1383,7 +1450,7 @@ export function ExecucoesManager() {
                         <td>{String(recurso.snapshotTecnicoEconomico?.materialDescricao ?? "-")}</td>
                         <td>{String(recurso.snapshotTecnicoEconomico?.baseEconomica ?? "-")}</td>
                         <td>{money(toNumber(recurso.snapshotTecnicoEconomico?.valorCusto))} {String(recurso.snapshotTecnicoEconomico?.unidadeCusto ?? "")}</td>
-                        <td>{custoRealizadoLabel}</td>
+                        <td title={detalheCusto || undefined}>{custoRealizadoLabel}</td>
                         <td>{economicOriginLabel(recurso)}</td>
                         <td>{economicStatus(recurso)}{economicPendingReason(recurso) === "ok" ? "" : ` / ${economicPendingReason(recurso)}`}</td>
                         <td>{recurso.observacao || "-"}</td>
@@ -1475,8 +1542,62 @@ export function ExecucoesManager() {
                   <Info label="Valor utilizado" value={economicForm.valorCusto ? `${money(toNumber(economicForm.valorCusto))} ${economicForm.unidadeCusto}` : "Pendente"} />
                 </div>
                 {showMaterialFields ? (
-                  <div className="execucoes-economics-note">
-                    Material vinculado: {[economicForm.materialCodigo, economicForm.materialDescricao, economicForm.materialUnidade].filter(Boolean).join(" - ")}
+                  <div className="execucoes-economics-dynamic">
+                    <div className="execucoes-economics-note">
+                      Componente MATERIAL: {[economicForm.materialCodigo, economicForm.materialDescricao, economicForm.materialUnidade].filter(Boolean).join(" - ")}
+                    </div>
+                    <div className="execucoes-inline">
+                      <label>
+                        <span>Quantidade do material</span>
+                        <input
+                          type="number"
+                          step="0.0001"
+                          placeholder={economicForm.materialUnidade || "unidade"}
+                          value={economicForm.materialQuantidade}
+                          disabled={isBibliotecaCost}
+                          onChange={(event) => setEconomicForm((current) => ({ ...current, materialQuantidade: event.target.value }))}
+                        />
+                      </label>
+                      <label>
+                        <span>Base do material</span>
+                        <select
+                          value={economicForm.materialBaseEconomica}
+                          disabled={isBibliotecaCost}
+                          onChange={(event) => setEconomicForm((current) => ({
+                            ...current,
+                            materialBaseEconomica: event.target.value,
+                            materialUnidadeCusto: unidadeCustoFromBase(event.target.value)
+                          }))}
+                        >
+                          {basesEconomicas.map((base) => <option key={base} value={base}>{baseEconomicaLabel(base)}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                    <div className="execucoes-inline">
+                      <label>
+                        <span>Custo unitario do material</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="Custo unitario"
+                          value={economicForm.materialValorCusto}
+                          disabled={isBibliotecaCost}
+                          onChange={(event) => setEconomicForm((current) => ({ ...current, materialValorCusto: event.target.value }))}
+                        />
+                      </label>
+                      <label>
+                        <span>Unidade economica do material</span>
+                        <input
+                          placeholder={unidadeCustoFromBase(economicForm.materialBaseEconomica)}
+                          value={economicForm.materialUnidadeCusto}
+                          disabled={isBibliotecaCost}
+                          onChange={(event) => setEconomicForm((current) => ({ ...current, materialUnidadeCusto: event.target.value }))}
+                        />
+                      </label>
+                    </div>
+                    <div className="execucoes-economics-note">
+                      Transporte e material sao enviados como componentes separados ao Nucleo. A tela nao calcula o custo realizado.
+                    </div>
                   </div>
                 ) : null}
                 {showDistanceFields ? (
@@ -1522,7 +1643,7 @@ export function ExecucoesManager() {
                       <Info
                         label="Custo realizado"
                         value={recursoEmEdicao
-                          ? custoRealizadoRecursoLabel(recursoEmEdicao, resultadoRecursoEmEdicao, Boolean(selected?.resultados?.length))
+                          ? custoRealizadoRecursoLabel(recursoEmEdicao, resultadosRecursoEmEdicao, Boolean(selected?.resultados?.length))
                           : "Aguardando consolidacao"}
                       />
                     </div>
