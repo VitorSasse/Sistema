@@ -14367,10 +14367,15 @@ button {
 .execucoes-page {
   display: grid;
   gap: 18px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: clip;
 }
 
 .execucoes-hero,
 .execucoes-panel {
+  min-width: 0;
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: var(--radius-card);
   background:
@@ -14386,6 +14391,12 @@ button {
   justify-content: space-between;
   gap: 18px;
   padding: 22px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.execucoes-hero > div {
+  min-width: 0;
 }
 
 .execucoes-hero p,
@@ -14396,18 +14407,24 @@ button {
 
 .execucoes-grid {
   display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  grid-template-columns: minmax(250px, 340px) minmax(0, 1fr);
   gap: 18px;
   align-items: start;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .execucoes-main {
   display: grid;
   gap: 18px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .execucoes-panel {
   padding: 18px;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .execucoes-panel-heading {
@@ -14420,6 +14437,7 @@ button {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
   align-items: start;
+  min-width: 0;
 }
 
 .execucoes-list {
@@ -14429,12 +14447,14 @@ button {
   max-height: calc(100vh - 120px);
   gap: 12px;
   overflow: auto;
+  min-width: 0;
 }
 
 .execucoes-list-item,
 .execucoes-boletim {
   display: grid;
   width: 100%;
+  min-width: 0;
   gap: 5px;
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 16px;
@@ -14503,14 +14523,16 @@ button {
 
 .execucoes-inline {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(110px, 0.45fr);
+  grid-template-columns: minmax(0, 1fr) minmax(96px, 0.42fr);
   gap: 8px;
+  min-width: 0;
 }
 
 .execucoes-economics-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 8px;
+  min-width: 0;
 }
 
 .execucoes-economics-origin,
@@ -14524,9 +14546,10 @@ button {
 
 .execucoes-economics-origin {
   display: grid;
-  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr) minmax(120px, auto);
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .execucoes-economics-origin span,
@@ -14565,9 +14588,10 @@ button {
 
 .execucoes-encargo-row {
   display: grid;
-  grid-template-columns: minmax(120px, 0.8fr) minmax(180px, 1.2fr) minmax(160px, 0.9fr) minmax(120px, 0.7fr) minmax(160px, 1fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 8px;
   align-items: center;
+  min-width: 0;
 }
 
 .execucoes-action-stack {
@@ -14587,14 +14611,16 @@ button {
 .execucoes-summary-grid,
 .execucoes-comparison-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
   gap: 12px;
+  min-width: 0;
 }
 
 .execucoes-info,
 .execucoes-metric {
   display: grid;
   gap: 5px;
+  min-width: 0;
   border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 14px;
   background: rgba(8, 27, 43, 0.48);
@@ -14615,8 +14641,24 @@ button {
 
 .execucoes-new-boletim {
   display: grid;
-  grid-template-columns: 150px minmax(180px, 1fr) auto;
+  grid-template-columns: minmax(130px, 150px) minmax(0, 1fr) auto;
   gap: 8px;
+  min-width: 0;
+}
+
+.execucoes-page .data-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.execucoes-page .data-table {
+  width: max-content;
+  min-width: 100%;
+}
+
+.execucoes-page .toolbar-actions {
+  min-width: 0;
+  justify-content: flex-end;
 }
 
 .execucoes-alert {

@@ -1175,6 +1175,11 @@ export function ExecucoesManager() {
     }
   }
 
+  function handleAbrirRelatorio() {
+    if (!selected) return;
+    window.open(`/api/execucoes/${selected.id}/relatorio`, "_blank", "noopener,noreferrer");
+  }
+
   async function handleVincularFatos() {
     const fatosParaVincular = selectedFatos.filter((id) => fatosVinculaveis.some((fato) => fato.id === id));
     if (!selected || !recursoForm.frenteExecutadaId || !fatosParaVincular.length) return;
@@ -1269,9 +1274,14 @@ export function ExecucoesManager() {
           <h1 className="page-title">Boletim Diario de Producao</h1>
           <p>Consolide fatos realizados, execute o Nucleo e acompanhe Orçado x Realizado sem duplicar calculos.</p>
         </div>
-        <button className="button-primary" type="button" onClick={handleConsolidar} disabled={!selected || loading}>
-          Consolidar Execucao
-        </button>
+        <div className="toolbar-actions">
+          <button className="button-secondary" type="button" onClick={handleAbrirRelatorio} disabled={!selected || loading || !selected.resultados?.length}>
+            Gerar relatorio
+          </button>
+          <button className="button-primary" type="button" onClick={handleConsolidar} disabled={!selected || loading}>
+            Consolidar Execucao
+          </button>
+        </div>
       </div>
 
       {message ? <div className="execucoes-alert is-success">{message}</div> : null}
