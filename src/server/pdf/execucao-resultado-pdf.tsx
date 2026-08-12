@@ -288,7 +288,7 @@ export function ExecucaoResultadoPdfDocument(props: ExecucaoResultadoPdfProps) {
             <Info label="Situacao" value={valueOrEmpty(props.identificacao.situacao)} />
             <Info label="Periodo" value={valueOrEmpty(props.identificacao.periodo)} />
             <Info label="Emissao" value={dateTime(props.emitidoEm)} />
-            <Info label="Snapshot" value={props.dataCalculo ? dateTime(new Date(props.dataCalculo)) : "Nao informado"} />
+            <Info label="Consolidado em" value={props.dataCalculo ? dateTime(new Date(props.dataCalculo)) : "Nao informado"} />
           </View>
         </View>
 
@@ -374,12 +374,12 @@ export function ExecucaoResultadoPdfDocument(props: ExecucaoResultadoPdfProps) {
         </View>
 
         <Text style={styles.technicalNote}>
-          Relatorio gerado a partir do ultimo snapshot consolidado. Nao ha recalculo de custos neste documento.
-          {props.versaoNucleo ? ` Versao do Nucleo: ${props.versaoNucleo}.` : ""}
+          Relatorio gerado com base no ultimo resultado consolidado. Os custos nao sao recalculados durante a emissao deste documento.
+          {props.versaoNucleo ? ` Sistema de calculo: ${props.versaoNucleo}.` : ""}
         </Text>
 
         <DocumentoRodape
-          centerText={`Emitido em: ${dateTime(props.emitidoEm)}${props.dataCalculo ? ` | Snapshot: ${dateTime(new Date(props.dataCalculo))}` : ""}`}
+          centerText={`Emitido em: ${dateTime(props.emitidoEm)}${props.dataCalculo ? ` | Consolidado em: ${dateTime(new Date(props.dataCalculo))}` : ""}`}
         />
       </Page>
     </Document>

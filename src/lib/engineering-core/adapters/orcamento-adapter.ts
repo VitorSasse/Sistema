@@ -17,6 +17,7 @@ type OrcamentoAdapterFrente = {
   descricao?: string | null;
   unidadeProducao?: string | number | null;
   quantidadePrevista?: string | number | null;
+  receitaPrevista?: string | number | null;
   produtividadeDia?: string | number | null;
   prazoEstimadoDias?: string | number | null;
   prazoTeoricoDias?: string | number | null;
@@ -174,6 +175,7 @@ export function adaptarOrcamentoParaEntradaNucleo(input: OrcamentoParaNucleoAdap
       descricaoTecnica: frente.descricao,
       quantidade: frente.quantidadePrevista,
       unidade: typeof frente.unidadeProducao === "number" ? String(frente.unidadeProducao) : frente.unidadeProducao,
+      receita: frente.receitaPrevista,
       produtividade: frente.produtividadeDia,
       prazoEstimado: frente.prazoEstimadoDias,
       prazoTeorico: frente.prazoTeoricoDias,

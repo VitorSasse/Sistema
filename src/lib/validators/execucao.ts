@@ -88,6 +88,7 @@ export const execucaoSchema = z.object({
   orcamentoOrigemId: optionalUuid(),
   propostaOrigemId: optionalUuid(),
   cenarioOrigemId: optionalUuid(),
+  frenteOrigemId: optionalUuid(),
   frentes: z.array(frenteExecutadaSchema).default([])
 }).superRefine((execucao, ctx) => {
   if (execucao.origem === OrigemExecucao.DIRETA) {
@@ -108,6 +109,24 @@ export const execucaoSchema = z.object({
       path: ["descricao"],
       message: "Descricao e obrigatoria para execucao originada de orcamento ou proposta."
     });
+  }
+
+  if (execucao.origem === OrigemExecucao.ORCAMENTO) {
+    if (!execucao.orcamentoOrigemId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["orcamentoOrigemId"],
+        message: "Selecione o orcamento de origem."
+      });
+    }
+
+    if (!execucao.frenteOrigemId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["frenteOrigemId"],
+        message: "Selecione a frente do orcamento."
+      });
+    }
   }
 
   execucao.frentes.forEach((frente, index) => {

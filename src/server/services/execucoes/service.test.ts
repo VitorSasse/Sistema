@@ -4,6 +4,7 @@ import {
   OrigemExecucao,
   OrigemEncargoExecucao,
   OrigemFatoBoletimDiario,
+  OrigemReferenciaPrevistaExecucao,
   RoleUsuarioEmpresa,
   StatusBoletimDiarioProducao,
   StatusExecucao
@@ -22,6 +23,7 @@ import {
   fecharBoletimDiarioProducao,
   excluirBoletimDiarioProducao,
   criarExecucao,
+  listarReferenciasOrcamentoExecucao,
   listarFatosOperacionaisExistentes,
   atualizarRecursoBoletimDiarioProducao,
   consolidarExecucaoPorBoletins,
@@ -39,6 +41,8 @@ const RECURSO_ID = "44444444-4444-4444-8444-444444444444";
 const EXECUCAO_ID = "55555555-5555-4555-8555-555555555555";
 const FRENTE_ID = "66666666-6666-4666-8666-666666666666";
 const FRENTE_EXTERNA_ID = "77777777-7777-4777-8777-777777777777";
+const ORCAMENTO_ID = "88888888-8888-4888-8888-888888888888";
+const ORCAMENTO_FRENTE_ID = "99999999-9999-4999-8999-999999999998";
 
 function inputExecucao(): ExecucaoInput {
   return execucaoSchema.parse({
@@ -128,6 +132,84 @@ function createDbMock() {
     boletins: [] as Array<Record<string, unknown>>,
     recursosBoletim: [] as Array<Record<string, unknown>>,
     encargos: [] as Array<Record<string, unknown>>,
+    referenciasPrevistas: [] as Array<Record<string, unknown>>,
+    orcamentos: [
+      {
+        id: ORCAMENTO_ID,
+        empresaId: EMPRESA_ID,
+        codigo: "ORC-TST",
+        titulo: "Orcamento de validacao",
+        clienteId: CLIENTE_ID,
+        obraId: OBRA_ID,
+        deletedAt: null,
+        valorTotal: 1200,
+        updatedAt: new Date("2026-08-06T00:00:00.000Z"),
+        frentes: [
+          {
+            id: ORCAMENTO_FRENTE_ID,
+            cenarioId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+            ordem: 1,
+            natureza: "OPERACIONAL",
+            nome: "Frente vinculada",
+            descricao: "Frente prevista no orcamento",
+            unidadeProducao: "m3",
+            quantidadePrevista: 100,
+            produtividadeDia: 50,
+            prazoEstimadoDias: 2,
+            prazoTeoricoDias: 2,
+            prazoAdotadoDias: null,
+            origemPrazo: "AUTOMATICO",
+            modoCusto: "AUTO",
+            custoManual: 0,
+            itens: [
+              {
+                id: "item-previsto-1",
+                ordem: 1,
+                tipoItem: "COMERCIAL",
+                formaApresentacaoComercial: "QUANTIDADE_DEFINIDA",
+                descricao: "Servico contratado",
+                quantidade: 100,
+                unidade: "m3",
+                valorTotal: 1200,
+                custoUnitario: 0
+              },
+              {
+                id: "item-recurso-1",
+                ordem: 2,
+                tipoItem: "RECURSO",
+                formaApresentacaoComercial: "QUANTIDADE_DEFINIDA",
+                categoriaRecurso: "EQUIPAMENTO",
+                descricao: "Escavadeira prevista",
+                recursoNome: "Escavadeira prevista",
+                classeOperacional: "Escavadeira",
+                recursoReferenciaId: RECURSO_ID,
+                quantidade: 1,
+                quantidadeOperacional: 2,
+                origemQuantidadeOperacional: "PERSONALIZADA",
+                unidadeQuantidadeOperacional: "dia",
+                custoUnitario: 0,
+                unidade: "dia",
+                tipoCalculoRecurso: "AUTOMATICO",
+                unidadeEconomicaCusto: "DIA",
+                valorCusto: 300,
+                horasDia: 8,
+                valorTotal: 0
+              }
+            ]
+          },
+          {
+            id: "99999999-9999-4999-8999-999999999997",
+            cenarioId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+            ordem: 2,
+            natureza: "OPERACIONAL",
+            nome: "Frente nao selecionada",
+            unidadeProducao: "m3",
+            quantidadePrevista: 50,
+            itens: []
+          }
+        ]
+      }
+    ] as Array<Record<string, unknown>>,
     lancamentos: [
       {
         id: "99999999-9999-4999-8999-999999999999",
@@ -470,6 +552,73 @@ function createDbMock() {
           return true;
         });
       }
+    },
+    orcamento: {
+      findFirst: async (args: Record<string, unknown>) => {
+        calls.push({ model: "orcamento", action: "findFirst", args });
+        const where = args.where as Record<string, unknown>;
+        const select = args.select as Record<string, unknown> | undefined;
+        const orcamento = records.orcamentos.find((item) => {
+          if (where.id && item.id !== where.id) return false;
+          if (where.empresaId && item.empresaId !== where.empresaId) return false;
+          if (where.clienteId && item.clienteId !== where.clienteId) return false;
+          if (where.obraId && item.obraId !== where.obraId) return false;
+          if (where.deletedAt !== undefined && item.deletedAt !== where.deletedAt) return false;
+          return true;
+        });
+        if (!orcamento) return null;
+
+        const frentesSelect = select?.frentes as Record<string, unknown> | undefined;
+        const frenteWhere = frentesSelect?.where as Record<string, unknown> | undefined;
+        return {
+          ...orcamento,
+          frentes: ((orcamento.frentes as Array<Record<string, unknown>>) ?? []).filter((frente) =>
+            !frenteWhere?.id || frente.id === frenteWhere.id
+          )
+        };
+      },
+      findMany: async (args: Record<string, unknown>) => {
+        calls.push({ model: "orcamento", action: "findMany", args });
+        const where = args.where as Record<string, unknown>;
+        const select = args.select as Record<string, unknown> | undefined;
+        const includeFrentes = Boolean(select?.frentes);
+        return records.orcamentos.filter((item) => {
+          if (where.id && item.id !== where.id) return false;
+          if (where.empresaId && item.empresaId !== where.empresaId) return false;
+          if (where.clienteId && item.clienteId !== where.clienteId) return false;
+          if (where.obraId && item.obraId !== where.obraId) return false;
+          if (where.deletedAt !== undefined && item.deletedAt !== where.deletedAt) return false;
+          return true;
+        }).map((item) => ({
+          ...item,
+          frentes: includeFrentes ? item.frentes : undefined
+        }));
+      }
+    },
+    execucaoReferenciaPrevista: {
+      upsert: async (args: Record<string, unknown>) => {
+        calls.push({ model: "execucaoReferenciaPrevista", action: "upsert", args });
+        const create = args.create as Record<string, unknown>;
+        const update = args.update as Record<string, unknown>;
+        const where = args.where as Record<string, unknown>;
+        const index = records.referenciasPrevistas.findIndex((item) => item.execucaoId === where.execucaoId);
+        if (index >= 0) {
+          records.referenciasPrevistas[index] = {
+            ...records.referenciasPrevistas[index],
+            ...update
+          };
+          return records.referenciasPrevistas[index];
+        }
+        const created = {
+          id: `referencia-${records.referenciasPrevistas.length + 1}`,
+          ...create
+        };
+        records.referenciasPrevistas.push(created);
+        if (records.execucao) {
+          records.execucao.referenciaPrevista = created;
+        }
+        return created;
+      }
     }
   };
 
@@ -636,6 +785,133 @@ describe("service de Execucao e Resultado", () => {
       resultados: []
     });
     expect(calls.some((call) => call.model === "resultadoExecucao" && call.action === "create")).toBe(false);
+  });
+
+  it("lista orcamentos da obra e somente frentes pertencentes ao orcamento selecionado", async () => {
+    const { db } = createDbMock();
+    const lista = await runTenant(() =>
+      listarReferenciasOrcamentoExecucao(db as never, {
+        clienteId: CLIENTE_ID,
+        obraId: OBRA_ID
+      })
+    );
+
+    expect(lista.orcamentos).toHaveLength(1);
+    expect(lista.orcamentos[0]).toMatchObject({
+      id: ORCAMENTO_ID,
+      clienteId: CLIENTE_ID,
+      obraId: OBRA_ID
+    });
+    expect(lista.frentes).toHaveLength(0);
+
+    const comFrentes = await runTenant(() =>
+      listarReferenciasOrcamentoExecucao(db as never, {
+        clienteId: CLIENTE_ID,
+        obraId: OBRA_ID,
+        orcamentoId: ORCAMENTO_ID
+      })
+    );
+
+    expect(comFrentes.frentes.map((frente) => frente.id)).toEqual([
+      ORCAMENTO_FRENTE_ID,
+      "99999999-9999-4999-8999-999999999997"
+    ]);
+    expect(comFrentes.frentes[0]).toMatchObject({
+      nome: "Frente vinculada",
+      quantidadePrevista: 100,
+      unidade: "m3",
+      receitaPrevista: 1200
+    });
+  });
+
+  it("cria execucao vinculada a uma unica frente do orcamento e registra referencia prevista historica", async () => {
+    const { db, records } = createDbMock();
+    const created = await runTenant(() =>
+      criarExecucao(db as never, {
+        clienteId: CLIENTE_ID,
+        obraId: OBRA_ID,
+        descricao: "Execucao vinculada",
+        origem: OrigemExecucao.ORCAMENTO,
+        status: StatusExecucao.EM_ANDAMENTO,
+        orcamentoOrigemId: ORCAMENTO_ID,
+        frenteOrigemId: ORCAMENTO_FRENTE_ID,
+        frentes: []
+      })
+    );
+
+    expect(created).toMatchObject({
+      empresaId: EMPRESA_ID,
+      clienteId: CLIENTE_ID,
+      obraId: OBRA_ID,
+      origem: OrigemExecucao.ORCAMENTO,
+      orcamentoOrigemId: ORCAMENTO_ID,
+      cenarioOrigemId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"
+    });
+    expect((created as { frentes: Array<Record<string, unknown>> }).frentes).toHaveLength(1);
+    expect((created as { frentes: Array<Record<string, unknown>> }).frentes[0]).toMatchObject({
+      nome: "Frente vinculada",
+      unidade: "m3",
+      quantidadeExecutada: 100,
+      receitaRealizada: 1200
+    });
+    expect(records.referenciasPrevistas).toHaveLength(1);
+    expect(records.referenciasPrevistas[0]).toMatchObject({
+      origem: OrigemReferenciaPrevistaExecucao.ORCAMENTO,
+      orcamentoOrigemId: ORCAMENTO_ID,
+      cenarioOrigemId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1"
+    });
+
+    const referencia = records.referenciasPrevistas[0].referenciaPrevistaJson as {
+      snapshot: {
+        resultadoOperacionalJson: {
+          resultadoOperacional: {
+            unidades: Array<{
+              id: string;
+              nome: string;
+              quantidade: number;
+              recursos: Array<{ referenciaTecnicaId: string | null }>;
+            }>;
+          };
+        };
+        economiaJson: {
+          unidades: Array<{ economia: { receita: number } }>;
+        };
+      };
+    };
+    const frenteExecutada = (created as { frentes: Array<{ id: string }> }).frentes[0];
+
+    expect(referencia.snapshot.resultadoOperacionalJson.resultadoOperacional.unidades).toHaveLength(1);
+    expect(referencia.snapshot.resultadoOperacionalJson.resultadoOperacional.unidades[0]).toMatchObject({
+      id: frenteExecutada.id,
+      nome: "Frente vinculada",
+      quantidade: 100
+    });
+    expect(referencia.snapshot.resultadoOperacionalJson.resultadoOperacional.unidades[0].recursos).toHaveLength(1);
+    expect(referencia.snapshot.resultadoOperacionalJson.resultadoOperacional.unidades[0].recursos[0].referenciaTecnicaId).toBe(RECURSO_ID);
+    expect(referencia.snapshot.economiaJson.unidades[0].economia.receita).toBe(1200);
+  });
+
+  it("mantem referencia prevista estavel apos alteracao posterior do orcamento vivo", async () => {
+    const { db, records } = createDbMock();
+    await runTenant(() =>
+      criarExecucao(db as never, {
+        clienteId: CLIENTE_ID,
+        obraId: OBRA_ID,
+        descricao: "Execucao vinculada",
+        origem: OrigemExecucao.ORCAMENTO,
+        status: StatusExecucao.EM_ANDAMENTO,
+        orcamentoOrigemId: ORCAMENTO_ID,
+        frenteOrigemId: ORCAMENTO_FRENTE_ID,
+        frentes: []
+      })
+    );
+
+    const referenciaAntes = JSON.stringify(records.referenciasPrevistas[0].referenciaPrevistaJson);
+    const frenteOrcamento = ((records.orcamentos[0].frentes as Array<Record<string, unknown>>)[0]);
+    frenteOrcamento.quantidadePrevista = 999;
+    (frenteOrcamento.itens as Array<Record<string, unknown>>)[0].valorTotal = 99999;
+
+    expect(JSON.stringify(records.referenciasPrevistas[0].referenciaPrevistaJson)).toBe(referenciaAntes);
   });
 
   it("cria execucao com frente executada e recurso realizado", async () => {

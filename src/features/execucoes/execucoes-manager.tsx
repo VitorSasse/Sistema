@@ -29,6 +29,26 @@ type EquipamentoOption = {
   custoPadrao?: string | number | null;
 };
 
+type OrcamentoReferenciaOption = {
+  id: string;
+  codigo: string;
+  titulo?: string | null;
+  clienteId: string;
+  obraId?: string | null;
+  valorTotal?: number | null;
+};
+
+type FrenteOrcamentoReferenciaOption = {
+  id: string;
+  ordem: number;
+  natureza: string;
+  nome: string;
+  descricao?: string | null;
+  unidade?: string | null;
+  quantidadePrevista?: number | null;
+  receitaPrevista?: number | null;
+};
+
 type RecursoBoletim = {
   id: string;
   boletimId?: string;
@@ -192,6 +212,8 @@ function initialExecucaoForm() {
   return {
     clienteId: "",
     obraId: "",
+    orcamentoId: "",
+    frenteOrigemId: "",
     descricao: "",
     frenteNome: "",
     unidade: "",
@@ -206,6 +228,8 @@ function execucaoFormFromSelected(execucao: Execucao | null | undefined) {
   return {
     clienteId: execucao?.cliente?.id ?? "",
     obraId: execucao?.obra?.id ?? "",
+    orcamentoId: "",
+    frenteOrigemId: "",
     descricao: execucao?.descricao ?? "",
     frenteNome: frente?.nome ?? "",
     unidade: frente?.unidade ?? "",
@@ -665,6 +689,9 @@ export function ExecucoesManager() {
   const [clientes, setClientes] = useState<ClienteOption[]>([]);
   const [obras, setObras] = useState<ObraOption[]>([]);
   const [equipamentos, setEquipamentos] = useState<EquipamentoOption[]>([]);
+  const [createMode, setCreateMode] = useState<"DIRETA" | "ORCAMENTO">("DIRETA");
+  const [orcamentosReferencia, setOrcamentosReferencia] = useState<OrcamentoReferenciaOption[]>([]);
+  const [frentesReferencia, setFrentesReferencia] = useState<FrenteOrcamentoReferenciaOption[]>([]);
   const [comparativo, setComparativo] = useState<Comparativo | null>(null);
   const [fatos, setFatos] = useState<FatoOperacional[]>([]);
   const [selectedFatos, setSelectedFatos] = useState<string[]>([]);
@@ -683,6 +710,8 @@ export function ExecucoesManager() {
   const [optionsError, setOptionsError] = useState("");
   const [loading, setLoading] = useState(false);
   const [optionsLoading, setOptionsLoading] = useState(false);
+  const [referenciasLoading, setReferenciasLoading] = useState(false);
+  const [referenciasError, setReferenciasError] = useState("");
 
   const selected = useMemo(
     () => execucoes.find((execucao) => execucao.id === selectedId) ?? execucoes[0] ?? null,
@@ -740,6 +769,21 @@ export function ExecucoesManager() {
     })),
     [headerObrasFiltradas]
   );
+  const orcamentoOptions = useMemo<SearchableSelectOption[]>(
+    () => orcamentosReferencia.map((orcamento) => ({
+      value: orcamento.id,
+      label: `${orcamento.codigo}${orcamento.titulo ? ` - ${orcamento.titulo}` : ""}`
+    })),
+    [orcamentosReferencia]
+  );
+  const frenteReferenciaOptions = useMemo<SearchableSelectOption[]>(
+    () => frentesReferencia.map((frente) => ({
+      value: frente.id,
+      label: `Frente ${frente.ordem || "-"} - ${frente.nome}`
+    })),
+    [frentesReferencia]
+  );
+  const frenteSelecionadaReferencia = frentesReferencia.find((frente) => frente.id === execucaoForm.frenteOrigemId) ?? null;
 
   const totais = useMemo(() => {
     const frentes = selected?.frentes ?? [];
@@ -795,6 +839,37 @@ export function ExecucoesManager() {
     }
   }
 
+  async function loadReferenciasOrcamento() {
+    if (createMode !== "ORCAMENTO") {
+      setOrcamentosReferencia([]);
+      setFrentesReferencia([]);
+      setReferenciasError("");
+      return;
+    }
+
+    setReferenciasLoading(true);
+    setReferenciasError("");
+
+    try {
+      const params = new URLSearchParams();
+      if (execucaoForm.clienteId) params.set("clienteId", execucaoForm.clienteId);
+      if (execucaoForm.obraId) params.set("obraId", execucaoForm.obraId);
+      if (execucaoForm.orcamentoId) params.set("orcamentoId", execucaoForm.orcamentoId);
+
+      const data = await fetchJson<{
+        orcamentos: OrcamentoReferenciaOption[];
+        frentes: FrenteOrcamentoReferenciaOption[];
+      }>(`/api/execucoes/referencias-orcamento?${params.toString()}`);
+
+      setOrcamentosReferencia(data.orcamentos ?? []);
+      setFrentesReferencia(data.frentes ?? []);
+    } catch (err) {
+      setReferenciasError(err instanceof Error ? err.message : "Nao foi possivel carregar orcamentos e frentes.");
+    } finally {
+      setReferenciasLoading(false);
+    }
+  }
+
   async function loadAll(preferSelectedId = selected?.id) {
     await Promise.all([
       loadExecucoes(preferSelectedId),
@@ -841,6 +916,11 @@ export function ExecucoesManager() {
   }, []);
 
   useEffect(() => {
+    loadReferenciasOrcamento().catch((err) => setReferenciasError(err instanceof Error ? err.message : "Nao foi possivel carregar orcamentos e frentes."));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createMode, execucaoForm.clienteId, execucaoForm.obraId, execucaoForm.orcamentoId]);
+
+  useEffect(() => {
     if (selected?.frentes?.[0]?.id && !recursoForm.frenteExecutadaId) {
       setRecursoForm((current) => ({ ...current, frenteExecutadaId: selected.frentes[0].id }));
     }
@@ -873,29 +953,43 @@ export function ExecucoesManager() {
     setMessage("");
 
     try {
-      const payload = {
-        clienteId: execucaoForm.clienteId || null,
-        obraId: execucaoForm.obraId || null,
-        descricao: execucaoForm.descricao || "",
-        origem: "DIRETA",
-        status: "EM_ANDAMENTO",
-        frentes: execucaoForm.frenteNome || execucaoForm.unidade || execucaoForm.quantidade || execucaoForm.receita
-          ? [
-            {
-              nome: execucaoForm.frenteNome || "",
-              unidade: execucaoForm.quantidade ? execucaoForm.unidade : "",
-              quantidadeExecutada: execucaoForm.quantidade ? Number(execucaoForm.quantidade) : null,
-              receitaRealizada: execucaoForm.receita ? Number(execucaoForm.receita) : null,
-              recursos: []
-            }
-            ]
-          : []
-      };
+      const payload = createMode === "ORCAMENTO"
+        ? {
+          clienteId: execucaoForm.clienteId || null,
+          obraId: execucaoForm.obraId || null,
+          descricao: execucaoForm.descricao || frenteSelecionadaReferencia?.nome || "",
+          origem: "ORCAMENTO",
+          status: "EM_ANDAMENTO",
+          orcamentoOrigemId: execucaoForm.orcamentoId || null,
+          frenteOrigemId: execucaoForm.frenteOrigemId || null,
+          frentes: []
+        }
+        : {
+          clienteId: execucaoForm.clienteId || null,
+          obraId: execucaoForm.obraId || null,
+          descricao: execucaoForm.descricao || "",
+          origem: "DIRETA",
+          status: "EM_ANDAMENTO",
+          frentes: execucaoForm.frenteNome || execucaoForm.unidade || execucaoForm.quantidade || execucaoForm.receita
+            ? [
+              {
+                nome: execucaoForm.frenteNome || "",
+                unidade: execucaoForm.quantidade ? execucaoForm.unidade : "",
+                quantidadeExecutada: execucaoForm.quantidade ? Number(execucaoForm.quantidade) : null,
+                receitaRealizada: execucaoForm.receita ? Number(execucaoForm.receita) : null,
+                recursos: []
+              }
+              ]
+            : []
+        };
       const data = await fetchJson<{ item: Execucao }>("/api/execucoes", {
         method: "POST",
         body: JSON.stringify(payload)
       });
       setExecucaoForm(initialExecucaoForm());
+      setCreateMode("DIRETA");
+      setFrentesReferencia([]);
+      setOrcamentosReferencia([]);
       setMessage("Execucao aberta.");
       await loadExecucoes(data.item.id);
       loadOptions().catch((err) => setOptionsError(err instanceof Error ? err.message : "Nao foi possivel recarregar clientes, obras e recursos."));
@@ -1284,9 +1378,10 @@ export function ExecucoesManager() {
         </div>
       </div>
 
-      {message ? <div className="execucoes-alert is-success">{message}</div> : null}
-      {error ? <div className="execucoes-alert is-error">{error}</div> : null}
-      {optionsError ? <div className="execucoes-alert is-error">{optionsError}</div> : null}
+        {message ? <div className="execucoes-alert is-success">{message}</div> : null}
+        {error ? <div className="execucoes-alert is-error">{error}</div> : null}
+        {optionsError ? <div className="execucoes-alert is-error">{optionsError}</div> : null}
+        {referenciasError ? <div className="execucoes-alert is-error">{referenciasError}</div> : null}
 
       <section className="execucoes-grid">
         <aside className="execucoes-panel execucoes-list">
@@ -1316,10 +1411,32 @@ export function ExecucoesManager() {
           )}
 
           <form className="execucoes-create-form" onSubmit={handleCreateExecucao}>
-            <span className="page-kicker">Nova execucao direta</span>
+            <span className="page-kicker">Nova execucao</span>
+            <div className="execucoes-mode-switch" role="group" aria-label="Modo de criacao da execucao">
+              <button
+                type="button"
+                className={createMode === "DIRETA" ? "is-active" : ""}
+                onClick={() => {
+                  setCreateMode("DIRETA");
+                  setExecucaoForm(initialExecucaoForm());
+                }}
+              >
+                Direta / sem orcamento
+              </button>
+              <button
+                type="button"
+                className={createMode === "ORCAMENTO" ? "is-active" : ""}
+                onClick={() => {
+                  setCreateMode("ORCAMENTO");
+                  setExecucaoForm(initialExecucaoForm());
+                }}
+              >
+                Vinculada a orcamento
+              </button>
+            </div>
             <SearchableSelect
               value={execucaoForm.clienteId}
-              onChange={(value) => setExecucaoForm((current) => ({ ...current, clienteId: value, obraId: "" }))}
+              onChange={(value) => setExecucaoForm((current) => ({ ...current, clienteId: value, obraId: "", orcamentoId: "", frenteOrigemId: "" }))}
               options={clienteOptions}
               placeholder={optionsLoading ? "Carregando clientes..." : "Digite codigo ou nome do cliente"}
               emptyLabel="Nenhum cliente encontrado."
@@ -1336,21 +1453,74 @@ export function ExecucoesManager() {
                 setExecucaoForm((current) => ({
                   ...current,
                   obraId: value,
-                  clienteId: obra?.clienteId || current.clienteId
+                  clienteId: obra?.clienteId || current.clienteId,
+                  orcamentoId: "",
+                  frenteOrigemId: ""
                 }));
               }}
             />
-            <input placeholder="Descricao da execucao (opcional)" value={execucaoForm.descricao} onChange={(event) => setExecucaoForm((current) => ({ ...current, descricao: event.target.value }))} />
-            <input placeholder="Frente / servico (opcional)" value={execucaoForm.frenteNome} onChange={(event) => setExecucaoForm((current) => ({ ...current, frenteNome: event.target.value }))} />
-            <div className="execucoes-inline">
-              <input placeholder="Quantidade (opcional)" type="number" step="0.0001" value={execucaoForm.quantidade} onChange={(event) => setExecucaoForm((current) => ({ ...current, quantidade: event.target.value, unidade: event.target.value ? current.unidade : "" }))} />
-              <select value={execucaoForm.unidade} onChange={(event) => setExecucaoForm((current) => ({ ...current, unidade: event.target.value }))} disabled={!execucaoForm.quantidade}>
-                <option value="">{execucaoForm.quantidade ? "Unidade" : "Sem quantidade"}</option>
-                {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
-              </select>
-            </div>
-            <input placeholder="Receita contratada (opcional)" type="number" step="0.01" value={execucaoForm.receita} onChange={(event) => setExecucaoForm((current) => ({ ...current, receita: event.target.value }))} />
-            <button className="button-primary" type="submit" disabled={loading}>Abrir execucao</button>
+            {createMode === "ORCAMENTO" ? (
+              <>
+                <SearchableSelect
+                  value={execucaoForm.orcamentoId}
+                  options={orcamentoOptions}
+                  placeholder={referenciasLoading ? "Carregando orcamentos..." : "Digite codigo ou titulo do orcamento"}
+                  emptyLabel="Nenhum orcamento encontrado para cliente/obra."
+                  disabled={referenciasLoading || !execucaoForm.obraId}
+                  onChange={(value) => setExecucaoForm((current) => ({ ...current, orcamentoId: value, frenteOrigemId: "" }))}
+                />
+                <SearchableSelect
+                  value={execucaoForm.frenteOrigemId}
+                  options={frenteReferenciaOptions}
+                  placeholder={referenciasLoading ? "Carregando frentes..." : "Digite para selecionar a frente do orcamento"}
+                  emptyLabel="Nenhuma frente encontrada neste orcamento."
+                  disabled={referenciasLoading || !execucaoForm.orcamentoId}
+                  onChange={(value) => {
+                    const frente = frentesReferencia.find((item) => item.id === value);
+                    setExecucaoForm((current) => ({
+                      ...current,
+                      frenteOrigemId: value,
+                      descricao: frente?.nome ?? current.descricao,
+                      frenteNome: frente?.nome ?? current.frenteNome,
+                      unidade: frente?.unidade ?? "",
+                      quantidade: frente?.quantidadePrevista === null || frente?.quantidadePrevista === undefined ? "" : String(frente.quantidadePrevista),
+                      receita: frente?.receitaPrevista === null || frente?.receitaPrevista === undefined ? "" : String(frente.receitaPrevista)
+                    }));
+                  }}
+                />
+                {frenteSelecionadaReferencia ? (
+                  <div className="execucoes-reference-preview">
+                    <span>Referencia prevista que sera preservada</span>
+                    <strong>{frenteSelecionadaReferencia.nome}</strong>
+                    <small>
+                      {number(frenteSelecionadaReferencia.quantidadePrevista)} {frenteSelecionadaReferencia.unidade ?? ""}
+                      {" | Receita prevista: "}
+                      {money(frenteSelecionadaReferencia.receitaPrevista ?? 0)}
+                    </small>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <input placeholder="Descricao da execucao (opcional)" value={execucaoForm.descricao} onChange={(event) => setExecucaoForm((current) => ({ ...current, descricao: event.target.value }))} />
+                <input placeholder="Frente / servico (opcional)" value={execucaoForm.frenteNome} onChange={(event) => setExecucaoForm((current) => ({ ...current, frenteNome: event.target.value }))} />
+                <div className="execucoes-inline">
+                  <input placeholder="Quantidade (opcional)" type="number" step="0.0001" value={execucaoForm.quantidade} onChange={(event) => setExecucaoForm((current) => ({ ...current, quantidade: event.target.value, unidade: event.target.value ? current.unidade : "" }))} />
+                  <select value={execucaoForm.unidade} onChange={(event) => setExecucaoForm((current) => ({ ...current, unidade: event.target.value }))} disabled={!execucaoForm.quantidade}>
+                    <option value="">{execucaoForm.quantidade ? "Unidade" : "Sem quantidade"}</option>
+                    {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
+                  </select>
+                </div>
+                <input placeholder="Receita contratada (opcional)" type="number" step="0.01" value={execucaoForm.receita} onChange={(event) => setExecucaoForm((current) => ({ ...current, receita: event.target.value }))} />
+              </>
+            )}
+            <button
+              className="button-primary"
+              type="submit"
+              disabled={loading || (createMode === "ORCAMENTO" && (!execucaoForm.clienteId || !execucaoForm.obraId || !execucaoForm.orcamentoId || !execucaoForm.frenteOrigemId))}
+            >
+              Abrir execucao
+            </button>
           </form>
         </aside>
 

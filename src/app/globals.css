@@ -14494,6 +14494,46 @@ button {
   padding-top: 14px;
 }
 
+.execucoes-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  background: rgba(8, 27, 43, 0.42);
+}
+
+.execucoes-mode-switch button {
+  min-height: 38px;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 0.72rem;
+}
+
+.execucoes-mode-switch button.is-active {
+  border-color: rgba(255, 113, 26, 0.62);
+  background: rgba(255, 113, 26, 0.16);
+  color: var(--color-text);
+}
+
+.execucoes-reference-preview {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid rgba(255, 113, 26, 0.34);
+  border-radius: 14px;
+  background: rgba(255, 113, 26, 0.08);
+}
+
+.execucoes-reference-preview strong {
+  color: var(--color-text);
+}
+
 .execucoes-create-form input,
 .execucoes-create-form select,
 .execucoes-new-boletim input,

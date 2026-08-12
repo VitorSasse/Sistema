@@ -1,14 +1,17 @@
 import {
   EstadoEncargosExecucao,
   FormaCalculoEncargoExecucao,
+  OrigemExecucao,
   OrigemEncargoExecucao,
   OrigemFatoBoletimDiario,
+  OrigemReferenciaPrevistaExecucao,
   Prisma,
   StatusBoletimDiarioProducao,
   StatusLancamento
 } from "@prisma/client";
 import {
   adaptarExecucaoParaEntradaNucleo,
+  adaptarOrcamentoParaEntradaNucleo,
   avaliarSnapshotTecnicoEconomico,
   executarNucleoComMotorAtual,
   type EntradaExecucao,
@@ -28,6 +31,7 @@ import {
 } from "@/lib/validators/execucao-encargos";
 import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseDateOnlyEnd, parseDateOnlyStart } from "@/lib/utils/date";
+import { registrarReferenciaPrevistaExecucao } from "./comparativo";
 
 type DbClient = {
   execucao: {
@@ -64,6 +68,13 @@ type DbClient = {
   lancamentoDiario?: {
     findMany: (args: Prisma.LancamentoDiarioFindManyArgs) => Promise<unknown>;
   };
+  orcamento?: {
+    findFirst: (args: Prisma.OrcamentoFindFirstArgs) => Promise<unknown>;
+    findMany?: (args: Prisma.OrcamentoFindManyArgs) => Promise<unknown>;
+  };
+  execucaoReferenciaPrevista?: {
+    upsert: (args: Prisma.ExecucaoReferenciaPrevistaUpsertArgs) => Promise<unknown>;
+  };
 };
 
 export const EXECUCAO_RESULTADO_NUCLEO_VERSAO = "engineering-core-v1";
@@ -96,6 +107,9 @@ type PersistedExecucao = {
   obraId?: string | null;
   origem?: unknown;
   status?: unknown;
+  orcamentoOrigemId?: string | null;
+  propostaOrigemId?: string | null;
+  cenarioOrigemId?: string | null;
   estadoEncargos?: EstadoEncargosExecucao | string | null;
   frentes?: PersistedFrenteExecutada[];
   resultados?: unknown[];
@@ -306,6 +320,15 @@ function toNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function toNumeroTecnico(value: unknown): string | number | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number" || typeof value === "string") return value;
+  if (typeof value === "object" && value !== null && "toString" in value) {
+    return String(value);
+  }
+  return null;
+}
+
 function toSnapshotTecnicoEconomico(value: unknown): SnapshotTecnicoEconomicoRecursoRealizado {
   return typeof value === "object" && value !== null
     ? (value as SnapshotTecnicoEconomicoRecursoRealizado)
@@ -513,6 +536,249 @@ function buildExecucaoData(input: ExecucaoInput, empresaId: string) {
     propostaOrigemId: input.propostaOrigemId || null,
     cenarioOrigemId: input.cenarioOrigemId || null
   };
+}
+
+function requireOrcamentoDelegate(db: DbClient) {
+  if (!db.orcamento) {
+    throw new Error("ORCAMENTO_DELEGATE_INDISPONIVEL");
+  }
+
+  return db.orcamento;
+}
+
+function requireReferenciaPrevistaDelegate(db: DbClient) {
+  if (!db.execucaoReferenciaPrevista) {
+    throw new Error("REFERENCIA_PREVISTA_DELEGATE_INDISPONIVEL");
+  }
+
+  return db.execucaoReferenciaPrevista;
+}
+
+function valorPrevistoFrente(frente: { itens?: Array<Record<string, unknown>> }) {
+  return (frente.itens ?? []).reduce((total, item) => {
+    if (item.tipoItem === "RECURSO") return total;
+    if (item.formaApresentacaoComercial === "PRECO_UNITARIO_REFERENCIAL") return total;
+    return total + toNumber(item.valorTotal);
+  }, 0);
+}
+
+function mapOrcamentoItemParaReferencia(item: Record<string, unknown>, frenteExecutadaId: string) {
+  return {
+    tempId: String(item.id ?? ""),
+    localId: String(item.id ?? ""),
+    frenteTempId: frenteExecutadaId,
+    ordem: toNumber(item.ordem),
+    tipoItem: typeof item.tipoItem === "string" ? item.tipoItem : null,
+    categoriaRecurso: typeof item.categoriaRecurso === "string" ? item.categoriaRecurso : null,
+    descricao: typeof item.descricao === "string" ? item.descricao : null,
+    recursoNome: typeof item.recursoNome === "string" ? item.recursoNome : null,
+    classeOperacional: typeof item.classeOperacional === "string" ? item.classeOperacional : null,
+    recursoReferenciaId: typeof item.recursoReferenciaId === "string" ? item.recursoReferenciaId : null,
+    quantidade: toNumeroTecnico(item.quantidade),
+    quantidadeOperacional: toNumeroTecnico(item.quantidadeOperacional),
+    origemQuantidadeOperacional: typeof item.origemQuantidadeOperacional === "string" ? item.origemQuantidadeOperacional : null,
+    unidadeQuantidadeOperacional: typeof item.unidadeQuantidadeOperacional === "string" ? item.unidadeQuantidadeOperacional : null,
+    custoUnitario: toNumeroTecnico(item.custoUnitario),
+    unidade: typeof item.unidade === "string" ? item.unidade : null,
+    tipoCalculoRecurso: typeof item.tipoCalculoRecurso === "string" ? item.tipoCalculoRecurso : null,
+    unidadeEconomicaCusto: typeof item.unidadeEconomicaCusto === "string" ? item.unidadeEconomicaCusto : null,
+    valorCusto: toNumeroTecnico(item.valorCusto),
+    horasDia: toNumeroTecnico(item.horasDia),
+    horasTotais: toNumeroTecnico(item.horasTotais),
+    viagensDia: toNumeroTecnico(item.viagensDia),
+    viagensTotais: toNumeroTecnico(item.viagensTotais),
+    distanciaViagemKm: toNumeroTecnico(item.distanciaViagemKm),
+    quilometrosTotais: toNumeroTecnico(item.quilometrosTotais),
+    capacidadePorViagem: toNumeroTecnico(item.capacidadePorViagem),
+    unidadeCapacidade: typeof item.unidadeCapacidade === "string" ? item.unidadeCapacidade : null,
+    cargasTotais: toNumeroTecnico(item.cargasTotais),
+    mesesTotais: toNumeroTecnico(item.mesesTotais),
+    diasTrabalhadosMes: toNumeroTecnico(item.diasTrabalhadosMes)
+  };
+}
+
+type OrcamentoReferenciaExecucao = {
+  input: ExecucaoInput;
+  orcamento: Record<string, unknown>;
+  frente: Record<string, unknown> & { itens?: Array<Record<string, unknown>> };
+  receitaPrevista: number;
+};
+
+async function resolverReferenciaOrcamentoExecucao(
+  db: DbClient,
+  input: ExecucaoInput,
+  empresaId: string
+): Promise<OrcamentoReferenciaExecucao | null> {
+  if (input.origem !== OrigemExecucao.ORCAMENTO) {
+    return null;
+  }
+
+  const orcamentoId = input.orcamentoOrigemId;
+  const frenteId = input.frenteOrigemId;
+
+  if (!orcamentoId || !frenteId) {
+    throw new Error("REFERENCIA_ORCAMENTO_INCOMPLETA");
+  }
+
+  const orcamento = await requireOrcamentoDelegate(db).findFirst({
+    where: {
+      id: orcamentoId,
+      empresaId,
+      deletedAt: null,
+      ...(input.clienteId ? { clienteId: input.clienteId } : {}),
+      ...(input.obraId ? { obraId: input.obraId } : {})
+    },
+    select: {
+      id: true,
+      codigo: true,
+      titulo: true,
+      clienteId: true,
+      obraId: true,
+      frentes: {
+        where: {
+          id: frenteId
+        },
+        select: {
+          id: true,
+          cenarioId: true,
+          ordem: true,
+          natureza: true,
+          nome: true,
+          descricao: true,
+          unidadeProducao: true,
+          quantidadePrevista: true,
+          produtividadeDia: true,
+          prazoEstimadoDias: true,
+          prazoTeoricoDias: true,
+          prazoAdotadoDias: true,
+          origemPrazo: true,
+          modoCusto: true,
+          custoManual: true,
+          itens: {
+            orderBy: [{ ordem: "asc" }],
+            select: {
+              id: true,
+              ordem: true,
+              tipoItem: true,
+              formaApresentacaoComercial: true,
+              categoriaRecurso: true,
+              descricao: true,
+              recursoNome: true,
+              classeOperacional: true,
+              recursoReferenciaId: true,
+              quantidade: true,
+              quantidadeOperacional: true,
+              origemQuantidadeOperacional: true,
+              unidadeQuantidadeOperacional: true,
+              custoUnitario: true,
+              unidade: true,
+              tipoCalculoRecurso: true,
+              unidadeEconomicaCusto: true,
+              valorCusto: true,
+              horasDia: true,
+              horasTotais: true,
+              viagensDia: true,
+              viagensTotais: true,
+              distanciaViagemKm: true,
+              quilometrosTotais: true,
+              capacidadePorViagem: true,
+              unidadeCapacidade: true,
+              cargasTotais: true,
+              mesesTotais: true,
+              diasTrabalhadosMes: true,
+              valorTotal: true
+            }
+          }
+        }
+      }
+    }
+  }) as (Record<string, unknown> & { frentes?: Array<Record<string, unknown> & { itens?: Array<Record<string, unknown>> }> }) | null;
+
+  if (!orcamento) {
+    throw new Error("ORCAMENTO_REFERENCIA_NAO_ENCONTRADO");
+  }
+
+  const frente = orcamento.frentes?.[0];
+
+  if (!frente) {
+    throw new Error("FRENTE_ORCAMENTO_NAO_ENCONTRADA");
+  }
+
+  const receitaPrevista = valorPrevistoFrente(frente);
+  const descricao = clean(input.descricao) ?? String(frente.nome ?? orcamento.titulo ?? orcamento.codigo ?? "Execucao vinculada a orcamento");
+
+  return {
+    input: {
+      ...input,
+      clienteId: String(orcamento.clienteId ?? input.clienteId ?? ""),
+      obraId: typeof orcamento.obraId === "string" ? orcamento.obraId : input.obraId,
+      descricao,
+      cenarioOrigemId: typeof frente.cenarioId === "string" ? frente.cenarioId : input.cenarioOrigemId,
+      frentes: [
+        {
+          nome: String(frente.nome ?? "Frente do orcamento"),
+          descricao: typeof frente.descricao === "string" ? frente.descricao : "",
+          unidade: typeof frente.unidadeProducao === "string" ? frente.unidadeProducao : "",
+          quantidadeExecutada: frente.quantidadePrevista === null || frente.quantidadePrevista === undefined ? null : toNumber(frente.quantidadePrevista),
+          receitaRealizada: receitaPrevista,
+          recursos: []
+        }
+      ]
+    },
+    orcamento,
+    frente,
+    receitaPrevista
+  };
+}
+
+async function registrarReferenciaPrevistaOrcamento(
+  db: DbClient,
+  execucao: PersistedExecucao,
+  referencia: OrcamentoReferenciaExecucao
+) {
+  requireReferenciaPrevistaDelegate(db);
+  const frenteExecutada = execucao.frentes?.[0];
+
+  if (!frenteExecutada) {
+    throw new Error("FRENTE_EXECUCAO_NAO_CRIADA");
+  }
+
+  const entradaPrevista = adaptarOrcamentoParaEntradaNucleo({
+    id: String(referencia.orcamento.id ?? ""),
+    codigo: typeof referencia.orcamento.codigo === "string" ? referencia.orcamento.codigo : null,
+    titulo: typeof referencia.orcamento.titulo === "string" ? referencia.orcamento.titulo : null,
+    frentes: [
+      {
+        localId: frenteExecutada.id,
+        tempId: frenteExecutada.id,
+        ordem: toNumber(referencia.frente.ordem),
+        natureza: typeof referencia.frente.natureza === "string" ? referencia.frente.natureza : null,
+        nome: typeof referencia.frente.nome === "string" ? referencia.frente.nome : null,
+        descricao: typeof referencia.frente.descricao === "string" ? referencia.frente.descricao : null,
+        unidadeProducao: typeof referencia.frente.unidadeProducao === "string" ? referencia.frente.unidadeProducao : null,
+        quantidadePrevista: toNumeroTecnico(referencia.frente.quantidadePrevista),
+        receitaPrevista: referencia.receitaPrevista,
+        produtividadeDia: toNumeroTecnico(referencia.frente.produtividadeDia),
+        prazoEstimadoDias: toNumeroTecnico(referencia.frente.prazoEstimadoDias),
+        prazoTeoricoDias: toNumeroTecnico(referencia.frente.prazoTeoricoDias),
+        prazoAdotadoDias: toNumeroTecnico(referencia.frente.prazoAdotadoDias),
+        origemPrazo: typeof referencia.frente.origemPrazo === "string" ? referencia.frente.origemPrazo : null,
+        modoCusto: typeof referencia.frente.modoCusto === "string" ? referencia.frente.modoCusto : null,
+        custoManual: toNumeroTecnico(referencia.frente.custoManual)
+      }
+    ],
+    itens: (referencia.frente.itens ?? []).map((item) => mapOrcamentoItemParaReferencia(item, frenteExecutada.id))
+  });
+  const resultadoPrevisto = executarNucleoComMotorAtual(entradaPrevista);
+
+  await registrarReferenciaPrevistaExecucao(db as Parameters<typeof registrarReferenciaPrevistaExecucao>[0], {
+    execucaoId: execucao.id,
+    origem: OrigemReferenciaPrevistaExecucao.ORCAMENTO,
+    orcamentoOrigemId: execucao.orcamentoOrigemId ?? null,
+    propostaOrigemId: execucao.propostaOrigemId ?? null,
+    cenarioOrigemId: execucao.cenarioOrigemId ?? null,
+    resultadoPrevisto
+  });
 }
 
 export type SnapshotResultadoExecucao = {
@@ -861,16 +1127,23 @@ async function gerarResultadoExecucaoDaEntrada(
 export async function criarExecucao(db: DbClient, input: ExecucaoInput) {
   const parsed = execucaoSchema.parse(input);
   const empresaId = requireActiveTenantEmpresaId();
+  const referenciaOrcamento = await resolverReferenciaOrcamentoExecucao(db, parsed, empresaId);
+  const inputPersistencia = referenciaOrcamento?.input ?? parsed;
 
   const created = await db.execucao.create({
     data: {
-      ...buildExecucaoData(parsed, empresaId),
+      ...buildExecucaoData(inputPersistencia, empresaId),
       frentes: {
-        create: buildFrentesCreate(parsed, empresaId)
+        create: buildFrentesCreate(inputPersistencia, empresaId)
       }
     },
     include: execucaoInclude
   }) as PersistedExecucao;
+
+  if (referenciaOrcamento) {
+    await registrarReferenciaPrevistaOrcamento(db, created, referenciaOrcamento);
+  }
+
   const resultado = canGenerateInitialResult(created) ? await gerarResultadoExecucao(db, created) : null;
 
   return {
@@ -903,6 +1176,82 @@ export async function listarExecucoes(db: DbClient) {
   }) as PersistedExecucaoComBoletins[];
 
   return execucoes.map(removerResultadosObsoletos);
+}
+
+export async function listarReferenciasOrcamentoExecucao(db: DbClient, params: {
+  clienteId?: string | null;
+  obraId?: string | null;
+  orcamentoId?: string | null;
+}) {
+  const empresaId = requireActiveTenantEmpresaId();
+  const orcamentoDelegate = requireOrcamentoDelegate(db);
+
+  if (!orcamentoDelegate.findMany) {
+    throw new Error("ORCAMENTO_LIST_DELEGATE_INDISPONIVEL");
+  }
+
+  const orcamentos = await orcamentoDelegate.findMany({
+    where: {
+      empresaId,
+      deletedAt: null,
+      ...(params.clienteId ? { clienteId: params.clienteId } : {}),
+      ...(params.obraId ? { obraId: params.obraId } : {}),
+      ...(params.orcamentoId ? { id: params.orcamentoId } : {})
+    },
+    select: {
+      id: true,
+      codigo: true,
+      titulo: true,
+      clienteId: true,
+      obraId: true,
+      valorTotal: true,
+      updatedAt: true,
+      frentes: params.orcamentoId
+        ? {
+          orderBy: [{ ordem: "asc" }],
+          select: {
+            id: true,
+            ordem: true,
+            natureza: true,
+            nome: true,
+            descricao: true,
+            unidadeProducao: true,
+            quantidadePrevista: true,
+            itens: {
+              select: {
+                tipoItem: true,
+                formaApresentacaoComercial: true,
+                valorTotal: true
+              }
+            }
+          }
+        }
+        : false
+    },
+    orderBy: [{ updatedAt: "desc" }],
+    take: params.orcamentoId ? 1 : 50
+  }) as Array<Record<string, unknown> & { frentes?: Array<Record<string, unknown> & { itens?: Array<Record<string, unknown>> }> }>;
+
+  return {
+    orcamentos: orcamentos.map((orcamento) => ({
+      id: String(orcamento.id),
+      codigo: String(orcamento.codigo ?? ""),
+      titulo: typeof orcamento.titulo === "string" ? orcamento.titulo : null,
+      clienteId: String(orcamento.clienteId ?? ""),
+      obraId: typeof orcamento.obraId === "string" ? orcamento.obraId : null,
+      valorTotal: toNumber(orcamento.valorTotal)
+    })),
+    frentes: (orcamentos[0]?.frentes ?? []).map((frente) => ({
+      id: String(frente.id),
+      ordem: toNumber(frente.ordem),
+      natureza: String(frente.natureza ?? ""),
+      nome: String(frente.nome ?? "Frente sem nome"),
+      descricao: typeof frente.descricao === "string" ? frente.descricao : null,
+      unidade: typeof frente.unidadeProducao === "string" ? frente.unidadeProducao : null,
+      quantidadePrevista: frente.quantidadePrevista === null || frente.quantidadePrevista === undefined ? null : toNumber(frente.quantidadePrevista),
+      receitaPrevista: valorPrevistoFrente(frente)
+    }))
+  };
 }
 
 export async function buscarExecucaoOperacional(db: DbClient, id: string) {
