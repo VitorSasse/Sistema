@@ -1,5 +1,6 @@
 import React from "react";
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { DocumentoRodape } from "@/server/pdf/documento-rodape";
 import type { EmpresaRelatorioPdf } from "@/server/pdf/empresa-relatorio";
 
 export type ExecucaoRelatorioRecurso = {
@@ -59,7 +60,7 @@ export type ExecucaoResultadoPdfProps = {
 const styles = StyleSheet.create({
   page: {
     paddingTop: 26,
-    paddingBottom: 26,
+    paddingBottom: 54,
     paddingHorizontal: 24,
     fontSize: 8.4,
     fontFamily: "Helvetica",
@@ -82,12 +83,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 8.6,
     color: "#6f675d"
-  },
-  companyInfo: {
-    marginTop: 7,
-    textAlign: "center",
-    color: "#4f463c",
-    fontSize: 7.2
   },
   section: {
     marginTop: 12,
@@ -207,8 +202,11 @@ const styles = StyleSheet.create({
   boletimCount: {
     width: "36%"
   },
-  footer: {
+  technicalNote: {
     marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#d8d0c3",
+    paddingTop: 7,
     color: "#7a7064",
     fontSize: 7.2
   }
@@ -270,8 +268,6 @@ function Summary({ label, value }: { label: string; value: string }) {
 }
 
 export function ExecucaoResultadoPdfDocument(props: ExecucaoResultadoPdfProps) {
-  const empresa = props.empresaRelatorio;
-
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -279,15 +275,6 @@ export function ExecucaoResultadoPdfDocument(props: ExecucaoResultadoPdfProps) {
           {props.logoPath ? <Image src={props.logoPath} style={styles.logo} /> : null}
           <Text style={styles.title}>Relatorio de Execucao e Resultado</Text>
           <Text style={styles.subtitle}>Analise consolidada a partir do ultimo resultado calculado pelo Nucleo</Text>
-          {empresa ? (
-            <View style={styles.companyInfo}>
-              <Text>{empresa.nome}</Text>
-              <Text>CNPJ: {empresa.cnpj}</Text>
-              <Text>{empresa.endereco}</Text>
-              <Text>{empresa.cidadeUfCep}</Text>
-              <Text>{empresa.telefones} | {empresa.email}</Text>
-            </View>
-          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -386,10 +373,14 @@ export function ExecucaoResultadoPdfDocument(props: ExecucaoResultadoPdfProps) {
           ) : null}
         </View>
 
-        <Text style={styles.footer}>
+        <Text style={styles.technicalNote}>
           Relatorio gerado a partir do ultimo snapshot consolidado. Nao ha recalculo de custos neste documento.
           {props.versaoNucleo ? ` Versao do Nucleo: ${props.versaoNucleo}.` : ""}
         </Text>
+
+        <DocumentoRodape
+          centerText={`Emitido em: ${dateTime(props.emitidoEm)}${props.dataCalculo ? ` | Snapshot: ${dateTime(new Date(props.dataCalculo))}` : ""}`}
+        />
       </Page>
     </Document>
   );
