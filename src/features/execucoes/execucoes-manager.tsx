@@ -1258,11 +1258,11 @@ export function ExecucoesManager() {
       setMessage(
         resultadoAtualizado.recursos.length > 0
           ? pendentes > 0
-            ? `Resultado parcial consolidado. Existem ${pendentes} recurso(s) com configuracao economica pendente.`
-            : "Execucao consolidada."
+            ? `Execucao recalculada para conferencia. Existem ${pendentes} recurso(s) com configuracao economica pendente.`
+            : "Execucao recalculada para conferencia."
           : pendentes > 0
             ? "Nenhum recurso economicamente completo participou do resultado. Configure os custos pendentes e consolide novamente."
-            : "Execucao consolidada sem recursos vinculados."
+            : "Execucao recalculada para conferencia sem recursos vinculados."
       );
       await refreshSelected(selected.id);
     } catch (err) {
@@ -1373,7 +1373,7 @@ export function ExecucoesManager() {
           <p>Consolide fatos realizados, execute o Nucleo e acompanhe Orçado x Realizado sem duplicar calculos.</p>
         </div>
         <div className="toolbar-actions">
-          <button className="button-secondary" type="button" onClick={handleAbrirRelatorio} disabled={!selected || loading || !selected.resultados?.length}>
+          <button className="button-secondary" type="button" onClick={handleAbrirRelatorio} disabled={!selected || loading}>
             Gerar relatorio
           </button>
           <button className="button-primary" type="button" onClick={handleConsolidar} disabled={!selected || loading}>

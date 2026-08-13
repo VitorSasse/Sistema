@@ -28,6 +28,23 @@ export type ExecucaoRelatorioBoletim = {
   recursosCount: number;
 };
 
+export type ExecucaoRelatorioComparativoValor = {
+  previsto: number | null;
+  realizado: number | null;
+  desvioAbsoluto: number | null;
+  desvioPercentual: number | null;
+};
+
+export type ExecucaoRelatorioComparativoFrente = {
+  frente: string;
+  unidade?: string | null;
+  quantidade: ExecucaoRelatorioComparativoValor;
+  receita: ExecucaoRelatorioComparativoValor;
+  custo: ExecucaoRelatorioComparativoValor;
+  resultado: ExecucaoRelatorioComparativoValor;
+  margem: ExecucaoRelatorioComparativoValor;
+};
+
 export type ExecucaoResultadoPdfProps = {
   logoPath?: string | null;
   empresaRelatorio?: EmpresaRelatorioPdf;
@@ -40,6 +57,7 @@ export type ExecucaoResultadoPdfProps = {
     descricao?: string | null;
     situacao?: string | null;
     periodo?: string | null;
+    referenciaOrcamento?: string | null;
   };
   resumo: {
     receita: number | null;
@@ -53,6 +71,8 @@ export type ExecucaoResultadoPdfProps = {
   recursos: ExecucaoRelatorioRecurso[];
   encargos: ExecucaoRelatorioEncargo[];
   boletins: ExecucaoRelatorioBoletim[];
+  comparativo?: ExecucaoRelatorioComparativoFrente[];
+  resultadoProvisorio?: boolean;
   dataCalculo?: string | null;
   versaoNucleo?: string | null;
 };
@@ -202,6 +222,12 @@ const styles = StyleSheet.create({
   boletimCount: {
     width: "36%"
   },
+  comparisonName: {
+    width: "20%"
+  },
+  comparisonValue: {
+    width: "16%"
+  },
   technicalNote: {
     marginTop: 14,
     borderTopWidth: 1,
@@ -249,6 +275,12 @@ function percent(value: number | null | undefined) {
   }).format(value)}%`;
 }
 
+function variance(value: ExecucaoRelatorioComparativoValor, formatter: (value: number | null | undefined) => string) {
+  const absoluto = formatter(value.desvioAbsoluto);
+  const percentual = value.desvioPercentual === null ? "Nao informado" : percent(value.desvioPercentual);
+  return `${absoluto} (${percentual})`;
+}
+
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.infoItem}>
@@ -287,9 +319,13 @@ export function ExecucaoResultadoPdfDocument(props: ExecucaoResultadoPdfProps) {
             <Info label="Descricao" value={valueOrEmpty(props.identificacao.descricao)} />
             <Info label="Situacao" value={valueOrEmpty(props.identificacao.situacao)} />
             <Info label="Periodo" value={valueOrEmpty(props.identificacao.periodo)} />
+            <Info label="Referencia orcamento" value={valueOrEmpty(props.identificacao.referenciaOrcamento)} />
             <Info label="Emissao" value={dateTime(props.emitidoEm)} />
             <Info label="Consolidado em" value={props.dataCalculo ? dateTime(new Date(props.dataCalculo)) : "Nao informado"} />
           </View>
+          {props.resultadoProvisorio ? (
+            <Text style={styles.note}>Resultado provisorio para conferencia: existem boletins ainda abertos considerados no calculo.</Text>
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -306,6 +342,33 @@ export function ExecucaoResultadoPdfDocument(props: ExecucaoResultadoPdfProps) {
             <Text style={styles.note}>Esta execucao esta configurada sem encargos economicos aplicaveis.</Text>
           ) : null}
         </View>
+
+        {props.comparativo?.length ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Previsto x Realizado</Text>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.cell, styles.comparisonName]}>Frente</Text>
+              <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Quantidade</Text>
+              <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Receita</Text>
+              <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Custo</Text>
+              <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Resultado</Text>
+              <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Desvio custo</Text>
+            </View>
+            {props.comparativo.map((frente, index) => (
+              <View key={`${frente.frente}-${index}`} style={styles.row}>
+                <Text style={[styles.cell, styles.comparisonName]}>{frente.frente}</Text>
+                <Text style={[styles.cell, styles.comparisonValue, styles.right]}>
+                  {number(frente.quantidade.realizado, frente.unidade ? ` ${frente.unidade}` : "")}
+                </Text>
+                <Text style={[styles.cell, styles.comparisonValue, styles.right]}>{money(frente.receita.realizado)}</Text>
+                <Text style={[styles.cell, styles.comparisonValue, styles.right]}>{money(frente.custo.realizado)}</Text>
+                <Text style={[styles.cell, styles.comparisonValue, styles.right]}>{money(frente.resultado.realizado)}</Text>
+                <Text style={[styles.cell, styles.comparisonValue, styles.right]}>{variance(frente.custo, money)}</Text>
+              </View>
+            ))}
+            <Text style={styles.note}>Valores previstos vêm da referencia historica da execucao. Valores realizados vêm do ultimo resultado calculado.</Text>
+          </View>
+        ) : null}
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recursos realizados</Text>

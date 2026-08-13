@@ -976,6 +976,16 @@ function toComparableText(value: unknown) {
     .toUpperCase();
 }
 
+function toComparableUnit(value: unknown) {
+  const text = toComparableText(value);
+  if (text === "CARGAS") return "CARGA";
+  if (text === "VIAGENS") return "VIAGEM";
+  if (text === "DIARIA") return "DIA";
+  if (text === "DIARIAS") return "DIA";
+  if (text === "HORAS") return "HORA";
+  return text;
+}
+
 function assinaturaComponenteEconomico(value: Record<string, unknown>) {
   const baseEconomica = toComparableText(value.baseEconomica);
   const assinaturaBase: Record<string, unknown> = {
@@ -983,14 +993,15 @@ function assinaturaComponenteEconomico(value: Record<string, unknown>) {
     custoUnitario: toComparableNumber(value.custoUnitario ?? value.valorCusto),
     quantidadeRecursos: toComparableNumber(value.quantidadeRecursos ?? 1),
     quantidadeOperacional: toComparableNumber(value.quantidadeOperacional),
-    unidadeQuantidadeOperacional: toComparableText(value.unidadeQuantidadeOperacional),
-    unidadeCusto: toComparableText(value.unidadeCusto ?? value.unidadeCustoFormatada ?? value.unidadeCustoOriginal),
-    capacidadePorViagem: toComparableNumber(value.capacidadePorViagem),
-    unidadeCapacidade: toComparableText(value.unidadeCapacidade)
+    unidadeQuantidadeOperacional: toComparableUnit(value.unidadeQuantidadeOperacional)
   };
 
-  if (baseEconomica === "DIA" || baseEconomica === "HORA") {
+  if (baseEconomica === "DIA") {
     assinaturaBase.horasDia = toComparableNumber(value.horasDia);
+    assinaturaBase.horasTotais = toComparableNumber(value.horasTotais);
+  }
+
+  if (baseEconomica === "HORA") {
     assinaturaBase.horasTotais = toComparableNumber(value.horasTotais);
   }
 
@@ -999,14 +1010,13 @@ function assinaturaComponenteEconomico(value: Record<string, unknown>) {
     assinaturaBase.quilometrosTotais = toComparableNumber(value.quilometrosTotais);
     assinaturaBase.viagensTotais = toComparableNumber(value.viagensTotais);
     assinaturaBase.cargasTotais = toComparableNumber(value.cargasTotais);
+    assinaturaBase.capacidadePorViagem = toComparableNumber(value.capacidadePorViagem);
+    assinaturaBase.unidadeCapacidade = toComparableText(value.unidadeCapacidade);
   }
 
-  if (baseEconomica === "VIAGEM") {
-    assinaturaBase.viagensTotais = toComparableNumber(value.viagensTotais);
-  }
-
-  if (baseEconomica === "CARGA") {
-    assinaturaBase.cargasTotais = toComparableNumber(value.cargasTotais);
+  if (baseEconomica === "M3" || baseEconomica === "M2" || baseEconomica === "UNIDADE_PRODUZIDA") {
+    assinaturaBase.capacidadePorViagem = toComparableNumber(value.capacidadePorViagem);
+    assinaturaBase.unidadeCapacidade = toComparableText(value.unidadeCapacidade);
   }
 
   if (baseEconomica === "MES") {
@@ -1058,7 +1068,8 @@ function resultadoMantemAssinaturaEconomicaAtual(
     const componenteResultado = resultadoPorComponente.get(componenteAtual.id);
     if (!componenteResultado) return false;
 
-    return assinaturaComponenteEconomico(componenteResultado) === assinaturaComponenteEconomico(componenteAtual as unknown as Record<string, unknown>);
+    return assinaturaComponenteEconomico(componenteResultado) ===
+      assinaturaComponenteEconomico(componenteAtual as unknown as Record<string, unknown>);
   });
 }
 
@@ -1131,10 +1142,12 @@ async function gerarResultadoExecucaoDaEntrada(
   db: DbClient,
   empresaId: string,
   execucaoId: string,
-  entrada: EntradaExecucao
+  entrada: EntradaExecucao,
+  options: { estadoConsolidacao?: "PROVISORIO" | "HOMOLOGADO" } = {}
 ) {
   const resultado = executarNucleoComMotorAtual(adaptarExecucaoParaEntradaNucleo(entrada));
   const snapshot = gerarSnapshotResultadoExecucao(resultado);
+  const estadoConsolidacao = options.estadoConsolidacao ?? "HOMOLOGADO";
 
   return db.resultadoExecucao.create({
     data: {
@@ -1143,14 +1156,16 @@ async function gerarResultadoExecucaoDaEntrada(
       resultadoOperacionalJson: {
         resultadoOperacional: snapshot.resultadoOperacional,
         dataCalculo: snapshot.dataCalculo,
-        versaoNucleo: snapshot.versaoNucleo
+        versaoNucleo: snapshot.versaoNucleo,
+        estadoConsolidacao
       } as Prisma.InputJsonValue,
       economiaJson: snapshot.economia
         ? ({
           economia: snapshot.economia,
           unidades: snapshot.economiaUnidades,
           dataCalculo: snapshot.dataCalculo,
-          versaoNucleo: snapshot.versaoNucleo
+          versaoNucleo: snapshot.versaoNucleo,
+          estadoConsolidacao
           } as Prisma.InputJsonValue)
         : Prisma.JsonNull
     }
@@ -2251,6 +2266,9 @@ export async function consolidarExecucaoPorBoletins(db: DbClient, id: string) {
       },
       resultados: {
         orderBy: [{ createdAt: "desc" as const }]
+      },
+      encargosEconomicos: {
+        orderBy: [{ createdAt: "asc" as const }]
       }
     }
   }) as PersistedExecucaoComBoletins | null;
@@ -2260,7 +2278,10 @@ export async function consolidarExecucaoPorBoletins(db: DbClient, id: string) {
   }
 
   const entrada = adaptarExecucaoComBoletinsParaEntradaNucleo(execucao, { incluirBoletinsAbertos: true });
-  const resultado = await gerarResultadoExecucaoDaEntrada(db, empresaId, execucao.id, entrada);
+  const possuiBoletimAberto = (execucao.boletins ?? []).some((boletim) => boletim.status === StatusBoletimDiarioProducao.ABERTO);
+  const resultado = await gerarResultadoExecucaoDaEntrada(db, empresaId, execucao.id, entrada, {
+    estadoConsolidacao: possuiBoletimAberto ? "PROVISORIO" : "HOMOLOGADO"
+  });
 
   return {
     ...execucao,

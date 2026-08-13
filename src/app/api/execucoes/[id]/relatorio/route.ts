@@ -6,6 +6,7 @@ import { measurePerformanceStep, recordPdfPerformanceMetric } from "@/lib/perfor
 import { withPerformanceMonitoring } from "@/lib/performance/route";
 import { prisma } from "@/lib/prisma";
 import { getActiveTenantEmpresaId } from "@/lib/tenant-store";
+import { buscarComparativoExecucao } from "@/server/services/execucoes/comparativo";
 import { buscarExecucaoOperacional } from "@/server/services/execucoes/service";
 import { resolveDocumentoCabecalhoPdf } from "@/server/pdf/documento-cabecalho";
 import {
@@ -29,6 +30,7 @@ type ExecucaoRelatorioData = {
   descricao?: string | null;
   status?: string | null;
   estadoEncargos?: string | null;
+  orcamentoOrigem?: { codigo?: string | null; titulo?: string | null } | null;
   cliente?: { nome?: string | null; nomeFantasia?: string | null; codigo?: string | null } | null;
   obra?: { nome?: string | null; codigo?: string | null } | null;
   frentes?: Array<{
@@ -83,7 +85,8 @@ function latestResultado(execucao: ExecucaoRelatorioData) {
     resultadoOperacional,
     economia,
     dataCalculo: String(resultadoOperacionalJson.dataCalculo ?? economiaJson.dataCalculo ?? ""),
-    versaoNucleo: String(resultadoOperacionalJson.versaoNucleo ?? economiaJson.versaoNucleo ?? "")
+    versaoNucleo: String(resultadoOperacionalJson.versaoNucleo ?? economiaJson.versaoNucleo ?? ""),
+    estadoConsolidacao: String(resultadoOperacionalJson.estadoConsolidacao ?? economiaJson.estadoConsolidacao ?? "")
   };
 }
 
@@ -166,9 +169,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const { id } = await context.params;
-    const [execucaoRaw, cabecalho] = await Promise.all([
+    const [execucaoRaw, cabecalho, comparativo] = await Promise.all([
       measurePdfStep("loadExecucaoResultadoMs", "loadDataMs", () => buscarExecucaoOperacional(prisma, id)),
-      measurePdfStep("loadHeaderMs", "loadHeaderMs", () => resolveDocumentoCabecalhoPdf(prisma, empresaId, "RELATORIO"))
+      measurePdfStep("loadHeaderMs", "loadHeaderMs", () => resolveDocumentoCabecalhoPdf(prisma, empresaId, "RELATORIO")),
+      buscarComparativoExecucao(prisma, id)
     ]);
 
     if (!execucaoRaw) {
@@ -198,7 +202,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
           servico: execucao.frentes?.[0]?.nome ?? null,
           descricao: execucao.descricao ?? null,
           situacao: execucao.status ?? null,
-          periodo: extractPeriodo(boletins)
+          periodo: extractPeriodo(boletins),
+          referenciaOrcamento: execucao.orcamentoOrigem?.codigo ?? null
         },
         resumo: {
           receita: toNumberOrNull(latest.economia.receita),
@@ -212,6 +217,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
         recursos,
         encargos,
         boletins,
+        comparativo: comparativo.referenciaDisponivel
+          ? comparativo.frentes.map((frente) => ({
+            frente: frente.nome,
+            unidade: frente.unidade,
+            quantidade: frente.quantidade,
+            receita: frente.receita,
+            custo: frente.custo,
+            resultado: frente.resultado,
+            margem: frente.margem
+          }))
+          : [],
+        resultadoProvisorio: latest.estadoConsolidacao === "PROVISORIO" || boletins.some((boletim) => boletim.status === "ABERTO"),
         dataCalculo: latest.dataCalculo || null,
         versaoNucleo: latest.versaoNucleo || null
       })

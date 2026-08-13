@@ -1351,6 +1351,7 @@ describe("service de Execucao e Resultado", () => {
     );
 
     await runTenant(() => consolidarExecucaoPorBoletins(db as never, EXECUCAO_ID));
+    const reaberta = await runTenant(() => buscarExecucaoOperacional(db as never, EXECUCAO_ID));
 
     const resultadoCalls = calls.filter((call) => call.model === "resultadoExecucao" && call.action === "create");
     const ultimoResultado = (resultadoCalls.at(-1)?.args as { data: Record<string, unknown> }).data
@@ -1360,9 +1361,13 @@ describe("service de Execucao e Resultado", () => {
           custoOperacionalTotal: number;
         };
       };
+      estadoConsolidacao: string;
     };
 
     expect(ultimoResultado.resultadoOperacional.consolidado.custoOperacionalTotal).toBe(11160);
+    expect(ultimoResultado.estadoConsolidacao).toBe("PROVISORIO");
+    expect(reaberta?.boletins?.[0].status).toBe(StatusBoletimDiarioProducao.ABERTO);
+    expect(reaberta?.resultados).toHaveLength(1);
   });
 
   it("consolida parcialmente boletins abertos com recursos completos e pendentes", async () => {
