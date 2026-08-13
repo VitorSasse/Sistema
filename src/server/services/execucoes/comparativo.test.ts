@@ -57,24 +57,43 @@ function recurso(params: {
   nome: string;
   quantidade: number;
   valorCusto: number;
+  unidade?: string;
+  baseEconomica?: "CARGA" | "DIA" | "HORA" | "KM" | "VIAGEM";
+  classeOperacional?: string | null;
+  categoria?: string | null;
+  horasDia?: number;
+  horasTotais?: number;
+  viagensOperacionais?: number;
+  capacidadePorViagem?: number;
+  unidadeCapacidade?: string | null;
 }) {
+  const baseEconomica = params.baseEconomica ?? "CARGA";
+  const unidade = params.unidade ?? "cargas";
+
   return {
     id: params.id,
     unidadeOperacionalId: "frente-aterro",
     nomeTecnico: params.nome,
     descricaoTecnica: params.nome,
-    categoria: "EQUIPAMENTO",
+    categoria: params.categoria ?? "EQUIPAMENTO",
+    classeOperacional: params.classeOperacional ?? null,
     referenciaTecnicaId: params.referenciaTecnicaId ?? null,
     quantidadeRecursos: 1,
     quantidadeOperacional: params.quantidade,
     origemQuantidadeOperacional: "PERSONALIZADA" as const,
-    unidadeQuantidadeOperacional: "cargas",
+    unidadeQuantidadeOperacional: unidade,
     custoUnitario: params.valorCusto,
-    unidadeCusto: "R$/carga",
+    unidadeCusto: `R$/${unidade}`,
     tipoCalculo: "AUTOMATICO" as const,
-    baseEconomica: "CARGA" as const,
+    baseEconomica,
     valorCusto: params.valorCusto,
-    cargasTotais: params.quantidade
+    cargasTotais: baseEconomica === "CARGA" ? params.quantidade : undefined,
+    horasDia: params.horasDia,
+    horasTotais: params.horasTotais,
+    viagensOperacionais: params.viagensOperacionais,
+    viagensTotais: baseEconomica === "VIAGEM" ? params.quantidade : undefined,
+    capacidadePorViagem: params.capacidadePorViagem,
+    unidadeCapacidade: params.unidadeCapacidade
   };
 }
 
@@ -198,6 +217,259 @@ describe("comparativo Orcado x Realizado da Execucao", () => {
       status: "CORRESPONDENTE",
       quantidade: { previsto: 10, realizado: 12, desvioAbsoluto: 2 },
       custo: { previsto: 500, realizado: 600, desvioAbsoluto: 100 }
+    });
+  });
+
+  it("compara recurso previsto em dia com realizado em hora usando equivalencia operacional do dominio", () => {
+    const previsto = executarNucleoComMotorAtual(
+      entradaBase({
+        receita: 1000,
+        recursos: [
+          recurso({
+            id: "previsto-equipamento-dia",
+            referenciaTecnicaId: "eq-dia-hora",
+            nome: "Equipamento por dia",
+            quantidade: 3,
+            valorCusto: 800,
+            unidade: "dia",
+            baseEconomica: "DIA",
+            horasDia: 8
+          })
+        ]
+      })
+    );
+    const realizado = executarNucleoComMotorAtual(
+      entradaBase({
+        receita: 1000,
+        recursos: [
+          recurso({
+            id: "realizado-equipamento-hora",
+            referenciaTecnicaId: "eq-dia-hora",
+            nome: "Equipamento por hora",
+            quantidade: 16,
+            valorCusto: 800,
+            unidade: "h",
+            baseEconomica: "DIA",
+            horasDia: 8,
+            horasTotais: 16
+          })
+        ]
+      })
+    );
+
+    const comparativo = gerarComparativoAPartirDeSnapshots({
+      execucaoId: EXECUCAO_ID,
+      referenciaPrevista: {
+        origem: {
+          tipo: OrigemReferenciaPrevistaExecucao.PROPOSTA,
+          propostaOrigemId: "proposta-1"
+        },
+        snapshot: snapshot(previsto)
+      },
+      realizado: snapshot(realizado)
+    });
+
+    expect(comparativo.frentes[0].recursos[0]).toMatchObject({
+      status: "CORRESPONDENTE",
+      unidade: "dia",
+      quantidade: { previsto: 3, realizado: 2, desvioAbsoluto: -1 },
+      custo: { previsto: 2400, realizado: 1600, desvioAbsoluto: -800 }
+    });
+  });
+
+  it("usa identidade operacional estruturada para recurso manual equivalente ao previsto", () => {
+    const previsto = executarNucleoComMotorAtual(
+      entradaBase({
+        receita: 1000,
+        recursos: [
+          recurso({
+            id: "previsto-funcao",
+            nome: "Funcao operacional prevista",
+            quantidade: 3,
+            valorCusto: 300,
+            unidade: "dia",
+            baseEconomica: "DIA",
+            classeOperacional: "classe-compactacao",
+            categoria: "EQUIPAMENTO",
+            horasDia: 8
+          })
+        ]
+      })
+    );
+    const realizado = executarNucleoComMotorAtual(
+      entradaBase({
+        receita: 1000,
+        recursos: [
+          recurso({
+            id: "realizado-manual-equivalente",
+            nome: "Ativo manual equivalente",
+            quantidade: 2,
+            valorCusto: 300,
+            unidade: "dia",
+            baseEconomica: "DIA",
+            classeOperacional: "classe-compactacao",
+            categoria: "EQUIPAMENTO",
+            horasDia: 8
+          })
+        ]
+      })
+    );
+
+    const comparativo = gerarComparativoAPartirDeSnapshots({
+      execucaoId: EXECUCAO_ID,
+      referenciaPrevista: {
+        origem: {
+          tipo: OrigemReferenciaPrevistaExecucao.PROPOSTA,
+          propostaOrigemId: "proposta-1"
+        },
+        snapshot: snapshot(previsto)
+      },
+      realizado: snapshot(realizado)
+    });
+
+    expect(comparativo.frentes[0].recursos[0]).toMatchObject({
+      status: "CORRESPONDENTE",
+      referenciaTecnicaId: null,
+      quantidade: { previsto: 3, realizado: 2, desvioAbsoluto: -1 }
+    });
+    expect(comparativo.frentes[0].recursos[0].identidadeOperacionalComparativa).toContain("classe:classe-compactacao");
+  });
+
+  it("consolida varios ativos fisicos na mesma funcao operacional estruturada", () => {
+    const previsto = executarNucleoComMotorAtual(
+      entradaBase({
+        receita: 1000,
+        recursos: [
+          recurso({
+            id: "previsto-transporte",
+            nome: "Transporte planejado",
+            quantidade: 75,
+            valorCusto: 90,
+            unidade: "viagem",
+            baseEconomica: "VIAGEM",
+            classeOperacional: "transporte-basculante",
+            categoria: "TRANSPORTE",
+            capacidadePorViagem: 14,
+            unidadeCapacidade: "m3"
+          })
+        ]
+      })
+    );
+    const realizado = executarNucleoComMotorAtual(
+      entradaBase({
+        receita: 1000,
+        recursos: [
+          recurso({
+            id: "ativo-fisico-1",
+            nome: "Ativo fisico 1",
+            quantidade: 30,
+            valorCusto: 90,
+            unidade: "viagem",
+            baseEconomica: "VIAGEM",
+            classeOperacional: "transporte-basculante",
+            categoria: "TRANSPORTE",
+            capacidadePorViagem: 14,
+            unidadeCapacidade: "m3"
+          }),
+          recurso({
+            id: "ativo-fisico-2",
+            nome: "Ativo fisico 2",
+            quantidade: 50,
+            valorCusto: 90,
+            unidade: "viagem",
+            baseEconomica: "VIAGEM",
+            classeOperacional: "transporte-basculante",
+            categoria: "TRANSPORTE",
+            capacidadePorViagem: 14,
+            unidadeCapacidade: "m3"
+          })
+        ]
+      })
+    );
+
+    const comparativo = gerarComparativoAPartirDeSnapshots({
+      execucaoId: EXECUCAO_ID,
+      referenciaPrevista: {
+        origem: {
+          tipo: OrigemReferenciaPrevistaExecucao.PROPOSTA,
+          propostaOrigemId: "proposta-1"
+        },
+        snapshot: snapshot(previsto)
+      },
+      realizado: snapshot(realizado)
+    });
+
+    expect(comparativo.frentes[0].recursos).toHaveLength(1);
+    expect(comparativo.frentes[0].recursos[0]).toMatchObject({
+      status: "CORRESPONDENTE",
+      unidade: "viagem",
+      quantidade: { previsto: 75, realizado: 80, desvioAbsoluto: 5 },
+      custo: { previsto: 6750, realizado: 7200, desvioAbsoluto: 450 }
+    });
+    expect(comparativo.frentes[0].recursos[0].origem.realizado).toContain("ativo-fisico-1");
+    expect(comparativo.frentes[0].recursos[0].origem.realizado).toContain("ativo-fisico-2");
+  });
+
+  it("usa a quantidade logistica calculada pelo Motor para transporte em KM", () => {
+    const previsto = executarNucleoComMotorAtual(
+      entradaBase({
+        receita: 1000,
+        recursos: [
+          {
+            ...recurso({
+              id: "previsto-km",
+              referenciaTecnicaId: "transporte-km",
+              nome: "Transporte por km",
+              quantidade: 140,
+              valorCusto: 8,
+              unidade: "m3",
+              baseEconomica: "KM",
+              capacidadePorViagem: 14,
+              unidadeCapacidade: "m3"
+            }),
+            distanciaViagemKm: 10
+          }
+        ]
+      })
+    );
+    const realizado = executarNucleoComMotorAtual(
+      entradaBase({
+        receita: 1000,
+        recursos: [
+          {
+            ...recurso({
+              id: "realizado-km",
+              referenciaTecnicaId: "transporte-km",
+              nome: "Transporte por km",
+              quantidade: 168,
+              valorCusto: 8,
+              unidade: "m3",
+              baseEconomica: "KM",
+              capacidadePorViagem: 14,
+              unidadeCapacidade: "m3"
+            }),
+            distanciaViagemKm: 10
+          }
+        ]
+      })
+    );
+
+    const comparativo = gerarComparativoAPartirDeSnapshots({
+      execucaoId: EXECUCAO_ID,
+      referenciaPrevista: {
+        origem: {
+          tipo: OrigemReferenciaPrevistaExecucao.PROPOSTA,
+          propostaOrigemId: "proposta-1"
+        },
+        snapshot: snapshot(previsto)
+      },
+      realizado: snapshot(realizado)
+    });
+
+    expect(comparativo.frentes[0].recursos[0]).toMatchObject({
+      status: "CORRESPONDENTE",
+      unidade: "viagem",
+      quantidade: { previsto: 10, realizado: 12, desvioAbsoluto: 2 }
     });
   });
 

@@ -53,6 +53,7 @@ export type ComparativoRecursoExecucao = {
   status: StatusCorrespondenciaRecurso;
   recurso: string;
   referenciaTecnicaId: string | null;
+  identidadeOperacionalComparativa: string | null;
   unidade: string | null;
   quantidade: ComparativoValor;
   custo: ComparativoValor;
@@ -106,10 +107,18 @@ type UnidadeComparavel = {
 type RecursoComparavel = {
   id: string;
   referenciaTecnicaId: string | null;
+  identidadeOperacionalComparativa: string | null;
   nome: string;
+  categoria: string | null;
+  classeOperacional: string | null;
+  componenteEconomico: string | null;
+  baseEconomica: string | null;
+  capacidadePorViagem: number;
+  unidadeCapacidade: string | null;
   unidade: string | null;
   quantidade: number;
   custo: number;
+  rastreabilidade: string[];
 };
 
 function toNumber(value: unknown) {
@@ -139,6 +148,30 @@ export function compararValor(previsto: number | null, realizado: number | null)
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeText(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function normalizeUnit(value: unknown) {
+  const unit = normalizeText(value);
+  if (!unit) return "";
+  if (unit.includes("carga")) return "carga";
+  if (unit.includes("viagem")) return "viagem";
+  if (unit.includes("hora") || unit === "h") return "hora";
+  if (unit.includes("dia") || unit.includes("diaria")) return "dia";
+  if (unit.includes("km")) return "km";
+  if (unit.includes("m3")) return "m3";
+  if (unit.includes("m2")) return "m2";
+  if (unit.includes("mes")) return "mes";
+  return unit;
 }
 
 function extrairResultadoOperacional(snapshot: ResultadoSnapshotPersistido) {
@@ -213,20 +246,141 @@ function extrairUnidadesComparaveis(snapshot: ResultadoSnapshotPersistido) {
         margemPercentual: economia?.margemPercentual ?? null,
         recursos: recursos
           .filter((recurso): recurso is Record<string, unknown> => isRecord(recurso) && typeof recurso.id === "string")
-          .map((recurso) => ({
-            id: String(recurso.id),
-            referenciaTecnicaId: typeof recurso.referenciaTecnicaId === "string" ? recurso.referenciaTecnicaId : null,
-            nome: String(recurso.nomeTecnico ?? recurso.id),
-            unidade: typeof recurso.unidadeQuantidadeOperacional === "string" ? recurso.unidadeQuantidadeOperacional : null,
-            quantidade: toNumber(recurso.quantidadeOperacional),
-            custo: toNumber(recurso.custoTotal)
-          }))
+          .map(mapRecursoComparavel)
       };
     });
 }
 
+function resolveOperationalQuantity(recurso: Record<string, unknown>) {
+  const baseEconomica = normalizeText(recurso.baseEconomica).toUpperCase();
+  const unidade = normalizeUnit(recurso.unidadeQuantidadeOperacional);
+  const quantidade = toNumber(recurso.quantidadeOperacional);
+  const horasTotais = toNumber(recurso.horasTotais);
+  const horasDia = toNumber(recurso.horasDia);
+  const viagensOperacionais = toNumber(recurso.viagensOperacionais);
+  const viagensTotais = toNumber(recurso.viagensTotais);
+  const cargasTotais = toNumber(recurso.cargasTotais);
+  const quilometrosTotais = toNumber(recurso.quilometrosTotais);
+  const custoTotal = toNumber(recurso.custoTotal);
+  const custoUnitario = toNumber(recurso.custoUnitario);
+  const quantidadeRecursos = Math.max(1, toNumber(recurso.quantidadeRecursos));
+
+  if (baseEconomica === "DIA" && unidade === "hora" && horasDia > 0) {
+    return {
+      quantidade: horasTotais > 0 ? horasTotais / horasDia : quantidade / horasDia,
+      unidade: "dia"
+    };
+  }
+
+  if (baseEconomica === "DIA" && unidade !== "dia" && custoTotal > 0 && custoUnitario > 0) {
+    return {
+      quantidade: custoTotal / custoUnitario / quantidadeRecursos,
+      unidade: "dia"
+    };
+  }
+
+  if (baseEconomica === "HORA" && unidade !== "hora" && custoTotal > 0 && custoUnitario > 0) {
+    return {
+      quantidade: custoTotal / custoUnitario / quantidadeRecursos,
+      unidade: "hora"
+    };
+  }
+
+  if (baseEconomica === "KM" && viagensOperacionais > 0) {
+    return {
+      quantidade: viagensOperacionais,
+      unidade: "viagem"
+    };
+  }
+
+  if (baseEconomica === "VIAGEM" && viagensTotais > 0) {
+    return {
+      quantidade: viagensTotais,
+      unidade: "viagem"
+    };
+  }
+
+  if (baseEconomica === "CARGA" && cargasTotais > 0) {
+    return {
+      quantidade: cargasTotais,
+      unidade: "carga"
+    };
+  }
+
+  if (baseEconomica === "KM" && quilometrosTotais > 0) {
+    return {
+      quantidade: quilometrosTotais,
+      unidade: "km"
+    };
+  }
+
+  return {
+    quantidade,
+    unidade: unidade || (typeof recurso.unidadeQuantidadeOperacional === "string" ? recurso.unidadeQuantidadeOperacional : null)
+  };
+}
+
+function buildIdentidadeOperacionalComparativa(recurso: Record<string, unknown>) {
+  const referenciaTecnicaId = typeof recurso.referenciaTecnicaId === "string" && recurso.referenciaTecnicaId.trim()
+    ? recurso.referenciaTecnicaId.trim()
+    : null;
+
+  const componente = normalizeText(recurso.componenteEconomico);
+  const categoria = normalizeText(recurso.categoria);
+  const classe = normalizeText(recurso.classeOperacional);
+  const base = normalizeText(recurso.baseEconomica);
+  const capacidade = toNumber(recurso.capacidadePorViagem);
+  const unidadeCapacidade = normalizeUnit(recurso.unidadeCapacidade);
+
+  if (base === "km" && capacidade > 0 && unidadeCapacidade) {
+    return [
+      "funcao:transporte-km",
+      `capacidade:${round(capacidade, 4)}`,
+      `unidade-capacidade:${unidadeCapacidade}`
+    ].join("|");
+  }
+
+  const partes = [
+    componente ? `componente:${componente}` : null,
+    categoria ? `categoria:${categoria}` : null,
+    classe ? `classe:${classe}` : null,
+    base ? `base:${base}` : null,
+    capacidade > 0 ? `capacidade:${round(capacidade, 4)}` : null,
+    unidadeCapacidade ? `unidade-capacidade:${unidadeCapacidade}` : null
+  ].filter(Boolean);
+
+  const hasSemanticRole = Boolean(classe || (componente && categoria) || (categoria && capacidade > 0 && unidadeCapacidade));
+  if (hasSemanticRole && partes.length >= 2) return partes.join("|");
+
+  return referenciaTecnicaId ? `referencia:${referenciaTecnicaId}` : null;
+}
+
+function mapRecursoComparavel(recurso: Record<string, unknown>): RecursoComparavel {
+  const quantidadeComparavel = resolveOperationalQuantity(recurso);
+  const id = String(recurso.id);
+  const recursoRealizadoId = typeof recurso.recursoRealizadoId === "string" ? recurso.recursoRealizadoId : null;
+  const recursoBoletimId = typeof recurso.recursoBoletimId === "string" ? recurso.recursoBoletimId : null;
+
+  return {
+    id,
+    referenciaTecnicaId: typeof recurso.referenciaTecnicaId === "string" ? recurso.referenciaTecnicaId : null,
+    identidadeOperacionalComparativa: buildIdentidadeOperacionalComparativa(recurso),
+    nome: String(recurso.nomeTecnico ?? recurso.id),
+    categoria: typeof recurso.categoria === "string" ? recurso.categoria : null,
+    classeOperacional: typeof recurso.classeOperacional === "string" ? recurso.classeOperacional : null,
+    componenteEconomico: typeof recurso.componenteEconomico === "string" ? recurso.componenteEconomico : null,
+    baseEconomica: typeof recurso.baseEconomica === "string" ? recurso.baseEconomica : null,
+    capacidadePorViagem: toNumber(recurso.capacidadePorViagem),
+    unidadeCapacidade: typeof recurso.unidadeCapacidade === "string" ? recurso.unidadeCapacidade : null,
+    unidade: quantidadeComparavel.unidade,
+    quantidade: quantidadeComparavel.quantidade,
+    custo: toNumber(recurso.custoTotal),
+    rastreabilidade: [id, recursoRealizadoId, recursoBoletimId].filter((value): value is string => Boolean(value))
+  };
+}
+
 function chaveRecursoSeguro(recurso: RecursoComparavel) {
-  return recurso.referenciaTecnicaId ? `biblioteca:${recurso.referenciaTecnicaId}` : null;
+  return recurso.identidadeOperacionalComparativa;
 }
 
 function consolidarRecursosPorChaveEstavel(recursos: RecursoComparavel[]) {
@@ -252,7 +406,8 @@ function consolidarRecursosPorChaveEstavel(recursos: RecursoComparavel[]) {
       quantidade: atual.quantidade + recurso.quantidade,
       custo: atual.custo + recurso.custo,
       unidade: atual.unidade ?? recurso.unidade,
-      nome: atual.nome || recurso.nome
+      nome: atual.nome || recurso.nome,
+      rastreabilidade: [...atual.rastreabilidade, ...recurso.rastreabilidade]
     });
   }
 
@@ -282,6 +437,7 @@ function compararRecursos(previstos: RecursoComparavel[], realizados: RecursoCom
         status: "SOMENTE_PREVISTO",
         recurso: previsto.nome,
         referenciaTecnicaId: previsto.referenciaTecnicaId,
+        identidadeOperacionalComparativa: previsto.identidadeOperacionalComparativa,
         unidade: previsto.unidade,
         quantidade: compararValor(previsto.quantidade, null),
         custo: compararValor(previsto.custo, null),
@@ -297,12 +453,13 @@ function compararRecursos(previstos: RecursoComparavel[], realizados: RecursoCom
       status: "CORRESPONDENTE",
       recurso: previsto.nome,
       referenciaTecnicaId: previsto.referenciaTecnicaId,
+      identidadeOperacionalComparativa: previsto.identidadeOperacionalComparativa,
       unidade: realizado.unidade ?? previsto.unidade,
       quantidade: compararValor(previsto.quantidade, realizado.quantidade),
       custo: compararValor(previsto.custo, realizado.custo),
       origem: {
         previsto: previsto.id,
-        realizado: realizado.id
+        realizado: realizado.rastreabilidade.join(",")
       }
     };
   });
@@ -317,6 +474,7 @@ function compararRecursos(previstos: RecursoComparavel[], realizados: RecursoCom
     status: "SOMENTE_REALIZADO",
     recurso: realizado.nome,
     referenciaTecnicaId: realizado.referenciaTecnicaId,
+    identidadeOperacionalComparativa: realizado.identidadeOperacionalComparativa,
     unidade: realizado.unidade,
     quantidade: compararValor(null, realizado.quantidade),
     custo: compararValor(null, realizado.custo),
@@ -330,6 +488,7 @@ function compararRecursos(previstos: RecursoComparavel[], realizados: RecursoCom
     status: "SOMENTE_PREVISTO",
     recurso: previsto.nome,
     referenciaTecnicaId: previsto.referenciaTecnicaId,
+    identidadeOperacionalComparativa: previsto.identidadeOperacionalComparativa,
     unidade: previsto.unidade,
     quantidade: compararValor(previsto.quantidade, null),
     custo: compararValor(previsto.custo, null),

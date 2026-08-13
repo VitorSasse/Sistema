@@ -163,6 +163,7 @@ export type ResultadoRecursoOperacionalNucleo = {
   referenciaTecnicaId?: string | null;
   nomeTecnico: string;
   categoria: string;
+  classeOperacional?: string | null;
   quantidadeRecursos: number;
   quantidadeOperacional: number;
   origemQuantidadeOperacional: OrigemQuantidadeOperacionalNucleo;
