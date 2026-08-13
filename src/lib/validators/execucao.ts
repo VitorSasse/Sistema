@@ -89,6 +89,7 @@ export const execucaoSchema = z.object({
   propostaOrigemId: optionalUuid(),
   cenarioOrigemId: optionalUuid(),
   frenteOrigemId: optionalUuid(),
+  frenteOrigemIds: z.array(z.string().uuid()).optional(),
   frentes: z.array(frenteExecutadaSchema).default([])
 }).superRefine((execucao, ctx) => {
   if (execucao.origem === OrigemExecucao.DIRETA) {
@@ -120,11 +121,11 @@ export const execucaoSchema = z.object({
       });
     }
 
-    if (!execucao.frenteOrigemId) {
+    if (!execucao.frenteOrigemId && !execucao.frenteOrigemIds?.length) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["frenteOrigemId"],
-        message: "Selecione a frente do orcamento."
+        path: ["frenteOrigemIds"],
+        message: "Selecione ao menos uma frente do orcamento."
       });
     }
   }

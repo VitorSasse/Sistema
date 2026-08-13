@@ -214,6 +214,7 @@ function initialExecucaoForm() {
     obraId: "",
     orcamentoId: "",
     frenteOrigemId: "",
+    frenteOrigemIds: [] as string[],
     descricao: "",
     frenteNome: "",
     unidade: "",
@@ -230,6 +231,7 @@ function execucaoFormFromSelected(execucao: Execucao | null | undefined) {
     obraId: execucao?.obra?.id ?? "",
     orcamentoId: "",
     frenteOrigemId: "",
+    frenteOrigemIds: [] as string[],
     descricao: execucao?.descricao ?? "",
     frenteNome: frente?.nome ?? "",
     unidade: frente?.unidade ?? "",
@@ -776,14 +778,12 @@ export function ExecucoesManager() {
     })),
     [orcamentosReferencia]
   );
-  const frenteReferenciaOptions = useMemo<SearchableSelectOption[]>(
-    () => frentesReferencia.map((frente) => ({
-      value: frente.id,
-      label: `Frente ${frente.ordem || "-"} - ${frente.nome}`
-    })),
-    [frentesReferencia]
+  const frentesSelecionadasReferencia = frentesReferencia.filter((frente) => execucaoForm.frenteOrigemIds.includes(frente.id));
+  const frenteSelecionadaReferencia = frentesSelecionadasReferencia[0] ?? null;
+  const selectedFrenteIdsKey = useMemo(
+    () => (selected?.frentes ?? []).map((frente) => frente.id).join("|"),
+    [selected?.frentes]
   );
-  const frenteSelecionadaReferencia = frentesReferencia.find((frente) => frente.id === execucaoForm.frenteOrigemId) ?? null;
 
   const totais = useMemo(() => {
     const frentes = selected?.frentes ?? [];
@@ -921,10 +921,13 @@ export function ExecucoesManager() {
   }, [createMode, execucaoForm.clienteId, execucaoForm.obraId, execucaoForm.orcamentoId]);
 
   useEffect(() => {
-    if (selected?.frentes?.[0]?.id && !recursoForm.frenteExecutadaId) {
-      setRecursoForm((current) => ({ ...current, frenteExecutadaId: selected.frentes[0].id }));
+    const ids = new Set((selected?.frentes ?? []).map((frente) => frente.id));
+    const primeiraFrente = selected?.frentes?.[0]?.id ?? "";
+
+    if (!ids.has(recursoForm.frenteExecutadaId)) {
+      setRecursoForm((current) => ({ ...current, frenteExecutadaId: primeiraFrente }));
     }
-  }, [recursoForm.frenteExecutadaId, selected]);
+  }, [recursoForm.frenteExecutadaId, selected?.id, selectedFrenteIdsKey]);
 
   useEffect(() => {
     setHeaderForm(execucaoFormFromSelected(selected));
@@ -961,7 +964,8 @@ export function ExecucoesManager() {
           origem: "ORCAMENTO",
           status: "EM_ANDAMENTO",
           orcamentoOrigemId: execucaoForm.orcamentoId || null,
-          frenteOrigemId: execucaoForm.frenteOrigemId || null,
+          frenteOrigemId: execucaoForm.frenteOrigemIds[0] || null,
+          frenteOrigemIds: execucaoForm.frenteOrigemIds,
           frentes: []
         }
         : {
@@ -1436,7 +1440,14 @@ export function ExecucoesManager() {
             </div>
             <SearchableSelect
               value={execucaoForm.clienteId}
-              onChange={(value) => setExecucaoForm((current) => ({ ...current, clienteId: value, obraId: "", orcamentoId: "", frenteOrigemId: "" }))}
+              onChange={(value) => setExecucaoForm((current) => ({
+                ...current,
+                clienteId: value,
+                obraId: "",
+                orcamentoId: "",
+                frenteOrigemId: "",
+                frenteOrigemIds: []
+              }))}
               options={clienteOptions}
               placeholder={optionsLoading ? "Carregando clientes..." : "Digite codigo ou nome do cliente"}
               emptyLabel="Nenhum cliente encontrado."
@@ -1455,7 +1466,8 @@ export function ExecucoesManager() {
                   obraId: value,
                   clienteId: obra?.clienteId || current.clienteId,
                   orcamentoId: "",
-                  frenteOrigemId: ""
+                  frenteOrigemId: "",
+                  frenteOrigemIds: []
                 }));
               }}
             />
@@ -1467,36 +1479,73 @@ export function ExecucoesManager() {
                   placeholder={referenciasLoading ? "Carregando orcamentos..." : "Digite codigo ou titulo do orcamento"}
                   emptyLabel="Nenhum orcamento encontrado para cliente/obra."
                   disabled={referenciasLoading || !execucaoForm.obraId}
-                  onChange={(value) => setExecucaoForm((current) => ({ ...current, orcamentoId: value, frenteOrigemId: "" }))}
+                  onChange={(value) => setExecucaoForm((current) => ({
+                    ...current,
+                    orcamentoId: value,
+                    frenteOrigemId: "",
+                    frenteOrigemIds: []
+                  }))}
                 />
-                <SearchableSelect
-                  value={execucaoForm.frenteOrigemId}
-                  options={frenteReferenciaOptions}
-                  placeholder={referenciasLoading ? "Carregando frentes..." : "Digite para selecionar a frente do orcamento"}
-                  emptyLabel="Nenhuma frente encontrada neste orcamento."
-                  disabled={referenciasLoading || !execucaoForm.orcamentoId}
-                  onChange={(value) => {
-                    const frente = frentesReferencia.find((item) => item.id === value);
-                    setExecucaoForm((current) => ({
-                      ...current,
-                      frenteOrigemId: value,
-                      descricao: frente?.nome ?? current.descricao,
-                      frenteNome: frente?.nome ?? current.frenteNome,
-                      unidade: frente?.unidade ?? "",
-                      quantidade: frente?.quantidadePrevista === null || frente?.quantidadePrevista === undefined ? "" : String(frente.quantidadePrevista),
-                      receita: frente?.receitaPrevista === null || frente?.receitaPrevista === undefined ? "" : String(frente.receitaPrevista)
-                    }));
-                  }}
-                />
-                {frenteSelecionadaReferencia ? (
+                <div className="execucoes-reference-picker">
+                  <span>Frentes do orcamento</span>
+                  {referenciasLoading ? (
+                    <small>Carregando frentes...</small>
+                  ) : frentesReferencia.length ? (
+                    frentesReferencia.map((frente) => {
+                      const checked = execucaoForm.frenteOrigemIds.includes(frente.id);
+
+                      return (
+                        <label key={frente.id} className="execucoes-reference-option">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={!execucaoForm.orcamentoId}
+                            onChange={() => {
+                              setExecucaoForm((current) => {
+                                const nextIds = checked
+                                  ? current.frenteOrigemIds.filter((id) => id !== frente.id)
+                                  : [...current.frenteOrigemIds, frente.id];
+                                const primeira = frentesReferencia.find((item) => item.id === nextIds[0]) ?? null;
+
+                                return {
+                                  ...current,
+                                  frenteOrigemId: nextIds[0] ?? "",
+                                  frenteOrigemIds: nextIds,
+                                  descricao: primeira?.nome ?? current.descricao,
+                                  frenteNome: primeira?.nome ?? current.frenteNome,
+                                  unidade: primeira?.unidade ?? "",
+                                  quantidade: primeira?.quantidadePrevista === null || primeira?.quantidadePrevista === undefined ? "" : String(primeira.quantidadePrevista),
+                                  receita: primeira?.receitaPrevista === null || primeira?.receitaPrevista === undefined ? "" : String(primeira.receitaPrevista)
+                                };
+                              });
+                            }}
+                          />
+                          <span>
+                            <strong>Frente {frente.ordem || "-"} - {frente.nome}</strong>
+                            <small>
+                              {number(frente.quantidadePrevista)} {frente.unidade ?? ""}
+                              {" | Receita prevista: "}
+                              {money(frente.receitaPrevista ?? 0)}
+                            </small>
+                          </span>
+                        </label>
+                      );
+                    })
+                  ) : (
+                    <small>Nenhuma frente encontrada neste orcamento.</small>
+                  )}
+                </div>
+                {frentesSelecionadasReferencia.length ? (
                   <div className="execucoes-reference-preview">
-                    <span>Referencia prevista que sera preservada</span>
-                    <strong>{frenteSelecionadaReferencia.nome}</strong>
-                    <small>
-                      {number(frenteSelecionadaReferencia.quantidadePrevista)} {frenteSelecionadaReferencia.unidade ?? ""}
-                      {" | Receita prevista: "}
-                      {money(frenteSelecionadaReferencia.receitaPrevista ?? 0)}
-                    </small>
+                    <span>Referencias previstas que serao preservadas</span>
+                    <strong>{frentesSelecionadasReferencia.length} frente(s) selecionada(s)</strong>
+                    {frentesSelecionadasReferencia.map((frente) => (
+                      <small key={frente.id}>
+                        Frente {frente.ordem || "-"} - {frente.nome}: {number(frente.quantidadePrevista)} {frente.unidade ?? ""}
+                        {" | Receita prevista: "}
+                        {money(frente.receitaPrevista ?? 0)}
+                      </small>
+                    ))}
                   </div>
                 ) : null}
               </>
@@ -1517,7 +1566,7 @@ export function ExecucoesManager() {
             <button
               className="button-primary"
               type="submit"
-              disabled={loading || (createMode === "ORCAMENTO" && (!execucaoForm.clienteId || !execucaoForm.obraId || !execucaoForm.orcamentoId || !execucaoForm.frenteOrigemId))}
+              disabled={loading || (createMode === "ORCAMENTO" && (!execucaoForm.clienteId || !execucaoForm.obraId || !execucaoForm.orcamentoId || !execucaoForm.frenteOrigemIds.length))}
             >
               Abrir execucao
             </button>

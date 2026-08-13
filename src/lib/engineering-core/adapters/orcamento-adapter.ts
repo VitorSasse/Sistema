@@ -11,6 +11,7 @@ import type {
 type OrcamentoAdapterFrente = {
   tempId?: string | null;
   localId?: string | null;
+  origemFrenteId?: string | null;
   ordem?: number | null;
   natureza?: string | null;
   nome?: string | null;
@@ -186,6 +187,7 @@ export function adaptarOrcamentoParaEntradaNucleo(input: OrcamentoParaNucleoAdap
       recursos,
       metadados: {
         origem: "ORCAMENTO",
+        frenteOrigemId: frente.origemFrenteId ?? null,
         ordem: frente.ordem ?? null
       }
     };

@@ -570,10 +570,14 @@ function createDbMock() {
 
         const frentesSelect = select?.frentes as Record<string, unknown> | undefined;
         const frenteWhere = frentesSelect?.where as Record<string, unknown> | undefined;
+        const frenteIdFilter = frenteWhere?.id as string | { in?: string[] } | undefined;
+        const frenteIds = typeof frenteIdFilter === "object" ? (frenteIdFilter.in ?? []) : [];
         return {
           ...orcamento,
           frentes: ((orcamento.frentes as Array<Record<string, unknown>>) ?? []).filter((frente) =>
-            !frenteWhere?.id || frente.id === frenteWhere.id
+            !frenteIdFilter
+            || (typeof frenteIdFilter === "string" && frente.id === frenteIdFilter)
+            || (frenteIds.length > 0 && frenteIds.includes(String(frente.id)))
           )
         };
       },
@@ -889,6 +893,89 @@ describe("service de Execucao e Resultado", () => {
     expect(referencia.snapshot.resultadoOperacionalJson.resultadoOperacional.unidades[0].recursos).toHaveLength(1);
     expect(referencia.snapshot.resultadoOperacionalJson.resultadoOperacional.unidades[0].recursos[0].referenciaTecnicaId).toBe(RECURSO_ID);
     expect(referencia.snapshot.economiaJson.unidades[0].economia.receita).toBe(1200);
+  });
+
+  it("cria execucao vinculada a multiplas frentes sem misturar ids de origem e operacao", async () => {
+    const { db, records } = createDbMock();
+    const segundaFrenteOrigemId = "99999999-9999-4999-8999-999999999997";
+    const created = await runTenant(() =>
+      criarExecucao(db as never, {
+        clienteId: CLIENTE_ID,
+        obraId: OBRA_ID,
+        descricao: "Execucao vinculada",
+        origem: OrigemExecucao.ORCAMENTO,
+        status: StatusExecucao.EM_ANDAMENTO,
+        orcamentoOrigemId: ORCAMENTO_ID,
+        frenteOrigemIds: [ORCAMENTO_FRENTE_ID, segundaFrenteOrigemId],
+        frentes: []
+      })
+    );
+    const frentesCriadas = (created as { frentes: Array<{ id: string; nome: string; quantidadeExecutada: number | null }> }).frentes;
+    const referencia = records.referenciasPrevistas[0].referenciaPrevistaJson as {
+      origem: {
+        frentes: Array<{ frenteOrigemId: string; frenteExecutadaId: string }>;
+      };
+      snapshot: {
+        resultadoOperacionalJson: {
+          resultadoOperacional: {
+            unidades: Array<{ id: string; nome: string; quantidade: number }>;
+          };
+        };
+      };
+    };
+
+    expect(frentesCriadas).toHaveLength(2);
+    expect(frentesCriadas[0]).toMatchObject({ id: FRENTE_ID, nome: "Frente vinculada", quantidadeExecutada: 100 });
+    expect(frentesCriadas[1]).toMatchObject({ nome: "Frente nao selecionada", quantidadeExecutada: 50 });
+    expect(referencia.origem.frentes).toEqual([
+      { frenteOrigemId: ORCAMENTO_FRENTE_ID, frenteExecutadaId: frentesCriadas[0].id, nome: "Frente vinculada", ordem: 1 },
+      { frenteOrigemId: segundaFrenteOrigemId, frenteExecutadaId: frentesCriadas[1].id, nome: "Frente nao selecionada", ordem: 2 }
+    ]);
+    expect(referencia.snapshot.resultadoOperacionalJson.resultadoOperacional.unidades.map((unidade) => unidade.id)).toEqual([
+      frentesCriadas[0].id,
+      frentesCriadas[1].id
+    ]);
+    expect(referencia.snapshot.resultadoOperacionalJson.resultadoOperacional.unidades.map((unidade) => unidade.id)).not.toContain(ORCAMENTO_FRENTE_ID);
+  });
+
+  it("vincula fatos somente usando FrenteExecutada da execucao e rejeita FrenteOrcamento como destino", async () => {
+    const { db, records } = createDbMock();
+    const segundaFrenteOrigemId = "99999999-9999-4999-8999-999999999997";
+    const created = await runTenant(() =>
+      criarExecucao(db as never, {
+        clienteId: CLIENTE_ID,
+        obraId: OBRA_ID,
+        descricao: "Execucao vinculada",
+        origem: OrigemExecucao.ORCAMENTO,
+        status: StatusExecucao.EM_ANDAMENTO,
+        orcamentoOrigemId: ORCAMENTO_ID,
+        frenteOrigemIds: [ORCAMENTO_FRENTE_ID, segundaFrenteOrigemId],
+        frentes: []
+      })
+    );
+    const segundaFrenteExecutada = (created as { frentes: Array<{ id: string }> }).frentes[1];
+
+    await expect(runTenant(() =>
+      vincularFatosOperacionaisExecucao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        frenteExecutadaId: ORCAMENTO_FRENTE_ID,
+        fatosIds: ["99999999-9999-4999-8999-999999999999"]
+      })
+    )).rejects.toThrow("FRENTE_EXECUTADA_NAO_PERTENCE_EXECUCAO");
+
+    await runTenant(() =>
+      vincularFatosOperacionaisExecucao(db as never, {
+        execucaoId: EXECUCAO_ID,
+        frenteExecutadaId: segundaFrenteExecutada.id,
+        fatosIds: ["99999999-9999-4999-8999-999999999999"]
+      })
+    );
+
+    expect(records.boletins).toHaveLength(1);
+    expect((records.boletins[0].recursos as Array<Record<string, unknown>>)[0]).toMatchObject({
+      frenteExecutadaId: segundaFrenteExecutada.id,
+      origemRegistroId: "99999999-9999-4999-8999-999999999999"
+    });
   });
 
   it("mantem referencia prevista estavel apos alteracao posterior do orcamento vivo", async () => {

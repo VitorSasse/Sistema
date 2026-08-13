@@ -31,6 +31,12 @@ export type ReferenciaPrevistaExecucaoInput = {
   orcamentoOrigemId?: string | null;
   propostaOrigemId?: string | null;
   cenarioOrigemId?: string | null;
+  frentesOrigem?: Array<{
+    frenteOrigemId: string;
+    frenteExecutadaId: string;
+    nome?: string | null;
+    ordem?: number | null;
+  }>;
   resultadoPrevisto: ResultadoNucleoEngenharia;
 };
 
@@ -356,7 +362,8 @@ export function prepararReferenciaPrevistaExecucao(input: ReferenciaPrevistaExec
         tipo: input.origem,
         orcamentoOrigemId: input.orcamentoOrigemId ?? null,
         propostaOrigemId: input.propostaOrigemId ?? null,
-        cenarioOrigemId: input.cenarioOrigemId ?? null
+        cenarioOrigemId: input.cenarioOrigemId ?? null,
+        frentes: input.frentesOrigem ?? []
       },
       snapshot: transformarResultadoNucleoEmSnapshot(input.resultadoPrevisto)
     }

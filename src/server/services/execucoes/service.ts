@@ -597,11 +597,16 @@ function mapOrcamentoItemParaReferencia(item: Record<string, unknown>, frenteExe
   };
 }
 
+type OrcamentoReferenciaFrente = Record<string, unknown> & {
+  id: string;
+  itens?: Array<Record<string, unknown>>;
+  receitaPrevista: number;
+};
+
 type OrcamentoReferenciaExecucao = {
   input: ExecucaoInput;
   orcamento: Record<string, unknown>;
-  frente: Record<string, unknown> & { itens?: Array<Record<string, unknown>> };
-  receitaPrevista: number;
+  frentes: OrcamentoReferenciaFrente[];
 };
 
 async function resolverReferenciaOrcamentoExecucao(
@@ -614,9 +619,12 @@ async function resolverReferenciaOrcamentoExecucao(
   }
 
   const orcamentoId = input.orcamentoOrigemId;
-  const frenteId = input.frenteOrigemId;
+  const frenteIds = Array.from(new Set([
+    ...(input.frenteOrigemIds ?? []),
+    ...(input.frenteOrigemId ? [input.frenteOrigemId] : [])
+  ]));
 
-  if (!orcamentoId || !frenteId) {
+  if (!orcamentoId || !frenteIds.length) {
     throw new Error("REFERENCIA_ORCAMENTO_INCOMPLETA");
   }
 
@@ -636,7 +644,9 @@ async function resolverReferenciaOrcamentoExecucao(
       obraId: true,
       frentes: {
         where: {
-          id: frenteId
+          id: {
+            in: frenteIds
+          }
         },
         select: {
           id: true,
@@ -698,14 +708,25 @@ async function resolverReferenciaOrcamentoExecucao(
     throw new Error("ORCAMENTO_REFERENCIA_NAO_ENCONTRADO");
   }
 
-  const frente = orcamento.frentes?.[0];
+  const frentes = orcamento.frentes ?? [];
 
-  if (!frente) {
+  if (frentes.length !== frenteIds.length) {
     throw new Error("FRENTE_ORCAMENTO_NAO_ENCONTRADA");
   }
 
-  const receitaPrevista = valorPrevistoFrente(frente);
-  const descricao = clean(input.descricao) ?? String(frente.nome ?? orcamento.titulo ?? orcamento.codigo ?? "Execucao vinculada a orcamento");
+  const frentesOrdenadas: OrcamentoReferenciaFrente[] = frenteIds.map((id) => {
+    const frente = frentes.find((item) => item.id === id);
+    if (!frente) {
+      throw new Error("FRENTE_ORCAMENTO_NAO_ENCONTRADA");
+    }
+
+    return {
+      ...frente,
+      id: String(frente.id ?? ""),
+      receitaPrevista: valorPrevistoFrente(frente)
+    };
+  });
+  const descricao = clean(input.descricao) ?? String(orcamento.titulo ?? orcamento.codigo ?? frentesOrdenadas[0]?.nome ?? "Execucao vinculada a orcamento");
 
   return {
     input: {
@@ -713,21 +734,18 @@ async function resolverReferenciaOrcamentoExecucao(
       clienteId: String(orcamento.clienteId ?? input.clienteId ?? ""),
       obraId: typeof orcamento.obraId === "string" ? orcamento.obraId : input.obraId,
       descricao,
-      cenarioOrigemId: typeof frente.cenarioId === "string" ? frente.cenarioId : input.cenarioOrigemId,
-      frentes: [
-        {
-          nome: String(frente.nome ?? "Frente do orcamento"),
-          descricao: typeof frente.descricao === "string" ? frente.descricao : "",
-          unidade: typeof frente.unidadeProducao === "string" ? frente.unidadeProducao : "",
-          quantidadeExecutada: frente.quantidadePrevista === null || frente.quantidadePrevista === undefined ? null : toNumber(frente.quantidadePrevista),
-          receitaRealizada: receitaPrevista,
-          recursos: []
-        }
-      ]
+      cenarioOrigemId: typeof frentesOrdenadas[0]?.cenarioId === "string" ? frentesOrdenadas[0].cenarioId : input.cenarioOrigemId,
+      frentes: frentesOrdenadas.map((frente) => ({
+        nome: String(frente.nome ?? "Frente do orcamento"),
+        descricao: typeof frente.descricao === "string" ? frente.descricao : "",
+        unidade: typeof frente.unidadeProducao === "string" ? frente.unidadeProducao : "",
+        quantidadeExecutada: frente.quantidadePrevista === null || frente.quantidadePrevista === undefined ? null : toNumber(frente.quantidadePrevista),
+        receitaRealizada: frente.receitaPrevista,
+        recursos: []
+      }))
     },
     orcamento,
-    frente,
-    receitaPrevista
+    frentes: frentesOrdenadas
   };
 }
 
@@ -737,37 +755,46 @@ async function registrarReferenciaPrevistaOrcamento(
   referencia: OrcamentoReferenciaExecucao
 ) {
   requireReferenciaPrevistaDelegate(db);
-  const frenteExecutada = execucao.frentes?.[0];
+  const frentesExecutadas = execucao.frentes ?? [];
 
-  if (!frenteExecutada) {
+  if (frentesExecutadas.length !== referencia.frentes.length) {
     throw new Error("FRENTE_EXECUCAO_NAO_CRIADA");
   }
+
+  const frentesEntrada = referencia.frentes.map((frente, index) => {
+    const frenteExecutada = frentesExecutadas[index];
+
+    return {
+      localId: frenteExecutada.id,
+      tempId: frenteExecutada.id,
+      origemFrenteId: String(frente.id ?? ""),
+      ordem: toNumber(frente.ordem),
+      natureza: typeof frente.natureza === "string" ? frente.natureza : null,
+      nome: typeof frente.nome === "string" ? frente.nome : null,
+      descricao: typeof frente.descricao === "string" ? frente.descricao : null,
+      unidadeProducao: typeof frente.unidadeProducao === "string" ? frente.unidadeProducao : null,
+      quantidadePrevista: toNumeroTecnico(frente.quantidadePrevista),
+      receitaPrevista: frente.receitaPrevista,
+      produtividadeDia: toNumeroTecnico(frente.produtividadeDia),
+      prazoEstimadoDias: toNumeroTecnico(frente.prazoEstimadoDias),
+      prazoTeoricoDias: toNumeroTecnico(frente.prazoTeoricoDias),
+      prazoAdotadoDias: toNumeroTecnico(frente.prazoAdotadoDias),
+      origemPrazo: typeof frente.origemPrazo === "string" ? frente.origemPrazo : null,
+      modoCusto: typeof frente.modoCusto === "string" ? frente.modoCusto : null,
+      custoManual: toNumeroTecnico(frente.custoManual)
+    };
+  });
+
+  const itensEntrada = referencia.frentes.flatMap((frente, index) =>
+    (frente.itens ?? []).map((item) => mapOrcamentoItemParaReferencia(item, frentesExecutadas[index].id))
+  );
 
   const entradaPrevista = adaptarOrcamentoParaEntradaNucleo({
     id: String(referencia.orcamento.id ?? ""),
     codigo: typeof referencia.orcamento.codigo === "string" ? referencia.orcamento.codigo : null,
     titulo: typeof referencia.orcamento.titulo === "string" ? referencia.orcamento.titulo : null,
-    frentes: [
-      {
-        localId: frenteExecutada.id,
-        tempId: frenteExecutada.id,
-        ordem: toNumber(referencia.frente.ordem),
-        natureza: typeof referencia.frente.natureza === "string" ? referencia.frente.natureza : null,
-        nome: typeof referencia.frente.nome === "string" ? referencia.frente.nome : null,
-        descricao: typeof referencia.frente.descricao === "string" ? referencia.frente.descricao : null,
-        unidadeProducao: typeof referencia.frente.unidadeProducao === "string" ? referencia.frente.unidadeProducao : null,
-        quantidadePrevista: toNumeroTecnico(referencia.frente.quantidadePrevista),
-        receitaPrevista: referencia.receitaPrevista,
-        produtividadeDia: toNumeroTecnico(referencia.frente.produtividadeDia),
-        prazoEstimadoDias: toNumeroTecnico(referencia.frente.prazoEstimadoDias),
-        prazoTeoricoDias: toNumeroTecnico(referencia.frente.prazoTeoricoDias),
-        prazoAdotadoDias: toNumeroTecnico(referencia.frente.prazoAdotadoDias),
-        origemPrazo: typeof referencia.frente.origemPrazo === "string" ? referencia.frente.origemPrazo : null,
-        modoCusto: typeof referencia.frente.modoCusto === "string" ? referencia.frente.modoCusto : null,
-        custoManual: toNumeroTecnico(referencia.frente.custoManual)
-      }
-    ],
-    itens: (referencia.frente.itens ?? []).map((item) => mapOrcamentoItemParaReferencia(item, frenteExecutada.id))
+    frentes: frentesEntrada,
+    itens: itensEntrada
   });
   const resultadoPrevisto = executarNucleoComMotorAtual(entradaPrevista);
 
@@ -777,6 +804,12 @@ async function registrarReferenciaPrevistaOrcamento(
     orcamentoOrigemId: execucao.orcamentoOrigemId ?? null,
     propostaOrigemId: execucao.propostaOrigemId ?? null,
     cenarioOrigemId: execucao.cenarioOrigemId ?? null,
+    frentesOrigem: referencia.frentes.map((frente, index) => ({
+      frenteOrigemId: String(frente.id ?? ""),
+      frenteExecutadaId: frentesExecutadas[index].id,
+      nome: typeof frente.nome === "string" ? frente.nome : null,
+      ordem: toNumber(frente.ordem)
+    })),
     resultadoPrevisto
   });
 }

@@ -14534,6 +14534,49 @@ button {
   color: var(--color-text);
 }
 
+.execucoes-reference-picker {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 14px;
+  background: rgba(8, 27, 43, 0.32);
+}
+
+.execucoes-reference-picker > span {
+  color: var(--color-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.execucoes-reference-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 10px;
+  padding: 9px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 12px;
+  background: rgba(15, 42, 65, 0.5);
+  cursor: pointer;
+}
+
+.execucoes-reference-option input {
+  margin-top: 3px;
+}
+
+.execucoes-reference-option span {
+  display: grid;
+  gap: 3px;
+}
+
+.execucoes-reference-option strong {
+  color: var(--color-text);
+  font-size: 0.78rem;
+}
+
 .execucoes-create-form input,
 .execucoes-create-form select,
 .execucoes-new-boletim input,
@@ -14546,6 +14589,11 @@ button {
   background: rgba(18, 48, 74, 0.98);
   color: var(--color-text);
   padding: 10px 12px;
+}
+
+.execucoes-create-form .execucoes-reference-option input {
+  width: auto;
+  padding: 0;
 }
 
 .execucoes-resource-form textarea {
