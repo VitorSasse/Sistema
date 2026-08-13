@@ -162,6 +162,45 @@ describe("comparativo Orcado x Realizado da Execucao", () => {
     });
   });
 
+  it("consolida varios lancamentos realizados do mesmo recurso tecnico antes de comparar", () => {
+    const previsto = executarNucleoComMotorAtual(
+      entradaBase({
+        receita: 1000,
+        recursos: [
+          recurso({ id: "previsto-caminhao", referenciaTecnicaId: "eq-caminhao", nome: "Caminhao", quantidade: 10, valorCusto: 50 })
+        ]
+      })
+    );
+    const realizado = executarNucleoComMotorAtual(
+      entradaBase({
+        receita: 1000,
+        recursos: [
+          recurso({ id: "realizado-caminhao-1", referenciaTecnicaId: "eq-caminhao", nome: "Caminhao", quantidade: 4, valorCusto: 50 }),
+          recurso({ id: "realizado-caminhao-2", referenciaTecnicaId: "eq-caminhao", nome: "Caminhao", quantidade: 8, valorCusto: 50 })
+        ]
+      })
+    );
+
+    const comparativo = gerarComparativoAPartirDeSnapshots({
+      execucaoId: EXECUCAO_ID,
+      referenciaPrevista: {
+        origem: {
+          tipo: OrigemReferenciaPrevistaExecucao.PROPOSTA,
+          propostaOrigemId: "proposta-1"
+        },
+        snapshot: snapshot(previsto)
+      },
+      realizado: snapshot(realizado)
+    });
+
+    expect(comparativo.frentes[0].recursos).toHaveLength(1);
+    expect(comparativo.frentes[0].recursos[0]).toMatchObject({
+      status: "CORRESPONDENTE",
+      quantidade: { previsto: 10, realizado: 12, desvioAbsoluto: 2 },
+      custo: { previsto: 500, realizado: 600, desvioAbsoluto: 100 }
+    });
+  });
+
   it("nao compara recursos apenas pelo nome quando nao ha chave estavel", () => {
     const recursosSemChave = criarComparativoFixture().frentes[0].recursos.filter(
       (item) => item.recurso === "Recurso sem chave"

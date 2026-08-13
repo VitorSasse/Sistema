@@ -35,6 +35,14 @@ export type ExecucaoRelatorioComparativoValor = {
   desvioPercentual: number | null;
 };
 
+export type ExecucaoRelatorioDesvioOperacional = {
+  recurso: string;
+  status: "CORRESPONDENTE" | "SOMENTE_PREVISTO" | "SOMENTE_REALIZADO";
+  unidade?: string | null;
+  quantidade: ExecucaoRelatorioComparativoValor;
+  custo: ExecucaoRelatorioComparativoValor;
+};
+
 export type ExecucaoRelatorioComparativoFrente = {
   frente: string;
   unidade?: string | null;
@@ -43,6 +51,7 @@ export type ExecucaoRelatorioComparativoFrente = {
   custo: ExecucaoRelatorioComparativoValor;
   resultado: ExecucaoRelatorioComparativoValor;
   margem: ExecucaoRelatorioComparativoValor;
+  desviosOperacionais: ExecucaoRelatorioDesvioOperacional[];
 };
 
 export type ExecucaoResultadoPdfProps = {
@@ -223,10 +232,25 @@ const styles = StyleSheet.create({
     width: "36%"
   },
   comparisonName: {
-    width: "20%"
+    width: "22%"
   },
   comparisonValue: {
-    width: "16%"
+    width: "19.5%"
+  },
+  comparisonStatus: {
+    width: "19%"
+  },
+  emphasisRow: {
+    backgroundColor: "#fff4e8"
+  },
+  deviationResource: {
+    width: "30%"
+  },
+  deviationValue: {
+    width: "17%"
+  },
+  deviationStatus: {
+    width: "19%"
   },
   technicalNote: {
     marginTop: 14,
@@ -275,10 +299,68 @@ function percent(value: number | null | undefined) {
   }).format(value)}%`;
 }
 
+function percentagePoints(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "Nao informado";
+  return `${new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(value)} p.p.`;
+}
+
 function variance(value: ExecucaoRelatorioComparativoValor, formatter: (value: number | null | undefined) => string) {
   const absoluto = formatter(value.desvioAbsoluto);
   const percentual = value.desvioPercentual === null ? "Nao informado" : percent(value.desvioPercentual);
   return `${absoluto} (${percentual})`;
+}
+
+function operationalVariance(value: ExecucaoRelatorioComparativoValor, unidade?: string | null) {
+  return number(value.desvioAbsoluto, unidade ? ` ${unidade}` : "");
+}
+
+function statusLabel(status: ExecucaoRelatorioDesvioOperacional["status"]) {
+  if (status === "SOMENTE_PREVISTO") return "Previsto, nao utilizado";
+  if (status === "SOMENTE_REALIZADO") return "Nao previsto, utilizado";
+  return "Previsto e realizado";
+}
+
+function indicatorRows(frente: ExecucaoRelatorioComparativoFrente) {
+  return [
+    {
+      label: "Quantidade",
+      previsto: number(frente.quantidade.previsto, frente.unidade ? ` ${frente.unidade}` : ""),
+      realizado: number(frente.quantidade.realizado, frente.unidade ? ` ${frente.unidade}` : ""),
+      desvio: variance(frente.quantidade, (value) => number(value, frente.unidade ? ` ${frente.unidade}` : "")),
+      emphasis: false
+    },
+    {
+      label: "Receita",
+      previsto: money(frente.receita.previsto),
+      realizado: money(frente.receita.realizado),
+      desvio: variance(frente.receita, money),
+      emphasis: false
+    },
+    {
+      label: "Custo",
+      previsto: money(frente.custo.previsto),
+      realizado: money(frente.custo.realizado),
+      desvio: variance(frente.custo, money),
+      emphasis: true
+    },
+    {
+      label: "Resultado",
+      previsto: money(frente.resultado.previsto),
+      realizado: money(frente.resultado.realizado),
+      desvio: variance(frente.resultado, money),
+      emphasis: true
+    },
+    {
+      label: "Margem",
+      previsto: percent(frente.margem.previsto),
+      realizado: percent(frente.margem.realizado),
+      desvio: percentagePoints(frente.margem.desvioAbsoluto),
+      emphasis: true
+    }
+  ];
 }
 
 function Info({ label, value }: { label: string; value: string }) {
@@ -346,27 +428,57 @@ export function ExecucaoResultadoPdfDocument(props: ExecucaoResultadoPdfProps) {
         {props.comparativo?.length ? (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Previsto x Realizado</Text>
-            <View style={styles.tableHeader}>
-              <Text style={[styles.cell, styles.comparisonName]}>Frente</Text>
-              <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Quantidade</Text>
-              <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Receita</Text>
-              <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Custo</Text>
-              <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Resultado</Text>
-              <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Desvio custo</Text>
-            </View>
             {props.comparativo.map((frente, index) => (
-              <View key={`${frente.frente}-${index}`} style={styles.row}>
-                <Text style={[styles.cell, styles.comparisonName]}>{frente.frente}</Text>
-                <Text style={[styles.cell, styles.comparisonValue, styles.right]}>
-                  {number(frente.quantidade.realizado, frente.unidade ? ` ${frente.unidade}` : "")}
-                </Text>
-                <Text style={[styles.cell, styles.comparisonValue, styles.right]}>{money(frente.receita.realizado)}</Text>
-                <Text style={[styles.cell, styles.comparisonValue, styles.right]}>{money(frente.custo.realizado)}</Text>
-                <Text style={[styles.cell, styles.comparisonValue, styles.right]}>{money(frente.resultado.realizado)}</Text>
-                <Text style={[styles.cell, styles.comparisonValue, styles.right]}>{variance(frente.custo, money)}</Text>
+              <View key={`${frente.frente}-${index}`} wrap={false}>
+                <Text style={styles.note}>{frente.frente}</Text>
+                <View style={styles.tableHeader}>
+                  <Text style={[styles.cell, styles.comparisonName]}>Indicador</Text>
+                  <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Previsto</Text>
+                  <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Realizado</Text>
+                  <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Desvio</Text>
+                  <Text style={[styles.cell, styles.comparisonStatus]}>Leitura</Text>
+                </View>
+                {indicatorRows(frente).map((row) => (
+                  <View key={`${frente.frente}-${row.label}`} style={[styles.row, row.emphasis ? styles.emphasisRow : {}]}>
+                    <Text style={[styles.cell, styles.comparisonName]}>{row.label}</Text>
+                    <Text style={[styles.cell, styles.comparisonValue, styles.right]}>{row.previsto}</Text>
+                    <Text style={[styles.cell, styles.comparisonValue, styles.right]}>{row.realizado}</Text>
+                    <Text style={[styles.cell, styles.comparisonValue, styles.right]}>{row.desvio}</Text>
+                    <Text style={[styles.cell, styles.comparisonStatus]}>{row.emphasis ? "Indicador principal" : "Indicador de apoio"}</Text>
+                  </View>
+                ))}
               </View>
             ))}
-            <Text style={styles.note}>Valores previstos vêm da referencia historica da execucao. Valores realizados vêm do ultimo resultado calculado.</Text>
+            <Text style={styles.note}>Valores previstos vem da referencia historica da execucao. Valores realizados vem do ultimo resultado calculado.</Text>
+          </View>
+        ) : null}
+
+        {props.comparativo?.some((frente) => frente.desviosOperacionais.length) ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Resumo dos desvios operacionais</Text>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.cell, styles.deviationResource]}>Recurso</Text>
+              <Text style={[styles.cell, styles.deviationValue, styles.right]}>Previsto</Text>
+              <Text style={[styles.cell, styles.deviationValue, styles.right]}>Realizado</Text>
+              <Text style={[styles.cell, styles.deviationValue, styles.right]}>Desvio operacional</Text>
+              <Text style={[styles.cell, styles.deviationValue, styles.right]}>Impacto custo</Text>
+              <Text style={[styles.cell, styles.deviationStatus]}>Status</Text>
+            </View>
+            {props.comparativo.flatMap((frente) => frente.desviosOperacionais.map((desvio, index) => (
+              <View key={`${frente.frente}-${desvio.recurso}-${desvio.status}-${index}`} style={styles.row}>
+                <Text style={[styles.cell, styles.deviationResource]}>{desvio.recurso}</Text>
+                <Text style={[styles.cell, styles.deviationValue, styles.right]}>
+                  {number(desvio.quantidade.previsto, desvio.unidade ? ` ${desvio.unidade}` : "")}
+                </Text>
+                <Text style={[styles.cell, styles.deviationValue, styles.right]}>
+                  {number(desvio.quantidade.realizado, desvio.unidade ? ` ${desvio.unidade}` : "")}
+                </Text>
+                <Text style={[styles.cell, styles.deviationValue, styles.right]}>{operationalVariance(desvio.quantidade, desvio.unidade)}</Text>
+                <Text style={[styles.cell, styles.deviationValue, styles.right]}>{money(desvio.custo.desvioAbsoluto)}</Text>
+                <Text style={[styles.cell, styles.deviationStatus]}>{statusLabel(desvio.status)}</Text>
+              </View>
+            )))}
+            <Text style={styles.note}>Este bloco lista somente recursos com diferenca operacional ou de custo no comparativo.</Text>
           </View>
         ) : null}
 

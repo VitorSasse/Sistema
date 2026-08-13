@@ -13,6 +13,7 @@ import {
   ExecucaoResultadoPdfDocument,
   type ExecucaoRelatorioBoletim,
   type ExecucaoRelatorioEncargo,
+  type ExecucaoRelatorioDesvioOperacional,
   type ExecucaoRelatorioRecurso
 } from "@/server/pdf/execucao-resultado-pdf";
 import { resolveReportLogoSource } from "@/server/pdf/report-logo";
@@ -141,6 +142,18 @@ function buildFileName(execucao: ExecucaoRelatorioData) {
   return `EXECUCAO_RESULTADO_${codigo}_${cliente}.pdf`;
 }
 
+function possuiDesvio(valor: { desvioAbsoluto: number | null }) {
+  return valor.desvioAbsoluto !== null && Math.abs(valor.desvioAbsoluto) > 0.000001;
+}
+
+function filtrarDesviosOperacionais(recursos: ExecucaoRelatorioDesvioOperacional[]) {
+  return recursos.filter((recurso) =>
+    recurso.status !== "CORRESPONDENTE" ||
+    possuiDesvio(recurso.quantidade) ||
+    possuiDesvio(recurso.custo)
+  );
+}
+
 async function measurePdfStep<T>(
   stepName: string,
   metricName: "loadHeaderMs" | "loadDataMs",
@@ -225,7 +238,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
             receita: frente.receita,
             custo: frente.custo,
             resultado: frente.resultado,
-            margem: frente.margem
+            margem: frente.margem,
+            desviosOperacionais: filtrarDesviosOperacionais(frente.recursos.map((recurso) => ({
+              recurso: recurso.recurso,
+              status: recurso.status === "CORRESPONDENTE" ? "CORRESPONDENTE" : recurso.status,
+              unidade: recurso.unidade,
+              quantidade: recurso.quantidade,
+              custo: recurso.custo
+            })))
           }))
           : [],
         resultadoProvisorio: latest.estadoConsolidacao === "PROVISORIO" || boletins.some((boletim) => boletim.status === "ABERTO"),

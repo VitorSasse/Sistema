@@ -76,4 +76,43 @@ describe("PDF de Execucao e Resultado", () => {
 
     expect(buffer.length).toBeGreaterThan(1000);
   });
+
+  it("renderiza comparativo e resumo de desvios operacionais para execucao vinculada", async () => {
+    const buffer = await renderToBuffer(ExecucaoResultadoPdfDocument({
+      ...baseProps,
+      identificacao: {
+        ...baseProps.identificacao,
+        referenciaOrcamento: "ORC-TESTE"
+      },
+      comparativo: [
+        {
+          frente: "Frente com referencia",
+          unidade: "m3",
+          quantidade: { previsto: 100, realizado: 110, desvioAbsoluto: 10, desvioPercentual: 10 },
+          receita: { previsto: 10000, realizado: 10000, desvioAbsoluto: 0, desvioPercentual: 0 },
+          custo: { previsto: 5000, realizado: 6200, desvioAbsoluto: 1200, desvioPercentual: 24 },
+          resultado: { previsto: 5000, realizado: 3800, desvioAbsoluto: -1200, desvioPercentual: -24 },
+          margem: { previsto: 50, realizado: 38, desvioAbsoluto: -12, desvioPercentual: -24 },
+          desviosOperacionais: [
+            {
+              recurso: "Recurso comparado",
+              status: "CORRESPONDENTE",
+              unidade: "h",
+              quantidade: { previsto: 8, realizado: 12, desvioAbsoluto: 4, desvioPercentual: 50 },
+              custo: { previsto: 800, realizado: 1200, desvioAbsoluto: 400, desvioPercentual: 50 }
+            },
+            {
+              recurso: "Recurso nao previsto",
+              status: "SOMENTE_REALIZADO",
+              unidade: "km",
+              quantidade: { previsto: null, realizado: 20, desvioAbsoluto: null, desvioPercentual: null },
+              custo: { previsto: null, realizado: 300, desvioAbsoluto: null, desvioPercentual: null }
+            }
+          ]
+        }
+      ]
+    }));
+
+    expect(buffer.length).toBeGreaterThan(1000);
+  });
 });

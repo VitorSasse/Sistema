@@ -229,26 +229,51 @@ function chaveRecursoSeguro(recurso: RecursoComparavel) {
   return recurso.referenciaTecnicaId ? `biblioteca:${recurso.referenciaTecnicaId}` : null;
 }
 
-function compararRecursos(previstos: RecursoComparavel[], realizados: RecursoComparavel[]) {
-  const realizadosPorChave = new Map<string, RecursoComparavel>();
-  const realizadosSemChave: RecursoComparavel[] = [];
-  const usados = new Set<string>();
+function consolidarRecursosPorChaveEstavel(recursos: RecursoComparavel[]) {
+  const consolidados = new Map<string, RecursoComparavel>();
+  const semChave: RecursoComparavel[] = [];
 
-  for (const realizado of realizados) {
-    const chave = chaveRecursoSeguro(realizado);
+  for (const recurso of recursos) {
+    const chave = chaveRecursoSeguro(recurso);
     if (!chave) {
-      realizadosSemChave.push(realizado);
+      semChave.push(recurso);
       continue;
     }
-    if (realizadosPorChave.has(chave)) {
-      realizadosSemChave.push(realizado);
-      realizadosPorChave.delete(chave);
+
+    const atual = consolidados.get(chave);
+    if (!atual) {
+      consolidados.set(chave, { ...recurso });
       continue;
     }
-    realizadosPorChave.set(chave, realizado);
+
+    consolidados.set(chave, {
+      ...atual,
+      id: `${atual.id}+${recurso.id}`,
+      quantidade: atual.quantidade + recurso.quantidade,
+      custo: atual.custo + recurso.custo,
+      unidade: atual.unidade ?? recurso.unidade,
+      nome: atual.nome || recurso.nome
+    });
   }
 
-  const comparados = previstos.map<ComparativoRecursoExecucao>((previsto) => {
+  return {
+    comChave: [...consolidados.values()],
+    semChave
+  };
+}
+
+function compararRecursos(previstos: RecursoComparavel[], realizados: RecursoComparavel[]) {
+  const previstosConsolidados = consolidarRecursosPorChaveEstavel(previstos);
+  const realizadosConsolidados = consolidarRecursosPorChaveEstavel(realizados);
+  const realizadosPorChave = new Map<string, RecursoComparavel>();
+  const usados = new Set<string>();
+
+  for (const realizado of realizadosConsolidados.comChave) {
+    const chave = chaveRecursoSeguro(realizado);
+    if (chave) realizadosPorChave.set(chave, realizado);
+  }
+
+  const comparados = previstosConsolidados.comChave.map<ComparativoRecursoExecucao>((previsto) => {
     const chave = chaveRecursoSeguro(previsto);
     const realizado = chave ? realizadosPorChave.get(chave) : null;
 
@@ -283,11 +308,11 @@ function compararRecursos(previstos: RecursoComparavel[], realizados: RecursoCom
   });
 
   const somenteRealizados = [
-    ...realizados.filter((realizado) => {
+    ...realizadosConsolidados.comChave.filter((realizado) => {
       const chave = chaveRecursoSeguro(realizado);
       return chave ? !usados.has(chave) && realizadosPorChave.has(chave) : false;
     }),
-    ...realizadosSemChave
+    ...realizadosConsolidados.semChave
   ].map<ComparativoRecursoExecucao>((realizado) => ({
     status: "SOMENTE_REALIZADO",
     recurso: realizado.nome,
@@ -301,7 +326,20 @@ function compararRecursos(previstos: RecursoComparavel[], realizados: RecursoCom
     }
   }));
 
-  return [...comparados, ...somenteRealizados];
+  const somentePrevistosSemChave = previstosConsolidados.semChave.map<ComparativoRecursoExecucao>((previsto) => ({
+    status: "SOMENTE_PREVISTO",
+    recurso: previsto.nome,
+    referenciaTecnicaId: previsto.referenciaTecnicaId,
+    unidade: previsto.unidade,
+    quantidade: compararValor(previsto.quantidade, null),
+    custo: compararValor(previsto.custo, null),
+    origem: {
+      previsto: previsto.id,
+      realizado: null
+    }
+  }));
+
+  return [...comparados, ...somentePrevistosSemChave, ...somenteRealizados];
 }
 
 export function gerarComparativoAPartirDeSnapshots(params: {
