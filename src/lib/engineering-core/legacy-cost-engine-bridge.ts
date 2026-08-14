@@ -111,6 +111,7 @@ function mapRecurso(
     nomeTecnico: recurso.descricao,
     categoria: recurso.categoria,
     classeOperacional: recursoEntrada?.classeOperacional ?? null,
+    metadados: recursoEntrada?.metadados,
     quantidadeRecursos: recurso.quantidadeRecursos,
     quantidadeOperacional: recurso.quantidadeOperacional,
     origemQuantidadeOperacional: recurso.origemQuantidadeOperacional,
@@ -154,7 +155,9 @@ function componenteResumo(recurso: ResultadoRecursoOperacionalNucleo) {
     id: recurso.id,
     tipo: recurso.componenteEconomico ?? null,
     nomeTecnico: recurso.nomeTecnico,
+    categoria: recurso.categoria ?? null,
     classeOperacional: recurso.classeOperacional ?? null,
+    referenciaTecnicaId: recurso.referenciaTecnicaId ?? null,
     baseEconomica: recurso.baseEconomica,
     custoUnitario: recurso.custoUnitario,
     quantidadeRecursos: recurso.quantidadeRecursos,
@@ -172,6 +175,11 @@ function componenteResumo(recurso: ResultadoRecursoOperacionalNucleo) {
     mesesTotais: recurso.mesesTotais,
     diasTrabalhadosMes: recurso.diasTrabalhadosMes,
     custoTotal: recurso.custoTotal,
+    materialId: typeof recurso.metadados?.materialId === "string" ? recurso.metadados.materialId : null,
+    materialCodigo: typeof recurso.metadados?.materialCodigo === "string" ? recurso.metadados.materialCodigo : null,
+    materialDescricao: typeof recurso.metadados?.materialDescricao === "string" ? recurso.metadados.materialDescricao : null,
+    materialUnidade: typeof recurso.metadados?.materialUnidade === "string" ? recurso.metadados.materialUnidade : null,
+    metadados: recurso.metadados,
     statusCalculo: recurso.statusCalculo
   };
 }
@@ -205,6 +213,7 @@ function mapRecursoNaoRetornado(recursoEntrada: RecursoOperacionalNucleoInput): 
     nomeTecnico: recursoEntrada.nomeTecnico ?? "Recurso",
     categoria: recursoEntrada.categoria ?? "RECURSO",
     classeOperacional: recursoEntrada.classeOperacional ?? null,
+    metadados: recursoEntrada.metadados,
     quantidadeRecursos: Number(recursoEntrada.quantidadeRecursos ?? 0),
     quantidadeOperacional: Number(recursoEntrada.quantidadeOperacional ?? 0),
     origemQuantidadeOperacional: recursoEntrada.origemQuantidadeOperacional ?? "PERSONALIZADA",

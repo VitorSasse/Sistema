@@ -113,6 +113,81 @@ function snapshot(resultado: ReturnType<typeof executarNucleoComMotorAtual>) {
   }).snapshot;
 }
 
+function snapshotOperacional(params: {
+  recursos: Array<Record<string, unknown>>;
+  quantidade?: number;
+  receita?: number;
+  custo?: number;
+}) {
+  return {
+    resultadoOperacionalJson: {
+      resultadoOperacional: {
+        consolidado: {
+          custoOperacionalTotal: params.custo ?? 0,
+          quantidadeTotal: params.quantidade ?? 100
+        },
+        unidades: [
+          {
+            id: "frente-aterro",
+            nome: "Aterro Compactado",
+            unidade: "m3",
+            quantidade: params.quantidade ?? 100,
+            custoOperacionalTotal: params.custo ?? 0,
+            recursos: params.recursos
+          }
+        ]
+      }
+    },
+    economiaJson: {
+      unidades: [
+        {
+          id: "frente-aterro",
+          economia: {
+            receita: params.receita ?? 0,
+            resultado: (params.receita ?? 0) - (params.custo ?? 0),
+            margemPercentual: null
+          }
+        }
+      ]
+    }
+  };
+}
+
+function recursoSnapshot(params: {
+  id: string;
+  nome: string;
+  quantidade: number;
+  unidade: string;
+  custo?: number;
+  referenciaTecnicaId?: string | null;
+  categoria?: string | null;
+  classeOperacional?: string | null;
+  componenteEconomico?: string | null;
+  baseEconomica?: string | null;
+  materialId?: string | null;
+  materialCodigo?: string | null;
+  metadados?: Record<string, string | number | boolean | null>;
+  componentesEconomicos?: Array<Record<string, unknown>>;
+}) {
+  return {
+    id: params.id,
+    nomeTecnico: params.nome,
+    referenciaTecnicaId: params.referenciaTecnicaId ?? null,
+    categoria: params.categoria ?? "RECURSO",
+    classeOperacional: params.classeOperacional ?? null,
+    componenteEconomico: params.componenteEconomico ?? null,
+    baseEconomica: params.baseEconomica ?? "UNIDADE",
+    quantidadeOperacional: params.quantidade,
+    unidadeQuantidadeOperacional: params.unidade,
+    custoTotal: params.custo ?? 0,
+    custoUnitario: params.custo ?? 0,
+    materialId: params.materialId ?? null,
+    materialCodigo: params.materialCodigo ?? null,
+    metadados: params.metadados,
+    componentesEconomicos: params.componentesEconomicos
+  };
+}
+
 function criarComparativoFixture() {
   // Custos de fixture usados apenas para validar o mecanismo de comparacao.
   // A homologacao economica real deve usar snapshots oficiais de orcamento/proposta e execucao.
@@ -495,6 +570,221 @@ describe("comparativo Orcado x Realizado da Execucao", () => {
       status: "CORRESPONDENTE",
       unidade: "viagem",
       quantidade: { previsto: 10, realizado: 12, desvioAbsoluto: 2 }
+    });
+  });
+
+  it("compara material previsto quando ele aparece como componente de transporte realizado", () => {
+    const previsto = snapshotOperacional({
+      custo: 100,
+      recursos: [
+        recursoSnapshot({
+          id: "previsto-material",
+          nome: "Material planejado",
+          quantidade: 10,
+          unidade: "m3",
+          custo: 100,
+          categoria: "MATERIAL",
+          componenteEconomico: "MATERIAL",
+          materialId: "material-tecnico-1"
+        })
+      ]
+    });
+    const realizado = snapshotOperacional({
+      custo: 50,
+      recursos: [
+        recursoSnapshot({
+          id: "realizado-transporte-composto",
+          nome: "Transporte realizado",
+          quantidade: 2,
+          unidade: "viagem",
+          custo: 50,
+          categoria: "TRANSPORTE",
+          componenteEconomico: "TOTAL",
+          componentesEconomicos: [
+            {
+              id: "transporte",
+              tipo: "TRANSPORTE",
+              nomeTecnico: "Transporte",
+              categoria: "TRANSPORTE",
+              classeOperacional: "transporte-classe",
+              baseEconomica: "VIAGEM",
+              quantidadeOperacional: 2,
+              unidadeQuantidadeOperacional: "viagem",
+              custoTotal: 50,
+              custoUnitario: 25
+            },
+            {
+              id: "material",
+              tipo: "MATERIAL",
+              nomeTecnico: "Material transportado",
+              categoria: "MATERIAL",
+              baseEconomica: "M3",
+              quantidadeOperacional: 10,
+              unidadeQuantidadeOperacional: "m3",
+              custoTotal: 0,
+              custoUnitario: 0,
+              materialId: "material-tecnico-1"
+            }
+          ]
+        })
+      ]
+    });
+
+    const comparativo = gerarComparativoAPartirDeSnapshots({
+      execucaoId: EXECUCAO_ID,
+      referenciaPrevista: {
+        origem: { tipo: OrigemReferenciaPrevistaExecucao.ORCAMENTO, orcamentoOrigemId: "orcamento-1" },
+        snapshot: previsto
+      },
+      realizado
+    });
+
+    const recursos = comparativo.frentes[0].recursos;
+    expect(recursos.find((item) => item.identidadeOperacionalComparativa === "material:material-tecnico-1")).toMatchObject({
+      status: "CORRESPONDENTE",
+      unidade: "m3",
+      quantidade: { previsto: 10, realizado: 10, desvioAbsoluto: 0 }
+    });
+    expect(recursos.find((item) => item.status === "SOMENTE_REALIZADO" && item.recurso === "Transporte")).toMatchObject({
+      unidade: "viagem",
+      custo: { previsto: null, realizado: 50 }
+    });
+    expect(recursos.reduce((total, item) => total + (item.custo.realizado ?? 0), 0)).toBe(50);
+  });
+
+  it("agrega o mesmo material realizado em varios transportes antes de comparar", () => {
+    const previsto = snapshotOperacional({
+      recursos: [
+        recursoSnapshot({
+          id: "previsto-material-agregado",
+          nome: "Material planejado",
+          quantidade: 12,
+          unidade: "m3",
+          categoria: "MATERIAL",
+          componenteEconomico: "MATERIAL",
+          materialId: "material-agregado"
+        })
+      ]
+    });
+    const realizado = snapshotOperacional({
+      recursos: [5, 3, 4].map((quantidade, index) =>
+        recursoSnapshot({
+          id: `transporte-${index + 1}`,
+          nome: `Transporte ${index + 1}`,
+          quantidade: 1,
+          unidade: "viagem",
+          categoria: "TRANSPORTE",
+          componenteEconomico: "TOTAL",
+          componentesEconomicos: [
+            {
+              id: `material-${index + 1}`,
+              tipo: "MATERIAL",
+              nomeTecnico: "Material transportado",
+              categoria: "MATERIAL",
+              baseEconomica: "M3",
+              quantidadeOperacional: quantidade,
+              unidadeQuantidadeOperacional: "m3",
+              custoTotal: 0,
+              materialId: "material-agregado"
+            }
+          ]
+        })
+      )
+    });
+
+    const comparativo = gerarComparativoAPartirDeSnapshots({
+      execucaoId: EXECUCAO_ID,
+      referenciaPrevista: {
+        origem: { tipo: OrigemReferenciaPrevistaExecucao.ORCAMENTO, orcamentoOrigemId: "orcamento-1" },
+        snapshot: previsto
+      },
+      realizado
+    });
+
+    expect(comparativo.frentes[0].recursos).toHaveLength(1);
+    expect(comparativo.frentes[0].recursos[0]).toMatchObject({
+      status: "CORRESPONDENTE",
+      quantidade: { previsto: 12, realizado: 12, desvioAbsoluto: 0 }
+    });
+  });
+
+  it("mantem material realmente adicional como somente realizado", () => {
+    const previsto = snapshotOperacional({
+      recursos: [
+        recursoSnapshot({
+          id: "previsto-material",
+          nome: "Material planejado",
+          quantidade: 10,
+          unidade: "m3",
+          categoria: "MATERIAL",
+          componenteEconomico: "MATERIAL",
+          materialId: "material-previsto"
+        })
+      ]
+    });
+    const realizado = snapshotOperacional({
+      recursos: [
+        recursoSnapshot({
+          id: "realizado-material-adicional",
+          nome: "Material adicional",
+          quantidade: 4,
+          unidade: "m3",
+          categoria: "MATERIAL",
+          componenteEconomico: "MATERIAL",
+          materialId: "material-adicional"
+        })
+      ]
+    });
+
+    const comparativo = gerarComparativoAPartirDeSnapshots({
+      execucaoId: EXECUCAO_ID,
+      referenciaPrevista: {
+        origem: { tipo: OrigemReferenciaPrevistaExecucao.ORCAMENTO, orcamentoOrigemId: "orcamento-1" },
+        snapshot: previsto
+      },
+      realizado
+    });
+
+    expect(comparativo.frentes[0].recursos.map((item) => item.status)).toEqual(["SOMENTE_PREVISTO", "SOMENTE_REALIZADO"]);
+  });
+
+  it("usa associacao manual persistida em metadados quando a identidade automatica e limitada", () => {
+    const previsto = snapshotOperacional({
+      recursos: [
+        recursoSnapshot({
+          id: "previsto-legado",
+          nome: "Recurso legado previsto",
+          quantidade: 3,
+          unidade: "dia",
+          metadados: { mapeamentoComparativoId: "funcao-operacional-manual" }
+        })
+      ]
+    });
+    const realizado = snapshotOperacional({
+      recursos: [
+        recursoSnapshot({
+          id: "realizado-provisorio",
+          nome: "Recurso provisorio realizado",
+          quantidade: 2,
+          unidade: "dia",
+          metadados: { mapeamentoComparativoId: "funcao-operacional-manual" }
+        })
+      ]
+    });
+
+    const comparativo = gerarComparativoAPartirDeSnapshots({
+      execucaoId: EXECUCAO_ID,
+      referenciaPrevista: {
+        origem: { tipo: OrigemReferenciaPrevistaExecucao.ORCAMENTO, orcamentoOrigemId: "orcamento-1" },
+        snapshot: previsto
+      },
+      realizado
+    });
+
+    expect(comparativo.frentes[0].recursos[0]).toMatchObject({
+      status: "CORRESPONDENTE",
+      identidadeOperacionalComparativa: "manual:funcao-operacional-manual",
+      quantidade: { previsto: 3, realizado: 2, desvioAbsoluto: -1 }
     });
   });
 

@@ -112,6 +112,8 @@ type RecursoComparavel = {
   categoria: string | null;
   classeOperacional: string | null;
   componenteEconomico: string | null;
+  materialId: string | null;
+  materialCodigo: string | null;
   baseEconomica: string | null;
   capacidadePorViagem: number;
   unidadeCapacidade: string | null;
@@ -172,6 +174,15 @@ function normalizeUnit(value: unknown) {
   if (unit.includes("m2")) return "m2";
   if (unit.includes("mes")) return "mes";
   return unit;
+}
+
+function stringOrNull(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function metadadoString(recurso: Record<string, unknown>, key: string) {
+  const metadados = isRecord(recurso.metadados) ? recurso.metadados : {};
+  return stringOrNull(metadados[key]);
 }
 
 function extrairResultadoOperacional(snapshot: ResultadoSnapshotPersistido) {
@@ -244,9 +255,7 @@ function extrairUnidadesComparaveis(snapshot: ResultadoSnapshotPersistido) {
         custo: toNumber(unidade.custoOperacionalTotal),
         resultado: toNumber(economia?.resultado),
         margemPercentual: economia?.margemPercentual ?? null,
-        recursos: recursos
-          .filter((recurso): recurso is Record<string, unknown> => isRecord(recurso) && typeof recurso.id === "string")
-          .map(mapRecursoComparavel)
+        recursos: mapRecursosComparaveis(recursos)
       };
     });
 }
@@ -321,6 +330,11 @@ function resolveOperationalQuantity(recurso: Record<string, unknown>) {
 }
 
 function buildIdentidadeOperacionalComparativa(recurso: Record<string, unknown>) {
+  const chaveManual = metadadoString(recurso, "identidadeOperacionalComparativa") ??
+    metadadoString(recurso, "chaveComparativoOperacional") ??
+    metadadoString(recurso, "mapeamentoComparativoId");
+  if (chaveManual) return `manual:${normalizeText(chaveManual)}`;
+
   const referenciaTecnicaId = typeof recurso.referenciaTecnicaId === "string" && recurso.referenciaTecnicaId.trim()
     ? recurso.referenciaTecnicaId.trim()
     : null;
@@ -331,6 +345,15 @@ function buildIdentidadeOperacionalComparativa(recurso: Record<string, unknown>)
   const base = normalizeText(recurso.baseEconomica);
   const capacidade = toNumber(recurso.capacidadePorViagem);
   const unidadeCapacidade = normalizeUnit(recurso.unidadeCapacidade);
+  const materialId = stringOrNull(recurso.materialId) ?? metadadoString(recurso, "materialId");
+  const materialCodigo = stringOrNull(recurso.materialCodigo) ?? metadadoString(recurso, "materialCodigo");
+
+  if (componente === "material" || categoria === "material") {
+    if (materialId) return `material:${materialId}`;
+    if (materialCodigo) return `material-codigo:${normalizeText(materialCodigo)}`;
+    if (referenciaTecnicaId) return `material-referencia:${referenciaTecnicaId}`;
+    return null;
+  }
 
   if (base === "km" && capacidade > 0 && unidadeCapacidade) {
     return [
@@ -369,6 +392,8 @@ function mapRecursoComparavel(recurso: Record<string, unknown>): RecursoComparav
     categoria: typeof recurso.categoria === "string" ? recurso.categoria : null,
     classeOperacional: typeof recurso.classeOperacional === "string" ? recurso.classeOperacional : null,
     componenteEconomico: typeof recurso.componenteEconomico === "string" ? recurso.componenteEconomico : null,
+    materialId: stringOrNull(recurso.materialId) ?? metadadoString(recurso, "materialId"),
+    materialCodigo: stringOrNull(recurso.materialCodigo) ?? metadadoString(recurso, "materialCodigo"),
     baseEconomica: typeof recurso.baseEconomica === "string" ? recurso.baseEconomica : null,
     capacidadePorViagem: toNumber(recurso.capacidadePorViagem),
     unidadeCapacidade: typeof recurso.unidadeCapacidade === "string" ? recurso.unidadeCapacidade : null,
@@ -377,6 +402,53 @@ function mapRecursoComparavel(recurso: Record<string, unknown>): RecursoComparav
     custo: toNumber(recurso.custoTotal),
     rastreabilidade: [id, recursoRealizadoId, recursoBoletimId].filter((value): value is string => Boolean(value))
   };
+}
+
+function mapComponenteComparavel(
+  recurso: Record<string, unknown>,
+  componente: Record<string, unknown>
+): RecursoComparavel {
+  const parentId = String(recurso.id);
+  const componentId = String(componente.id ?? componente.tipo ?? "componente");
+  const recursoRealizadoId = stringOrNull(recurso.recursoRealizadoId);
+  const recursoBoletimId = stringOrNull(recurso.recursoBoletimId);
+  const metadados = {
+    ...(isRecord(recurso.metadados) ? recurso.metadados : {}),
+    ...(isRecord(componente.metadados) ? componente.metadados : {})
+  };
+  const componentRecord: Record<string, unknown> = {
+    ...componente,
+    id: `${parentId}:${componentId}`,
+    componenteEconomico: stringOrNull(componente.componenteEconomico) ?? stringOrNull(componente.tipo),
+    referenciaTecnicaId: stringOrNull(componente.referenciaTecnicaId) ?? stringOrNull(recurso.referenciaTecnicaId),
+    categoria: stringOrNull(componente.categoria) ?? stringOrNull(recurso.categoria),
+    classeOperacional: stringOrNull(componente.classeOperacional) ?? stringOrNull(recurso.classeOperacional),
+    recursoRealizadoId,
+    recursoBoletimId,
+    metadados
+  };
+  const comparavel = mapRecursoComparavel(componentRecord);
+
+  return {
+    ...comparavel,
+    rastreabilidade: [parentId, componentId, recursoRealizadoId, recursoBoletimId].filter((value): value is string => Boolean(value))
+  };
+}
+
+function mapRecursosComparaveis(recursos: unknown[]) {
+  return recursos
+    .filter((recurso): recurso is Record<string, unknown> => isRecord(recurso) && typeof recurso.id === "string")
+    .flatMap((recurso) => {
+      const componentes = Array.isArray(recurso.componentesEconomicos)
+        ? recurso.componentesEconomicos.filter((componente): componente is Record<string, unknown> => isRecord(componente))
+        : [];
+
+      if (componentes.length) {
+        return componentes.map((componente) => mapComponenteComparavel(recurso, componente));
+      }
+
+      return [mapRecursoComparavel(recurso)];
+    });
 }
 
 function chaveRecursoSeguro(recurso: RecursoComparavel) {
