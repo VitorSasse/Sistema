@@ -1609,7 +1609,10 @@ export function ExecucoesManager() {
                     {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
                   </select>
                 </div>
-                <input placeholder="Receita contratada (opcional)" type="number" step="0.01" value={execucaoForm.receita} onChange={(event) => setExecucaoForm((current) => ({ ...current, receita: event.target.value }))} />
+                <label>
+                  Receita realizada
+                  <input placeholder="Receita realizada (opcional)" type="number" step="0.01" value={execucaoForm.receita} onChange={(event) => setExecucaoForm((current) => ({ ...current, receita: event.target.value }))} />
+                </label>
               </>
             )}
             <button
@@ -1679,19 +1682,42 @@ export function ExecucoesManager() {
                     {unidades.map((unidade) => <option key={unidade} value={unidade}>{unidade}</option>)}
                   </select>
                 </div>
-                <input placeholder="Receita realizada / contratada (opcional)" type="number" step="0.01" value={headerForm.receita} onChange={(event) => setHeaderForm((current) => ({ ...current, receita: event.target.value }))} />
                 {receitaPrevistaComparativo !== null ? (
-                  <div className="execucoes-summary-grid">
-                    <Info label="Receita prevista" value={money(receitaPrevistaComparativo)} />
-                    <Info label="Receita realizada" value={receitaRealizadaHeader === null ? "Nao informada" : money(receitaRealizadaHeader)} />
-                    <Info
-                      label="Desvio de receita"
-                      value={desvioReceitaHeader === null
-                        ? "Informe a receita realizada"
-                        : `${money(desvioReceitaHeader)} / ${percentualDesvioReceitaHeader === null ? "-" : number(percentualDesvioReceitaHeader, "%")}`}
-                    />
+                  <div className="execucoes-resource-form">
+                    <div className="execucoes-summary-grid">
+                      <Info label="Receita prevista" value={money(receitaPrevistaComparativo)} />
+                      <Info
+                        label="Desvio de receita"
+                        value={desvioReceitaHeader === null
+                          ? "Informe a receita realizada"
+                          : `${money(desvioReceitaHeader)} / ${percentualDesvioReceitaHeader === null ? "-" : number(percentualDesvioReceitaHeader, "%")}`}
+                      />
+                    </div>
+                    <label>
+                      Receita realizada
+                      <input
+                        aria-label="Receita realizada"
+                        placeholder="Informe a receita realizada"
+                        type="number"
+                        step="0.01"
+                        value={headerForm.receita}
+                        onChange={(event) => setHeaderForm((current) => ({ ...current, receita: event.target.value }))}
+                      />
+                    </label>
                   </div>
-                ) : null}
+                ) : (
+                  <label>
+                    Receita realizada
+                    <input
+                      aria-label="Receita realizada"
+                      placeholder="Receita realizada (opcional)"
+                      type="number"
+                      step="0.01"
+                      value={headerForm.receita}
+                      onChange={(event) => setHeaderForm((current) => ({ ...current, receita: event.target.value }))}
+                    />
+                  </label>
+                )}
                 <textarea
                   placeholder="Motivo da variacao de receita (opcional)"
                   value={headerForm.motivoVariacaoReceita}
