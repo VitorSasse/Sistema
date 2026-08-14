@@ -158,7 +158,8 @@ type Comparativo = {
     resultado: ComparativoValor;
     margem: ComparativoValor;
     recursos: Array<{
-      status: "CORRESPONDENTE" | "SOMENTE_PREVISTO" | "SOMENTE_REALIZADO";
+      status: "CORRESPONDENTE" | "SOMENTE_PREVISTO" | "SOMENTE_REALIZADO" | "COMPARACAO_LIMITADA";
+      dimensao?: string;
       recurso: string;
       unidade: string | null;
       quantidade: ComparativoValor;
@@ -193,6 +194,13 @@ function money(value: number | null | undefined) {
 function number(value: number | string | null | undefined, suffix = "") {
   if (value === null || value === undefined || value === "") return "-";
   return `${toNumber(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}${suffix}`;
+}
+
+function comparativoStatusLabel(status: Comparativo["frentes"][number]["recursos"][number]["status"]) {
+  if (status === "CORRESPONDENTE") return "Previsto e realizado";
+  if (status === "SOMENTE_PREVISTO") return "Previsto, nao utilizado";
+  if (status === "SOMENTE_REALIZADO") return "Nao previsto, utilizado";
+  return "Comparacao limitada";
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -2444,7 +2452,7 @@ export function ExecucoesManager() {
                           <td>{money(recurso.custo.realizado)}</td>
                           <td>{money(recurso.custo.desvioAbsoluto)}</td>
                           <td>{recurso.origem.previsto ? "Previsto e realizado" : "Fato realizado"}</td>
-                          <td>{recurso.status === "CORRESPONDENTE" ? "OK" : recurso.status.replaceAll("_", " ")}</td>
+                          <td>{comparativoStatusLabel(recurso.status)}</td>
                         </tr>
                       ))}
                     </tbody>

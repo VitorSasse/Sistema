@@ -40,7 +40,16 @@ export type ReferenciaPrevistaExecucaoInput = {
   resultadoPrevisto: ResultadoNucleoEngenharia;
 };
 
-export type StatusCorrespondenciaRecurso = "CORRESPONDENTE" | "SOMENTE_PREVISTO" | "SOMENTE_REALIZADO";
+export type StatusCorrespondenciaRecurso = "CORRESPONDENTE" | "SOMENTE_PREVISTO" | "SOMENTE_REALIZADO" | "COMPARACAO_LIMITADA";
+
+export type DimensaoComparativa =
+  | "EQUIPAMENTO"
+  | "TRANSPORTE"
+  | "MATERIAL"
+  | "MAO_DE_OBRA"
+  | "SERVICO"
+  | "MOBILIZACAO"
+  | "OUTRO";
 
 export type ComparativoValor = {
   previsto: number | null;
@@ -51,6 +60,7 @@ export type ComparativoValor = {
 
 export type ComparativoRecursoExecucao = {
   status: StatusCorrespondenciaRecurso;
+  dimensao: DimensaoComparativa;
   recurso: string;
   referenciaTecnicaId: string | null;
   identidadeOperacionalComparativa: string | null;
@@ -101,13 +111,16 @@ type UnidadeComparavel = {
   custo: number;
   resultado: number;
   margemPercentual: number | null;
-  recursos: RecursoComparavel[];
+  recursos: ProjecaoComparavel[];
 };
 
-type RecursoComparavel = {
+export type ProjecaoComparavel = {
+  origem: "PREVISTO" | "REALIZADO";
   id: string;
+  dimensao: DimensaoComparativa;
   referenciaTecnicaId: string | null;
   identidadeOperacionalComparativa: string | null;
+  identidadeTecnicaComparativa: string | null;
   nome: string;
   categoria: string | null;
   classeOperacional: string | null;
@@ -121,6 +134,7 @@ type RecursoComparavel = {
   quantidade: number;
   custo: number;
   rastreabilidade: string[];
+  metadados: Record<string, unknown>;
 };
 
 function toNumber(value: unknown) {
@@ -185,6 +199,35 @@ function metadadoString(recurso: Record<string, unknown>, key: string) {
   return stringOrNull(metadados[key]);
 }
 
+function inferDimensaoComparativa(recurso: Record<string, unknown>): DimensaoComparativa {
+  const dimensaoManual = normalizeText(metadadoString(recurso, "dimensaoComparativa"));
+  const componente = normalizeText(recurso.componenteEconomico);
+  const categoria = normalizeText(recurso.categoria);
+  const base = normalizeText(recurso.baseEconomica);
+  const possuiMaterial = Boolean(stringOrNull(recurso.materialId) ?? metadadoString(recurso, "materialId"));
+  const possuiCapacidade = toNumber(recurso.capacidadePorViagem) > 0;
+
+  if (dimensaoManual === "equipamento") return "EQUIPAMENTO";
+  if (dimensaoManual === "transporte") return "TRANSPORTE";
+  if (dimensaoManual === "material") return "MATERIAL";
+  if (dimensaoManual === "mao-de-obra") return "MAO_DE_OBRA";
+  if (dimensaoManual === "servico") return "SERVICO";
+  if (dimensaoManual === "mobilizacao") return "MOBILIZACAO";
+
+  if (componente === "material" || categoria === "material" || possuiMaterial) return "MATERIAL";
+  if (base === "km" || componente === "transporte" || categoria === "transporte" || possuiCapacidade) return "TRANSPORTE";
+  if (componente === "equipamento" || categoria === "equipamento") return "EQUIPAMENTO";
+  if (categoria.includes("mao-de-obra") || categoria.includes("colaborador") || categoria.includes("operador")) return "MAO_DE_OBRA";
+  if (categoria.includes("servico")) return "SERVICO";
+  if (categoria.includes("mobilizacao")) return "MOBILIZACAO";
+  if (base === "viagem" || base === "carga") {
+    return "TRANSPORTE";
+  }
+  if (categoria.includes("equipamento") || stringOrNull(recurso.referenciaTecnicaId) || stringOrNull(recurso.classeOperacional)) return "EQUIPAMENTO";
+
+  return "OUTRO";
+}
+
 function extrairResultadoOperacional(snapshot: ResultadoSnapshotPersistido) {
   if (!isRecord(snapshot.resultadoOperacionalJson)) return null;
   const maybeWrapped = snapshot.resultadoOperacionalJson.resultadoOperacional;
@@ -235,7 +278,7 @@ function transformarResultadoNucleoEmSnapshot(resultado: ResultadoNucleoEngenhar
   };
 }
 
-function extrairUnidadesComparaveis(snapshot: ResultadoSnapshotPersistido) {
+function extrairUnidadesComparaveis(snapshot: ResultadoSnapshotPersistido, origem: ProjecaoComparavel["origem"]) {
   const operacional = extrairResultadoOperacional(snapshot);
   const economiaUnidades = extrairEconomiaUnidades(snapshot);
   const unidades = isRecord(operacional) && Array.isArray(operacional.unidades) ? operacional.unidades : [];
@@ -255,7 +298,7 @@ function extrairUnidadesComparaveis(snapshot: ResultadoSnapshotPersistido) {
         custo: toNumber(unidade.custoOperacionalTotal),
         resultado: toNumber(economia?.resultado),
         margemPercentual: economia?.margemPercentual ?? null,
-        recursos: mapRecursosComparaveis(recursos)
+        recursos: mapRecursosComparaveis(recursos, origem)
       };
     });
 }
@@ -330,6 +373,7 @@ function resolveOperationalQuantity(recurso: Record<string, unknown>) {
 }
 
 function buildIdentidadeOperacionalComparativa(recurso: Record<string, unknown>) {
+  const dimensao = inferDimensaoComparativa(recurso);
   const chaveManual = metadadoString(recurso, "identidadeOperacionalComparativa") ??
     metadadoString(recurso, "chaveComparativoOperacional") ??
     metadadoString(recurso, "mapeamentoComparativoId");
@@ -348,19 +392,24 @@ function buildIdentidadeOperacionalComparativa(recurso: Record<string, unknown>)
   const materialId = stringOrNull(recurso.materialId) ?? metadadoString(recurso, "materialId");
   const materialCodigo = stringOrNull(recurso.materialCodigo) ?? metadadoString(recurso, "materialCodigo");
 
-  if (componente === "material" || categoria === "material") {
+  if (dimensao === "MATERIAL") {
     if (materialId) return `material:${materialId}`;
     if (materialCodigo) return `material-codigo:${normalizeText(materialCodigo)}`;
     if (referenciaTecnicaId) return `material-referencia:${referenciaTecnicaId}`;
     return null;
   }
 
-  if (base === "km" && capacidade > 0 && unidadeCapacidade) {
-    return [
-      "funcao:transporte-km",
+  if (dimensao === "TRANSPORTE" && capacidade > 0 && unidadeCapacidade) {
+    const partesTransporte = [
+      "funcao:transporte",
+      classe ? `classe:${classe}` : null,
+      categoria ? `categoria:${categoria}` : null,
+      base ? `base:${base}` : null,
       `capacidade:${round(capacidade, 4)}`,
       `unidade-capacidade:${unidadeCapacidade}`
-    ].join("|");
+    ].filter(Boolean);
+
+    return partesTransporte.length >= 5 ? partesTransporte.join("|") : null;
   }
 
   const partes = [
@@ -378,16 +427,22 @@ function buildIdentidadeOperacionalComparativa(recurso: Record<string, unknown>)
   return referenciaTecnicaId ? `referencia:${referenciaTecnicaId}` : null;
 }
 
-function mapRecursoComparavel(recurso: Record<string, unknown>): RecursoComparavel {
+function mapRecursoComparavel(recurso: Record<string, unknown>, origem: ProjecaoComparavel["origem"]): ProjecaoComparavel {
   const quantidadeComparavel = resolveOperationalQuantity(recurso);
   const id = String(recurso.id);
   const recursoRealizadoId = typeof recurso.recursoRealizadoId === "string" ? recurso.recursoRealizadoId : null;
   const recursoBoletimId = typeof recurso.recursoBoletimId === "string" ? recurso.recursoBoletimId : null;
+  const dimensao = inferDimensaoComparativa(recurso);
+  const identidadeTecnicaComparativa = buildIdentidadeOperacionalComparativa(recurso);
+  const metadados = isRecord(recurso.metadados) ? recurso.metadados : {};
 
   return {
+    origem,
     id,
+    dimensao,
     referenciaTecnicaId: typeof recurso.referenciaTecnicaId === "string" ? recurso.referenciaTecnicaId : null,
-    identidadeOperacionalComparativa: buildIdentidadeOperacionalComparativa(recurso),
+    identidadeOperacionalComparativa: identidadeTecnicaComparativa,
+    identidadeTecnicaComparativa,
     nome: String(recurso.nomeTecnico ?? recurso.id),
     categoria: typeof recurso.categoria === "string" ? recurso.categoria : null,
     classeOperacional: typeof recurso.classeOperacional === "string" ? recurso.classeOperacional : null,
@@ -400,14 +455,16 @@ function mapRecursoComparavel(recurso: Record<string, unknown>): RecursoComparav
     unidade: quantidadeComparavel.unidade,
     quantidade: quantidadeComparavel.quantidade,
     custo: toNumber(recurso.custoTotal),
-    rastreabilidade: [id, recursoRealizadoId, recursoBoletimId].filter((value): value is string => Boolean(value))
+    rastreabilidade: [id, recursoRealizadoId, recursoBoletimId].filter((value): value is string => Boolean(value)),
+    metadados
   };
 }
 
 function mapComponenteComparavel(
   recurso: Record<string, unknown>,
-  componente: Record<string, unknown>
-): RecursoComparavel {
+  componente: Record<string, unknown>,
+  origem: ProjecaoComparavel["origem"]
+): ProjecaoComparavel {
   const parentId = String(recurso.id);
   const componentId = String(componente.id ?? componente.tipo ?? "componente");
   const recursoRealizadoId = stringOrNull(recurso.recursoRealizadoId);
@@ -427,7 +484,7 @@ function mapComponenteComparavel(
     recursoBoletimId,
     metadados
   };
-  const comparavel = mapRecursoComparavel(componentRecord);
+  const comparavel = mapRecursoComparavel(componentRecord, origem);
 
   return {
     ...comparavel,
@@ -435,7 +492,7 @@ function mapComponenteComparavel(
   };
 }
 
-function mapRecursosComparaveis(recursos: unknown[]) {
+function mapRecursosComparaveis(recursos: unknown[], origem: ProjecaoComparavel["origem"]) {
   return recursos
     .filter((recurso): recurso is Record<string, unknown> => isRecord(recurso) && typeof recurso.id === "string")
     .flatMap((recurso) => {
@@ -444,20 +501,22 @@ function mapRecursosComparaveis(recursos: unknown[]) {
         : [];
 
       if (componentes.length) {
-        return componentes.map((componente) => mapComponenteComparavel(recurso, componente));
+        return componentes.map((componente) => mapComponenteComparavel(recurso, componente, origem));
       }
 
-      return [mapRecursoComparavel(recurso)];
+      return [mapRecursoComparavel(recurso, origem)];
     });
 }
 
-function chaveRecursoSeguro(recurso: RecursoComparavel) {
-  return recurso.identidadeOperacionalComparativa;
+function chaveRecursoSeguro(recurso: ProjecaoComparavel) {
+  return recurso.identidadeTecnicaComparativa
+    ? `${recurso.dimensao}:${recurso.identidadeTecnicaComparativa}`
+    : null;
 }
 
-function consolidarRecursosPorChaveEstavel(recursos: RecursoComparavel[]) {
-  const consolidados = new Map<string, RecursoComparavel>();
-  const semChave: RecursoComparavel[] = [];
+function consolidarRecursosPorChaveEstavel(recursos: ProjecaoComparavel[]) {
+  const consolidados = new Map<string, ProjecaoComparavel>();
+  const semChave: ProjecaoComparavel[] = [];
 
   for (const recurso of recursos) {
     const chave = chaveRecursoSeguro(recurso);
@@ -489,10 +548,10 @@ function consolidarRecursosPorChaveEstavel(recursos: RecursoComparavel[]) {
   };
 }
 
-function compararRecursos(previstos: RecursoComparavel[], realizados: RecursoComparavel[]) {
+function compararRecursos(previstos: ProjecaoComparavel[], realizados: ProjecaoComparavel[]) {
   const previstosConsolidados = consolidarRecursosPorChaveEstavel(previstos);
   const realizadosConsolidados = consolidarRecursosPorChaveEstavel(realizados);
-  const realizadosPorChave = new Map<string, RecursoComparavel>();
+  const realizadosPorChave = new Map<string, ProjecaoComparavel>();
   const usados = new Set<string>();
 
   for (const realizado of realizadosConsolidados.comChave) {
@@ -507,6 +566,7 @@ function compararRecursos(previstos: RecursoComparavel[], realizados: RecursoCom
     if (!chave || !realizado) {
       return {
         status: "SOMENTE_PREVISTO",
+        dimensao: previsto.dimensao,
         recurso: previsto.nome,
         referenciaTecnicaId: previsto.referenciaTecnicaId,
         identidadeOperacionalComparativa: previsto.identidadeOperacionalComparativa,
@@ -523,6 +583,7 @@ function compararRecursos(previstos: RecursoComparavel[], realizados: RecursoCom
     usados.add(chave);
     return {
       status: "CORRESPONDENTE",
+      dimensao: previsto.dimensao,
       recurso: previsto.nome,
       referenciaTecnicaId: previsto.referenciaTecnicaId,
       identidadeOperacionalComparativa: previsto.identidadeOperacionalComparativa,
@@ -544,6 +605,7 @@ function compararRecursos(previstos: RecursoComparavel[], realizados: RecursoCom
     ...realizadosConsolidados.semChave
   ].map<ComparativoRecursoExecucao>((realizado) => ({
     status: "SOMENTE_REALIZADO",
+    dimensao: realizado.dimensao,
     recurso: realizado.nome,
     referenciaTecnicaId: realizado.referenciaTecnicaId,
     identidadeOperacionalComparativa: realizado.identidadeOperacionalComparativa,
@@ -556,8 +618,10 @@ function compararRecursos(previstos: RecursoComparavel[], realizados: RecursoCom
     }
   }));
 
+  const dimensoesRealizadasSemChave = new Set(realizadosConsolidados.semChave.map((realizado) => realizado.dimensao));
   const somentePrevistosSemChave = previstosConsolidados.semChave.map<ComparativoRecursoExecucao>((previsto) => ({
-    status: "SOMENTE_PREVISTO",
+    status: dimensoesRealizadasSemChave.has(previsto.dimensao) ? "COMPARACAO_LIMITADA" : "SOMENTE_PREVISTO",
+    dimensao: previsto.dimensao,
     recurso: previsto.nome,
     referenciaTecnicaId: previsto.referenciaTecnicaId,
     identidadeOperacionalComparativa: previsto.identidadeOperacionalComparativa,
@@ -590,8 +654,8 @@ export function gerarComparativoAPartirDeSnapshots(params: {
     };
   }
 
-  const previstas = extrairUnidadesComparaveis(params.referenciaPrevista.snapshot);
-  const realizadas = extrairUnidadesComparaveis(params.realizado ?? { resultadoOperacionalJson: {} });
+  const previstas = extrairUnidadesComparaveis(params.referenciaPrevista.snapshot, "PREVISTO");
+  const realizadas = extrairUnidadesComparaveis(params.realizado ?? { resultadoOperacionalJson: {} }, "REALIZADO");
   const realizadasPorId = new Map(realizadas.map((unidade) => [unidade.id, unidade]));
 
   return {

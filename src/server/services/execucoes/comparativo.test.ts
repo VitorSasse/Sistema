@@ -268,6 +268,7 @@ describe("comparativo Orcado x Realizado da Execucao", () => {
 
     expect(recursos.find((item) => item.referenciaTecnicaId === "eq-escavadeira")).toMatchObject({
       status: "CORRESPONDENTE",
+      dimensao: "EQUIPAMENTO",
       quantidade: { previsto: 10, realizado: 12, desvioAbsoluto: 2, desvioPercentual: 20 },
       custo: { previsto: 200, realizado: 240, desvioAbsoluto: 40, desvioPercentual: 20 }
     });
@@ -371,6 +372,7 @@ describe("comparativo Orcado x Realizado da Execucao", () => {
 
     expect(comparativo.frentes[0].recursos[0]).toMatchObject({
       status: "CORRESPONDENTE",
+      dimensao: "EQUIPAMENTO",
       unidade: "dia",
       quantidade: { previsto: 3, realizado: 2, desvioAbsoluto: -1 },
       custo: { previsto: 2400, realizado: 1600, desvioAbsoluto: -800 }
@@ -502,6 +504,7 @@ describe("comparativo Orcado x Realizado da Execucao", () => {
     expect(comparativo.frentes[0].recursos).toHaveLength(1);
     expect(comparativo.frentes[0].recursos[0]).toMatchObject({
       status: "CORRESPONDENTE",
+      dimensao: "TRANSPORTE",
       unidade: "viagem",
       quantidade: { previsto: 75, realizado: 80, desvioAbsoluto: 5 },
       custo: { previsto: 6750, realizado: 7200, desvioAbsoluto: 450 }
@@ -568,6 +571,7 @@ describe("comparativo Orcado x Realizado da Execucao", () => {
 
     expect(comparativo.frentes[0].recursos[0]).toMatchObject({
       status: "CORRESPONDENTE",
+      dimensao: "TRANSPORTE",
       unidade: "viagem",
       quantidade: { previsto: 10, realizado: 12, desvioAbsoluto: 2 }
     });
@@ -642,6 +646,7 @@ describe("comparativo Orcado x Realizado da Execucao", () => {
     const recursos = comparativo.frentes[0].recursos;
     expect(recursos.find((item) => item.identidadeOperacionalComparativa === "material:material-tecnico-1")).toMatchObject({
       status: "CORRESPONDENTE",
+      dimensao: "MATERIAL",
       unidade: "m3",
       quantidade: { previsto: 10, realizado: 10, desvioAbsoluto: 0 }
     });
@@ -746,6 +751,123 @@ describe("comparativo Orcado x Realizado da Execucao", () => {
     });
 
     expect(comparativo.frentes[0].recursos.map((item) => item.status)).toEqual(["SOMENTE_PREVISTO", "SOMENTE_REALIZADO"]);
+    expect(comparativo.frentes[0].recursos.map((item) => item.dimensao)).toEqual(["MATERIAL", "MATERIAL"]);
+  });
+
+  it("nao permite colisao entre material e transporte mesmo com referencia tecnica igual", () => {
+    const previsto = snapshotOperacional({
+      recursos: [
+        recursoSnapshot({
+          id: "previsto-material",
+          nome: "Material planejado",
+          quantidade: 8,
+          unidade: "m3",
+          referenciaTecnicaId: "referencia-compartilhada",
+          categoria: "MATERIAL",
+          componenteEconomico: "MATERIAL"
+        })
+      ]
+    });
+    const realizado = snapshotOperacional({
+      recursos: [
+        recursoSnapshot({
+          id: "realizado-transporte",
+          nome: "Transporte realizado",
+          quantidade: 8,
+          unidade: "viagem",
+          referenciaTecnicaId: "referencia-compartilhada",
+          categoria: "TRANSPORTE",
+          classeOperacional: "classe-transporte",
+          componenteEconomico: "TRANSPORTE",
+          baseEconomica: "VIAGEM",
+          componentesEconomicos: undefined
+        })
+      ]
+    });
+
+    const comparativo = gerarComparativoAPartirDeSnapshots({
+      execucaoId: EXECUCAO_ID,
+      referenciaPrevista: {
+        origem: { tipo: OrigemReferenciaPrevistaExecucao.ORCAMENTO, orcamentoOrigemId: "orcamento-1" },
+        snapshot: previsto
+      },
+      realizado
+    });
+
+    expect(comparativo.frentes[0].recursos.map((item) => item.status)).toEqual(["SOMENTE_PREVISTO", "SOMENTE_REALIZADO"]);
+    expect(comparativo.frentes[0].recursos.map((item) => item.dimensao)).toEqual(["MATERIAL", "TRANSPORTE"]);
+  });
+
+  it("mantem transportes de funcoes diferentes separados mesmo com mesma capacidade", () => {
+    const previsto = snapshotOperacional({
+      recursos: [
+        recursoSnapshot({
+          id: "previsto-transporte-a",
+          nome: "Transporte A",
+          quantidade: 10,
+          unidade: "viagem",
+          categoria: "TRANSPORTE",
+          classeOperacional: "funcao-a",
+          baseEconomica: "VIAGEM",
+          componentesEconomicos: undefined
+        }),
+        recursoSnapshot({
+          id: "previsto-transporte-b",
+          nome: "Transporte B",
+          quantidade: 20,
+          unidade: "viagem",
+          categoria: "TRANSPORTE",
+          classeOperacional: "funcao-b",
+          baseEconomica: "VIAGEM"
+        })
+      ].map((item) => ({
+        ...item,
+        capacidadePorViagem: 14,
+        unidadeCapacidade: "m3"
+      }))
+    });
+    const realizado = snapshotOperacional({
+      recursos: [
+        {
+          ...recursoSnapshot({
+            id: "realizado-transporte-a",
+            nome: "Transporte A realizado",
+            quantidade: 12,
+            unidade: "viagem",
+            categoria: "TRANSPORTE",
+            classeOperacional: "funcao-a",
+            baseEconomica: "VIAGEM"
+          }),
+          capacidadePorViagem: 14,
+          unidadeCapacidade: "m3"
+        },
+        {
+          ...recursoSnapshot({
+            id: "realizado-transporte-b",
+            nome: "Transporte B realizado",
+            quantidade: 18,
+            unidade: "viagem",
+            categoria: "TRANSPORTE",
+            classeOperacional: "funcao-b",
+            baseEconomica: "VIAGEM"
+          }),
+          capacidadePorViagem: 14,
+          unidadeCapacidade: "m3"
+        }
+      ]
+    });
+
+    const comparativo = gerarComparativoAPartirDeSnapshots({
+      execucaoId: EXECUCAO_ID,
+      referenciaPrevista: {
+        origem: { tipo: OrigemReferenciaPrevistaExecucao.ORCAMENTO, orcamentoOrigemId: "orcamento-1" },
+        snapshot: previsto
+      },
+      realizado
+    });
+
+    expect(comparativo.frentes[0].recursos).toHaveLength(2);
+    expect(comparativo.frentes[0].recursos.map((item) => item.quantidade.desvioAbsoluto)).toEqual([2, -2]);
   });
 
   it("usa associacao manual persistida em metadados quando a identidade automatica e limitada", () => {
@@ -793,7 +915,7 @@ describe("comparativo Orcado x Realizado da Execucao", () => {
       (item) => item.recurso === "Recurso sem chave"
     );
 
-    expect(recursosSemChave.map((item) => item.status)).toEqual(["SOMENTE_PREVISTO", "SOMENTE_REALIZADO"]);
+    expect(recursosSemChave.map((item) => item.status)).toEqual(["COMPARACAO_LIMITADA", "SOMENTE_REALIZADO"]);
   });
 
   it("retorna comparativo indisponivel para execucao direta sem referencia prevista", () => {

@@ -245,6 +245,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             desviosOperacionais: filtrarDesviosOperacionais(frente.recursos.map((recurso) => ({
               recurso: recurso.recurso,
               status: recurso.status === "CORRESPONDENTE" ? "CORRESPONDENTE" : recurso.status,
+              dimensao: recurso.dimensao,
               unidade: recurso.unidade,
               quantidade: recurso.quantidade,
               custo: recurso.custo

@@ -37,7 +37,8 @@ export type ExecucaoRelatorioComparativoValor = {
 
 export type ExecucaoRelatorioDesvioOperacional = {
   recurso: string;
-  status: "CORRESPONDENTE" | "SOMENTE_PREVISTO" | "SOMENTE_REALIZADO";
+  status: "CORRESPONDENTE" | "SOMENTE_PREVISTO" | "SOMENTE_REALIZADO" | "COMPARACAO_LIMITADA";
+  dimensao?: string | null;
   unidade?: string | null;
   quantidade: ExecucaoRelatorioComparativoValor;
   custo: ExecucaoRelatorioComparativoValor;
@@ -321,6 +322,7 @@ function operationalVariance(value: ExecucaoRelatorioComparativoValor, unidade?:
 function statusLabel(status: ExecucaoRelatorioDesvioOperacional["status"]) {
   if (status === "SOMENTE_PREVISTO") return "Previsto, nao utilizado";
   if (status === "SOMENTE_REALIZADO") return "Nao previsto, utilizado";
+  if (status === "COMPARACAO_LIMITADA") return "Comparacao limitada";
   return "Previsto e realizado";
 }
 
