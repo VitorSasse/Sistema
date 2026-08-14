@@ -1301,6 +1301,7 @@ model FrenteExecutada {
   unidade            String?
   quantidadeExecutada Decimal?          @db.Decimal(14, 4)
   receitaRealizada   Decimal?           @db.Decimal(14, 2)
+  motivoVariacaoReceita String?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   empresa            Empresa            @relation(fields: [empresaId], references: [id])

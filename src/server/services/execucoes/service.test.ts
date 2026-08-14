@@ -23,6 +23,7 @@ import {
   fecharBoletimDiarioProducao,
   excluirBoletimDiarioProducao,
   criarExecucao,
+  gerarResultadoExecucao,
   listarReferenciasOrcamentoExecucao,
   listarFatosOperacionaisExistentes,
   atualizarRecursoBoletimDiarioProducao,
@@ -856,7 +857,7 @@ describe("service de Execucao e Resultado", () => {
       nome: "Frente vinculada",
       unidade: "m3",
       quantidadeExecutada: 100,
-      receitaRealizada: 1200
+      receitaRealizada: null
     });
     expect(records.referenciasPrevistas).toHaveLength(1);
     expect(records.referenciasPrevistas[0]).toMatchObject({
@@ -893,6 +894,103 @@ describe("service de Execucao e Resultado", () => {
     expect(referencia.snapshot.resultadoOperacionalJson.resultadoOperacional.unidades[0].recursos).toHaveLength(1);
     expect(referencia.snapshot.resultadoOperacionalJson.resultadoOperacional.unidades[0].recursos[0].referenciaTecnicaId).toBe(RECURSO_ID);
     expect(referencia.snapshot.economiaJson.unidades[0].economia.receita).toBe(1200);
+  });
+
+  it("mantem receita prevista historica separada da receita realizada em execucao vinculada", async () => {
+    const { db, records } = createDbMock();
+    const created = await runTenant(() =>
+      criarExecucao(db as never, {
+        clienteId: CLIENTE_ID,
+        obraId: OBRA_ID,
+        descricao: "Execucao vinculada",
+        origem: OrigemExecucao.ORCAMENTO,
+        status: StatusExecucao.EM_ANDAMENTO,
+        orcamentoOrigemId: ORCAMENTO_ID,
+        frenteOrigemId: ORCAMENTO_FRENTE_ID,
+        frentes: [
+          {
+            id: FRENTE_ID,
+            nome: "Frente vinculada",
+            unidade: "m3",
+            quantidadeExecutada: 100,
+            receitaRealizada: 1500,
+            motivoVariacaoReceita: "Ajuste medido em campo",
+            recursos: []
+          }
+        ]
+      })
+    );
+    const frente = (created as { frentes: Array<Record<string, unknown>> }).frentes[0];
+    const referencia = records.referenciasPrevistas[0].referenciaPrevistaJson as {
+      snapshot: {
+        economiaJson: {
+          unidades: Array<{ economia: { receita: number } }>;
+        };
+      };
+    };
+
+    expect(frente.receitaRealizada).toBe(1500);
+    expect(frente.motivoVariacaoReceita).toBe("Ajuste medido em campo");
+    expect(referencia.snapshot.economiaJson.unidades[0].economia.receita).toBe(1200);
+  });
+
+  it.each([
+    { receitaRealizada: 1200, motivo: "" },
+    { receitaRealizada: 1500, motivo: "Servico adicional medido" },
+    { receitaRealizada: 900, motivo: "Reducao de escopo" }
+  ])("atualiza receita realizada em execucao vinculada sem reescrever o previsto", async ({ receitaRealizada, motivo }) => {
+    const { db, records } = createDbMock();
+    await runTenant(() =>
+      criarExecucao(db as never, {
+        clienteId: CLIENTE_ID,
+        obraId: OBRA_ID,
+        descricao: "Execucao vinculada",
+        origem: OrigemExecucao.ORCAMENTO,
+        status: StatusExecucao.EM_ANDAMENTO,
+        orcamentoOrigemId: ORCAMENTO_ID,
+        frenteOrigemId: ORCAMENTO_FRENTE_ID,
+        frentes: []
+      })
+    );
+    const referenciaAntes = JSON.stringify(records.referenciasPrevistas[0].referenciaPrevistaJson);
+
+    await runTenant(() =>
+      atualizarCabecalhoExecucao(db as never, EXECUCAO_ID, {
+        clienteId: CLIENTE_ID,
+        obraId: OBRA_ID,
+        descricao: "Execucao vinculada",
+        origem: OrigemExecucao.ORCAMENTO,
+        status: StatusExecucao.EM_ANDAMENTO,
+        orcamentoOrigemId: ORCAMENTO_ID,
+        frentes: [
+          {
+            id: FRENTE_ID,
+            nome: "Frente vinculada",
+            unidade: "m3",
+            quantidadeExecutada: 100,
+            receitaRealizada,
+            motivoVariacaoReceita: motivo,
+            recursos: []
+          }
+        ]
+      })
+    );
+
+    await runTenant(() => gerarResultadoExecucao(db as never, records.execucao as never));
+
+    const frente = (records.execucao?.frentes as Array<Record<string, unknown>>)[0];
+    const ultimoResultado = records.resultados[0] as {
+      economiaJson: {
+        economia: {
+          receita: number;
+        };
+      };
+    };
+
+    expect(frente.receitaRealizada).toBe(receitaRealizada);
+    expect(frente.motivoVariacaoReceita).toBe(motivo || null);
+    expect(ultimoResultado.economiaJson.economia.receita).toBe(receitaRealizada);
+    expect(JSON.stringify(records.referenciasPrevistas[0].referenciaPrevistaJson)).toBe(referenciaAntes);
   });
 
   it("cria execucao vinculada a multiplas frentes sem misturar ids de origem e operacao", async () => {

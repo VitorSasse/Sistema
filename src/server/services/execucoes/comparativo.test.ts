@@ -163,6 +163,31 @@ describe("comparativo Orcado x Realizado da Execucao", () => {
     expect(frente.margem).toMatchObject({ previsto: 72, realizado: 65.56 });
   });
 
+  it.each([
+    { descricao: "igual ao previsto", previsto: 1000, realizado: 1000, desvio: 0, percentual: 0 },
+    { descricao: "maior que o previsto", previsto: 1000, realizado: 1250, desvio: 250, percentual: 25 },
+    { descricao: "menor que o previsto", previsto: 1000, realizado: 750, desvio: -250, percentual: -25 }
+  ])("compara receita realizada $descricao sem alterar a referencia prevista", ({ previsto, realizado, desvio, percentual }) => {
+    const comparativo = gerarComparativoAPartirDeSnapshots({
+      execucaoId: EXECUCAO_ID,
+      referenciaPrevista: {
+        origem: {
+          tipo: OrigemReferenciaPrevistaExecucao.PROPOSTA,
+          propostaOrigemId: "proposta-1"
+        },
+        snapshot: snapshot(executarNucleoComMotorAtual(entradaBase({ receita: previsto, recursos: [] })))
+      },
+      realizado: snapshot(executarNucleoComMotorAtual(entradaBase({ receita: realizado, recursos: [] })))
+    });
+
+    expect(comparativo.frentes[0].receita).toMatchObject({
+      previsto,
+      realizado,
+      desvioAbsoluto: desvio,
+      desvioPercentual: percentual
+    });
+  });
+
   it("classifica recursos correspondentes, somente previstos e somente realizados", () => {
     const recursos = criarComparativoFixture().frentes[0].recursos;
 

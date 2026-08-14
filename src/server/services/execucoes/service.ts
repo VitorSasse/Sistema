@@ -96,6 +96,7 @@ type PersistedFrenteExecutada = {
   unidade?: string | null;
   quantidadeExecutada: unknown;
   receitaRealizada: unknown;
+  motivoVariacaoReceita?: string | null;
   recursos?: PersistedRecursoRealizado[];
 };
 
@@ -478,6 +479,7 @@ function buildFrentesCreate(input: ExecucaoInput, empresaId: string) {
       frente.unidade?.trim() ||
       frente.quantidadeExecutada !== null && frente.quantidadeExecutada !== undefined ||
       frente.receitaRealizada !== null && frente.receitaRealizada !== undefined ||
+      frente.motivoVariacaoReceita?.trim() ||
       frente.recursos.length
     )
   ).map((frente) => ({
@@ -487,6 +489,7 @@ function buildFrentesCreate(input: ExecucaoInput, empresaId: string) {
     unidade: clean(frente.unidade),
     quantidadeExecutada: frente.quantidadeExecutada ?? null,
     receitaRealizada: frente.receitaRealizada ?? null,
+    motivoVariacaoReceita: clean(frente.motivoVariacaoReceita),
     recursos: {
       create: frente.recursos.map((recurso) => ({
         empresaId,
@@ -735,14 +738,19 @@ async function resolverReferenciaOrcamentoExecucao(
       obraId: typeof orcamento.obraId === "string" ? orcamento.obraId : input.obraId,
       descricao,
       cenarioOrigemId: typeof frentesOrdenadas[0]?.cenarioId === "string" ? frentesOrdenadas[0].cenarioId : input.cenarioOrigemId,
-      frentes: frentesOrdenadas.map((frente) => ({
-        nome: String(frente.nome ?? "Frente do orcamento"),
-        descricao: typeof frente.descricao === "string" ? frente.descricao : "",
-        unidade: typeof frente.unidadeProducao === "string" ? frente.unidadeProducao : "",
-        quantidadeExecutada: frente.quantidadePrevista === null || frente.quantidadePrevista === undefined ? null : toNumber(frente.quantidadePrevista),
-        receitaRealizada: frente.receitaPrevista,
-        recursos: []
-      }))
+      frentes: frentesOrdenadas.map((frente, index) => {
+        const frenteRealizadaInput = input.frentes[index];
+
+        return {
+          nome: String(frente.nome ?? "Frente do orcamento"),
+          descricao: typeof frente.descricao === "string" ? frente.descricao : "",
+          unidade: typeof frente.unidadeProducao === "string" ? frente.unidadeProducao : "",
+          quantidadeExecutada: frente.quantidadePrevista === null || frente.quantidadePrevista === undefined ? null : toNumber(frente.quantidadePrevista),
+          receitaRealizada: frenteRealizadaInput?.receitaRealizada ?? null,
+          motivoVariacaoReceita: clean(frenteRealizadaInput?.motivoVariacaoReceita) ?? "",
+          recursos: []
+        };
+      })
     },
     orcamento,
     frentes: frentesOrdenadas
@@ -1396,7 +1404,8 @@ export async function atualizarCabecalhoExecucao(db: DbClient, id: string, input
     descricao: clean(frenteInput.descricao),
     unidade: clean(frenteInput.unidade),
     quantidadeExecutada: frenteInput.quantidadeExecutada ?? null,
-    receitaRealizada: frenteInput.receitaRealizada ?? null
+    receitaRealizada: frenteInput.receitaRealizada ?? null,
+    motivoVariacaoReceita: clean(frenteInput.motivoVariacaoReceita)
   } : null;
 
   if (frenteAtual && frenteData) {
@@ -1412,7 +1421,8 @@ export async function atualizarCabecalhoExecucao(db: DbClient, id: string, input
     frenteData.descricao ||
     frenteData.unidade ||
     frenteData.quantidadeExecutada !== null ||
-    frenteData.receitaRealizada !== null
+    frenteData.receitaRealizada !== null ||
+    frenteData.motivoVariacaoReceita
   )) {
     const createFrente = requireFrenteExecutadaCreateDelegate(db);
     await createFrente({

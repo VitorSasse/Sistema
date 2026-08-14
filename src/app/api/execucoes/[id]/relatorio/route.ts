@@ -35,8 +35,10 @@ type ExecucaoRelatorioData = {
   cliente?: { nome?: string | null; nomeFantasia?: string | null; codigo?: string | null } | null;
   obra?: { nome?: string | null; codigo?: string | null } | null;
   frentes?: Array<{
+    id: string;
     nome?: string | null;
     unidade?: string | null;
+    motivoVariacaoReceita?: string | null;
   }>;
   boletins?: Array<{
     dataBoletim: Date;
@@ -234,6 +236,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
           ? comparativo.frentes.map((frente) => ({
             frente: frente.nome,
             unidade: frente.unidade,
+            motivoVariacaoReceita: execucao.frentes?.find((item) => item.id === frente.frenteId)?.motivoVariacaoReceita ?? null,
             quantidade: frente.quantidade,
             receita: frente.receita,
             custo: frente.custo,

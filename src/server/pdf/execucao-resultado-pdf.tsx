@@ -46,6 +46,7 @@ export type ExecucaoRelatorioDesvioOperacional = {
 export type ExecucaoRelatorioComparativoFrente = {
   frente: string;
   unidade?: string | null;
+  motivoVariacaoReceita?: string | null;
   quantidade: ExecucaoRelatorioComparativoValor;
   receita: ExecucaoRelatorioComparativoValor;
   custo: ExecucaoRelatorioComparativoValor;
@@ -431,6 +432,9 @@ export function ExecucaoResultadoPdfDocument(props: ExecucaoResultadoPdfProps) {
             {props.comparativo.map((frente, index) => (
               <View key={`${frente.frente}-${index}`} wrap={false}>
                 <Text style={styles.note}>{frente.frente}</Text>
+                {frente.motivoVariacaoReceita ? (
+                  <Text style={styles.note}>Motivo da variacao de receita: {frente.motivoVariacaoReceita}</Text>
+                ) : null}
                 <View style={styles.tableHeader}>
                   <Text style={[styles.cell, styles.comparisonName]}>Indicador</Text>
                   <Text style={[styles.cell, styles.comparisonValue, styles.right]}>Previsto</Text>

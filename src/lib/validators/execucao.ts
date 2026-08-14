@@ -65,6 +65,7 @@ export const frenteExecutadaSchema = z.object({
   unidade: z.string().trim().max(40).optional().or(z.literal("")),
   quantidadeExecutada: numeroDecimalOpcional(999999999),
   receitaRealizada: numeroDecimalOpcional(999999999),
+  motivoVariacaoReceita: z.string().trim().max(700).optional().or(z.literal("")),
   recursos: z.array(recursoRealizadoSchema).default([])
 }).superRefine((frente, ctx) => {
   if (frente.quantidadeExecutada !== null && frente.quantidadeExecutada !== undefined && !frente.unidade?.trim()) {
@@ -121,7 +122,9 @@ export const execucaoSchema = z.object({
       });
     }
 
-    if (!execucao.frenteOrigemId && !execucao.frenteOrigemIds?.length) {
+    const editaFrenteExecutadaExistente = execucao.frentes.some((frente) => Boolean(frente.id));
+
+    if (!execucao.frenteOrigemId && !execucao.frenteOrigemIds?.length && !editaFrenteExecutadaExistente) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["frenteOrigemIds"],

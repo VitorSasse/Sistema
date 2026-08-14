@@ -81,6 +81,7 @@ type FrenteExecucao = {
   unidade?: string | null;
   quantidadeExecutada: string | number | null;
   receitaRealizada: string | number | null;
+  motivoVariacaoReceita?: string | null;
 };
 
 type Execucao = {
@@ -88,6 +89,9 @@ type Execucao = {
   descricao?: string | null;
   origem?: string | null;
   status: string;
+  orcamentoOrigemId?: string | null;
+  propostaOrigemId?: string | null;
+  cenarioOrigemId?: string | null;
   estadoEncargos?: "SEM_ENCARGOS" | "COM_ENCARGOS" | "ENCARGOS_PENDENTES";
   cliente?: { id?: string; nome?: string | null; nomeFantasia?: string | null; codigo?: string | null } | null;
   obra?: { id?: string; nome?: string | null; codigo?: string | null } | null;
@@ -219,7 +223,8 @@ function initialExecucaoForm() {
     frenteNome: "",
     unidade: "",
     quantidade: "",
-    receita: ""
+    receita: "",
+    motivoVariacaoReceita: ""
   };
 }
 
@@ -236,7 +241,8 @@ function execucaoFormFromSelected(execucao: Execucao | null | undefined) {
     frenteNome: frente?.nome ?? "",
     unidade: frente?.unidade ?? "",
     quantidade: frente?.quantidadeExecutada === null || frente?.quantidadeExecutada === undefined ? "" : String(frente.quantidadeExecutada),
-    receita: frente?.receitaRealizada === null || frente?.receitaRealizada === undefined ? "" : String(frente.receitaRealizada)
+    receita: frente?.receitaRealizada === null || frente?.receitaRealizada === undefined ? "" : String(frente.receitaRealizada),
+    motivoVariacaoReceita: frente?.motivoVariacaoReceita ?? ""
   };
 }
 
@@ -780,6 +786,7 @@ export function ExecucoesManager() {
   );
   const frentesSelecionadasReferencia = frentesReferencia.filter((frente) => execucaoForm.frenteOrigemIds.includes(frente.id));
   const frenteSelecionadaReferencia = frentesSelecionadasReferencia[0] ?? null;
+  const receitaPrevistaSelecionada = frentesSelecionadasReferencia.reduce((total, frente) => total + toNumber(frente.receitaPrevista), 0);
   const selectedFrenteIdsKey = useMemo(
     () => (selected?.frentes ?? []).map((frente) => frente.id).join("|"),
     [selected?.frentes]
@@ -966,7 +973,14 @@ export function ExecucoesManager() {
           orcamentoOrigemId: execucaoForm.orcamentoId || null,
           frenteOrigemId: execucaoForm.frenteOrigemIds[0] || null,
           frenteOrigemIds: execucaoForm.frenteOrigemIds,
-          frentes: []
+          frentes: frentesSelecionadasReferencia.map((frente, index) => ({
+            nome: frente.nome || "",
+            unidade: frente.quantidadePrevista === null || frente.quantidadePrevista === undefined ? "" : frente.unidade ?? "",
+            quantidadeExecutada: frente.quantidadePrevista === null || frente.quantidadePrevista === undefined ? null : Number(frente.quantidadePrevista),
+            receitaRealizada: index === 0 && execucaoForm.receita ? Number(execucaoForm.receita) : null,
+            motivoVariacaoReceita: index === 0 ? execucaoForm.motivoVariacaoReceita || "" : "",
+            recursos: []
+          }))
         }
         : {
           clienteId: execucaoForm.clienteId || null,
@@ -981,9 +995,10 @@ export function ExecucoesManager() {
                 unidade: execucaoForm.quantidade ? execucaoForm.unidade : "",
                 quantidadeExecutada: execucaoForm.quantidade ? Number(execucaoForm.quantidade) : null,
                 receitaRealizada: execucaoForm.receita ? Number(execucaoForm.receita) : null,
+                motivoVariacaoReceita: execucaoForm.motivoVariacaoReceita || "",
                 recursos: []
               }
-              ]
+            ]
             : []
         };
       const data = await fetchJson<{ item: Execucao }>("/api/execucoes", {
@@ -1019,7 +1034,10 @@ export function ExecucoesManager() {
         descricao: headerForm.descricao || "",
         origem: selected.origem || "DIRETA",
         status: selected.status,
-        frentes: headerForm.frenteNome || headerForm.unidade || headerForm.quantidade || headerForm.receita || primeiraFrente?.id
+        orcamentoOrigemId: selected.orcamentoOrigemId || null,
+        propostaOrigemId: selected.propostaOrigemId || null,
+        cenarioOrigemId: selected.cenarioOrigemId || null,
+        frentes: headerForm.frenteNome || headerForm.unidade || headerForm.quantidade || headerForm.receita || headerForm.motivoVariacaoReceita || primeiraFrente?.id
           ? [
             {
               id: primeiraFrente?.id,
@@ -1027,6 +1045,7 @@ export function ExecucoesManager() {
               unidade: headerForm.quantidade ? headerForm.unidade : "",
               quantidadeExecutada: headerForm.quantidade ? Number(headerForm.quantidade) : null,
               receitaRealizada: headerForm.receita ? Number(headerForm.receita) : null,
+              motivoVariacaoReceita: headerForm.motivoVariacaoReceita || "",
               recursos: []
             }
           ]
@@ -1363,6 +1382,14 @@ export function ExecucoesManager() {
   }
 
   const primeiraFrenteComparativo = comparativo?.frentes[0];
+  const receitaPrevistaComparativo = primeiraFrenteComparativo?.receita.previsto ?? null;
+  const receitaRealizadaHeader = headerForm.receita ? toNumber(headerForm.receita) : null;
+  const desvioReceitaHeader = receitaPrevistaComparativo !== null && receitaRealizadaHeader !== null
+    ? receitaRealizadaHeader - receitaPrevistaComparativo
+    : null;
+  const percentualDesvioReceitaHeader = desvioReceitaHeader !== null && receitaPrevistaComparativo
+    ? desvioReceitaHeader / receitaPrevistaComparativo * 100
+    : null;
 
   return (
     <div className="execucoes-page">
@@ -1515,7 +1542,8 @@ export function ExecucoesManager() {
                                   frenteNome: primeira?.nome ?? current.frenteNome,
                                   unidade: primeira?.unidade ?? "",
                                   quantidade: primeira?.quantidadePrevista === null || primeira?.quantidadePrevista === undefined ? "" : String(primeira.quantidadePrevista),
-                                  receita: primeira?.receitaPrevista === null || primeira?.receitaPrevista === undefined ? "" : String(primeira.receitaPrevista)
+                                  receita: "",
+                                  motivoVariacaoReceita: ""
                                 };
                               });
                             }}
@@ -1548,6 +1576,27 @@ export function ExecucoesManager() {
                     ))}
                   </div>
                 ) : null}
+                <div className="execucoes-inline">
+                  <Info label="Receita prevista" value={frentesSelecionadasReferencia.length ? money(receitaPrevistaSelecionada) : "Selecione uma frente"} />
+                  <input
+                    placeholder="Receita realizada (opcional)"
+                    type="number"
+                    step="0.01"
+                    value={execucaoForm.receita}
+                    onChange={(event) => setExecucaoForm((current) => ({ ...current, receita: event.target.value }))}
+                  />
+                </div>
+                {execucaoForm.receita && receitaPrevistaSelecionada ? (
+                  <Info
+                    label="Desvio de receita"
+                    value={`${money(toNumber(execucaoForm.receita) - receitaPrevistaSelecionada)} / ${number((toNumber(execucaoForm.receita) - receitaPrevistaSelecionada) / receitaPrevistaSelecionada * 100, "%")}`}
+                  />
+                ) : null}
+                <textarea
+                  placeholder="Motivo da variacao de receita (opcional)"
+                  value={execucaoForm.motivoVariacaoReceita}
+                  onChange={(event) => setExecucaoForm((current) => ({ ...current, motivoVariacaoReceita: event.target.value }))}
+                />
               </>
             ) : (
               <>
@@ -1631,6 +1680,23 @@ export function ExecucoesManager() {
                   </select>
                 </div>
                 <input placeholder="Receita realizada / contratada (opcional)" type="number" step="0.01" value={headerForm.receita} onChange={(event) => setHeaderForm((current) => ({ ...current, receita: event.target.value }))} />
+                {receitaPrevistaComparativo !== null ? (
+                  <div className="execucoes-summary-grid">
+                    <Info label="Receita prevista" value={money(receitaPrevistaComparativo)} />
+                    <Info label="Receita realizada" value={receitaRealizadaHeader === null ? "Nao informada" : money(receitaRealizadaHeader)} />
+                    <Info
+                      label="Desvio de receita"
+                      value={desvioReceitaHeader === null
+                        ? "Informe a receita realizada"
+                        : `${money(desvioReceitaHeader)} / ${percentualDesvioReceitaHeader === null ? "-" : number(percentualDesvioReceitaHeader, "%")}`}
+                    />
+                  </div>
+                ) : null}
+                <textarea
+                  placeholder="Motivo da variacao de receita (opcional)"
+                  value={headerForm.motivoVariacaoReceita}
+                  onChange={(event) => setHeaderForm((current) => ({ ...current, motivoVariacaoReceita: event.target.value }))}
+                />
                 <div className="execucoes-inline">
                   <button className="button-primary" type="submit" disabled={loading}>Salvar execucao</button>
                   <button className="button-secondary" type="button" disabled={loading} onClick={() => {
@@ -1647,7 +1713,15 @@ export function ExecucoesManager() {
                 <Info label="Obra" value={selected?.obra?.nome || "-"} />
                 <Info label="Servico / Frente" value={selected?.frentes?.map((frente) => frente.nome).filter(Boolean).join(", ") || "-"} />
                 <Info label="Situacao" value={selected?.status || "-"} />
-                <Info label="Receita realizada / contratada" value={money(totais.receita)} />
+                {receitaPrevistaComparativo !== null ? <Info label="Receita prevista" value={money(receitaPrevistaComparativo)} /> : null}
+                <Info label="Receita realizada" value={totais.receita ? money(totais.receita) : "Nao informada"} />
+                {primeiraFrenteComparativo?.receita.desvioAbsoluto !== null && primeiraFrenteComparativo?.receita.desvioAbsoluto !== undefined ? (
+                  <Info
+                    label="Desvio de receita"
+                    value={`${money(primeiraFrenteComparativo.receita.desvioAbsoluto)} / ${primeiraFrenteComparativo.receita.desvioPercentual === null ? "-" : number(primeiraFrenteComparativo.receita.desvioPercentual, "%")}`}
+                  />
+                ) : null}
+                {selected?.frentes?.[0]?.motivoVariacaoReceita ? <Info label="Motivo da variacao" value={selected.frentes[0].motivoVariacaoReceita} /> : null}
                 <Info label="Quantidade do servico" value={possuiQuantidadeServico ? number(totais.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "") : "Nao informada"} />
                 <Info label="Quantidade realizada consolidada" value={possuiQuantidadeServico ? number(primeiraFrenteComparativo?.quantidade.realizado ?? totais.quantidade, selected?.frentes?.[0]?.unidade ? ` ${selected.frentes[0].unidade}` : "") : "Nao informada"} />
               </div>
