@@ -59,6 +59,7 @@ type ReferenciaTecnicaRecurso = {
   nome: string;
   ativo: boolean;
   observacao: string | null;
+  formasCusteio?: FormaCusteioRecurso[];
   _count?: {
     equipamentos: number;
   };
@@ -109,6 +110,14 @@ type FormState = {
   formasCusteio: FormaCusteioRecurso[];
 };
 
+type ReferenciaTecnicaFormState = {
+  id?: string;
+  nome: string;
+  ativo: boolean;
+  observacao: string;
+  formasCusteio: FormaCusteioRecurso[];
+};
+
 const initialForm: FormState = {
   referenciaTecnicaId: "",
   naturezaRecurso: "PROPRIO",
@@ -138,6 +147,13 @@ const initialForm: FormState = {
   kmAtual: "",
   periodicidadeManutencaoHoras: "",
   periodicidadeManutencaoKm: "",
+  formasCusteio: []
+};
+
+const initialReferenciaTecnicaForm: ReferenciaTecnicaFormState = {
+  nome: "",
+  ativo: true,
+  observacao: "",
   formasCusteio: []
 };
 
@@ -250,6 +266,119 @@ function FormBlock(props: {
   );
 }
 
+function FormasCusteioEditor(props: {
+  formas: FormaCusteioRecurso[];
+  unidadesCusteio: UnidadeCusteio[];
+  emptyMessage: string;
+  onAdd: () => void;
+  onUpdate: (index: number, patch: Partial<FormaCusteioRecurso>) => void;
+  onRemove: (index: number) => void;
+}) {
+  return (
+    <div style={{ gridColumn: "1 / -1", display: "grid", gap: 12 }}>
+      {props.formas.length === 0 ? (
+        <div className="empty-state">{props.emptyMessage}</div>
+      ) : null}
+
+      {props.formas.map((forma, index) => {
+        const unidade = props.unidadesCusteio.find((item) => item.id === forma.unidadeCusteioId)
+          ?? forma.unidadeCusteio;
+
+        return (
+          <div className="surface" key={forma.clientId ?? forma.id ?? index} style={{ padding: 16 }}>
+            <div className="form-grid-4">
+              <Field label="Nome da forma" help="Identificacao interna da referencia de custeio.">
+                <input
+                  className="field-control"
+                  value={forma.nome}
+                  onChange={(event) => props.onUpdate(index, { nome: event.target.value })}
+                  placeholder="Ex.: referencia de contratacao"
+                />
+              </Field>
+              <Field label="Unidade de custeio" help="Unidade economica independente da unidade operacional.">
+                <select
+                  className="field-control"
+                  value={forma.unidadeCusteioId}
+                  onChange={(event) => props.onUpdate(index, { unidadeCusteioId: event.target.value })}
+                >
+                  <option value="">Selecione</option>
+                  {props.unidadesCusteio
+                    .filter((item) => item.ativo || item.id === forma.unidadeCusteioId)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.rotulo}
+                      </option>
+                    ))}
+                </select>
+              </Field>
+              <Field
+                label="Valor de referencia"
+                help={unidade ? `Referencia em ${unidade.rotulo}.` : "Valor usado apenas como referencia da Biblioteca."}
+              >
+                <input
+                  className="field-control"
+                  type="number"
+                  min="0"
+                  step="0.0001"
+                  value={forma.valorReferencia}
+                  onChange={(event) => props.onUpdate(index, { valorReferencia: event.target.value })}
+                  placeholder="0,0000"
+                />
+              </Field>
+              <Field label="Status" help="Formas inativas ficam preservadas, mas nao devem ser sugeridas futuramente.">
+                <select
+                  className="field-control"
+                  value={forma.ativo ? "ATIVO" : "INATIVO"}
+                  onChange={(event) => props.onUpdate(index, {
+                    ativo: event.target.value === "ATIVO",
+                    preferencial: event.target.value === "ATIVO" ? forma.preferencial : false
+                  })}
+                >
+                  <option value="ATIVO">Ativa</option>
+                  <option value="INATIVO">Inativa</option>
+                </select>
+              </Field>
+              <label className="field equipment-library-check">
+                <span className="field-label">Forma preferencial</span>
+                <span className="equipment-library-check-control">
+                  <input
+                    type="checkbox"
+                    checked={forma.preferencial && forma.ativo}
+                    disabled={!forma.ativo}
+                    onChange={(event) => props.onUpdate(index, { preferencial: event.target.checked })}
+                  />
+                  Sugerir como preferencial
+                </span>
+                <small className="manager-field-hint">Opcional. Ao marcar esta forma, as demais sao desmarcadas.</small>
+              </label>
+              <Field label="Observacao" help="Informacao opcional sobre negociacao, origem ou uso da referencia.">
+                <input
+                  className="field-control"
+                  value={forma.observacao ?? ""}
+                  onChange={(event) => props.onUpdate(index, { observacao: event.target.value })}
+                />
+              </Field>
+              <div className="field">
+                <span className="field-label">Acao</span>
+                <button type="button" className="button-danger" onClick={() => props.onRemove(index)}>
+                  Remover
+                </button>
+                <small className="manager-field-hint">Remove esta linha do cadastro ao salvar.</small>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="toolbar-actions">
+        <button type="button" className="button-secondary" onClick={props.onAdd}>
+          Adicionar forma de custeio
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function getOperationalBadge(status: StatusEquipamentoOperacional) {
   switch (status) {
     case "EM_MANUTENCAO":
@@ -270,8 +399,11 @@ export function EquipamentosManager() {
   const [unidadesCusteio, setUnidadesCusteio] = useState<UnidadeCusteio[]>([]);
   const [referenciasTecnicas, setReferenciasTecnicas] = useState<ReferenciaTecnicaRecurso[]>([]);
   const [form, setForm] = useState<FormState>(initialForm);
+  const [referenciaForm, setReferenciaForm] =
+    useState<ReferenciaTecnicaFormState>(initialReferenciaTecnicaForm);
   const [novaReferenciaNome, setNovaReferenciaNome] = useState("");
   const [message, setMessage] = useState("");
+  const [referenciaMessage, setReferenciaMessage] = useState("");
   const [search, setSearch] = useState("");
   const [tipoFilter, setTipoFilter] = useState<"TODOS" | TipoRecurso>("TODOS");
   const [statusFilter, setStatusFilter] = useState<"TODOS" | "ATIVO" | "INATIVO">("TODOS");
@@ -405,6 +537,117 @@ export function EquipamentosManager() {
       ...current,
       formasCusteio: current.formasCusteio.filter((_, currentIndex) => currentIndex !== index)
     }));
+  }
+
+  function updateReferenciaField<K extends keyof ReferenciaTecnicaFormState>(
+    key: K,
+    value: ReferenciaTecnicaFormState[K]
+  ) {
+    setReferenciaForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function addReferenciaFormaCusteio() {
+    setReferenciaForm((current) => ({
+      ...current,
+      formasCusteio: [
+        ...current.formasCusteio,
+        newFormaCusteio(unidadesCusteio.find((unidade) => unidade.ativo)?.id ?? "")
+      ]
+    }));
+  }
+
+  function updateReferenciaFormaCusteio(index: number, patch: Partial<FormaCusteioRecurso>) {
+    setReferenciaForm((current) => ({
+      ...current,
+      formasCusteio: current.formasCusteio.map((forma, currentIndex) => {
+        if (currentIndex !== index) {
+          return patch.preferencial ? { ...forma, preferencial: false } : forma;
+        }
+
+        return {
+          ...forma,
+          ...patch,
+          preferencial: patch.preferencial === true ? true : patch.preferencial === false ? false : forma.preferencial
+        };
+      })
+    }));
+  }
+
+  function removeReferenciaFormaCusteio(index: number) {
+    setReferenciaForm((current) => ({
+      ...current,
+      formasCusteio: current.formasCusteio.filter((_, currentIndex) => currentIndex !== index)
+    }));
+  }
+
+  function handleEditReferenciaTecnica(referencia: ReferenciaTecnicaRecurso) {
+    setReferenciaForm({
+      id: referencia.id,
+      nome: referencia.nome,
+      ativo: referencia.ativo,
+      observacao: referencia.observacao ?? "",
+      formasCusteio: (referencia.formasCusteio ?? []).map((forma) => ({
+        id: forma.id,
+        clientId: forma.id,
+        nome: forma.nome,
+        unidadeCusteioId: forma.unidadeCusteioId,
+        valorReferencia: String(forma.valorReferencia ?? ""),
+        preferencial: forma.preferencial,
+        ativo: forma.ativo,
+        observacao: forma.observacao ?? "",
+        unidadeCusteio: forma.unidadeCusteio
+      }))
+    });
+    setReferenciaMessage(`Editando referencia tecnica ${referencia.nome}.`);
+  }
+
+  async function handleSubmitReferenciaTecnica(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setReferenciaMessage("");
+
+    const method = referenciaForm.id ? "PATCH" : "POST";
+    const url = referenciaForm.id
+      ? `/api/referencias-tecnicas-recursos/${referenciaForm.id}`
+      : "/api/referencias-tecnicas-recursos";
+
+    startTransition(async () => {
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(referenciaForm)
+      });
+      const data = (await response.json()) as { message?: string; detail?: string };
+
+      if (!response.ok) {
+        setReferenciaMessage(
+          [data.message, data.detail].filter(Boolean).join(" ")
+            || "Nao foi possivel salvar a referencia tecnica."
+        );
+        return;
+      }
+
+      setReferenciaForm(initialReferenciaTecnicaForm);
+      setReferenciaMessage(referenciaForm.id ? "Referencia tecnica atualizada." : "Referencia tecnica criada.");
+      await loadEquipamentos();
+    });
+  }
+
+  async function handleDisableReferenciaTecnica(id: string) {
+    startTransition(async () => {
+      const response = await fetch(`/api/referencias-tecnicas-recursos/${id}`, { method: "DELETE" });
+      const data = (await response.json()) as { message?: string; detail?: string };
+
+      if (!response.ok) {
+        setReferenciaMessage(
+          [data.message, data.detail].filter(Boolean).join(" ")
+            || "Nao foi possivel inativar a referencia tecnica."
+        );
+        return;
+      }
+
+      setReferenciaMessage("Referencia tecnica inativada.");
+      await loadEquipamentos();
+    });
   }
 
   function updateTipoRecurso(tipoRecurso: TipoRecurso) {
@@ -772,103 +1015,14 @@ export function EquipamentosManager() {
             title="FORMAS DE CUSTEIO"
             description="Referencias reutilizaveis da Biblioteca. Nesta etapa elas ainda nao substituem os campos legados acima."
           >
-            <div style={{ gridColumn: "1 / -1", display: "grid", gap: 12 }}>
-              {form.formasCusteio.length === 0 ? (
-                <div className="empty-state">
-                  Nenhuma forma cadastrada. O equipamento continua valido e os campos legados seguem funcionando.
-                </div>
-              ) : null}
-
-              {form.formasCusteio.map((forma, index) => {
-                const unidade = unidadesCusteio.find((item) => item.id === forma.unidadeCusteioId) ?? forma.unidadeCusteio;
-
-                return (
-                  <div className="surface" key={forma.clientId ?? forma.id ?? index} style={{ padding: 16 }}>
-                    <div className="form-grid-4">
-                      <Field label="Nome da forma" help="Identificacao interna da referencia de custeio.">
-                        <input
-                          className="field-control"
-                          value={forma.nome}
-                          onChange={(event) => updateFormaCusteio(index, { nome: event.target.value })}
-                          placeholder="Ex.: referencia de contratacao"
-                        />
-                      </Field>
-                      <Field label="Unidade de custeio" help="Unidade economica independente da unidade operacional.">
-                        <select
-                          className="field-control"
-                          value={forma.unidadeCusteioId}
-                          onChange={(event) => updateFormaCusteio(index, { unidadeCusteioId: event.target.value })}
-                        >
-                          <option value="">Selecione</option>
-                          {unidadesCusteio.filter((item) => item.ativo || item.id === forma.unidadeCusteioId).map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.rotulo}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label="Valor de referencia" help={unidade ? `Referencia em ${unidade.rotulo}.` : "Valor usado apenas como referencia da Biblioteca."}>
-                        <input
-                          className="field-control"
-                          type="number"
-                          min="0"
-                          step="0.0001"
-                          value={forma.valorReferencia}
-                          onChange={(event) => updateFormaCusteio(index, { valorReferencia: event.target.value })}
-                          placeholder="0,0000"
-                        />
-                      </Field>
-                      <Field label="Status" help="Formas inativas ficam preservadas, mas nao devem ser sugeridas futuramente.">
-                        <select
-                          className="field-control"
-                          value={forma.ativo ? "ATIVO" : "INATIVO"}
-                          onChange={(event) => updateFormaCusteio(index, {
-                            ativo: event.target.value === "ATIVO",
-                            preferencial: event.target.value === "ATIVO" ? forma.preferencial : false
-                          })}
-                        >
-                          <option value="ATIVO">Ativa</option>
-                          <option value="INATIVO">Inativa</option>
-                        </select>
-                      </Field>
-                      <label className="field equipment-library-check">
-                        <span className="field-label">Forma preferencial</span>
-                        <span className="equipment-library-check-control">
-                          <input
-                            type="checkbox"
-                            checked={forma.preferencial && forma.ativo}
-                            disabled={!forma.ativo}
-                            onChange={(event) => updateFormaCusteio(index, { preferencial: event.target.checked })}
-                          />
-                          Sugerir como preferencial
-                        </span>
-                        <small className="manager-field-hint">Opcional. Ao marcar esta forma, as demais sao desmarcadas.</small>
-                      </label>
-                      <Field label="Observacao" help="Informacao opcional sobre negociacao, origem ou uso da referencia.">
-                        <input
-                          className="field-control"
-                          value={forma.observacao ?? ""}
-                          onChange={(event) => updateFormaCusteio(index, { observacao: event.target.value })}
-                        />
-                      </Field>
-                      <div className="field">
-                        <span className="field-label">Acao</span>
-                        <button type="button" className="button-danger" onClick={() => removeFormaCusteio(index)}>
-                          Remover
-                        </button>
-                        <small className="manager-field-hint">Remove esta linha do cadastro ao salvar.</small>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-
-              <div className="toolbar-actions">
-                <button type="button" className="button-secondary" onClick={addFormaCusteio}>
-                  Adicionar forma de custeio
-                </button>
-              </div>
-            </div>
+            <FormasCusteioEditor
+              formas={form.formasCusteio}
+              unidadesCusteio={unidadesCusteio}
+              emptyMessage="Nenhuma forma cadastrada. O equipamento continua valido e os campos legados seguem funcionando."
+              onAdd={addFormaCusteio}
+              onUpdate={updateFormaCusteio}
+              onRemove={removeFormaCusteio}
+            />
           </FormBlock>
 
           <FormBlock
@@ -957,6 +1111,151 @@ export function EquipamentosManager() {
 
           {message ? <p className="message-inline">{message}</p> : null}
         </form>
+      </section>
+
+      <section className="surface section-card">
+        <div className="section-header">
+          <div>
+            <h2 className="section-title">Referencias tecnicas</h2>
+            <p className="section-copy">
+              Cadastre a categoria operacional generica e suas formas de custeio padrao. Equipamentos continuam podendo ter formas especificas.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmitReferenciaTecnica} className="form-stack">
+          <FormBlock
+            title={referenciaForm.id ? "EDITAR REFERENCIA TECNICA" : "NOVA REFERENCIA TECNICA"}
+            description="Representa o recurso generico usado por orcamentos e execucoes, como Escavadeira Hidraulica 15 t."
+          >
+            <Field label="Nome" help="Nome tecnico padronizado da referencia operacional.">
+              <input
+                className="field-control"
+                value={referenciaForm.nome}
+                onChange={(event) => updateReferenciaField("nome", event.target.value)}
+                placeholder="Ex.: Escavadeira Hidraulica 15 t"
+              />
+            </Field>
+            <Field label="Status" help="Referencias inativas ficam preservadas, mas nao devem ser usadas em novos cadastros.">
+              <select
+                className="field-control"
+                value={referenciaForm.ativo ? "ATIVO" : "INATIVO"}
+                onChange={(event) => updateReferenciaField("ativo", event.target.value === "ATIVO")}
+              >
+                <option value="ATIVO">Ativa</option>
+                <option value="INATIVO">Inativa</option>
+              </select>
+            </Field>
+            <Field label="Observacao" help="Informacao tecnica opcional sobre a aplicacao desta referencia.">
+              <input
+                className="field-control"
+                value={referenciaForm.observacao}
+                onChange={(event) => updateReferenciaField("observacao", event.target.value)}
+              />
+            </Field>
+          </FormBlock>
+
+          <FormBlock
+            title="FORMAS PADRAO DA REFERENCIA"
+            description="Padroes economicos da referencia tecnica. Nao altera automaticamente equipamentos especificos ja cadastrados."
+          >
+            <FormasCusteioEditor
+              formas={referenciaForm.formasCusteio}
+              unidadesCusteio={unidadesCusteio}
+              emptyMessage="Nenhuma forma padrao cadastrada para esta referencia tecnica."
+              onAdd={addReferenciaFormaCusteio}
+              onUpdate={updateReferenciaFormaCusteio}
+              onRemove={removeReferenciaFormaCusteio}
+            />
+          </FormBlock>
+
+          <div className="toolbar-actions">
+            <button type="submit" disabled={isPending} className="button-primary">
+              {referenciaForm.id ? "Atualizar referencia" : "Salvar referencia"}
+            </button>
+            {referenciaForm.id ? (
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => {
+                  setReferenciaForm(initialReferenciaTecnicaForm);
+                  setReferenciaMessage("");
+                }}
+              >
+                Cancelar edicao
+              </button>
+            ) : null}
+          </div>
+
+          {referenciaMessage ? <p className="message-inline">{referenciaMessage}</p> : null}
+        </form>
+
+        <div className="data-table-wrap" style={{ marginTop: 20 }}>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Referencia</th>
+                <th>Formas padrao</th>
+                <th>Equipamentos vinculados</th>
+                <th>Status</th>
+                <th>Acoes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {referenciasTecnicas.map((referencia) => (
+                <tr key={referencia.id}>
+                  <td>
+                    <div>{referencia.nome}</div>
+                    <div className="subtle">{referencia.observacao || "Sem observacao"}</div>
+                  </td>
+                  <td>
+                    {referencia.formasCusteio?.length ? (
+                      <div style={{ display: "grid", gap: 6 }}>
+                        {referencia.formasCusteio.slice(0, 3).map((forma) => (
+                          <div key={forma.id} className="subtle">
+                            <strong>{forma.nome}</strong>{" "}
+                            {forma.unidadeCusteio?.rotulo ?? "-"} | R$ {Number(forma.valorReferencia ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                            {forma.preferencial && forma.ativo ? " | Preferencial" : ""}
+                            {!forma.ativo ? " | Inativa" : ""}
+                          </div>
+                        ))}
+                        {referencia.formasCusteio.length > 3 ? (
+                          <div className="subtle">+{referencia.formasCusteio.length - 3} forma(s)</div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="subtle">Sem formas padrao</span>
+                    )}
+                  </td>
+                  <td>{referencia._count?.equipamentos ?? 0}</td>
+                  <td>
+                    <span className={referencia.ativo ? "badge badge-success" : "badge badge-danger"}>
+                      {referencia.ativo ? "ATIVA" : "INATIVA"}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="toolbar-actions">
+                      <button
+                        type="button"
+                        className="button-secondary"
+                        onClick={() => handleEditReferenciaTecnica(referencia)}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        className="button-danger"
+                        onClick={() => handleDisableReferenciaTecnica(referencia.id)}
+                      >
+                        Inativar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="surface section-card">

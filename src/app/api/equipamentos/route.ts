@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { auth } from "@/lib/auth";
+import {
+  assertUnidadesCusteioValidas,
+  buildFormasCusteioNestedCreate,
+  formaCusteioInclude,
+  formaCusteioOrderBy
+} from "@/lib/biblioteca-recursos/formas-custeio";
 import { ensureUnidadesCusteioIniciais } from "@/lib/biblioteca-recursos/unidades-custeio";
 import { prisma } from "@/lib/prisma";
 import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
@@ -45,10 +51,8 @@ function normalizePayload(payload: Record<string, unknown>) {
 const equipamentoInclude = {
   referenciaTecnica: true,
   formasCusteio: {
-    include: {
-      unidadeCusteio: true
-    },
-    orderBy: [{ preferencial: "desc" as const }, { nome: "asc" as const }]
+    include: formaCusteioInclude,
+    orderBy: formaCusteioOrderBy
   }
 };
 
@@ -74,37 +78,6 @@ async function resolveReferenciaTecnica(empresaId: string, referenciaTecnicaId: 
   return referencia;
 }
 
-async function assertUnidadesCusteioValidas(empresaId: string, formas: Array<{ unidadeCusteioId: string }>) {
-  const ids = Array.from(new Set(formas.map((forma) => forma.unidadeCusteioId)));
-
-  if (!ids.length) return;
-
-  const unidades = await prisma.unidadeCusteio.findMany({
-    where: {
-      empresaId,
-      id: { in: ids },
-      ativo: true
-    },
-    select: { id: true }
-  });
-
-  if (unidades.length !== ids.length) {
-    throw new Error("UNIDADE_CUSTEIO_INVALIDA");
-  }
-}
-
-function buildFormasCusteioCreate(empresaId: string, formas: any[]) {
-  return formas.map((forma) => ({
-    empresaId,
-    nome: forma.nome,
-    unidadeCusteioId: forma.unidadeCusteioId,
-    valorReferencia: forma.valorReferencia,
-    preferencial: Boolean(forma.preferencial && forma.ativo),
-    ativo: forma.ativo !== false,
-    observacao: forma.observacao || null
-  }));
-}
-
 export async function GET() {
   const session = await auth();
 
@@ -128,6 +101,10 @@ export async function GET() {
       where: { empresaId },
       orderBy: [{ ativo: "desc" }, { nome: "asc" }],
       include: {
+        formasCusteio: {
+          include: formaCusteioInclude,
+          orderBy: formaCusteioOrderBy
+        },
         _count: {
           select: { equipamentos: true }
         }
@@ -162,7 +139,7 @@ export async function POST(request: NextRequest) {
   try {
     await ensureUnidadesCusteioIniciais(prisma, empresaId);
     const referenciaTecnica = await resolveReferenciaTecnica(empresaId, data.referenciaTecnicaId);
-    await assertUnidadesCusteioValidas(empresaId, data.formasCusteio);
+    await assertUnidadesCusteioValidas(prisma, empresaId, data.formasCusteio);
 
     const equipamento = await prisma.equipamento.create({
       data: {
@@ -196,7 +173,7 @@ export async function POST(request: NextRequest) {
         periodicidadeManutencaoHoras: data.periodicidadeManutencaoHoras ?? null,
         periodicidadeManutencaoKm: data.periodicidadeManutencaoKm ?? null,
         formasCusteio: data.formasCusteio.length
-          ? { create: buildFormasCusteioCreate(empresaId, data.formasCusteio) }
+          ? { create: buildFormasCusteioNestedCreate(empresaId, data.formasCusteio) }
           : undefined
       } as any,
       include: equipamentoInclude

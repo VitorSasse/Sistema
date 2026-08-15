@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import {
+  assertUnidadesCusteioValidas,
+  buildFormasCusteioNestedCreate,
+  formaCusteioInclude,
+  formaCusteioOrderBy,
+  normalizeFormasCusteioPayload
+} from "@/lib/biblioteca-recursos/formas-custeio";
+import {
   nomeReferenciaTecnicaValido,
   normalizarNomeReferenciaTecnica
 } from "@/lib/biblioteca-recursos/referencias-tecnicas";
+import { ensureUnidadesCusteioIniciais } from "@/lib/biblioteca-recursos/unidades-custeio";
 import { prisma } from "@/lib/prisma";
 import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { referenciaTecnicaRecursoSchema } from "@/lib/validators/biblioteca-recursos";
@@ -15,16 +23,30 @@ export async function GET() {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
-  const items = await prisma.referenciaTecnicaRecurso.findMany({
-    orderBy: [{ ativo: "desc" }, { nome: "asc" }],
-    include: {
-      _count: {
-        select: { equipamentos: true }
-      }
-    }
-  });
+  const empresaId = requireActiveTenantEmpresaId();
+  await ensureUnidadesCusteioIniciais(prisma, empresaId);
 
-  return NextResponse.json({ items });
+  const [items, unidadesCusteio] = await Promise.all([
+    prisma.referenciaTecnicaRecurso.findMany({
+      where: { empresaId },
+      orderBy: [{ ativo: "desc" }, { nome: "asc" }],
+      include: {
+        formasCusteio: {
+          include: formaCusteioInclude,
+          orderBy: formaCusteioOrderBy
+        },
+        _count: {
+          select: { equipamentos: true }
+        }
+      }
+    }),
+    prisma.unidadeCusteio.findMany({
+      where: { empresaId },
+      orderBy: [{ ativo: "desc" }, { rotulo: "asc" }]
+    })
+  ]);
+
+  return NextResponse.json({ items, unidadesCusteio });
 }
 
 export async function POST(request: NextRequest) {
@@ -34,8 +56,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
-  const payload = await request.json();
-  const parsed = referenciaTecnicaRecursoSchema.safeParse(payload);
+  const payload = (await request.json()) as Record<string, unknown>;
+  const parsed = referenciaTecnicaRecursoSchema.safeParse({
+    ...payload,
+    formasCusteio: normalizeFormasCusteioPayload(payload.formasCusteio)
+  });
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -49,15 +74,25 @@ export async function POST(request: NextRequest) {
   const nomeNormalizado = normalizarNomeReferenciaTecnica(nome);
 
   try {
+    await ensureUnidadesCusteioIniciais(prisma, empresaId);
+    await assertUnidadesCusteioValidas(prisma, empresaId, parsed.data.formasCusteio);
+
     const created = await prisma.referenciaTecnicaRecurso.create({
       data: {
         empresaId,
         nome,
         nomeNormalizado,
         ativo: parsed.data.ativo,
-        observacao: parsed.data.observacao || null
+        observacao: parsed.data.observacao || null,
+        formasCusteio: parsed.data.formasCusteio.length
+          ? { create: buildFormasCusteioNestedCreate(empresaId, parsed.data.formasCusteio) }
+          : undefined
       },
       include: {
+        formasCusteio: {
+          include: formaCusteioInclude,
+          orderBy: formaCusteioOrderBy
+        },
         _count: {
           select: { equipamentos: true }
         }

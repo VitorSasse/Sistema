@@ -854,16 +854,17 @@ model Equipamento {
 }
 
 model ReferenciaTecnicaRecurso {
-  id              String        @id @default(uuid())
+  id              String                @id @default(uuid())
   empresaId       String
   nome            String
   nomeNormalizado String
-  ativo           Boolean       @default(true)
+  ativo           Boolean               @default(true)
   observacao      String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  empresa         Empresa       @relation(fields: [empresaId], references: [id])
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  empresa         Empresa               @relation(fields: [empresaId], references: [id])
   equipamentos    Equipamento[]
+  formasCusteio   FormaCusteioRecurso[]
 
   @@unique([empresaId, nomeNormalizado])
   @@index([empresaId, ativo])
@@ -889,23 +890,26 @@ model UnidadeCusteio {
 }
 
 model FormaCusteioRecurso {
-  id               String         @id @default(uuid())
-  empresaId        String
-  equipamentoId    String
-  nome             String
-  unidadeCusteioId String
-  valorReferencia  Decimal        @db.Decimal(14, 4)
-  preferencial     Boolean        @default(false)
-  ativo            Boolean        @default(true)
-  observacao       String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  empresa          Empresa        @relation(fields: [empresaId], references: [id])
-  equipamento      Equipamento    @relation(fields: [equipamentoId], references: [id], onDelete: Cascade)
-  unidadeCusteio   UnidadeCusteio @relation(fields: [unidadeCusteioId], references: [id])
+  id                  String                    @id @default(uuid())
+  empresaId           String
+  equipamentoId       String?
+  referenciaTecnicaId String?
+  nome                String
+  unidadeCusteioId    String
+  valorReferencia     Decimal                   @db.Decimal(14, 4)
+  preferencial        Boolean                   @default(false)
+  ativo               Boolean                   @default(true)
+  observacao          String?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  empresa             Empresa                   @relation(fields: [empresaId], references: [id])
+  equipamento         Equipamento?              @relation(fields: [equipamentoId], references: [id], onDelete: Cascade)
+  referenciaTecnica   ReferenciaTecnicaRecurso? @relation(fields: [referenciaTecnicaId], references: [id], onDelete: Cascade)
+  unidadeCusteio      UnidadeCusteio            @relation(fields: [unidadeCusteioId], references: [id])
 
   @@index([empresaId])
   @@index([equipamentoId, ativo])
+  @@index([referenciaTecnicaId, ativo])
   @@index([unidadeCusteioId])
   @@index([preferencial])
 }

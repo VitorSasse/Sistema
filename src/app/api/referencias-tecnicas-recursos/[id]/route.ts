@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import {
+  assertUnidadesCusteioValidas,
+  buildFormasCusteioCreateMany,
+  formaCusteioInclude,
+  formaCusteioOrderBy,
+  normalizeFormasCusteioPayload
+} from "@/lib/biblioteca-recursos/formas-custeio";
+import {
   nomeReferenciaTecnicaValido,
   normalizarNomeReferenciaTecnica
 } from "@/lib/biblioteca-recursos/referencias-tecnicas";
+import { ensureUnidadesCusteioIniciais } from "@/lib/biblioteca-recursos/unidades-custeio";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { referenciaTecnicaRecursoSchema } from "@/lib/validators/biblioteca-recursos";
 
 type RouteContext = {
@@ -19,8 +28,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const payload = await request.json();
-  const parsed = referenciaTecnicaRecursoSchema.safeParse(payload);
+  const empresaId = requireActiveTenantEmpresaId();
+  const payload = (await request.json()) as Record<string, unknown>;
+  const parsed = referenciaTecnicaRecursoSchema.safeParse({
+    ...payload,
+    formasCusteio: normalizeFormasCusteioPayload(payload.formasCusteio)
+  });
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -33,19 +46,42 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const nomeNormalizado = normalizarNomeReferenciaTecnica(nome);
 
   try {
-    const updated = await prisma.referenciaTecnicaRecurso.update({
-      where: { id },
-      data: {
-        nome,
-        nomeNormalizado,
-        ativo: parsed.data.ativo,
-        observacao: parsed.data.observacao || null
-      },
-      include: {
-        _count: {
-          select: { equipamentos: true }
+    await ensureUnidadesCusteioIniciais(prisma, empresaId);
+    await assertUnidadesCusteioValidas(prisma, empresaId, parsed.data.formasCusteio);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.referenciaTecnicaRecurso.update({
+        where: { id, empresaId },
+        data: {
+          nome,
+          nomeNormalizado,
+          ativo: parsed.data.ativo,
+          observacao: parsed.data.observacao || null
         }
+      });
+
+      await tx.formaCusteioRecurso.deleteMany({
+        where: { empresaId, referenciaTecnicaId: id }
+      });
+
+      if (parsed.data.formasCusteio.length) {
+        await tx.formaCusteioRecurso.createMany({
+          data: buildFormasCusteioCreateMany(empresaId, { referenciaTecnicaId: id }, parsed.data.formasCusteio)
+        });
       }
+
+      return tx.referenciaTecnicaRecurso.findUnique({
+        where: { id },
+        include: {
+          formasCusteio: {
+            include: formaCusteioInclude,
+            orderBy: formaCusteioOrderBy
+          },
+          _count: {
+            select: { equipamentos: true }
+          }
+        }
+      });
     });
 
     return NextResponse.json(updated);

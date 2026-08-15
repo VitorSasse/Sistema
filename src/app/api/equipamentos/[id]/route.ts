@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import {
+  assertUnidadesCusteioValidas,
+  buildFormasCusteioCreateMany,
+  formaCusteioInclude,
+  formaCusteioOrderBy
+} from "@/lib/biblioteca-recursos/formas-custeio";
 import { ensureUnidadesCusteioIniciais } from "@/lib/biblioteca-recursos/unidades-custeio";
 import { prisma } from "@/lib/prisma";
 import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
@@ -48,10 +54,8 @@ function normalizePayload(payload: Record<string, unknown>) {
 const equipamentoInclude = {
   referenciaTecnica: true,
   formasCusteio: {
-    include: {
-      unidadeCusteio: true
-    },
-    orderBy: [{ preferencial: "desc" as const }, { nome: "asc" as const }]
+    include: formaCusteioInclude,
+    orderBy: formaCusteioOrderBy
   }
 };
 
@@ -75,38 +79,6 @@ async function resolveReferenciaTecnica(empresaId: string, referenciaTecnicaId: 
   }
 
   return referencia;
-}
-
-async function assertUnidadesCusteioValidas(empresaId: string, formas: Array<{ unidadeCusteioId: string }>) {
-  const ids = Array.from(new Set(formas.map((forma) => forma.unidadeCusteioId)));
-
-  if (!ids.length) return;
-
-  const unidades = await prisma.unidadeCusteio.findMany({
-    where: {
-      empresaId,
-      id: { in: ids },
-      ativo: true
-    },
-    select: { id: true }
-  });
-
-  if (unidades.length !== ids.length) {
-    throw new Error("UNIDADE_CUSTEIO_INVALIDA");
-  }
-}
-
-function buildFormasCusteioCreate(empresaId: string, equipamentoId: string, formas: any[]) {
-  return formas.map((forma) => ({
-    empresaId,
-    equipamentoId,
-    nome: forma.nome,
-    unidadeCusteioId: forma.unidadeCusteioId,
-    valorReferencia: forma.valorReferencia,
-    preferencial: Boolean(forma.preferencial && forma.ativo),
-    ativo: forma.ativo !== false,
-    observacao: forma.observacao || null
-  }));
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
@@ -133,7 +105,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     await ensureUnidadesCusteioIniciais(prisma, empresaId);
     const referenciaTecnica = await resolveReferenciaTecnica(empresaId, data.referenciaTecnicaId);
-    await assertUnidadesCusteioValidas(empresaId, data.formasCusteio);
+    await assertUnidadesCusteioValidas(prisma, empresaId, data.formasCusteio);
 
     const atual = await prisma.equipamento.findUnique({
       where: { id },
@@ -185,7 +157,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       if (data.formasCusteio.length) {
         await tx.formaCusteioRecurso.createMany({
-          data: buildFormasCusteioCreate(empresaId, id, data.formasCusteio)
+          data: buildFormasCusteioCreateMany(empresaId, { equipamentoId: id }, data.formasCusteio)
         });
       }
 

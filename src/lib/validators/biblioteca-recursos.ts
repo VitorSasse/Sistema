@@ -1,11 +1,5 @@
 import { z } from "zod";
 
-export const referenciaTecnicaRecursoSchema = z.object({
-  nome: z.string().trim().min(2, "Informe o nome da referencia tecnica.").max(160),
-  ativo: z.boolean().default(true),
-  observacao: z.string().trim().max(500).optional().or(z.literal(""))
-});
-
 export const formaCusteioRecursoSchema = z.object({
   id: z.string().uuid().optional().or(z.literal("")),
   nome: z.string().trim().min(2, "Informe o nome da forma de custeio.").max(120),
@@ -25,10 +19,17 @@ export const formasCusteioRecursoSchema = z
     if (preferenciaisAtivas.length > 1) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Mantenha no maximo uma forma de custeio preferencial ativa por equipamento."
+        message: "Mantenha no maximo uma forma de custeio preferencial ativa."
       });
     }
   });
+
+export const referenciaTecnicaRecursoSchema = z.object({
+  nome: z.string().trim().min(2, "Informe o nome da referencia tecnica.").max(160),
+  ativo: z.boolean().default(true),
+  observacao: z.string().trim().max(500).optional().or(z.literal("")),
+  formasCusteio: formasCusteioRecursoSchema
+});
 
 export type FormaCusteioRecursoInput = z.infer<typeof formaCusteioRecursoSchema>;
 export type ReferenciaTecnicaRecursoInput = z.infer<typeof referenciaTecnicaRecursoSchema>;
