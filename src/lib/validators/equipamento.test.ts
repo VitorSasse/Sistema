@@ -74,10 +74,37 @@ describe("validacao do cadastro mestre de equipamentos", () => {
     const result = equipamentoSchema.safeParse({
       ...equipamentoBase,
       naturezaRecurso: NaturezaRecursoEquipamento.TERCEIRIZADO,
+      referenciaTecnicaId: "",
       formasCusteio: []
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("aceita referencia tecnica estruturada sem exigir classe operacional textual", () => {
+    const result = equipamentoSchema.safeParse({
+      ...equipamentoBase,
+      naturezaRecurso: NaturezaRecursoEquipamento.TERCEIRIZADO,
+      referenciaTecnicaId: "44444444-4444-4444-8444-444444444444",
+      classeOperacional: "",
+      formasCusteio: []
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.classeOperacional).toBe("");
+  });
+
+  it("mantem classe operacional legada valida mesmo sem referencia tecnica", () => {
+    const result = equipamentoSchema.safeParse({
+      ...equipamentoBase,
+      naturezaRecurso: NaturezaRecursoEquipamento.TERCEIRIZADO,
+      referenciaTecnicaId: "",
+      classeOperacional: "CAMINHAO BASCULANTE",
+      formasCusteio: []
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.classeOperacional).toBe("CAMINHAO BASCULANTE");
   });
 
   it("aceita uma forma de custeio com unidade catalogada e valor de referencia", () => {

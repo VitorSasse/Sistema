@@ -43,6 +43,7 @@ function normalizePayload(payload: Record<string, unknown>) {
 }
 
 const equipamentoInclude = {
+  referenciaTecnica: true,
   formasCusteio: {
     include: {
       unidadeCusteio: true
@@ -50,6 +51,28 @@ const equipamentoInclude = {
     orderBy: [{ preferencial: "desc" as const }, { nome: "asc" as const }]
   }
 };
+
+async function resolveReferenciaTecnica(empresaId: string, referenciaTecnicaId: string | null | undefined) {
+  if (!referenciaTecnicaId) return null;
+
+  const referencia = await prisma.referenciaTecnicaRecurso.findFirst({
+    where: {
+      empresaId,
+      id: referenciaTecnicaId,
+      ativo: true
+    },
+    select: {
+      id: true,
+      nome: true
+    }
+  });
+
+  if (!referencia) {
+    throw new Error("REFERENCIA_TECNICA_INVALIDA");
+  }
+
+  return referencia;
+}
 
 async function assertUnidadesCusteioValidas(empresaId: string, formas: Array<{ unidadeCusteioId: string }>) {
   const ids = Array.from(new Set(formas.map((forma) => forma.unidadeCusteioId)));
@@ -92,7 +115,7 @@ export async function GET() {
   const empresaId = requireActiveTenantEmpresaId();
   await ensureUnidadesCusteioIniciais(prisma, empresaId);
 
-  const [items, unidadesCusteio] = await Promise.all([
+  const [items, unidadesCusteio, referenciasTecnicas] = await Promise.all([
     prisma.equipamento.findMany({
       include: equipamentoInclude,
       orderBy: [{ descricao: "asc" }]
@@ -100,10 +123,19 @@ export async function GET() {
     prisma.unidadeCusteio.findMany({
       where: { empresaId },
       orderBy: [{ ativo: "desc" }, { rotulo: "asc" }]
+    }),
+    prisma.referenciaTecnicaRecurso.findMany({
+      where: { empresaId },
+      orderBy: [{ ativo: "desc" }, { nome: "asc" }],
+      include: {
+        _count: {
+          select: { equipamentos: true }
+        }
+      }
     })
   ]);
 
-  return NextResponse.json({ items, unidadesCusteio });
+  return NextResponse.json({ items, unidadesCusteio, referenciasTecnicas });
 }
 
 export async function POST(request: NextRequest) {
@@ -129,18 +161,20 @@ export async function POST(request: NextRequest) {
 
   try {
     await ensureUnidadesCusteioIniciais(prisma, empresaId);
+    const referenciaTecnica = await resolveReferenciaTecnica(empresaId, data.referenciaTecnicaId);
     await assertUnidadesCusteioValidas(empresaId, data.formasCusteio);
 
     const equipamento = await prisma.equipamento.create({
       data: {
         empresaId,
+        referenciaTecnicaId: referenciaTecnica?.id ?? null,
         naturezaRecurso: data.naturezaRecurso as any,
         tipoRecurso: data.tipoRecurso as any,
         tipoControle: data.tipoControle as any,
         descricao: data.descricao,
         descricaoOperacional: data.descricaoOperacional || null,
         placaOuTag,
-        classeOperacional: data.classeOperacional || null,
+        classeOperacional: referenciaTecnica?.nome ?? (data.classeOperacional || null),
         complementar: Boolean(data.complementar),
         fabricante: data.fabricante || null,
         modelo: data.modelo || null,

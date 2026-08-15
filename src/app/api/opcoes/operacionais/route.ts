@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
-  const [clientes, obras, servicos, materiais, equipamentos, colaboradores, fornecedores] = await Promise.all([
+  const [clientes, obras, servicos, materiais, equipamentos, referenciasTecnicasRecursos, colaboradores, fornecedores] = await Promise.all([
     measurePerformanceStep("clientes", () => prisma.cliente.findMany({
       where: {
         status: { in: ["ATIVO", "PROSPECTO"] }
@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
       },
       select: {
         id: true,
+        referenciaTecnicaId: true,
         descricao: true,
         placaOuTag: true,
         naturezaRecurso: true,
@@ -94,9 +95,27 @@ export async function GET(request: NextRequest) {
         custoPadrao: true,
         permitirEdicaoOrcamento: true,
         caracteristicasTecnicas: true,
+        referenciaTecnica: {
+          select: {
+            id: true,
+            nome: true,
+            ativo: true
+          }
+        },
         status: true
       },
       orderBy: [{ descricao: "asc" }]
+    })),
+    measurePerformanceStep("referenciasTecnicasRecursos", () => prisma.referenciaTecnicaRecurso.findMany({
+      where: {
+        ativo: true
+      },
+      select: {
+        id: true,
+        nome: true,
+        ativo: true
+      },
+      orderBy: [{ nome: "asc" }]
     })),
     measurePerformanceStep("colaboradores", () => prisma.colaborador.findMany({
       where: {
@@ -131,6 +150,7 @@ export async function GET(request: NextRequest) {
     servicos,
     materiais,
     equipamentos,
+    referenciasTecnicasRecursos,
     colaboradores,
     fornecedores
   });

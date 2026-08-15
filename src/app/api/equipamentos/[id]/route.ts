@@ -46,6 +46,7 @@ function normalizePayload(payload: Record<string, unknown>) {
 }
 
 const equipamentoInclude = {
+  referenciaTecnica: true,
   formasCusteio: {
     include: {
       unidadeCusteio: true
@@ -53,6 +54,28 @@ const equipamentoInclude = {
     orderBy: [{ preferencial: "desc" as const }, { nome: "asc" as const }]
   }
 };
+
+async function resolveReferenciaTecnica(empresaId: string, referenciaTecnicaId: string | null | undefined) {
+  if (!referenciaTecnicaId) return null;
+
+  const referencia = await prisma.referenciaTecnicaRecurso.findFirst({
+    where: {
+      empresaId,
+      id: referenciaTecnicaId,
+      ativo: true
+    },
+    select: {
+      id: true,
+      nome: true
+    }
+  });
+
+  if (!referencia) {
+    throw new Error("REFERENCIA_TECNICA_INVALIDA");
+  }
+
+  return referencia;
+}
 
 async function assertUnidadesCusteioValidas(empresaId: string, formas: Array<{ unidadeCusteioId: string }>) {
   const ids = Array.from(new Set(formas.map((forma) => forma.unidadeCusteioId)));
@@ -109,6 +132,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   try {
     await ensureUnidadesCusteioIniciais(prisma, empresaId);
+    const referenciaTecnica = await resolveReferenciaTecnica(empresaId, data.referenciaTecnicaId);
     await assertUnidadesCusteioValidas(empresaId, data.formasCusteio);
 
     const atual = await prisma.equipamento.findUnique({
@@ -125,12 +149,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         where: { id },
         data: {
           naturezaRecurso: data.naturezaRecurso as any,
+          referenciaTecnicaId: referenciaTecnica?.id ?? null,
           tipoRecurso: data.tipoRecurso as any,
           tipoControle: data.tipoControle as any,
           descricao: data.descricao,
           descricaoOperacional: data.descricaoOperacional || null,
           placaOuTag: data.placaOuTag || atual.placaOuTag,
-          classeOperacional: data.classeOperacional || null,
+          classeOperacional: referenciaTecnica?.nome ?? (data.classeOperacional || null),
           complementar: Boolean(data.complementar),
           fabricante: data.fabricante || null,
           modelo: data.modelo || null,

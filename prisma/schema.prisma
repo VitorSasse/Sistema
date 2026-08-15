@@ -534,6 +534,7 @@ model Empresa {
   catalogosCompra              CatalogoCompra[]
   planosConta                  PlanoConta[]
   equipamentos                 Equipamento[]
+  referenciasTecnicasRecurso   ReferenciaTecnicaRecurso[]
   unidadesCusteio              UnidadeCusteio[]
   formasCusteioRecurso         FormaCusteioRecurso[]
   ordensCompra                 OrdemCompra[]
@@ -795,6 +796,7 @@ model PlanoConta {
 model Equipamento {
   id                           String                       @id @default(uuid())
   empresaId                    String
+  referenciaTecnicaId          String?
   naturezaRecurso              NaturezaRecursoEquipamento   @default(PROPRIO)
   tipoRecurso                  TipoRecurso
   tipoControle                 TipoControleEquipamento      @default(HORIMETRO)
@@ -825,6 +827,7 @@ model Equipamento {
   createdAt                    DateTime                     @default(now())
   updatedAt                    DateTime                     @updatedAt
   empresa                      Empresa                      @relation(fields: [empresaId], references: [id])
+  referenciaTecnica            ReferenciaTecnicaRecurso?    @relation(fields: [referenciaTecnicaId], references: [id], onDelete: SetNull)
   lancamentos                  LancamentoDiario[]
   precos                       PrecoClienteObra[]
   leituras                     LeituraEquipamento[]
@@ -841,12 +844,30 @@ model Equipamento {
 
   @@unique([empresaId, placaOuTag])
   @@index([empresaId])
+  @@index([referenciaTecnicaId])
   @@index([naturezaRecurso, status])
   @@index([descricao])
   @@index([tipoRecurso, status])
   @@index([classeOperacional])
   @@index([statusOperacional, status])
   @@index([complementar, status, tipoRecurso])
+}
+
+model ReferenciaTecnicaRecurso {
+  id              String        @id @default(uuid())
+  empresaId       String
+  nome            String
+  nomeNormalizado String
+  ativo           Boolean       @default(true)
+  observacao      String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  empresa         Empresa       @relation(fields: [empresaId], references: [id])
+  equipamentos    Equipamento[]
+
+  @@unique([empresaId, nomeNormalizado])
+  @@index([empresaId, ativo])
+  @@index([nome])
 }
 
 model UnidadeCusteio {

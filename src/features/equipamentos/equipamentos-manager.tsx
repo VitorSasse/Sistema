@@ -13,6 +13,8 @@ import { confirmDeleteAction } from "@/lib/utils/confirm-delete";
 
 type Equipamento = {
   id: string;
+  referenciaTecnicaId: string | null;
+  referenciaTecnica?: ReferenciaTecnicaRecurso | null;
   naturezaRecurso: NaturezaRecursoEquipamento;
   tipoRecurso: TipoRecurso;
   tipoControle: TipoControleEquipamento;
@@ -52,6 +54,16 @@ type UnidadeCusteio = {
   ativo: boolean;
 };
 
+type ReferenciaTecnicaRecurso = {
+  id: string;
+  nome: string;
+  ativo: boolean;
+  observacao: string | null;
+  _count?: {
+    equipamentos: number;
+  };
+};
+
 type FormaCusteioRecurso = {
   id?: string;
   clientId?: string;
@@ -66,6 +78,7 @@ type FormaCusteioRecurso = {
 
 type FormState = {
   id?: string;
+  referenciaTecnicaId: string;
   naturezaRecurso: NaturezaRecursoEquipamento;
   tipoRecurso: TipoRecurso;
   tipoControle: TipoControleEquipamento;
@@ -97,6 +110,7 @@ type FormState = {
 };
 
 const initialForm: FormState = {
+  referenciaTecnicaId: "",
   naturezaRecurso: "PROPRIO",
   tipoRecurso: "CAMINHAO",
   tipoControle: "HORIMETRO",
@@ -254,7 +268,9 @@ function getOperationalBadge(status: StatusEquipamentoOperacional) {
 export function EquipamentosManager() {
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [unidadesCusteio, setUnidadesCusteio] = useState<UnidadeCusteio[]>([]);
+  const [referenciasTecnicas, setReferenciasTecnicas] = useState<ReferenciaTecnicaRecurso[]>([]);
   const [form, setForm] = useState<FormState>(initialForm);
+  const [novaReferenciaNome, setNovaReferenciaNome] = useState("");
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [tipoFilter, setTipoFilter] = useState<"TODOS" | TipoRecurso>("TODOS");
@@ -268,9 +284,14 @@ export function EquipamentosManager() {
 
   async function loadEquipamentos() {
     const response = await fetch("/api/equipamentos", { cache: "no-store" });
-    const data = (await response.json()) as { items: Equipamento[]; unidadesCusteio?: UnidadeCusteio[] };
+    const data = (await response.json()) as {
+      items: Equipamento[];
+      unidadesCusteio?: UnidadeCusteio[];
+      referenciasTecnicas?: ReferenciaTecnicaRecurso[];
+    };
     setEquipamentos(data.items);
     setUnidadesCusteio(data.unidadesCusteio ?? []);
+    setReferenciasTecnicas(data.referenciasTecnicas ?? []);
   }
 
   useEffect(() => {
@@ -290,6 +311,7 @@ export function EquipamentosManager() {
         [
           equipamento.descricao,
           equipamento.placaOuTag,
+          equipamento.referenciaTecnica?.nome ?? "",
           equipamento.classeOperacional ?? "",
           equipamento.fabricante ?? "",
           equipamento.modelo ?? "",
@@ -305,6 +327,50 @@ export function EquipamentosManager() {
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function updateReferenciaTecnica(referenciaTecnicaId: string) {
+    const referencia = referenciasTecnicas.find((item) => item.id === referenciaTecnicaId);
+
+    setForm((current) => ({
+      ...current,
+      referenciaTecnicaId,
+      classeOperacional: referencia ? referencia.nome : current.classeOperacional
+    }));
+  }
+
+  async function handleCreateReferenciaTecnica() {
+    const nome = novaReferenciaNome.trim();
+    if (!nome) {
+      setMessage("Informe o nome da nova referencia tecnica.");
+      return;
+    }
+
+    startTransition(async () => {
+      const response = await fetch("/api/referencias-tecnicas-recursos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome, ativo: true, observacao: "" })
+      });
+      const data = (await response.json()) as ReferenciaTecnicaRecurso & { message?: string; detail?: string };
+
+      if (!response.ok) {
+        setMessage(
+          [data.message, data.detail].filter(Boolean).join(" ")
+            || "Nao foi possivel criar a referencia tecnica."
+        );
+        return;
+      }
+
+      setNovaReferenciaNome("");
+      setForm((current) => ({
+        ...current,
+        referenciaTecnicaId: data.id,
+        classeOperacional: data.nome
+      }));
+      await loadEquipamentos();
+      setMessage("Referencia tecnica criada e vinculada ao equipamento.");
+    });
   }
 
   function addFormaCusteio() {
@@ -394,6 +460,7 @@ export function EquipamentosManager() {
   function handleEdit(equipamento: Equipamento) {
     setForm({
       id: equipamento.id,
+      referenciaTecnicaId: equipamento.referenciaTecnicaId ?? "",
       naturezaRecurso: equipamento.naturezaRecurso,
       tipoRecurso: equipamento.tipoRecurso,
       tipoControle: equipamento.tipoControle,
@@ -559,12 +626,41 @@ export function EquipamentosManager() {
                 ))}
               </select>
             </Field>
-            <Field label="Classe operacional" help="Identifica recursos tecnicamente equivalentes no planejamento.">
+            <Field label="Referencia tecnica" help="Fonte estruturada para agrupar recursos tecnicamente equivalentes.">
+              <select
+                className="field-control"
+                value={form.referenciaTecnicaId}
+                onChange={(event) => updateReferenciaTecnica(event.target.value)}
+              >
+                <option value="">Sem referencia estruturada</option>
+                {referenciasTecnicas
+                  .filter((referencia) => referencia.ativo || referencia.id === form.referenciaTecnicaId)
+                  .map((referencia) => (
+                    <option key={referencia.id} value={referencia.id}>
+                      {referencia.nome}{referencia.ativo ? "" : " (inativa)"}
+                    </option>
+                  ))}
+              </select>
+            </Field>
+            <Field label="Criar referencia tecnica" help="Cria uma referencia reutilizavel sem substituir registros historicos.">
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8 }}>
+                <input
+                  className="field-control"
+                  value={novaReferenciaNome}
+                  onChange={(event) => setNovaReferenciaNome(event.target.value)}
+                  placeholder="Ex.: Caminhao basculante 14 m3"
+                />
+                <button type="button" className="button-secondary" onClick={handleCreateReferenciaTecnica} disabled={isPending}>
+                  Criar
+                </button>
+              </div>
+            </Field>
+            <Field label="Classe operacional legada" help="Texto preservado para compatibilidade com orcamentos, snapshots e matching historico.">
               <input
                 className="field-control"
                 value={form.classeOperacional}
                 onChange={(event) => updateField("classeOperacional", event.target.value)}
-                placeholder="Ex.: Caminhao basculante 14 m3"
+                placeholder="Mantido por compatibilidade"
               />
             </Field>
             <Field label="Apelido" help="Nome curto opcional para facilitar a identificacao interna.">
@@ -945,7 +1041,10 @@ export function EquipamentosManager() {
                         .join(" | ") || "-"}
                     </div>
                     <div className="subtle">
-                      Classe: {equipamento.classeOperacional || "Nao definida"}
+                      Referencia tecnica: {equipamento.referenciaTecnica?.nome || "Nao vinculada"}
+                    </div>
+                    <div className="subtle">
+                      Classe legada: {equipamento.classeOperacional || "Nao definida"}
                     </div>
                   </td>
                   <td>

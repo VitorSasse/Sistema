@@ -18,6 +18,7 @@ export const equipamentoSchema = z.object({
   descricao: z.string().trim().min(3).max(160),
   descricaoOperacional: z.string().trim().max(500).optional().or(z.literal("")),
   placaOuTag: z.string().trim().max(30).optional().default(""),
+  referenciaTecnicaId: z.string().uuid().optional().nullable().or(z.literal("")),
   classeOperacional: z.string().trim().max(160).optional().or(z.literal("")),
   complementar: z.boolean().default(false),
   fabricante: z.string().trim().max(120).optional().or(z.literal("")),

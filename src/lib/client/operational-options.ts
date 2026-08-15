@@ -10,6 +10,12 @@ export type OperationalOption = {
   nomeFantasia?: string | null;
   tipoServico?: string;
   placaOuTag?: string;
+  referenciaTecnicaId?: string | null;
+  referenciaTecnica?: {
+    id: string;
+    nome: string;
+    ativo: boolean;
+  } | null;
   naturezaRecurso?: string;
   tipoRecurso?: string;
   classeOperacional?: string | null;
@@ -42,6 +48,11 @@ export type OperationalOptionsPayload = {
   servicos: OperationalOption[];
   materiais: OperationalOption[];
   equipamentos: OperationalOption[];
+  referenciasTecnicasRecursos?: Array<{
+    id: string;
+    nome: string;
+    ativo: boolean;
+  }>;
   colaboradores: OperationalOption[];
   fornecedores?: OperationalOption[];
 };
