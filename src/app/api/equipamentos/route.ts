@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { auth } from "@/lib/auth";
+import { ensureUnidadesCusteioIniciais } from "@/lib/biblioteca-recursos/unidades-custeio";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import { equipamentoSchema } from "@/lib/validators/equipamento";
 
@@ -15,6 +17,18 @@ function parseNullableNumber(value: unknown) {
 }
 
 function normalizePayload(payload: Record<string, unknown>) {
+  const formasCusteio = Array.isArray(payload.formasCusteio)
+    ? payload.formasCusteio.map((forma) => {
+        const record = forma && typeof forma === "object" ? forma as Record<string, unknown> : {};
+        return {
+          ...record,
+          valorReferencia: parseNullableNumber(record.valorReferencia),
+          preferencial: Boolean(record.preferencial),
+          ativo: record.ativo !== false
+        };
+      })
+    : [];
+
   return {
     ...payload,
     anoFabricacao: parseNullableNumber(payload.anoFabricacao),
@@ -23,8 +37,49 @@ function normalizePayload(payload: Record<string, unknown>) {
     horimetroAtual: parseNullableNumber(payload.horimetroAtual),
     kmAtual: parseNullableNumber(payload.kmAtual),
     periodicidadeManutencaoHoras: parseNullableNumber(payload.periodicidadeManutencaoHoras),
-    periodicidadeManutencaoKm: parseNullableNumber(payload.periodicidadeManutencaoKm)
+    periodicidadeManutencaoKm: parseNullableNumber(payload.periodicidadeManutencaoKm),
+    formasCusteio
   };
+}
+
+const equipamentoInclude = {
+  formasCusteio: {
+    include: {
+      unidadeCusteio: true
+    },
+    orderBy: [{ preferencial: "desc" as const }, { nome: "asc" as const }]
+  }
+};
+
+async function assertUnidadesCusteioValidas(empresaId: string, formas: Array<{ unidadeCusteioId: string }>) {
+  const ids = Array.from(new Set(formas.map((forma) => forma.unidadeCusteioId)));
+
+  if (!ids.length) return;
+
+  const unidades = await prisma.unidadeCusteio.findMany({
+    where: {
+      empresaId,
+      id: { in: ids },
+      ativo: true
+    },
+    select: { id: true }
+  });
+
+  if (unidades.length !== ids.length) {
+    throw new Error("UNIDADE_CUSTEIO_INVALIDA");
+  }
+}
+
+function buildFormasCusteioCreate(empresaId: string, formas: any[]) {
+  return formas.map((forma) => ({
+    empresaId,
+    nome: forma.nome,
+    unidadeCusteioId: forma.unidadeCusteioId,
+    valorReferencia: forma.valorReferencia,
+    preferencial: Boolean(forma.preferencial && forma.ativo),
+    ativo: forma.ativo !== false,
+    observacao: forma.observacao || null
+  }));
 }
 
 export async function GET() {
@@ -34,11 +89,21 @@ export async function GET() {
     return NextResponse.json({ message: "Nao autenticado." }, { status: 401 });
   }
 
-  const items = await prisma.equipamento.findMany({
-    orderBy: [{ descricao: "asc" }]
-  });
+  const empresaId = requireActiveTenantEmpresaId();
+  await ensureUnidadesCusteioIniciais(prisma, empresaId);
 
-  return NextResponse.json({ items });
+  const [items, unidadesCusteio] = await Promise.all([
+    prisma.equipamento.findMany({
+      include: equipamentoInclude,
+      orderBy: [{ descricao: "asc" }]
+    }),
+    prisma.unidadeCusteio.findMany({
+      where: { empresaId },
+      orderBy: [{ ativo: "desc" }, { rotulo: "asc" }]
+    })
+  ]);
+
+  return NextResponse.json({ items, unidadesCusteio });
 }
 
 export async function POST(request: NextRequest) {
@@ -60,10 +125,15 @@ export async function POST(request: NextRequest) {
 
   const data = parsed.data as any;
   const placaOuTag = data.placaOuTag || `REC-${randomUUID().slice(0, 8).toUpperCase()}`;
+  const empresaId = requireActiveTenantEmpresaId();
 
   try {
+    await ensureUnidadesCusteioIniciais(prisma, empresaId);
+    await assertUnidadesCusteioValidas(empresaId, data.formasCusteio);
+
     const equipamento = await prisma.equipamento.create({
       data: {
+        empresaId,
         naturezaRecurso: data.naturezaRecurso as any,
         tipoRecurso: data.tipoRecurso as any,
         tipoControle: data.tipoControle as any,
@@ -90,8 +160,12 @@ export async function POST(request: NextRequest) {
         horimetroAtual: data.horimetroAtual ?? null,
         kmAtual: data.kmAtual ?? null,
         periodicidadeManutencaoHoras: data.periodicidadeManutencaoHoras ?? null,
-        periodicidadeManutencaoKm: data.periodicidadeManutencaoKm ?? null
-      } as any
+        periodicidadeManutencaoKm: data.periodicidadeManutencaoKm ?? null,
+        formasCusteio: data.formasCusteio.length
+          ? { create: buildFormasCusteioCreate(empresaId, data.formasCusteio) }
+          : undefined
+      } as any,
+      include: equipamentoInclude
     });
 
     return NextResponse.json(equipamento, { status: 201 });

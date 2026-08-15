@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { ensureUnidadesCusteioIniciais } from "@/lib/biblioteca-recursos/unidades-custeio";
 import { prisma } from "@/lib/prisma";
+import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseOptionalDateOnlyStart } from "@/lib/utils/date";
 import { equipamentoSchema } from "@/lib/validators/equipamento";
 
@@ -18,6 +20,18 @@ function parseNullableNumber(value: unknown) {
 }
 
 function normalizePayload(payload: Record<string, unknown>) {
+  const formasCusteio = Array.isArray(payload.formasCusteio)
+    ? payload.formasCusteio.map((forma) => {
+        const record = forma && typeof forma === "object" ? forma as Record<string, unknown> : {};
+        return {
+          ...record,
+          valorReferencia: parseNullableNumber(record.valorReferencia),
+          preferencial: Boolean(record.preferencial),
+          ativo: record.ativo !== false
+        };
+      })
+    : [];
+
   return {
     ...payload,
     anoFabricacao: parseNullableNumber(payload.anoFabricacao),
@@ -26,8 +40,50 @@ function normalizePayload(payload: Record<string, unknown>) {
     horimetroAtual: parseNullableNumber(payload.horimetroAtual),
     kmAtual: parseNullableNumber(payload.kmAtual),
     periodicidadeManutencaoHoras: parseNullableNumber(payload.periodicidadeManutencaoHoras),
-    periodicidadeManutencaoKm: parseNullableNumber(payload.periodicidadeManutencaoKm)
+    periodicidadeManutencaoKm: parseNullableNumber(payload.periodicidadeManutencaoKm),
+    formasCusteio
   };
+}
+
+const equipamentoInclude = {
+  formasCusteio: {
+    include: {
+      unidadeCusteio: true
+    },
+    orderBy: [{ preferencial: "desc" as const }, { nome: "asc" as const }]
+  }
+};
+
+async function assertUnidadesCusteioValidas(empresaId: string, formas: Array<{ unidadeCusteioId: string }>) {
+  const ids = Array.from(new Set(formas.map((forma) => forma.unidadeCusteioId)));
+
+  if (!ids.length) return;
+
+  const unidades = await prisma.unidadeCusteio.findMany({
+    where: {
+      empresaId,
+      id: { in: ids },
+      ativo: true
+    },
+    select: { id: true }
+  });
+
+  if (unidades.length !== ids.length) {
+    throw new Error("UNIDADE_CUSTEIO_INVALIDA");
+  }
+}
+
+function buildFormasCusteioCreate(empresaId: string, equipamentoId: string, formas: any[]) {
+  return formas.map((forma) => ({
+    empresaId,
+    equipamentoId,
+    nome: forma.nome,
+    unidadeCusteioId: forma.unidadeCusteioId,
+    valorReferencia: forma.valorReferencia,
+    preferencial: Boolean(forma.preferencial && forma.ativo),
+    ativo: forma.ativo !== false,
+    observacao: forma.observacao || null
+  }));
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
@@ -49,8 +105,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const data = parsed.data as any;
+  const empresaId = requireActiveTenantEmpresaId();
 
   try {
+    await ensureUnidadesCusteioIniciais(prisma, empresaId);
+    await assertUnidadesCusteioValidas(empresaId, data.formasCusteio);
+
     const atual = await prisma.equipamento.findUnique({
       where: { id },
       select: { placaOuTag: true }
@@ -60,37 +120,54 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ message: "Equipamento nao encontrado." }, { status: 404 });
     }
 
-    const equipamento = await prisma.equipamento.update({
-      where: { id },
-      data: {
-        naturezaRecurso: data.naturezaRecurso as any,
-        tipoRecurso: data.tipoRecurso as any,
-        tipoControle: data.tipoControle as any,
-        descricao: data.descricao,
-        descricaoOperacional: data.descricaoOperacional || null,
-        placaOuTag: data.placaOuTag || atual.placaOuTag,
-        classeOperacional: data.classeOperacional || null,
-        complementar: Boolean(data.complementar),
-        fabricante: data.fabricante || null,
-        modelo: data.modelo || null,
-        marcaModelo: data.marcaModelo || null,
-        anoFabricacao: data.anoFabricacao ?? null,
-        dataEntrada: parseOptionalDateOnlyStart(data.dataEntrada),
-        capacidadeM3: data.capacidadeM3 ?? null,
-        unidadeCapacidade: data.unidadeCapacidade || null,
-        unidadeEconomicaPadrao: data.unidadeEconomicaPadrao || null,
-        custoPadrao: data.custoPadrao ?? null,
-        permitirEdicaoOrcamento: Boolean(data.permitirEdicaoOrcamento),
-        caracteristicasTecnicas: data.caracteristicasTecnicas ?? undefined,
-        apelido: data.apelido || null,
-        observacao: data.observacao || null,
-        status: data.status as any,
-        statusOperacional: data.statusOperacional as any,
-        horimetroAtual: data.horimetroAtual ?? null,
-        kmAtual: data.kmAtual ?? null,
-        periodicidadeManutencaoHoras: data.periodicidadeManutencaoHoras ?? null,
-        periodicidadeManutencaoKm: data.periodicidadeManutencaoKm ?? null
-      } as any
+    const equipamento = await prisma.$transaction(async (tx) => {
+      await tx.equipamento.update({
+        where: { id },
+        data: {
+          naturezaRecurso: data.naturezaRecurso as any,
+          tipoRecurso: data.tipoRecurso as any,
+          tipoControle: data.tipoControle as any,
+          descricao: data.descricao,
+          descricaoOperacional: data.descricaoOperacional || null,
+          placaOuTag: data.placaOuTag || atual.placaOuTag,
+          classeOperacional: data.classeOperacional || null,
+          complementar: Boolean(data.complementar),
+          fabricante: data.fabricante || null,
+          modelo: data.modelo || null,
+          marcaModelo: data.marcaModelo || null,
+          anoFabricacao: data.anoFabricacao ?? null,
+          dataEntrada: parseOptionalDateOnlyStart(data.dataEntrada),
+          capacidadeM3: data.capacidadeM3 ?? null,
+          unidadeCapacidade: data.unidadeCapacidade || null,
+          unidadeEconomicaPadrao: data.unidadeEconomicaPadrao || null,
+          custoPadrao: data.custoPadrao ?? null,
+          permitirEdicaoOrcamento: Boolean(data.permitirEdicaoOrcamento),
+          caracteristicasTecnicas: data.caracteristicasTecnicas ?? undefined,
+          apelido: data.apelido || null,
+          observacao: data.observacao || null,
+          status: data.status as any,
+          statusOperacional: data.statusOperacional as any,
+          horimetroAtual: data.horimetroAtual ?? null,
+          kmAtual: data.kmAtual ?? null,
+          periodicidadeManutencaoHoras: data.periodicidadeManutencaoHoras ?? null,
+          periodicidadeManutencaoKm: data.periodicidadeManutencaoKm ?? null
+        } as any
+      });
+
+      await tx.formaCusteioRecurso.deleteMany({
+        where: { equipamentoId: id }
+      });
+
+      if (data.formasCusteio.length) {
+        await tx.formaCusteioRecurso.createMany({
+          data: buildFormasCusteioCreate(empresaId, id, data.formasCusteio)
+        });
+      }
+
+      return tx.equipamento.findUnique({
+        where: { id },
+        include: equipamentoInclude
+      });
     });
 
     return NextResponse.json(equipamento);

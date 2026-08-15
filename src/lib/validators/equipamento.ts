@@ -7,6 +7,7 @@ import {
   UnidadeEconomicaCusto
 } from "@prisma/client";
 import { z } from "zod";
+import { formasCusteioRecursoSchema } from "@/lib/validators/biblioteca-recursos";
 
 export const equipamentoSchema = z.object({
   naturezaRecurso: z
@@ -43,7 +44,8 @@ export const equipamentoSchema = z.object({
   horimetroAtual: z.union([z.number().nonnegative().max(9999999), z.null()]).optional(),
   kmAtual: z.union([z.number().nonnegative().max(99999999), z.null()]).optional(),
   periodicidadeManutencaoHoras: z.union([z.number().int().positive().max(999999), z.null()]).optional(),
-  periodicidadeManutencaoKm: z.union([z.number().int().positive().max(9999999), z.null()]).optional()
+  periodicidadeManutencaoKm: z.union([z.number().int().positive().max(9999999), z.null()]).optional(),
+  formasCusteio: formasCusteioRecursoSchema
 }).superRefine((data, context) => {
   if (data.naturezaRecurso === NaturezaRecursoEquipamento.PROPRIO && data.placaOuTag.length < 2) {
     context.addIssue({
