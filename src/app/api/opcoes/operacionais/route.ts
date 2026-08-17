@@ -95,6 +95,27 @@ export async function GET(request: NextRequest) {
         custoPadrao: true,
         permitirEdicaoOrcamento: true,
         caracteristicasTecnicas: true,
+        formasCusteio: {
+          where: { ativo: true },
+          select: {
+            id: true,
+            nome: true,
+            valorReferencia: true,
+            preferencial: true,
+            ativo: true,
+            unidadeCusteio: {
+              select: {
+                id: true,
+                codigo: true,
+                rotulo: true,
+                baseEconomica: true,
+                sufixo: true,
+                ativo: true
+              }
+            }
+          },
+          orderBy: [{ preferencial: "desc" }, { nome: "asc" }]
+        },
         referenciaTecnica: {
           select: {
             id: true,

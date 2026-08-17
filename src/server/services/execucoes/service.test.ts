@@ -184,6 +184,7 @@ function createDbMock() {
                 recursoNome: "Escavadeira prevista",
                 classeOperacional: "Escavadeira",
                 recursoReferenciaId: RECURSO_ID,
+                referenciaTecnicaRecursoId: "ref-truck",
                 quantidade: 1,
                 quantidadeOperacional: 2,
                 origemQuantidadeOperacional: "PERSONALIZADA",
@@ -242,7 +243,44 @@ function createDbMock() {
           capacidadeM3: 14,
           unidadeCapacidade: "m3",
           unidadeEconomicaPadrao: "CARGA",
-          custoPadrao: 120
+          custoPadrao: 120,
+          formasCusteio: [
+            {
+              id: "forma-equipamento-carga",
+              nome: "Carga do equipamento",
+              valorReferencia: 120,
+              preferencial: true,
+              ativo: true,
+              unidadeCusteio: {
+                id: "unidade-carga",
+                codigo: "CARGA",
+                rotulo: "Carga",
+                baseEconomica: "CARGA",
+                sufixo: "R$/carga"
+              }
+            }
+          ],
+          referenciaTecnicaId: "ref-truck",
+          referenciaTecnica: {
+            id: "ref-truck",
+            nome: "Truck 14 m3",
+            formasCusteio: [
+              {
+                id: "forma-referencia-carga",
+                nome: "Carga da referencia",
+                valorReferencia: 110,
+                preferencial: true,
+                ativo: true,
+                unidadeCusteio: {
+                  id: "unidade-carga",
+                  codigo: "CARGA",
+                  rotulo: "Carga",
+                  baseEconomica: "CARGA",
+                  sufixo: "R$/carga"
+                }
+              }
+            ]
+          }
         }
       }
     ] as Array<Record<string, unknown>>
@@ -1695,6 +1733,13 @@ describe("service de Execucao e Resultado", () => {
       baseEconomica: "CARGA",
       valorCusto: 120,
       unidadeCusto: "R$/carga",
+      equipamentoId: RECURSO_ID,
+      referenciaTecnicaRecursoId: "ref-truck",
+      referenciaTecnicaNome: "Truck 14 m3",
+      formaCusteioRecursoId: "forma-equipamento-carga",
+      origemFormaCusteio: "EQUIPAMENTO",
+      valorReferenciaCusteio: 120,
+      valorAplicadoCusteio: 120,
       componenteEconomico: "TRANSPORTE",
       materialId: "material-areia",
       materialDescricao: "Areia"

@@ -4,6 +4,11 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/form/searchable-select";
 import { loadOperationalOptions } from "@/lib/client/operational-options";
 import { avaliarSnapshotTecnicoEconomico } from "@/lib/engineering-core/economic-resource-status";
+import {
+  resolverFormaCusteioEquipamento,
+  resolverFormaCusteioPorId,
+  type FormaCusteioResolucaoInput
+} from "@/lib/biblioteca-recursos/formas-custeio";
 
 type ClienteOption = {
   id: string;
@@ -22,11 +27,19 @@ type EquipamentoOption = {
   id: string;
   descricao: string;
   placaOuTag: string;
+  referenciaTecnicaId?: string | null;
   classeOperacional?: string | null;
   capacidadeM3?: string | number | null;
   unidadeCapacidade?: string | null;
   unidadeEconomicaPadrao?: string | null;
   custoPadrao?: string | number | null;
+  formasCusteio?: FormaCusteioResolucaoInput[];
+  referenciaTecnica?: {
+    id: string;
+    nome: string;
+    ativo?: boolean | null;
+    formasCusteio?: FormaCusteioResolucaoInput[];
+  } | null;
 };
 
 type OrcamentoReferenciaOption = {
@@ -272,6 +285,11 @@ function initialRecursoForm(frenteId = "") {
     baseEconomica: "CARGA",
     valorCusto: "",
     unidadeCusto: "R$/carga",
+    formaCusteioRecursoId: "",
+    referenciaTecnicaRecursoId: "",
+    referenciaTecnicaNome: "",
+    origemFormaCusteio: "",
+    valorReferenciaCusteio: "",
     distanciaIdaKm: "",
     distanciaVoltaKm: "",
     distanciaViagemKm: "",
@@ -332,6 +350,11 @@ function initialEconomicForm(recurso?: RecursoBoletim | null) {
     baseEconomica: String(snapshot.baseEconomica ?? "CARGA"),
     valorCusto: snapshot.valorCusto === undefined ? "" : String(snapshot.valorCusto),
     unidadeCusto: String(snapshot.unidadeCusto ?? "R$/carga"),
+    formaCusteioRecursoId: String(snapshot.formaCusteioRecursoId ?? metadados.formaCusteioRecursoId ?? ""),
+    referenciaTecnicaRecursoId: String(snapshot.referenciaTecnicaRecursoId ?? metadados.referenciaTecnicaRecursoId ?? ""),
+    referenciaTecnicaNome: String(snapshot.referenciaTecnicaNome ?? metadados.referenciaTecnicaNome ?? ""),
+    origemFormaCusteio: String(snapshot.origemFormaCusteio ?? metadados.origemFormaCusteio ?? ""),
+    valorReferenciaCusteio: snapshot.valorReferenciaCusteio === undefined ? String(metadados.valorReferenciaCusteio ?? "") : String(snapshot.valorReferenciaCusteio),
     origemCusto: resolveEconomicOriginValue(snapshot),
     valorBibliotecaOriginal: metadados.valorBibliotecaOriginal === undefined ? "" : String(metadados.valorBibliotecaOriginal),
     quantidadeOperacional: snapshot.quantidadeOperacional === undefined ? "" : String(snapshot.quantidadeOperacional),
@@ -389,6 +412,40 @@ function unidadeCustoFromBase(base: string) {
     CUSTO_FIXO: "R$"
   };
   return map[base] ?? "R$/un";
+}
+
+function custoFieldsFromEquipamento(equipamento: EquipamentoOption | undefined, formaId?: string | null) {
+  if (!equipamento) return {};
+  const resolucao = formaId
+    ? resolverFormaCusteioPorId(equipamento, formaId)
+    : resolverFormaCusteioEquipamento(equipamento);
+
+  if (resolucao.status !== "RESOLVIDA") {
+    return {
+      formaCusteioRecursoId: "",
+      referenciaTecnicaRecursoId: resolucao.referenciaTecnicaId ?? "",
+      referenciaTecnicaNome: resolucao.referenciaTecnicaNome ?? "",
+      origemFormaCusteio: resolucao.origem,
+      valorReferenciaCusteio: "",
+      valorCusto: "",
+      unidadeCusto: "",
+      origemCusto: resolucao.status === "MULTIPLAS_FORMAS" ? "PENDENTE_ESCOLHA_FORMA_CUSTEIO" : "PENDENTE",
+      formasDisponiveis: resolucao.formasDisponiveis
+    };
+  }
+
+  return {
+    formaCusteioRecursoId: resolucao.forma?.id ?? "",
+    referenciaTecnicaRecursoId: resolucao.referenciaTecnicaId ?? "",
+    referenciaTecnicaNome: resolucao.referenciaTecnicaNome ?? "",
+    origemFormaCusteio: resolucao.origem,
+    baseEconomica: resolucao.baseEconomica ?? "",
+    valorReferenciaCusteio: resolucao.valorReferencia === null || resolucao.valorReferencia === undefined ? "" : String(resolucao.valorReferencia),
+    valorCusto: resolucao.valorAplicado === null || resolucao.valorAplicado === undefined ? "" : String(resolucao.valorAplicado),
+    unidadeCusto: resolucao.unidadeCusto ?? "",
+    origemCusto: resolucao.origem,
+    formasDisponiveis: resolucao.formasDisponiveis
+  };
 }
 
 function baseEconomicaLabel(base: string) {
@@ -515,6 +572,12 @@ function buildEconomicSnapshot(form: ReturnType<typeof initialEconomicForm>, pre
       : form.origemCusto;
   const snapshot: Record<string, unknown> = {
     ...existing,
+    formaCusteioRecursoId: form.formaCusteioRecursoId || null,
+    referenciaTecnicaRecursoId: form.referenciaTecnicaRecursoId || null,
+    referenciaTecnicaNome: form.referenciaTecnicaNome || null,
+    origemFormaCusteio: form.origemFormaCusteio || metadados.origemFormaCusteio || null,
+    valorReferenciaCusteio: optionalNumber(form.valorReferenciaCusteio),
+    valorAplicadoCusteio: valorCusto,
     baseEconomica: form.baseEconomica,
     valorCusto,
     custoUnitario: valorCusto,
@@ -543,6 +606,12 @@ function buildEconomicSnapshot(form: ReturnType<typeof initialEconomicForm>, pre
       ...metadados,
       origem: form.origemCusto === "RECURSO_PROVISORIO" ? "RECURSO_PROVISORIO" : String(metadados.origem ?? "BIBLIOTECA_RECURSOS"),
       origemCusto,
+      formaCusteioRecursoId: form.formaCusteioRecursoId || null,
+      referenciaTecnicaRecursoId: form.referenciaTecnicaRecursoId || null,
+      referenciaTecnicaNome: form.referenciaTecnicaNome || null,
+      origemFormaCusteio: form.origemFormaCusteio || metadados.origemFormaCusteio || null,
+      valorReferenciaCusteio: optionalNumber(form.valorReferenciaCusteio),
+      valorAplicadoCusteio: valorCusto,
       valorBibliotecaOriginal: optionalNumber(form.valorBibliotecaOriginal) ?? null,
       valorCustoUtilizado: valorCusto,
       motivoPersonalizacao: form.motivoPersonalizacao || null,
@@ -755,6 +824,11 @@ export function ExecucoesManager() {
   const showRecursoDistanceFields = recursoBase === "KM";
   const showRecursoJornadaDiaria = recursoBase === "DIA" && recursoForm.unidadeRealizada.toLowerCase().startsWith("h");
   const recursoQuantidadeLabel = quantidadeLabelPorBase(recursoBase);
+  const equipamentoRecursoSelecionado = equipamentos.find((item) => item.id === recursoForm.equipamentoId);
+  const formasCusteioRecurso = [
+    ...(equipamentoRecursoSelecionado?.formasCusteio ?? []).map((forma) => ({ ...forma, origem: "EQUIPAMENTO" })),
+    ...(equipamentoRecursoSelecionado?.referenciaTecnica?.formasCusteio ?? []).map((forma) => ({ ...forma, origem: "REFERENCIA_TECNICA" }))
+  ];
   const possuiQuantidadeServico = hasQuantidadeServico(selected);
   const possuiBoletimAbertoComRecursos = boletins.some((boletim) => boletim.status === "ABERTO" && boletim.recursos.length > 0);
   const recursosPendentesEconomicos = countPendingEconomicResources(boletins);
@@ -841,11 +915,21 @@ export function ExecucoesManager() {
         id: equipamento.id,
         descricao: equipamento.descricao || equipamento.placaOuTag || "Recurso sem descricao",
         placaOuTag: equipamento.placaOuTag || "-",
+        referenciaTecnicaId: equipamento.referenciaTecnicaId ?? null,
         classeOperacional: equipamento.classeOperacional ?? null,
         capacidadeM3: equipamento.capacidadeM3 ?? null,
         unidadeCapacidade: equipamento.unidadeCapacidade ?? null,
         unidadeEconomicaPadrao: equipamento.unidadeEconomicaPadrao ?? null,
-        custoPadrao: equipamento.custoPadrao ?? null
+        custoPadrao: equipamento.custoPadrao ?? null,
+        formasCusteio: equipamento.formasCusteio ?? [],
+        referenciaTecnica: equipamento.referenciaTecnica
+          ? {
+            id: equipamento.referenciaTecnica.id,
+            nome: equipamento.referenciaTecnica.nome,
+            ativo: equipamento.referenciaTecnica.ativo,
+            formasCusteio: equipamento.referenciaTecnica.formasCusteio ?? []
+          }
+          : null
       })));
     } catch (err) {
       setOptionsError(err instanceof Error ? err.message : "Nao foi possivel carregar clientes, obras e recursos.");
@@ -1153,13 +1237,35 @@ export function ExecucoesManager() {
 
   function applyEquipamento(id: string) {
     const equipamento = equipamentos.find((item) => item.id === id);
+    const custeio = custoFieldsFromEquipamento(equipamento);
     setRecursoForm((current) => ({
       ...current,
       equipamentoId: id,
       nomeSnapshot: equipamento ? `${equipamento.placaOuTag} - ${equipamento.descricao}` : current.nomeSnapshot,
-      baseEconomica: equipamento?.unidadeEconomicaPadrao ?? current.baseEconomica,
-      valorCusto: equipamento?.custoPadrao ? String(equipamento.custoPadrao) : current.valorCusto,
-      unidadeCusto: equipamento?.unidadeEconomicaPadrao ? unidadeCustoFromBase(equipamento.unidadeEconomicaPadrao) : current.unidadeCusto
+      referenciaTecnicaRecursoId: typeof custeio.referenciaTecnicaRecursoId === "string" ? custeio.referenciaTecnicaRecursoId : "",
+      referenciaTecnicaNome: typeof custeio.referenciaTecnicaNome === "string" ? custeio.referenciaTecnicaNome : "",
+      formaCusteioRecursoId: typeof custeio.formaCusteioRecursoId === "string" ? custeio.formaCusteioRecursoId : "",
+      origemFormaCusteio: typeof custeio.origemFormaCusteio === "string" ? custeio.origemFormaCusteio : "",
+      baseEconomica: typeof custeio.baseEconomica === "string" && custeio.baseEconomica ? custeio.baseEconomica : current.baseEconomica,
+      valorReferenciaCusteio: typeof custeio.valorReferenciaCusteio === "string" ? custeio.valorReferenciaCusteio : "",
+      valorCusto: typeof custeio.valorCusto === "string" ? custeio.valorCusto : "",
+      unidadeCusto: typeof custeio.unidadeCusto === "string" && custeio.unidadeCusto ? custeio.unidadeCusto : current.unidadeCusto
+    }));
+  }
+
+  function applyFormaCusteioRecurso(formaId: string) {
+    const equipamento = equipamentos.find((item) => item.id === recursoForm.equipamentoId);
+    const custeio = custoFieldsFromEquipamento(equipamento, formaId);
+    setRecursoForm((current) => ({
+      ...current,
+      formaCusteioRecursoId: typeof custeio.formaCusteioRecursoId === "string" ? custeio.formaCusteioRecursoId : "",
+      referenciaTecnicaRecursoId: typeof custeio.referenciaTecnicaRecursoId === "string" ? custeio.referenciaTecnicaRecursoId : current.referenciaTecnicaRecursoId,
+      referenciaTecnicaNome: typeof custeio.referenciaTecnicaNome === "string" ? custeio.referenciaTecnicaNome : current.referenciaTecnicaNome,
+      origemFormaCusteio: typeof custeio.origemFormaCusteio === "string" ? custeio.origemFormaCusteio : current.origemFormaCusteio,
+      baseEconomica: typeof custeio.baseEconomica === "string" && custeio.baseEconomica ? custeio.baseEconomica : current.baseEconomica,
+      valorReferenciaCusteio: typeof custeio.valorReferenciaCusteio === "string" ? custeio.valorReferenciaCusteio : "",
+      valorCusto: typeof custeio.valorCusto === "string" ? custeio.valorCusto : "",
+      unidadeCusto: typeof custeio.unidadeCusto === "string" && custeio.unidadeCusto ? custeio.unidadeCusto : current.unidadeCusto
     }));
   }
 
@@ -1180,6 +1286,13 @@ export function ExecucoesManager() {
         : recursoForm.unidadeRealizada;
       const snapshotTecnicoEconomico = {
         origem: recursoForm.equipamentoId ? "BIBLIOTECA_RECURSOS" : "RECURSO_PROVISORIO",
+        equipamentoId: recursoForm.equipamentoId || null,
+        referenciaTecnicaRecursoId: recursoForm.referenciaTecnicaRecursoId || null,
+        referenciaTecnicaNome: recursoForm.referenciaTecnicaNome || null,
+        formaCusteioRecursoId: recursoForm.formaCusteioRecursoId || null,
+        origemFormaCusteio: recursoForm.origemFormaCusteio || (recursoForm.equipamentoId ? "LEGADO" : "MANUAL"),
+        valorReferenciaCusteio: optionalNumber(recursoForm.valorReferenciaCusteio),
+        valorAplicadoCusteio: valorCusto,
         baseEconomica: recursoForm.baseEconomica,
         valorCusto,
         custoUnitario: valorCusto,
@@ -1194,8 +1307,14 @@ export function ExecucoesManager() {
         mesesTotais: recursoForm.baseEconomica === "MES" ? quantidadeRealizada : undefined,
         metadados: {
           origem: recursoForm.equipamentoId ? "BIBLIOTECA_RECURSOS" : "RECURSO_PROVISORIO",
-          origemCusto: recursoForm.equipamentoId && valorCusto > 0 ? "BIBLIOTECA_RECURSOS" : recursoForm.equipamentoId ? "PENDENTE_CADASTRO_MESTRE" : "RECURSO_PROVISORIO",
+          origemCusto: recursoForm.equipamentoId && valorCusto > 0 ? recursoForm.origemFormaCusteio || "BIBLIOTECA_RECURSOS" : recursoForm.equipamentoId ? "PENDENTE_CADASTRO_MESTRE" : "RECURSO_PROVISORIO",
           valorCustoUtilizado: valorCusto,
+          formaCusteioRecursoId: recursoForm.formaCusteioRecursoId || null,
+          referenciaTecnicaRecursoId: recursoForm.referenciaTecnicaRecursoId || null,
+          referenciaTecnicaNome: recursoForm.referenciaTecnicaNome || null,
+          origemFormaCusteio: recursoForm.origemFormaCusteio || null,
+          valorReferenciaCusteio: optionalNumber(recursoForm.valorReferenciaCusteio),
+          valorAplicadoCusteio: valorCusto,
           distanciaIdaKm: recursoForm.baseEconomica === "KM" ? optionalNumber(recursoForm.distanciaIdaKm) : undefined,
           distanciaVoltaKm: recursoForm.baseEconomica === "KM" ? optionalNumber(recursoForm.distanciaVoltaKm) : undefined,
           distanciaCicloKm: recursoForm.baseEconomica === "KM" && distanciaViagemKm > 0 ? distanciaViagemKm : undefined,
@@ -2089,7 +2208,10 @@ export function ExecucoesManager() {
                   <Info label="Recurso" value={economicForm.nomeSnapshot || "-"} />
                   <Info label="Quantidade realizada" value={number(economicForm.quantidadeRealizada, ` ${economicForm.unidadeRealizada}`)} />
                   {showMaterialFields ? <Info label="Material" value={[economicForm.materialCodigo, economicForm.materialDescricao].filter(Boolean).join(" - ") || "-"} /> : null}
+                  {economicForm.referenciaTecnicaNome ? <Info label="Referencia tecnica" value={economicForm.referenciaTecnicaNome} /> : null}
+                  {economicForm.formaCusteioRecursoId ? <Info label="Forma de custeio" value={String(recursoEmEdicao?.snapshotTecnicoEconomico?.formaCusteioNome ?? economicForm.formaCusteioRecursoId)} /> : null}
                   <Info label="Origem do custo" value={isBibliotecaCost ? "Biblioteca" : "Personalizado na execucao"} />
+                  {economicForm.valorReferenciaCusteio ? <Info label="Valor de referencia" value={`${money(toNumber(economicForm.valorReferenciaCusteio))} ${economicForm.unidadeCusto}`} /> : null}
                 </div>
                 {isBibliotecaCost ? (
                   <div className="execucoes-economics-origin">
@@ -2294,6 +2416,23 @@ export function ExecucoesManager() {
                   <option value="">Recurso provisorio</option>
                   {equipamentos.map((equipamento) => <option key={equipamento.id} value={equipamento.id}>{equipamento.placaOuTag} - {equipamento.descricao}</option>)}
                 </select>
+                {recursoForm.equipamentoId && formasCusteioRecurso.length ? (
+                  <select value={recursoForm.formaCusteioRecursoId} onChange={(event) => applyFormaCusteioRecurso(event.target.value)}>
+                    <option value="">Escolha a forma de custeio</option>
+                    {formasCusteioRecurso.map((forma) => (
+                      <option key={`${forma.origem}-${forma.id}`} value={forma.id}>
+                        {forma.origem === "EQUIPAMENTO" ? "Equipamento" : "Referencia"} - {forma.nome} {forma.preferencial ? "(preferencial)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+                {recursoForm.equipamentoId ? (
+                  <div className="execucoes-economics-summary">
+                    {recursoForm.referenciaTecnicaNome ? <Info label="Referencia tecnica" value={recursoForm.referenciaTecnicaNome} /> : null}
+                    <Info label="Origem da forma" value={recursoForm.origemFormaCusteio || "Pendente"} />
+                    <Info label="Valor de referencia" value={recursoForm.valorReferenciaCusteio ? `${money(toNumber(recursoForm.valorReferenciaCusteio))} ${recursoForm.unidadeCusto}` : "Pendente"} />
+                  </div>
+                ) : null}
                 <input placeholder="Nome do recurso" value={recursoForm.nomeSnapshot} onChange={(event) => setRecursoForm((current) => ({ ...current, nomeSnapshot: event.target.value }))} required />
                 <div className="execucoes-inline">
                   <input type="number" step="0.0001" placeholder={recursoQuantidadeLabel} value={recursoForm.quantidadeRealizada} onChange={(event) => setRecursoForm((current) => ({ ...current, quantidadeRealizada: event.target.value }))} required />
@@ -2311,7 +2450,9 @@ export function ExecucoesManager() {
                         ...current,
                         baseEconomica: base,
                         unidadeRealizada: unidadeOperacionalPadraoPorBase(base, current.unidadeRealizada),
-                        unidadeCusto: unidadeCustoFromBase(base)
+                        unidadeCusto: unidadeCustoFromBase(base),
+                        formaCusteioRecursoId: "",
+                        origemFormaCusteio: current.equipamentoId ? "MANUAL" : current.origemFormaCusteio
                       }));
                     }}
                   >
@@ -2319,7 +2460,7 @@ export function ExecucoesManager() {
                   </select>
                 </div>
                 <div className="execucoes-inline">
-                  <input type="number" step="0.01" placeholder="Custo unitario" value={recursoForm.valorCusto} onChange={(event) => setRecursoForm((current) => ({ ...current, valorCusto: event.target.value }))} required />
+                  <input type="number" step="0.01" placeholder="Custo unitario" value={recursoForm.valorCusto} onChange={(event) => setRecursoForm((current) => ({ ...current, valorCusto: event.target.value, origemFormaCusteio: current.equipamentoId && current.valorReferenciaCusteio !== event.target.value ? "MANUAL" : current.origemFormaCusteio }))} required />
                   <input placeholder="Unidade economica" value={recursoForm.unidadeCusto} onChange={(event) => setRecursoForm((current) => ({ ...current, unidadeCusto: event.target.value }))} required />
                 </div>
                 {showRecursoDistanceFields ? (

@@ -38,6 +38,14 @@ export type SnapshotTecnicoEconomicoRecursoRealizado = {
   materialBaseEconomica?: BaseEconomicaRecursoOperacional | null;
   materialValorCusto?: NumeroTecnico;
   materialUnidadeCusto?: string | null;
+  equipamentoId?: string | null;
+  referenciaTecnicaRecursoId?: string | null;
+  referenciaTecnicaNome?: string | null;
+  formaCusteioRecursoId?: string | null;
+  formaCusteioNome?: string | null;
+  origemFormaCusteio?: string | null;
+  valorReferenciaCusteio?: NumeroTecnico;
+  valorAplicadoCusteio?: NumeroTecnico;
   metadados?: Record<string, string | number | boolean | null> | null;
 };
 
@@ -264,7 +272,7 @@ function adaptarComponenteEconomico(
     descricaoTecnica: componente.nome ?? snapshot.descricaoTecnica ?? recurso.nome,
     categoria: componente.categoria ?? snapshot.categoria ?? null,
     classeOperacional: componente.classeOperacional ?? snapshot.classeOperacional ?? null,
-    referenciaTecnicaId: recurso.recursoId ?? null,
+    referenciaTecnicaId: snapshot.referenciaTecnicaRecursoId ?? recurso.recursoId ?? null,
     quantidadeRecursos,
     quantidadeOperacional: quantidadeRealizada,
     origemQuantidadeOperacional: "PERSONALIZADA",

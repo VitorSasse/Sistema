@@ -15,7 +15,9 @@ export type OperationalOption = {
     id: string;
     nome: string;
     ativo: boolean;
+    formasCusteio?: FormaCusteioOperationalOption[];
   } | null;
+  formasCusteio?: FormaCusteioOperationalOption[];
   naturezaRecurso?: string;
   tipoRecurso?: string;
   classeOperacional?: string | null;
@@ -42,6 +44,22 @@ export type OperationalOption = {
   unidadeFaturamento?: string | null;
 };
 
+export type FormaCusteioOperationalOption = {
+  id: string;
+  nome: string;
+  valorReferencia: string | number;
+  preferencial: boolean;
+  ativo: boolean;
+  unidadeCusteio?: {
+    id: string;
+    codigo: string;
+    rotulo: string;
+    baseEconomica: string;
+    sufixo: string;
+    ativo?: boolean;
+  } | null;
+};
+
 export type OperationalOptionsPayload = {
   clientes: OperationalOption[];
   obras: OperationalOption[];
@@ -52,6 +70,7 @@ export type OperationalOptionsPayload = {
     id: string;
     nome: string;
     ativo: boolean;
+    formasCusteio?: FormaCusteioOperationalOption[];
   }>;
   colaboradores: OperationalOption[];
   fornecedores?: OperationalOption[];

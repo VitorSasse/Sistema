@@ -282,6 +282,61 @@ describe("comparativo Orcado x Realizado da Execucao", () => {
     });
   });
 
+  it("compara previsto generico com equipamento fisico realizado pela mesma referencia tecnica", () => {
+    const previsto = executarNucleoComMotorAtual(
+      entradaBase({
+        receita: 1000,
+        recursos: [
+          recurso({
+            id: "previsto-referencia-generica",
+            referenciaTecnicaId: "ref-escavadeira-15t",
+            nome: "Escavadeira Hidraulica 15 t",
+            quantidade: 2,
+            valorCusto: 900,
+            baseEconomica: "DIA",
+            unidade: "dia"
+          })
+        ]
+      })
+    );
+    const realizado = executarNucleoComMotorAtual(
+      entradaBase({
+        receita: 1000,
+        recursos: [
+          recurso({
+            id: "equipamento-fisico-diferente",
+            referenciaTecnicaId: "ref-escavadeira-15t",
+            nome: "ESC 150 I - HYUNDAI",
+            quantidade: 1,
+            valorCusto: 900,
+            baseEconomica: "DIA",
+            unidade: "dia"
+          })
+        ]
+      })
+    );
+
+    const comparativo = gerarComparativoAPartirDeSnapshots({
+      execucaoId: EXECUCAO_ID,
+      referenciaPrevista: {
+        origem: {
+          tipo: OrigemReferenciaPrevistaExecucao.PROPOSTA,
+          propostaOrigemId: "proposta-1"
+        },
+        snapshot: snapshot(previsto)
+      },
+      realizado: snapshot(realizado)
+    });
+
+    expect(comparativo.frentes[0].recursos).toHaveLength(1);
+    expect(comparativo.frentes[0].recursos[0]).toMatchObject({
+      status: "CORRESPONDENTE",
+      dimensao: "EQUIPAMENTO",
+      referenciaTecnicaId: "ref-escavadeira-15t",
+      quantidade: { previsto: 2, realizado: 1, desvioAbsoluto: -1 }
+    });
+  });
+
   it("consolida varios lancamentos realizados do mesmo recurso tecnico antes de comparar", () => {
     const previsto = executarNucleoComMotorAtual(
       entradaBase({

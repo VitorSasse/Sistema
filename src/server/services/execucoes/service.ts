@@ -29,6 +29,11 @@ import {
   salvarEncargosEconomicosExecucaoSchema,
   type SalvarEncargosEconomicosExecucaoInput
 } from "@/lib/validators/execucao-encargos";
+import {
+  resolverFormaCusteioEquipamento,
+  type EquipamentoCusteioResolucaoInput,
+  type FormaCusteioResolvida
+} from "@/lib/biblioteca-recursos/formas-custeio";
 import { requireActiveTenantEmpresaId } from "@/lib/tenant-store";
 import { parseDateOnlyEnd, parseDateOnlyStart } from "@/lib/utils/date";
 import { registrarReferenciaPrevistaExecucao } from "./comparativo";
@@ -465,10 +470,33 @@ function unidadeCustoFromBase(base: string) {
     M3: "m3",
     M2: "m2",
     MES: "mes",
+    CUSTO_FIXO: "",
     UNIDADE: "un"
   };
 
-  return `R$/${suffix[base] ?? "un"}`;
+  return base === "CUSTO_FIXO" ? "R$" : `R$/${suffix[base] ?? "un"}`;
+}
+
+function buildFormaCusteioSnapshotFields(
+  equipamento: EquipamentoCusteioResolucaoInput,
+  resolucao: FormaCusteioResolvida
+) {
+  const valorAplicado = resolucao.valorAplicado ?? 0;
+
+  return {
+    equipamentoId: equipamento.id ?? null,
+    referenciaTecnicaRecursoId: resolucao.referenciaTecnicaId ?? equipamento.referenciaTecnicaId ?? equipamento.referenciaTecnica?.id ?? null,
+    referenciaTecnicaNome: resolucao.referenciaTecnicaNome ?? equipamento.referenciaTecnica?.nome ?? null,
+    formaCusteioRecursoId: resolucao.forma?.id ?? null,
+    formaCusteioNome: resolucao.forma?.nome ?? null,
+    origemFormaCusteio: resolucao.origem,
+    baseEconomica: resolucao.baseEconomica,
+    valorCusto: valorAplicado,
+    custoUnitario: valorAplicado,
+    unidadeCusto: resolucao.unidadeCusto,
+    valorReferenciaCusteio: resolucao.valorReferencia ?? null,
+    valorAplicadoCusteio: resolucao.valorAplicado ?? null
+  };
 }
 
 function buildFrentesCreate(input: ExecucaoInput, empresaId: string) {
@@ -1750,7 +1778,53 @@ const lancamentoFatoSelect = {
       capacidadeM3: true,
       unidadeCapacidade: true,
       unidadeEconomicaPadrao: true,
-      custoPadrao: true
+      custoPadrao: true,
+      formasCusteio: {
+        where: { ativo: true },
+        select: {
+          id: true,
+          nome: true,
+          valorReferencia: true,
+          preferencial: true,
+          ativo: true,
+          unidadeCusteio: {
+            select: {
+              id: true,
+              codigo: true,
+              rotulo: true,
+              baseEconomica: true,
+              sufixo: true
+            }
+          }
+        },
+        orderBy: [{ preferencial: "desc" }, { nome: "asc" }]
+      },
+      referenciaTecnica: {
+        select: {
+          id: true,
+          nome: true,
+          formasCusteio: {
+            where: { ativo: true },
+            select: {
+              id: true,
+              nome: true,
+              valorReferencia: true,
+              preferencial: true,
+              ativo: true,
+              unidadeCusteio: {
+                select: {
+                  id: true,
+                  codigo: true,
+                  rotulo: true,
+                  baseEconomica: true,
+                  sufixo: true
+                }
+              }
+            },
+            orderBy: [{ preferencial: "desc" }, { nome: "asc" }]
+          }
+        }
+      }
     }
   }
 } satisfies Prisma.LancamentoDiarioSelect;
@@ -1802,11 +1876,14 @@ function normalizeFiltroDateEnd(value: string | Date | null | undefined) {
 }
 
 function buildSnapshotFato(lancamento: LancamentoFato): SnapshotTecnicoEconomicoRecursoRealizado {
-  const baseEconomica = String(lancamento.equipamento.unidadeEconomicaPadrao ?? inferBaseEconomicaFromUnidade(lancamento.unidadeApontada));
-  const valorCusto = toNumber(lancamento.equipamento.custoPadrao);
+  const resolucaoCusteio = resolverFormaCusteioEquipamento(lancamento.equipamento);
+  const formaSnapshot = buildFormaCusteioSnapshotFields(lancamento.equipamento, resolucaoCusteio);
+  const baseEconomica = String(formaSnapshot.baseEconomica ?? inferBaseEconomicaFromUnidade(lancamento.unidadeApontada));
+  const valorCusto = toNumber(formaSnapshot.valorCusto);
   const materialDescricao = lancamento.material?.descricao ?? null;
 
   return {
+    ...formaSnapshot,
     categoria: String(lancamento.equipamento.tipoRecurso ?? "EQUIPAMENTO"),
     classeOperacional: lancamento.equipamento.classeOperacional ?? lancamento.equipamento.descricao,
     componenteEconomico: "TRANSPORTE",
@@ -1816,7 +1893,7 @@ function buildSnapshotFato(lancamento: LancamentoFato): SnapshotTecnicoEconomico
     materialUnidade: lancamento.material?.unidadePadrao ?? null,
     baseEconomica: baseEconomica as SnapshotTecnicoEconomicoRecursoRealizado["baseEconomica"],
     valorCusto,
-    unidadeCusto: unidadeCustoFromBase(baseEconomica),
+    unidadeCusto: formaSnapshot.unidadeCusto ?? unidadeCustoFromBase(baseEconomica),
     capacidadePorViagem: toNumber(lancamento.equipamento.capacidadeM3) || undefined,
     unidadeCapacidade: lancamento.equipamento.unidadeCapacidade ?? undefined,
     metadados: {
@@ -1824,7 +1901,16 @@ function buildSnapshotFato(lancamento: LancamentoFato): SnapshotTecnicoEconomico
       origem: valorCusto > 0 ? "BIBLIOTECA_RECURSOS" : "CUSTO_NAO_CADASTRADO",
       origemRegistroTipo: "LANCAMENTO_DIARIO",
       origemRegistroId: lancamento.id,
-      origemCusto: valorCusto > 0 ? "CADASTRO_MESTRE_EQUIPAMENTO" : "PENDENTE_CADASTRO_MESTRE",
+      origemCusto: valorCusto > 0 ? resolucaoCusteio.origem : resolucaoCusteio.status === "MULTIPLAS_FORMAS" ? "PENDENTE_ESCOLHA_FORMA_CUSTEIO" : "PENDENTE_CADASTRO_MESTRE",
+      statusResolucaoCusteio: resolucaoCusteio.status,
+      motivoResolucaoCusteio: resolucaoCusteio.motivo,
+      formaCusteioRecursoId: formaSnapshot.formaCusteioRecursoId ?? null,
+      formaCusteioNome: formaSnapshot.formaCusteioNome ?? null,
+      origemFormaCusteio: resolucaoCusteio.origem,
+      referenciaTecnicaRecursoId: formaSnapshot.referenciaTecnicaRecursoId ?? null,
+      referenciaTecnicaNome: formaSnapshot.referenciaTecnicaNome ?? null,
+      valorReferenciaCusteio: formaSnapshot.valorReferenciaCusteio ?? null,
+      valorAplicadoCusteio: formaSnapshot.valorAplicadoCusteio ?? null,
       materialIdentificado: Boolean(materialDescricao),
       materialDescricao
     }
@@ -1860,7 +1946,7 @@ function mapLancamentoToFato(lancamento: LancamentoFato, vinculados: Set<string>
     materialDescricao: lancamento.material?.descricao ?? null,
     materialUnidade: lancamento.material?.unidadePadrao ?? null,
     statusVinculo: vinculados.has(lancamento.id) ? "VINCULADO" : "DISPONIVEL",
-    custoDisponivel: toNumber(lancamento.equipamento.custoPadrao) > 0,
+    custoDisponivel: avaliarSnapshotTecnicoEconomico(snapshot).status === "CUSTO_DEFINIDO",
     snapshotTecnicoEconomico: snapshot
   };
 }

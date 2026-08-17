@@ -399,6 +399,8 @@ function buildIdentidadeOperacionalComparativa(recurso: Record<string, unknown>)
     return null;
   }
 
+  if (referenciaTecnicaId) return `referencia:${referenciaTecnicaId}`;
+
   if (dimensao === "TRANSPORTE" && capacidade > 0 && unidadeCapacidade) {
     const partesTransporte = [
       "funcao:transporte",
