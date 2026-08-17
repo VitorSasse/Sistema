@@ -125,6 +125,32 @@ export const orcamentoInclude = {
           caracteristicasTecnicas: true,
           status: true
         }
+      },
+      referenciaTecnicaRecurso: {
+        select: {
+          id: true,
+          nome: true,
+          ativo: true
+        }
+      },
+      formaCusteioRecurso: {
+        select: {
+          id: true,
+          nome: true,
+          valorReferencia: true,
+          preferencial: true,
+          ativo: true,
+          unidadeCusteio: {
+            select: {
+              id: true,
+              codigo: true,
+              rotulo: true,
+              baseEconomica: true,
+              sufixo: true,
+              ativo: true
+            }
+          }
+        }
       }
     },
     orderBy: [{ ordem: "asc" as const }, { createdAt: "asc" as const }]
@@ -277,6 +303,12 @@ async function validarReferenciasOrcamento(db: DbClient, input: OrcamentoInput) 
   await validarIdsRelacionados(db, "servico", input.itens.map((item) => item.servicoId));
   await validarIdsRelacionados(db, "material", input.itens.map((item) => item.materialId));
   await validarIdsRelacionados(db, "equipamento", input.itens.map((item) => item.equipamentoId));
+  await validarIdsRelacionados(
+    db,
+    "referenciaTecnicaRecurso",
+    input.itens.map((item) => item.referenciaTecnicaRecursoId)
+  );
+  await validarFormasCusteioOrcamento(db, input);
   await validarIdsRelacionados(db, "fornecedor", input.itens.map((item) => item.fornecedorPreferencialId));
   await validarIdsRelacionados(
     db,
@@ -294,9 +326,38 @@ async function validarReferenciasOrcamento(db: DbClient, input: OrcamentoInput) 
   );
 }
 
+async function validarFormasCusteioOrcamento(db: DbClient, input: OrcamentoInput) {
+  const pares = input.itens
+    .filter((item) => item.referenciaTecnicaRecursoId && item.formaCusteioRecursoId)
+    .map((item) => ({
+      referenciaTecnicaRecursoId: item.referenciaTecnicaRecursoId!,
+      formaCusteioRecursoId: item.formaCusteioRecursoId!
+    }));
+
+  if (!pares.length) return;
+
+  const formas = await db.formaCusteioRecurso.findMany({
+    where: {
+      id: { in: pares.map((par) => par.formaCusteioRecursoId) },
+      empresaId: requireActiveTenantEmpresaId()
+    },
+    select: {
+      id: true,
+      referenciaTecnicaId: true
+    }
+  });
+  const byId = new Map(formas.map((forma) => [forma.id, forma.referenciaTecnicaId]));
+
+  for (const par of pares) {
+    if (byId.get(par.formaCusteioRecursoId) !== par.referenciaTecnicaRecursoId) {
+      throw new Error("FORMA_CUSTEIO_NAO_PERTENCE_A_REFERENCIA");
+    }
+  }
+}
+
 async function validarIdsRelacionados(
   db: DbClient,
-  entidade: "servico" | "material" | "equipamento" | "colaborador" | "fornecedor",
+  entidade: "servico" | "material" | "equipamento" | "referenciaTecnicaRecurso" | "colaborador" | "fornecedor",
   ids: Array<string | null | undefined>
 ) {
   const uniqueIds = Array.from(new Set(ids.filter((id): id is string => Boolean(id))));
@@ -325,6 +386,12 @@ async function validarIdsRelacionados(
     });
   }
 
+  if (entidade === "referenciaTecnicaRecurso") {
+    count = await db.referenciaTecnicaRecurso.count({
+      where: { id: { in: uniqueIds }, empresaId: requireActiveTenantEmpresaId() }
+    });
+  }
+
   if (entidade === "colaborador") {
     count = await db.colaborador.count({
       where: { id: { in: uniqueIds } }
@@ -342,6 +409,7 @@ async function validarIdsRelacionados(
       servico: "SERVICO_NAO_ENCONTRADO",
       material: "MATERIAL_NAO_ENCONTRADO",
       equipamento: "EQUIPAMENTO_NAO_ENCONTRADO",
+      referenciaTecnicaRecurso: "REFERENCIA_TECNICA_NAO_ENCONTRADA",
       colaborador: "COLABORADOR_NAO_ENCONTRADO",
       fornecedor: "FORNECEDOR_NAO_ENCONTRADO"
     };
@@ -877,6 +945,8 @@ async function criarEstruturaOrcamento(
         servicoId: item.servicoId || null,
         materialId: item.materialId || null,
         equipamentoId: item.equipamentoId || null,
+        referenciaTecnicaRecursoId: item.referenciaTecnicaRecursoId || null,
+        formaCusteioRecursoId: item.formaCusteioRecursoId || null,
         categoriaRecurso: item.categoriaRecurso ?? null,
         classeOperacional: clean(item.classeOperacional),
         recursoReferenciaId: clean(item.recursoReferenciaId),
@@ -921,6 +991,11 @@ async function criarEstruturaOrcamento(
         tipoCalculoRecurso: item.tipoCalculoRecurso ?? "AUTOMATICO",
         unidadeEconomicaCusto: item.unidadeEconomicaCusto ?? null,
         valorCusto: item.valorCusto ?? item.custoUnitario,
+        valorReferenciaCusteio: item.valorReferenciaCusteio ?? null,
+        valorAplicadoCusteio: item.valorAplicadoCusteio ?? item.valorCusto ?? item.custoUnitario,
+        formaCusteioSnapshot: item.formaCusteioSnapshot
+          ? (item.formaCusteioSnapshot as Prisma.InputJsonValue)
+          : undefined,
         horasDia: item.horasDia ?? null,
         horasTotais: item.horasTotais ?? null,
         viagensDia: item.viagensDia ?? null,
@@ -1472,6 +1547,8 @@ export async function duplicarOrcamento(
         servicoId: item.servicoId,
         materialId: item.materialId,
         equipamentoId: item.equipamentoId,
+        referenciaTecnicaRecursoId: item.referenciaTecnicaRecursoId,
+        formaCusteioRecursoId: item.formaCusteioRecursoId,
         categoriaRecurso: item.categoriaRecurso,
         classeOperacional: item.classeOperacional,
         recursoReferenciaId: item.recursoReferenciaId,
@@ -1507,6 +1584,11 @@ export async function duplicarOrcamento(
         tipoCalculoRecurso: item.tipoCalculoRecurso,
         unidadeEconomicaCusto: item.unidadeEconomicaCusto,
         valorCusto: item.valorCusto,
+        valorReferenciaCusteio: item.valorReferenciaCusteio,
+        valorAplicadoCusteio: item.valorAplicadoCusteio,
+        formaCusteioSnapshot: item.formaCusteioSnapshot
+          ? (item.formaCusteioSnapshot as Prisma.InputJsonValue)
+          : undefined,
         horasDia: item.horasDia,
         horasTotais: item.horasTotais,
         viagensDia: item.viagensDia,

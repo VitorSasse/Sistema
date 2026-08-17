@@ -117,6 +117,8 @@ type EquipamentoOption = {
   id: string;
   placaOuTag: string;
   descricao: string;
+  referenciaTecnicaId?: string | null;
+  referenciaTecnica?: ReferenciaTecnicaRecursoOption | null;
   tipoRecurso: string;
   naturezaRecurso?: string | null;
   classeOperacional?: string | null;
@@ -127,6 +129,31 @@ type EquipamentoOption = {
   custoPadrao?: string | number | null;
   permitirEdicaoOrcamento?: boolean;
   caracteristicasTecnicas?: Record<string, unknown> | null;
+};
+
+type UnidadeCusteioOption = {
+  id: string;
+  codigo: string;
+  rotulo: string;
+  baseEconomica: UnidadeEconomicaCusto;
+  sufixo: string;
+  ativo: boolean;
+};
+
+type FormaCusteioRecursoOption = {
+  id: string;
+  nome: string;
+  valorReferencia: string | number;
+  preferencial: boolean;
+  ativo: boolean;
+  unidadeCusteio: UnidadeCusteioOption;
+};
+
+type ReferenciaTecnicaRecursoOption = {
+  id: string;
+  nome: string;
+  ativo: boolean;
+  formasCusteio?: FormaCusteioRecursoOption[];
 };
 
 type ColaboradorOption = {
@@ -155,6 +182,7 @@ type OptionsState = {
   servicos: ServicoOption[];
   materiais: MaterialOption[];
   equipamentos: EquipamentoOption[];
+  referenciasTecnicasRecursos: ReferenciaTecnicaRecursoOption[];
   colaboradores: ColaboradorOption[];
   fornecedores: FornecedorOption[];
   usuarios: UsuarioOption[];
@@ -181,6 +209,10 @@ type EquipamentoResourceOption = BasicSelectOption & {
   descricaoOperacional: string | null;
   caracteristicasTecnicas: Record<string, unknown> | null;
   legado?: boolean;
+};
+type ReferenciaTecnicaResourceOption = BasicSelectOption & {
+  nome: string;
+  formasCusteio: FormaCusteioRecursoOption[];
 };
 type NamedSelectOption = { value: string; label: string; nome: string };
 type RecursoSelectOption = BasicSelectOption & {
@@ -256,6 +288,11 @@ type ItemForm = {
   servicoId: string;
   materialId: string;
   equipamentoId: string;
+  referenciaTecnicaRecursoId: string;
+  formaCusteioRecursoId: string;
+  formaCusteioSnapshot: FormaCusteioSnapshot | null;
+  valorReferenciaCusteio: string;
+  valorAplicadoCusteio: string;
   categoriaRecurso: CategoriaRecursoOrcamento;
   classeOperacional: string;
   recursoReferenciaId: string;
@@ -306,6 +343,22 @@ type ItemForm = {
   memoriaCalculo: string;
   valorUnitario: string;
   observacao: string;
+};
+
+type FormaCusteioSnapshot = {
+  versao: 1;
+  origem: "REFERENCIA_TECNICA";
+  referenciaTecnicaRecursoId: string;
+  referenciaTecnicaNome: string;
+  formaCusteioRecursoId: string;
+  formaCusteioNome: string;
+  unidadeCusteioId: string;
+  unidadeCusteioCodigo: string;
+  unidadeCusteioRotulo: string;
+  baseEconomica: UnidadeEconomicaCusto;
+  sufixo: string;
+  valorReferencia: number;
+  valorAplicado: number;
 };
 
 type FormacaoPrecoForm = {
@@ -466,6 +519,11 @@ type OrcamentoApi = {
     servicoId: string | null;
     materialId: string | null;
     equipamentoId: string | null;
+    referenciaTecnicaRecursoId?: string | null;
+    formaCusteioRecursoId?: string | null;
+    formaCusteioSnapshot?: unknown;
+    valorReferenciaCusteio?: string | number | null;
+    valorAplicadoCusteio?: string | number | null;
     categoriaRecurso: CategoriaRecursoOrcamento | null;
     classeOperacional: string | null;
     recursoReferenciaId: string | null;
@@ -665,6 +723,7 @@ const emptyOptions: OptionsState = {
   servicos: [],
   materiais: [],
   equipamentos: [],
+  referenciasTecnicasRecursos: [],
   colaboradores: [],
   fornecedores: [],
   usuarios: []
@@ -800,6 +859,11 @@ function createEmptyItem(tipoItem: TipoItemOrcamento, ordem: number, frenteTempI
     servicoId: "",
     materialId: "",
     equipamentoId: "",
+    referenciaTecnicaRecursoId: "",
+    formaCusteioRecursoId: "",
+    formaCusteioSnapshot: null,
+    valorReferenciaCusteio: "",
+    valorAplicadoCusteio: "",
     categoriaRecurso: "EQUIPAMENTO",
     classeOperacional: "",
     recursoReferenciaId: "",
@@ -1107,6 +1171,40 @@ function createResourceSnapshotFromOption(equipamento: EquipamentoResourceOption
     descricaoOperacional: equipamento.descricaoOperacional,
     caracteristicasTecnicas: equipamento.caracteristicasTecnicas
   });
+}
+
+function normalizarFormaCusteioSnapshot(value: unknown): FormaCusteioSnapshot | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const snapshot = value as Partial<FormaCusteioSnapshot>;
+  if (
+    snapshot.versao !== 1 ||
+    snapshot.origem !== "REFERENCIA_TECNICA" ||
+    !snapshot.referenciaTecnicaRecursoId ||
+    !snapshot.formaCusteioRecursoId ||
+    !snapshot.unidadeCusteioId ||
+    !snapshot.baseEconomica
+  ) {
+    return null;
+  }
+
+  return {
+    versao: 1,
+    origem: "REFERENCIA_TECNICA",
+    referenciaTecnicaRecursoId: String(snapshot.referenciaTecnicaRecursoId),
+    referenciaTecnicaNome: String(snapshot.referenciaTecnicaNome ?? ""),
+    formaCusteioRecursoId: String(snapshot.formaCusteioRecursoId),
+    formaCusteioNome: String(snapshot.formaCusteioNome ?? ""),
+    unidadeCusteioId: String(snapshot.unidadeCusteioId),
+    unidadeCusteioCodigo: String(snapshot.unidadeCusteioCodigo ?? ""),
+    unidadeCusteioRotulo: String(snapshot.unidadeCusteioRotulo ?? ""),
+    baseEconomica: snapshot.baseEconomica,
+    sufixo: String(snapshot.sufixo ?? ""),
+    valorReferencia: Number(snapshot.valorReferencia) || 0,
+    valorAplicado: Number(snapshot.valorAplicado) || 0
+  };
 }
 
 function isCostDebugEnabled() {
@@ -1668,6 +1766,17 @@ export function OrcamentosManager() {
     [options.equipamentos]
   );
 
+  const referenciaTecnicaResourceOptions = useMemo(
+    () =>
+      options.referenciasTecnicasRecursos.map((referencia) => ({
+        value: referencia.id,
+        label: referencia.nome,
+        nome: referencia.nome,
+        formasCusteio: referencia.formasCusteio?.filter((forma) => forma.ativo) ?? []
+      })),
+    [options.referenciasTecnicasRecursos]
+  );
+
   const classeOperacionalOptions = useMemo(() => {
     const classes = new Map<string, string>();
 
@@ -1872,6 +1981,7 @@ export function OrcamentosManager() {
       servicos: operacionais.servicos ?? [],
       materiais: operacionais.materiais ?? [],
       equipamentos: operacionais.equipamentos ?? [],
+      referenciasTecnicasRecursos: operacionais.referenciasTecnicasRecursos ?? [],
       colaboradores: operacionais.colaboradores ?? [],
       fornecedores: operacionais.fornecedores ?? [],
       usuarios: usuarios.items ?? []
@@ -2014,6 +2124,36 @@ export function OrcamentosManager() {
     setQuickSaving(false);
   }
 
+  async function criarReferenciaTecnicaRapida(localId: string) {
+    const nome = window.prompt("Nome da nova referencia tecnica:");
+    const nomeLimpo = nome?.trim();
+
+    if (!nomeLimpo) {
+      return;
+    }
+
+    const response = await fetch("/api/referencias-tecnicas-recursos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nome: nomeLimpo, ativo: true, observacao: "", formasCusteio: [] })
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      applyApiError(data, "Nao foi possivel criar a referencia tecnica.");
+      return;
+    }
+
+    await loadOptions();
+    selectReferenciaTecnicaResource(localId, {
+      value: data.id,
+      label: data.nome,
+      nome: data.nome,
+      formasCusteio: []
+    });
+    setMessage("Referencia tecnica criada e selecionada no item.");
+  }
+
   function updateFormacao<K extends keyof FormacaoPrecoForm>(key: K, value: FormacaoPrecoForm[K]) {
     setForm((current) => ({
       ...current,
@@ -2100,6 +2240,120 @@ export function OrcamentosManager() {
           custoUnitario: herdados.valorCusto || "0",
           caracteristicasRecursoSnapshot: snapshot,
           camposTecnicosPersonalizados: []
+        };
+      })
+    }));
+  }
+
+  function createFormaCusteioSnapshot(
+    referencia: ReferenciaTecnicaResourceOption,
+    forma: FormaCusteioRecursoOption,
+    valorAplicado = Number(forma.valorReferencia) || 0
+  ): FormaCusteioSnapshot {
+    return {
+      versao: 1,
+      origem: "REFERENCIA_TECNICA",
+      referenciaTecnicaRecursoId: referencia.value,
+      referenciaTecnicaNome: referencia.nome,
+      formaCusteioRecursoId: forma.id,
+      formaCusteioNome: forma.nome,
+      unidadeCusteioId: forma.unidadeCusteio.id,
+      unidadeCusteioCodigo: forma.unidadeCusteio.codigo,
+      unidadeCusteioRotulo: forma.unidadeCusteio.rotulo,
+      baseEconomica: forma.unidadeCusteio.baseEconomica,
+      sufixo: forma.unidadeCusteio.sufixo,
+      valorReferencia: Number(forma.valorReferencia) || 0,
+      valorAplicado
+    };
+  }
+
+  function selectReferenciaTecnicaResource(localId: string, referencia: ReferenciaTecnicaResourceOption) {
+    const formasAtivas = referencia.formasCusteio.filter((forma) => forma.ativo);
+    const preferenciais = formasAtivas.filter((forma) => forma.preferencial);
+    const formaInicial = preferenciais.length === 1 ? preferenciais[0] : null;
+    const valorReferencia = formaInicial ? String(formaInicial.valorReferencia ?? "") : "";
+    const baseEconomica = formaInicial?.unidadeCusteio.baseEconomica ?? "CUSTO_FIXO";
+    const snapshot = formaInicial ? createFormaCusteioSnapshot(referencia, formaInicial) : null;
+
+    setForm((current) => ({
+      ...current,
+      itens: current.itens.map((item) =>
+        item.localId === localId
+          ? {
+              ...item,
+              referenciaTecnicaRecursoId: referencia.value,
+              formaCusteioRecursoId: formaInicial?.id ?? "",
+              formaCusteioSnapshot: snapshot,
+              valorReferenciaCusteio: valorReferencia,
+              valorAplicadoCusteio: valorReferencia,
+              classeOperacional: referencia.nome,
+              recursoReferenciaId: referencia.value,
+              recursoNome: referencia.nome,
+              descricao: referencia.nome,
+              unidadeEconomicaCusto: baseEconomica,
+              valorCusto: valorReferencia || item.valorCusto,
+              custoUnitario: valorReferencia || item.custoUnitario,
+              caracteristicasRecursoSnapshot: null,
+              camposTecnicosPersonalizados: []
+            }
+          : item
+      )
+    }));
+  }
+
+  function selectFormaCusteioResource(localId: string, formaId: string) {
+    setForm((current) => ({
+      ...current,
+      itens: current.itens.map((item) => {
+        if (item.localId !== localId) return item;
+        const referencia = referenciaTecnicaResourceOptions.find(
+          (option) => option.value === item.referenciaTecnicaRecursoId
+        );
+        const forma = referencia?.formasCusteio.find((candidate) => candidate.id === formaId);
+
+        if (!referencia || !forma) {
+          return {
+            ...item,
+            formaCusteioRecursoId: "",
+            formaCusteioSnapshot: null,
+            valorReferenciaCusteio: "",
+            valorAplicadoCusteio: ""
+          };
+        }
+
+        const valorReferencia = String(forma.valorReferencia ?? "");
+        return {
+          ...item,
+          formaCusteioRecursoId: forma.id,
+          formaCusteioSnapshot: createFormaCusteioSnapshot(referencia, forma),
+          valorReferenciaCusteio: valorReferencia,
+          valorAplicadoCusteio: valorReferencia,
+          unidadeEconomicaCusto: forma.unidadeCusteio.baseEconomica,
+          valorCusto: valorReferencia,
+          custoUnitario: valorReferencia
+        };
+      })
+    }));
+  }
+
+  function updateValorAplicadoCusteio(localId: string, value: string) {
+    setForm((current) => ({
+      ...current,
+      itens: current.itens.map((item) => {
+        if (item.localId !== localId) return item;
+        const nextSnapshot = item.formaCusteioSnapshot
+          ? {
+              ...item.formaCusteioSnapshot,
+              valorAplicado: Number(value) || 0
+            }
+          : null;
+
+        return {
+          ...item,
+          valorAplicadoCusteio: value,
+          formaCusteioSnapshot: nextSnapshot,
+          valorCusto: value,
+          custoUnitario: value
         };
       })
     }));
@@ -2927,6 +3181,7 @@ export function OrcamentosManager() {
             servicoOptions={servicoOptions}
             materialOptions={materialOptions}
             equipamentoOptions={equipamentoOptions}
+            referenciaTecnicaOptions={referenciaTecnicaResourceOptions}
             classeOperacionalOptions={classeOperacionalOptions}
             colaboradorOptions={colaboradorOptions}
             fornecedorOptions={fornecedorOptions}
@@ -2937,6 +3192,10 @@ export function OrcamentosManager() {
             onRemoveItem={removeItem}
             onUpdateItem={updateItem}
             onSelectEquipment={selectEquipmentResource}
+            onSelectReferenciaTecnica={selectReferenciaTecnicaResource}
+            onSelectFormaCusteio={selectFormaCusteioResource}
+            onUpdateValorAplicadoCusteio={updateValorAplicadoCusteio}
+            onQuickCreateReferenciaTecnica={criarReferenciaTecnicaRapida}
             onSelectCommercialEquipment={selectCommercialEquipment}
             onPersonalizeResourceField={personalizeResourceField}
           />
@@ -3596,6 +3855,7 @@ function FrentesOperacionaisSection(props: {
   servicoOptions: ServicoSelectOption[];
   materialOptions: MaterialSelectOption[];
   equipamentoOptions: EquipamentoResourceOption[];
+  referenciaTecnicaOptions: ReferenciaTecnicaResourceOption[];
   classeOperacionalOptions: BasicSelectOption[];
   colaboradorOptions: NamedSelectOption[];
   fornecedorOptions: NamedSelectOption[];
@@ -3606,6 +3866,10 @@ function FrentesOperacionaisSection(props: {
   onRemoveItem: (localId: string) => void;
   onUpdateItem: (localId: string, key: keyof ItemForm, value: string | number) => void;
   onSelectEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
+  onSelectReferenciaTecnica: (localId: string, referencia: ReferenciaTecnicaResourceOption) => void;
+  onSelectFormaCusteio: (localId: string, formaId: string) => void;
+  onUpdateValorAplicadoCusteio: (localId: string, value: string) => void;
+  onQuickCreateReferenciaTecnica: (localId: string) => void;
   onSelectCommercialEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
   onPersonalizeResourceField: (localId: string, campo: CampoTecnicoRecurso) => void;
 }) {
@@ -3921,12 +4185,17 @@ function FrentesOperacionaisSection(props: {
                         servicoOptions={props.servicoOptions}
                         materialOptions={props.materialOptions}
                         equipamentoOptions={props.equipamentoOptions}
+                        referenciaTecnicaOptions={props.referenciaTecnicaOptions}
                         classeOperacionalOptions={props.classeOperacionalOptions}
                         colaboradorOptions={props.colaboradorOptions}
                         fornecedorOptions={props.fornecedorOptions}
                         onRemove={props.onRemoveItem}
                         onUpdate={props.onUpdateItem}
                         onSelectEquipment={props.onSelectEquipment}
+                        onSelectReferenciaTecnica={props.onSelectReferenciaTecnica}
+                        onSelectFormaCusteio={props.onSelectFormaCusteio}
+                        onUpdateValorAplicadoCusteio={props.onUpdateValorAplicadoCusteio}
+                        onQuickCreateReferenciaTecnica={props.onQuickCreateReferenciaTecnica}
                         onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                         onPersonalizeResourceField={props.onPersonalizeResourceField}
                       />
@@ -3982,12 +4251,17 @@ function FrentesOperacionaisSection(props: {
                       servicoOptions={props.servicoOptions}
                       materialOptions={props.materialOptions}
                       equipamentoOptions={props.equipamentoOptions}
+                      referenciaTecnicaOptions={props.referenciaTecnicaOptions}
                       classeOperacionalOptions={props.classeOperacionalOptions}
                       colaboradorOptions={props.colaboradorOptions}
                       fornecedorOptions={props.fornecedorOptions}
                       onRemove={props.onRemoveItem}
                       onUpdate={props.onUpdateItem}
                       onSelectEquipment={props.onSelectEquipment}
+                      onSelectReferenciaTecnica={props.onSelectReferenciaTecnica}
+                      onSelectFormaCusteio={props.onSelectFormaCusteio}
+                      onUpdateValorAplicadoCusteio={props.onUpdateValorAplicadoCusteio}
+                      onQuickCreateReferenciaTecnica={props.onQuickCreateReferenciaTecnica}
                       onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                       onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
@@ -4035,12 +4309,17 @@ function FrentesOperacionaisSection(props: {
                       servicoOptions={props.servicoOptions}
                       materialOptions={props.materialOptions}
                       equipamentoOptions={props.equipamentoOptions}
+                      referenciaTecnicaOptions={props.referenciaTecnicaOptions}
                       classeOperacionalOptions={props.classeOperacionalOptions}
                       colaboradorOptions={props.colaboradorOptions}
                       fornecedorOptions={props.fornecedorOptions}
                       onRemove={props.onRemoveItem}
                       onUpdate={props.onUpdateItem}
                       onSelectEquipment={props.onSelectEquipment}
+                      onSelectReferenciaTecnica={props.onSelectReferenciaTecnica}
+                      onSelectFormaCusteio={props.onSelectFormaCusteio}
+                      onUpdateValorAplicadoCusteio={props.onUpdateValorAplicadoCusteio}
+                      onQuickCreateReferenciaTecnica={props.onQuickCreateReferenciaTecnica}
                       onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                       onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
@@ -4121,12 +4400,17 @@ function FrentesOperacionaisSection(props: {
                       servicoOptions={props.servicoOptions}
                       materialOptions={props.materialOptions}
                       equipamentoOptions={props.equipamentoOptions}
+                      referenciaTecnicaOptions={props.referenciaTecnicaOptions}
                       classeOperacionalOptions={props.classeOperacionalOptions}
                       colaboradorOptions={props.colaboradorOptions}
                       fornecedorOptions={props.fornecedorOptions}
                       onRemove={props.onRemoveItem}
                       onUpdate={props.onUpdateItem}
                       onSelectEquipment={props.onSelectEquipment}
+                      onSelectReferenciaTecnica={props.onSelectReferenciaTecnica}
+                      onSelectFormaCusteio={props.onSelectFormaCusteio}
+                      onUpdateValorAplicadoCusteio={props.onUpdateValorAplicadoCusteio}
+                      onQuickCreateReferenciaTecnica={props.onQuickCreateReferenciaTecnica}
                       onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                       onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
@@ -4174,12 +4458,17 @@ function FrentesOperacionaisSection(props: {
                       servicoOptions={props.servicoOptions}
                       materialOptions={props.materialOptions}
                       equipamentoOptions={props.equipamentoOptions}
+                      referenciaTecnicaOptions={props.referenciaTecnicaOptions}
                       classeOperacionalOptions={props.classeOperacionalOptions}
                       colaboradorOptions={props.colaboradorOptions}
                       fornecedorOptions={props.fornecedorOptions}
                       onRemove={props.onRemoveItem}
                       onUpdate={props.onUpdateItem}
                       onSelectEquipment={props.onSelectEquipment}
+                      onSelectReferenciaTecnica={props.onSelectReferenciaTecnica}
+                      onSelectFormaCusteio={props.onSelectFormaCusteio}
+                      onUpdateValorAplicadoCusteio={props.onUpdateValorAplicadoCusteio}
+                      onQuickCreateReferenciaTecnica={props.onQuickCreateReferenciaTecnica}
                       onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                       onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
@@ -4673,12 +4962,17 @@ function OperationalItemList(props: {
   servicoOptions: ServicoSelectOption[];
   materialOptions: MaterialSelectOption[];
   equipamentoOptions: EquipamentoResourceOption[];
+  referenciaTecnicaOptions: ReferenciaTecnicaResourceOption[];
   classeOperacionalOptions: BasicSelectOption[];
   colaboradorOptions: NamedSelectOption[];
   fornecedorOptions: NamedSelectOption[];
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
   onSelectEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
+  onSelectReferenciaTecnica: (localId: string, referencia: ReferenciaTecnicaResourceOption) => void;
+  onSelectFormaCusteio: (localId: string, formaId: string) => void;
+  onUpdateValorAplicadoCusteio: (localId: string, value: string) => void;
+  onQuickCreateReferenciaTecnica: (localId: string) => void;
   onSelectCommercialEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
   onPersonalizeResourceField: (localId: string, campo: CampoTecnicoRecurso) => void;
 }) {
@@ -4727,6 +5021,7 @@ function OperationalItemList(props: {
                 itemError={itemError}
                 materialOptions={props.materialOptions}
                 equipamentoOptions={props.equipamentoOptions}
+                referenciaTecnicaOptions={props.referenciaTecnicaOptions}
                 classeOperacionalOptions={props.classeOperacionalOptions}
                 colaboradorOptions={props.colaboradorOptions}
                 fornecedorOptions={props.fornecedorOptions}
@@ -4735,6 +5030,10 @@ function OperationalItemList(props: {
                 unidadeFrente={props.unidadeFrente}
                 onUpdate={props.onUpdate}
                 onSelectEquipment={props.onSelectEquipment}
+                onSelectReferenciaTecnica={props.onSelectReferenciaTecnica}
+                onSelectFormaCusteio={props.onSelectFormaCusteio}
+                onUpdateValorAplicadoCusteio={props.onUpdateValorAplicadoCusteio}
+                onQuickCreateReferenciaTecnica={props.onQuickCreateReferenciaTecnica}
                 onPersonalizeResourceField={props.onPersonalizeResourceField}
               />
             ) : (
@@ -5148,6 +5447,7 @@ function ResourceItemFields(props: {
   itemError?: string;
   materialOptions: MaterialSelectOption[];
   equipamentoOptions: EquipamentoResourceOption[];
+  referenciaTecnicaOptions: ReferenciaTecnicaResourceOption[];
   classeOperacionalOptions: BasicSelectOption[];
   colaboradorOptions: NamedSelectOption[];
   fornecedorOptions: NamedSelectOption[];
@@ -5156,10 +5456,22 @@ function ResourceItemFields(props: {
   unidadeFrente?: string;
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
   onSelectEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
+  onSelectReferenciaTecnica: (localId: string, referencia: ReferenciaTecnicaResourceOption) => void;
+  onSelectFormaCusteio: (localId: string, formaId: string) => void;
+  onUpdateValorAplicadoCusteio: (localId: string, value: string) => void;
+  onQuickCreateReferenciaTecnica: (localId: string) => void;
   onPersonalizeResourceField: (localId: string, campo: CampoTecnicoRecurso) => void;
 }) {
   const recursoOptions = getRecursoOptions(props.item.categoriaRecurso, props);
   const recursoValue = getRecursoValue(props.item);
+  const referenciaSelecionada = props.referenciaTecnicaOptions.find(
+    (option) => option.value === props.item.referenciaTecnicaRecursoId
+  );
+  const formasReferencia = referenciaSelecionada?.formasCusteio ?? [];
+  const valorAplicadoPersonalizado =
+    props.item.valorReferenciaCusteio.trim() &&
+    props.item.valorAplicadoCusteio.trim() &&
+    Number(props.item.valorReferenciaCusteio) !== Number(props.item.valorAplicadoCusteio);
   const herdaQuantidadeDaFrente =
     props.item.origemQuantidadeOperacional !== "PERSONALIZADA";
   const quantidadeOperacionalHerdada =
@@ -5231,6 +5543,13 @@ function ResourceItemFields(props: {
     const label = selected?.nome ?? selected?.label ?? "";
 
     if (props.item.categoriaRecurso === "EQUIPAMENTO") {
+      const referencia = props.referenciaTecnicaOptions.find((option) => option.value === value);
+
+      if (referencia) {
+        props.onSelectReferenciaTecnica(props.item.localId, referencia);
+        return;
+      }
+
       const equipamentosDaClasse = props.equipamentoOptions.filter(
         (option) => option.classeOperacional === value
       );
@@ -5307,7 +5626,60 @@ function ResourceItemFields(props: {
           placeholder={getRecursoPlaceholder(props.item.categoriaRecurso)}
           onChange={handleResourceChange}
         />
+        {props.item.categoriaRecurso === "EQUIPAMENTO" ? (
+          <button
+            type="button"
+            className="button-secondary"
+            style={{ marginTop: 8 }}
+            onClick={() => props.onQuickCreateReferenciaTecnica(props.item.localId)}
+          >
+            Criar nova referencia tecnica
+          </button>
+        ) : null}
       </label>
+      {props.item.categoriaRecurso === "EQUIPAMENTO" && props.item.referenciaTecnicaRecursoId ? (
+        <>
+          <label className="manager-field">
+            <span className="manager-field-label">Forma de custeio</span>
+            <select
+              className="field-control"
+              value={props.item.formaCusteioRecursoId}
+              onChange={(event) => props.onSelectFormaCusteio(props.item.localId, event.target.value)}
+            >
+              <option value="">Preenchimento manual</option>
+              {formasReferencia.map((forma) => (
+                <option key={forma.id} value={forma.id}>
+                  {forma.nome} - {forma.unidadeCusteio.rotulo} - R$ {Number(forma.valorReferencia ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                  {forma.preferencial ? " (preferencial)" : ""}
+                </option>
+              ))}
+            </select>
+            <small className="manager-field-hint">
+              A forma sugere unidade de custeio e valor, sem alterar a Biblioteca.
+            </small>
+          </label>
+          <label className="manager-field">
+            <span className="manager-field-label">Valor de referencia</span>
+            <input className="field-control" value={props.item.valorReferenciaCusteio || "-"} readOnly />
+            <small className="manager-field-hint">Valor capturado da Biblioteca no momento da selecao.</small>
+          </label>
+          <label className="manager-field">
+            <span className="manager-field-label">Valor aplicado</span>
+            <input
+              className="field-control"
+              type="number"
+              min="0"
+              step="0.0001"
+              value={props.item.valorAplicadoCusteio}
+              onChange={(event) => props.onUpdateValorAplicadoCusteio(props.item.localId, event.target.value)}
+              placeholder="0,0000"
+            />
+            <small className="manager-field-hint">
+              {valorAplicadoPersonalizado ? "Valor personalizado neste orcamento." : "Inicialmente igual ao valor de referencia."}
+            </small>
+          </label>
+        </>
+      ) : null}
       <label className="manager-field">
         <span className="manager-field-label">Quantidade de recursos</span>
         <input
@@ -5677,13 +6049,20 @@ function getRecursoOptions(
   options: {
     materialOptions: MaterialSelectOption[];
     equipamentoOptions: EquipamentoResourceOption[];
+    referenciaTecnicaOptions: ReferenciaTecnicaResourceOption[];
     classeOperacionalOptions: BasicSelectOption[];
     colaboradorOptions: NamedSelectOption[];
     fornecedorOptions: NamedSelectOption[];
   }
 ) : RecursoSelectOption[] {
   if (categoria === "EQUIPAMENTO") {
-    return options.classeOperacionalOptions;
+    return [
+      ...options.referenciaTecnicaOptions,
+      ...options.classeOperacionalOptions.map((option) => ({
+        ...option,
+        label: `${option.label} (legado)`
+      }))
+    ];
   }
   if (categoria === "MATERIAL") return options.materialOptions;
   if (categoria === "EQUIPE") return options.colaboradorOptions;
@@ -5692,14 +6071,14 @@ function getRecursoOptions(
 
 function getRecursoValue(item: ItemForm) {
   if (item.categoriaRecurso === "EQUIPAMENTO") {
-    return item.classeOperacional;
+    return item.referenciaTecnicaRecursoId || item.classeOperacional;
   }
   if (item.categoriaRecurso === "MATERIAL") return item.materialId;
   return item.recursoReferenciaId;
 }
 
 function getRecursoPlaceholder(categoria: CategoriaRecursoOrcamento) {
-  if (categoria === "EQUIPAMENTO") return "Buscar classe operacional";
+  if (categoria === "EQUIPAMENTO") return "Buscar referencia tecnica";
   if (categoria === "MATERIAL") return "Buscar material";
   if (categoria === "EQUIPE") return "Buscar colaborador/equipe";
   return "Buscar fornecedor/terceiro";
@@ -5953,6 +6332,22 @@ function mapItemPayload(item: ItemForm) {
       recurso || servicoOperacional || item.tipoItem === "MATERIAL" || origemComercial !== "RESOURCE"
         ? null
         : item.equipamentoId || null,
+    referenciaTecnicaRecursoId:
+      recurso && item.categoriaRecurso === "EQUIPAMENTO"
+        ? item.referenciaTecnicaRecursoId || null
+        : null,
+    formaCusteioRecursoId:
+      recurso && item.categoriaRecurso === "EQUIPAMENTO"
+        ? item.formaCusteioRecursoId || null
+        : null,
+    formaCusteioSnapshot:
+      recurso && item.categoriaRecurso === "EQUIPAMENTO"
+        ? item.formaCusteioSnapshot
+        : null,
+    valorReferenciaCusteio:
+      recurso && item.valorReferenciaCusteio ? Number(item.valorReferenciaCusteio) : null,
+    valorAplicadoCusteio:
+      recurso && item.valorAplicadoCusteio ? Number(item.valorAplicadoCusteio) : null,
     categoriaRecurso: recurso ? item.categoriaRecurso : null,
     classeOperacional:
       recurso && item.categoriaRecurso === "EQUIPAMENTO" ? item.classeOperacional.trim() : "",
@@ -6113,6 +6508,8 @@ function normalizeItemForPayload(item: ItemForm, frentes: FrenteForm[] = []): It
     servicoId: item.servicoId.trim(),
     materialId: item.materialId.trim(),
     equipamentoId: item.equipamentoId.trim(),
+    referenciaTecnicaRecursoId: item.referenciaTecnicaRecursoId.trim(),
+    formaCusteioRecursoId: item.formaCusteioRecursoId.trim(),
     classeOperacional: item.classeOperacional.trim(),
     recursoReferenciaId: item.recursoReferenciaId.trim(),
     recursoNome: item.recursoNome.trim(),
@@ -6197,6 +6594,8 @@ function isItemPreenchido(item: ItemForm) {
       item.servicoId ||
       item.materialId ||
       item.equipamentoId ||
+      item.referenciaTecnicaRecursoId ||
+      item.formaCusteioRecursoId ||
       item.classeOperacional ||
       item.recursoReferenciaId ||
       item.recursoNome ||
@@ -6453,6 +6852,12 @@ function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
               servicoId: orcamentoItem.servicoId ?? "",
               materialId: orcamentoItem.materialId ?? "",
               equipamentoId: orcamentoItem.equipamentoId ?? "",
+              referenciaTecnicaRecursoId: orcamentoItem.referenciaTecnicaRecursoId ?? "",
+              formaCusteioRecursoId: orcamentoItem.formaCusteioRecursoId ?? "",
+              formaCusteioSnapshot:
+                normalizarFormaCusteioSnapshot(orcamentoItem.formaCusteioSnapshot),
+              valorReferenciaCusteio: toStringValue(orcamentoItem.valorReferenciaCusteio),
+              valorAplicadoCusteio: toStringValue(orcamentoItem.valorAplicadoCusteio),
               categoriaRecurso: orcamentoItem.categoriaRecurso ?? "EQUIPAMENTO",
               classeOperacional: orcamentoItem.classeOperacional ?? "",
               recursoReferenciaId: orcamentoItem.recursoReferenciaId ?? "",

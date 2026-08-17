@@ -99,7 +99,28 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             nome: true,
-            ativo: true
+            ativo: true,
+            formasCusteio: {
+              where: { ativo: true },
+              select: {
+                id: true,
+                nome: true,
+                valorReferencia: true,
+                preferencial: true,
+                ativo: true,
+                unidadeCusteio: {
+                  select: {
+                    id: true,
+                    codigo: true,
+                    rotulo: true,
+                    baseEconomica: true,
+                    sufixo: true,
+                    ativo: true
+                  }
+                }
+              },
+              orderBy: [{ preferencial: "desc" }, { nome: "asc" }]
+            }
           }
         },
         status: true
@@ -113,7 +134,28 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         nome: true,
-        ativo: true
+        ativo: true,
+        formasCusteio: {
+          where: { ativo: true },
+          select: {
+            id: true,
+            nome: true,
+            valorReferencia: true,
+            preferencial: true,
+            ativo: true,
+            unidadeCusteio: {
+              select: {
+                id: true,
+                codigo: true,
+                rotulo: true,
+                baseEconomica: true,
+                sufixo: true,
+                ativo: true
+              }
+            }
+          },
+          orderBy: [{ preferencial: "desc" }, { nome: "asc" }]
+        }
       },
       orderBy: [{ nome: "asc" }]
     })),

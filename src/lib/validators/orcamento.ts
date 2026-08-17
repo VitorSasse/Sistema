@@ -337,6 +337,22 @@ const caracteristicasRecursoSnapshotSchema = z.object({
   })
 });
 
+const formaCusteioSnapshotSchema = z.object({
+  versao: z.literal(1),
+  origem: z.literal("REFERENCIA_TECNICA"),
+  referenciaTecnicaRecursoId: z.string().trim().min(1).max(120),
+  referenciaTecnicaNome: z.string().trim().max(160),
+  formaCusteioRecursoId: z.string().trim().min(1).max(120),
+  formaCusteioNome: z.string().trim().max(160),
+  unidadeCusteioId: z.string().trim().min(1).max(120),
+  unidadeCusteioCodigo: z.string().trim().max(80),
+  unidadeCusteioRotulo: z.string().trim().max(120),
+  baseEconomica: z.nativeEnum(UnidadeEconomicaCusto),
+  sufixo: z.string().trim().max(40),
+  valorReferencia: z.number().finite().nonnegative(),
+  valorAplicado: z.number().finite().nonnegative()
+});
+
 const orcamentoFrenteSchema = z.object({
   cenarioTempId: z.string().trim().max(80).optional().or(z.literal("")),
   cenarioOrdem: z.number().int().positive().max(999).optional().nullable(),
@@ -407,6 +423,11 @@ const orcamentoItemSchema = z.object({
   servicoId: optionalUuid(),
   materialId: optionalUuid(),
   equipamentoId: optionalUuid(),
+  referenciaTecnicaRecursoId: optionalUuid(),
+  formaCusteioRecursoId: optionalUuid(),
+  formaCusteioSnapshot: formaCusteioSnapshotSchema.optional().nullable(),
+  valorReferenciaCusteio: numeroDecimal(999999999).optional().nullable(),
+  valorAplicadoCusteio: numeroDecimal(999999999).optional().nullable(),
   categoriaRecurso: z.nativeEnum(CategoriaRecursoOrcamento).optional().nullable(),
   classeOperacional: z.string().trim().max(160).optional().or(z.literal("")),
   recursoReferenciaId: z.string().trim().max(120).optional().or(z.literal("")),

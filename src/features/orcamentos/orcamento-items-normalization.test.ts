@@ -16,6 +16,11 @@ function makeItem(overrides: Partial<ItemInput> = {}): ItemInput {
     servicoId: "",
     materialId: "",
     equipamentoId: "",
+    referenciaTecnicaRecursoId: "",
+    formaCusteioRecursoId: "",
+    formaCusteioSnapshot: null,
+    valorReferenciaCusteio: "",
+    valorAplicadoCusteio: "",
     categoriaRecurso: "EQUIPAMENTO",
     classeOperacional: "",
     recursoReferenciaId: "",
@@ -279,5 +284,46 @@ describe("normalizacao dos itens do orcamento", () => {
     expect(Object.values(validation.errors)).toContain(
       "Item 1: informe a unidade da quantidade operacional personalizada para o recurso."
     );
+  });
+
+  it("preserva recurso com referencia tecnica estruturada e forma de custeio", () => {
+    const itens = normalizeItemsForPayload([
+      makeItem({
+        tipoItem: "RECURSO",
+        categoriaRecurso: "EQUIPAMENTO",
+        referenciaTecnicaRecursoId: "11111111-1111-4111-8111-111111111111",
+        formaCusteioRecursoId: "22222222-2222-4222-8222-222222222222",
+        formaCusteioSnapshot: {
+          versao: 1,
+          origem: "REFERENCIA_TECNICA",
+          referenciaTecnicaRecursoId: "11111111-1111-4111-8111-111111111111",
+          referenciaTecnicaNome: "Escavadeira Hidraulica 15 t",
+          formaCusteioRecursoId: "22222222-2222-4222-8222-222222222222",
+          formaCusteioNome: "Diaria",
+          unidadeCusteioId: "33333333-3333-4333-8333-333333333333",
+          unidadeCusteioCodigo: "DIA",
+          unidadeCusteioRotulo: "R$/dia",
+          baseEconomica: "DIA",
+          sufixo: "R$/dia",
+          valorReferencia: 950,
+          valorAplicado: 900
+        },
+        valorReferenciaCusteio: "950",
+        valorAplicadoCusteio: "900",
+        classeOperacional: "Escavadeira Hidraulica 15 t",
+        recursoReferenciaId: "11111111-1111-4111-8111-111111111111",
+        recursoNome: "Escavadeira Hidraulica 15 t",
+        descricao: "Escavadeira Hidraulica 15 t",
+        unidadeEconomicaCusto: "DIA",
+        valorCusto: "900",
+        custoUnitario: "900"
+      })
+    ]);
+
+    expect(itens).toHaveLength(1);
+    expect(itens[0].referenciaTecnicaRecursoId).toBe("11111111-1111-4111-8111-111111111111");
+    expect(itens[0].formaCusteioRecursoId).toBe("22222222-2222-4222-8222-222222222222");
+    expect(itens[0].valorAplicadoCusteio).toBe("900");
+    expect(itens[0].valorCusto).toBe("900");
   });
 });
