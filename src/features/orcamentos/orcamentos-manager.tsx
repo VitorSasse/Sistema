@@ -1014,6 +1014,50 @@ function isCommercialFrontItem(item: Pick<ItemForm, "tipoItem">) {
   return item.tipoItem !== "RECURSO";
 }
 
+function getManualCommercialName(item: Pick<ItemForm, "descricaoManualComercial" | "descricao">) {
+  return item.descricaoManualComercial.trim() || item.descricao.trim();
+}
+
+function normalizeManualCommercialIdentity(item: ItemForm): ItemForm {
+  if (item.origemItemComercial !== "MANUAL" || isRecursoItem(item)) {
+    return item;
+  }
+
+  const nomeManual = getManualCommercialName(item);
+  const descricao = item.descricao.trim();
+
+  return {
+    ...item,
+    descricaoManualComercial: nomeManual,
+    descricao: nomeManual && descricao === nomeManual ? "" : descricao
+  };
+}
+
+function buildEconomicServiceInput(item: ItemForm) {
+  return {
+    frenteRef: item.frenteTempId,
+    tipoItem: item.tipoItem,
+    descricao:
+      item.origemItemComercial === "MANUAL"
+        ? getManualCommercialName(item)
+        : item.descricao,
+    unidade: item.unidade,
+    quantidade: item.quantidade,
+    valorUnitario: item.valorUnitario,
+    formaApresentacaoComercial: item.formaApresentacaoComercial,
+    modoPrecificacao: item.modoPrecificacao,
+    precoCompra: item.precoCompra,
+    markupPercentual: item.markupPercentual,
+    precoVendaSobrescrito: item.precoVendaSobrescrito,
+    custoUnitario: item.custoUnitario,
+    custoCalculadoOriginal: item.custoCalculadoOriginal,
+    custoBaseSobrescrito: item.custoBaseSobrescrito,
+    custoBaseAplicado: item.custoBaseAplicado,
+    precoCalculado: item.precoCalculado,
+    precoAplicado: item.precoAplicado
+  };
+}
+
 function normalizeItemUpdate(item: ItemForm, key: keyof ItemForm, value: string | number): ItemForm {
   const next: ItemForm = {
     ...item,
@@ -1072,16 +1116,17 @@ function normalizeItemUpdate(item: ItemForm, key: keyof ItemForm, value: string 
 
   if (key === "origemItemComercial") {
     const origem = value as OrigemItemComercialOrcamento;
-
-    return {
+    const itemAtualizado = {
       ...next,
       origemItemComercial: origem,
       servicoId: origem === "SERVICE" ? next.servicoId : "",
       equipamentoId: origem === "RESOURCE" ? next.equipamentoId : "",
-      descricaoManualComercial: origem === "MANUAL" ? next.descricaoManualComercial || next.descricao : "",
+      descricaoManualComercial: origem === "MANUAL" ? getManualCommercialName(next) : "",
       caracteristicasRecursoSnapshot: origem === "RESOURCE" ? next.caracteristicasRecursoSnapshot : null,
       camposTecnicosPersonalizados: origem === "RESOURCE" ? next.camposTecnicosPersonalizados : []
     };
+
+    return normalizeManualCommercialIdentity(itemAtualizado);
   }
 
   if ((key === "precoCompra" || key === "markupPercentual") && !next.precoVendaSobrescrito) {
@@ -1458,28 +1503,7 @@ function buildOperationalConsolidation(
         ? 0
         : custosPorFrente.get(frente.localId)?.custoDireto ?? 0
     })),
-    servicos: itens.map((item) => ({
-      frenteRef: item.frenteTempId,
-      tipoItem: item.tipoItem,
-      descricao:
-        item.origemItemComercial === "MANUAL"
-          ? item.descricaoManualComercial || item.descricao
-          : item.descricao,
-      unidade: item.unidade,
-      quantidade: item.quantidade,
-      valorUnitario: item.valorUnitario,
-      formaApresentacaoComercial: item.formaApresentacaoComercial,
-      modoPrecificacao: item.modoPrecificacao,
-      precoCompra: item.precoCompra,
-      markupPercentual: item.markupPercentual,
-      precoVendaSobrescrito: item.precoVendaSobrescrito,
-      custoUnitario: item.custoUnitario,
-      custoCalculadoOriginal: item.custoCalculadoOriginal,
-      custoBaseSobrescrito: item.custoBaseSobrescrito,
-      custoBaseAplicado: item.custoBaseAplicado,
-      precoCalculado: item.precoCalculado,
-      precoAplicado: item.precoAplicado
-    })),
+    servicos: itens.map(buildEconomicServiceInput),
     custoDiretoLegado: form.formacaoPreco.custoDireto,
     custoIndireto: form.formacaoPreco.custoIndireto,
     margemPercentual: form.formacaoPreco.margemPercentual,
@@ -1492,7 +1516,21 @@ function buildOperationalConsolidation(
   return { motorCustos, consolidacao };
 }
 
-function buildEconomicPreview(form: OrcamentoForm) {
+export function buildVendasFrentesFromMotor(
+  form: OrcamentoForm,
+  motorCustos: ReturnType<typeof calcularMotorCustos>
+) {
+  return calcularConsolidacaoEconomica({
+    frentes: motorCustos.frentes.map((frente) => ({
+      ref: frente.ref,
+      nome: frente.nome,
+      custoDireto: frente.custoDireto
+    })),
+    servicos: form.itens.map(buildEconomicServiceInput)
+  }).frentes;
+}
+
+export function buildEconomicPreview(form: OrcamentoForm) {
   const isOperational = form.frentes.length > 0;
   const modoCusto = isOperational ? form.formacaoPreco.modoCusto : "SIMPLIFICADO";
   const subtotalItens = roundMoney(form.itens.reduce((sum, item) => sum + calcItemTotal(item), 0));
@@ -1826,21 +1864,7 @@ export function OrcamentosManager() {
   const vendasTodasFrentesForm = useMemo(
     () =>
       form.frentes.length > 0 && motorCustosForm
-        ? calcularConsolidacaoEconomica({
-            frentes: motorCustosForm.frentes.map((frente) => ({
-              ref: frente.ref,
-              nome: frente.nome,
-              custoDireto: frente.custoDireto
-            })),
-            servicos: form.itens.map((item) => ({
-              frenteRef: item.frenteTempId,
-              tipoItem: item.tipoItem,
-              descricao: item.descricao,
-              unidade: item.unidade,
-              quantidade: item.quantidade,
-              valorUnitario: item.valorUnitario
-            }))
-          }).frentes
+        ? buildVendasFrentesFromMotor(form, motorCustosForm)
         : [],
     [form.frentes.length, form.itens, motorCustosForm]
   );
@@ -6221,7 +6245,7 @@ function PremissasSection(props: {
   );
 }
 
-function buildPayload(
+export function buildPayload(
   form: OrcamentoForm,
   previewCalculado?: ReturnType<typeof buildEconomicPreview>
 ) {
@@ -6309,10 +6333,12 @@ function mapItemPayload(item: ItemForm) {
   const servicoOperacional =
     item.tipoItem === "SERVICO_PRINCIPAL" || item.tipoItem === "SERVICO_AUXILIAR";
   const origemComercial = recurso ? null : item.origemItemComercial;
-  const nomeManual = item.descricaoManualComercial.trim();
+  const nomeManual = getManualCommercialName(item);
   const descricaoComercial =
     origemComercial === "MANUAL"
-      ? item.descricao.trim() || nomeManual
+      ? item.descricao.trim() === nomeManual
+        ? ""
+        : item.descricao.trim()
       : item.descricao.trim();
 
   return {
@@ -6545,13 +6571,7 @@ function normalizeItemForPayload(item: ItemForm, frentes: FrenteForm[] = []): It
     };
   }
 
-  return {
-    ...normalized,
-    descricao:
-      normalized.origemItemComercial === "MANUAL"
-        ? normalized.descricao || normalized.descricaoManualComercial
-        : normalized.descricao
-  };
+  return normalizeManualCommercialIdentity(normalized);
 }
 
 export function normalizeItemsForPayload(itens: ItemForm[], frentes: FrenteForm[] = []) {
@@ -6568,10 +6588,10 @@ function getItemDescricaoEfetiva(item: ItemForm) {
   }
 
   const origemComercial = isRecursoItem(item) ? null : item.origemItemComercial;
-  const nomeManual = item.descricaoManualComercial.trim();
+  const nomeManual = getManualCommercialName(item);
 
   if (origemComercial === "MANUAL") {
-    return item.descricao.trim() || nomeManual;
+    return nomeManual;
   }
 
   return item.descricao.trim();
