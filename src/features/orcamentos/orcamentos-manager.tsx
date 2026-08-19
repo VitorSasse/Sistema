@@ -6741,7 +6741,7 @@ function buildPremissasForm(item: OrcamentoApi): PremissaForm[] {
   });
 }
 
-function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
+export function mapApiToForm(item: OrcamentoApi): OrcamentoForm {
   const cenarios: CenarioForm[] = (item.cenarios ?? []).map((cenario) => ({
     localId: cenario.id,
     ordem: cenario.ordem,

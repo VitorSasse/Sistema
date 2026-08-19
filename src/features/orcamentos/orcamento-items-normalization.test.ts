@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildPayload,
   buildVendasFrentesFromMotor,
+  mapApiToForm,
   normalizeItemsForPayload,
   validateItemsBeforeSubmit
 } from "@/features/orcamentos/orcamentos-manager";
@@ -554,6 +555,273 @@ describe("normalizacao dos itens do orcamento", () => {
       "Item 1: informe uma descricao com pelo menos 2 caracteres."
     );
     expect(JSON.stringify(form)).toBe(snapshotAntes);
+  });
+
+  it("reidrata orcamento legado com servico principal sem descricaoManualComercial e salva nova frente manual", () => {
+    const legacyOrcamento = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      codigo: "ORC-LEGADO",
+      tipo: "OPERACIONAL",
+      status: "RASCUNHO",
+      clienteId: "11111111-1111-4111-8111-111111111111",
+      obraId: null,
+      responsavelId: null,
+      dataOrcamento: "2026-07-13",
+      validadeAte: null,
+      titulo: "Orcamento legado",
+      objeto: null,
+      observacaoInterna: null,
+      observacaoCliente: null,
+      valorSubtotal: "0",
+      valorDesconto: "0",
+      valorAcrescimo: "0",
+      valorTotal: "0",
+      formacaoPreco: null,
+      cenarios: [{
+        id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        ordem: 1,
+        nome: "Cenario padrao",
+        descricao: null,
+        metodoExecutivo: null,
+        observacao: null,
+        isPadrao: true,
+        status: "EM_ESTUDO"
+      }],
+      propostas: [],
+      frentes: [
+        {
+          id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          cenarioId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          ordem: 1,
+          natureza: "OPERACIONAL",
+          nome: "Escavacao de Terraplenagem",
+          descricao: null,
+          metodoExecutivo: null,
+          unidadeProducao: "m3",
+          quantidadePrevista: "5560.66",
+          produtividadeDia: null,
+          prazoEstimadoDias: "3",
+          prazoTeoricoDias: "3",
+          prazoAdotadoDias: null,
+          origemPrazo: "AUTOMATICO",
+          modoCusto: "AUTO",
+          custoManual: "0",
+          observacao: null
+        },
+        {
+          id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+          cenarioId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          ordem: 2,
+          natureza: "OPERACIONAL",
+          nome: "Escavacao Fundações",
+          descricao: null,
+          metodoExecutivo: null,
+          unidadeProducao: "m3",
+          quantidadePrevista: "2846.47",
+          produtividadeDia: null,
+          prazoEstimadoDias: "3",
+          prazoTeoricoDias: "3",
+          prazoAdotadoDias: null,
+          origemPrazo: "AUTOMATICO",
+          modoCusto: "AUTO",
+          custoManual: "0",
+          observacao: null
+        }
+      ],
+      itens: [
+        {
+          id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+          frenteId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          tipoItem: "SERVICO_PRINCIPAL",
+          origemItemComercial: "SERVICE",
+          descricao: "SER-023 - ESCAVACAO, TRANSPORTE E DESTINACAO MATERIAIS",
+          descricaoManualComercial: null,
+          servicoId: "12121212-1212-4121-8121-121212121212",
+          materialId: null,
+          equipamentoId: null,
+          categoriaRecurso: null,
+          classeOperacional: null,
+          recursoReferenciaId: null,
+          recursoNome: null,
+          ordem: 1,
+          codigo: null,
+          unidade: "m3",
+          quantidade: "5560.66",
+          quantidadeOperacional: null,
+          origemQuantidadeOperacional: "FRENTE",
+          produtividade: null,
+          custoUnitario: "0",
+          tipoCalculoRecurso: "AUTOMATICO",
+          unidadeEconomicaCusto: "CUSTO_FIXO",
+          valorCusto: "0",
+          horasDia: "8",
+          horasTotais: null,
+          viagensDia: null,
+          viagensTotais: null,
+          distanciaViagemKm: null,
+          quilometrosTotais: null,
+          capacidadePorViagem: null,
+          unidadeCapacidade: null,
+          caracteristicasRecursoSnapshot: null,
+          camposTecnicosPersonalizados: [],
+          viagensTeoricas: null,
+          viagensOperacionais: null,
+          custoPorViagem: null,
+          cargasTotais: null,
+          mesesTotais: null,
+          diasTrabalhadosMes: "22",
+          custoTotalCalculado: "0",
+          memoriaCalculo: null,
+          valorUnitario: "0",
+          observacao: null
+        },
+        {
+          id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+          frenteId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+          tipoItem: "SERVICO_PRINCIPAL",
+          origemItemComercial: "SERVICE",
+          descricao: "SER-023 - ESCAVACAO, TRANSPORTE E DESTINACAO MATERIAIS",
+          descricaoManualComercial: null,
+          servicoId: "12121212-1212-4121-8121-121212121212",
+          materialId: null,
+          equipamentoId: null,
+          categoriaRecurso: null,
+          classeOperacional: null,
+          recursoReferenciaId: null,
+          recursoNome: null,
+          ordem: 2,
+          codigo: null,
+          unidade: "m3",
+          quantidade: "2846.47",
+          quantidadeOperacional: null,
+          origemQuantidadeOperacional: "FRENTE",
+          produtividade: null,
+          custoUnitario: "40",
+          tipoCalculoRecurso: "AUTOMATICO",
+          unidadeEconomicaCusto: "CUSTO_FIXO",
+          valorCusto: "40",
+          horasDia: "8",
+          horasTotais: null,
+          viagensDia: null,
+          viagensTotais: null,
+          distanciaViagemKm: null,
+          quilometrosTotais: null,
+          capacidadePorViagem: null,
+          unidadeCapacidade: null,
+          caracteristicasRecursoSnapshot: null,
+          camposTecnicosPersonalizados: [],
+          viagensTeoricas: null,
+          viagensOperacionais: null,
+          custoPorViagem: null,
+          cargasTotais: null,
+          mesesTotais: null,
+          diasTrabalhadosMes: "22",
+          custoTotalCalculado: "0",
+          memoriaCalculo: null,
+          valorUnitario: "40",
+          observacao: null
+        }
+      ],
+      premissas: []
+    } as Parameters<typeof mapApiToForm>[0];
+    const formCarregado = mapApiToForm(legacyOrcamento);
+    const legacyItem = formCarregado.itens[1];
+
+    expect(legacyItem).toMatchObject({
+      localId: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+      origemItemComercial: "SERVICE",
+      descricao: "SER-023 - ESCAVACAO, TRANSPORTE E DESTINACAO MATERIAIS",
+      descricaoManualComercial: ""
+    });
+
+    const novaFrente = makeFrente({
+      localId: "99999999-9999-4999-8999-999999999999",
+      cenarioTempId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      ordem: 3,
+      nome: "Nova frente legado"
+    });
+    const servicoPrincipalNovo = makeItem({
+      localId: "88888888-8888-4888-8888-888888888888",
+      frenteTempId: novaFrente.localId,
+      ordem: 3,
+      tipoItem: "SERVICO_PRINCIPAL",
+      origemItemComercial: "MANUAL",
+      descricaoManualComercial: "",
+      descricao: "Aterro compactado legado",
+      unidade: "m3",
+      quantidade: "100",
+      modoPrecificacao: "COMPOSICAO"
+    });
+    const recursoNovo = makeItem({
+      localId: "77777777-7777-4777-8777-777777777777",
+      frenteTempId: novaFrente.localId,
+      ordem: 4,
+      tipoItem: "RECURSO",
+      descricao: "Escavadeira",
+      recursoNome: "Escavadeira",
+      classeOperacional: "Escavadeira",
+      quantidade: "1",
+      unidadeEconomicaCusto: "DIA",
+      valorCusto: "900",
+      custoUnitario: "900"
+    });
+    const formEditado = {
+      ...formCarregado,
+      frentes: [...formCarregado.frentes, novaFrente],
+      itens: [...formCarregado.itens, servicoPrincipalNovo, recursoNovo]
+    };
+    const payload = buildPayload(formEditado);
+    const itemLegadoNoPayload = payload.itens[1];
+    const itemNovoNoPayload = payload.itens.find(
+      (item) => item.tempId === "88888888-8888-4888-8888-888888888888"
+    );
+
+    expect(itemLegadoNoPayload).toMatchObject({
+      origemItemComercial: "SERVICE",
+      descricaoManualComercial: "",
+      descricao: "SER-023 - ESCAVACAO, TRANSPORTE E DESTINACAO MATERIAIS"
+    });
+    expect(itemNovoNoPayload).toMatchObject({
+      origemItemComercial: "MANUAL",
+      descricaoManualComercial: "Aterro compactado legado",
+      descricao: ""
+    });
+    expect(orcamentoSchema.safeParse(payload).success).toBe(true);
+
+    const formReaberto = {
+      ...formEditado,
+      itens: payload.itens.map((item) =>
+        makeItem({
+          localId: String(item.tempId),
+          frenteTempId: String(item.frenteTempId),
+          tipoItem: item.tipoItem,
+          origemItemComercial: item.origemItemComercial ?? "MANUAL",
+          descricaoManualComercial: item.descricaoManualComercial ?? "",
+          servicoId: item.servicoId ?? "",
+          materialId: item.materialId ?? "",
+          equipamentoId: item.equipamentoId ?? "",
+          referenciaTecnicaRecursoId: item.referenciaTecnicaRecursoId ?? "",
+          formaCusteioRecursoId: item.formaCusteioRecursoId ?? "",
+          descricao: item.descricao,
+          unidade: item.unidade,
+          quantidade: String(item.quantidade),
+          modoPrecificacao: item.modoPrecificacao,
+          recursoNome: item.recursoNome ?? "",
+          classeOperacional: item.classeOperacional ?? "",
+          unidadeEconomicaCusto: item.unidadeEconomicaCusto ?? "CUSTO_FIXO",
+          valorCusto: String(item.valorCusto ?? 0),
+          custoUnitario: String(item.custoUnitario ?? 0)
+        })
+      )
+    };
+    const segundoPayload = buildPayload(formReaberto);
+    const segundoParse = orcamentoSchema.safeParse(segundoPayload);
+
+    expect(segundoParse.success, JSON.stringify(segundoParse.success ? [] : segundoParse.error.issues)).toBe(true);
+    expect(segundoPayload.itens.find((item) => item.tempId === "88888888-8888-4888-8888-888888888888")).toMatchObject({
+      origemItemComercial: "MANUAL",
+      descricaoManualComercial: "Aterro compactado legado"
+    });
   });
 
   it("mantem o resumo da frente em composicao sincronizado com o custo atual dos recursos", () => {
