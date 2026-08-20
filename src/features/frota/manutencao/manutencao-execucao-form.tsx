@@ -222,10 +222,10 @@ export function ManutencaoExecucaoForm() {
     <section className="surface section-card">
       <div className="section-header">
         <div>
-          <span className="page-kicker">Execucao</span>
-          <h2 className="section-title">Registrar manutencao executada</h2>
+          <span className="page-kicker">Ordem de servico</span>
+          <h2 className="section-title">Registrar ordem de servico de manutencao</h2>
           <p className="section-copy">
-            Complemento do lancamento com as pecas trocadas e os servicos efetivamente executados.
+            Lance o atendimento realizado, os servicos executados, as pecas aplicadas e as observacoes da OS.
           </p>
         </div>
       </div>
@@ -251,7 +251,7 @@ export function ManutencaoExecucaoForm() {
           </label>
 
           <label className="field">
-            <span className="field-label">Plano vinculado</span>
+            <span className="field-label">Plano preventivo vinculado (opcional)</span>
             <select
               className="field-control"
               value={form.planoId}
@@ -264,6 +264,9 @@ export function ManutencaoExecucaoForm() {
                 </option>
               ))}
             </select>
+            <small className="manager-field-hint">
+              Use somente quando esta OS estiver baixando uma revisao planejada no Plano preventivo.
+            </small>
           </label>
 
           <label className="field">
@@ -277,23 +280,23 @@ export function ManutencaoExecucaoForm() {
           </label>
 
           <label className="field">
-            <span className="field-label">Tipo de manutencao</span>
+            <span className="field-label">Classificacao da OS</span>
             <input
               className="field-control"
               value={form.tipoManutencao}
               onChange={(event) => updateField("tipoManutencao", event.target.value)}
-              placeholder="Revisao, troca de oleo, corretiva..."
+              placeholder="Corretiva, preventiva avulsa, atendimento externo..."
             />
           </label>
         </div>
 
         <label className="field">
-          <span className="field-label">Descricao do servico principal</span>
+          <span className="field-label">Resumo do que foi feito</span>
           <textarea
             className="field-control textarea-lg"
             value={form.descricaoServico}
             onChange={(event) => updateField("descricaoServico", event.target.value)}
-            placeholder="Descreva o que foi executado nesta manutencao."
+            placeholder="Descreva o diagnostico, o reparo realizado e o motivo do atendimento."
           />
         </label>
 
@@ -341,22 +344,47 @@ export function ManutencaoExecucaoForm() {
         <div className="surface-subtle" style={{ display: "grid", gap: 16 }}>
           <div className="section-header">
             <div>
-              <h3 className="section-title">Itens e Servicos Executados</h3>
-              <p className="section-copy">Registre cada peca trocada e cada servico executado.</p>
+              <span className="page-kicker">Detalhamento da OS</span>
+              <h3 className="section-title">Pecas e servicos executados</h3>
+              <p className="section-copy">
+                Monte a ordem de servico com cada atividade realizada e cada peca/material aplicado.
+              </p>
             </div>
-            <button
-              type="button"
-              className="button-secondary"
-              onClick={() =>
-                updateField("itensServicos", [...form.itensServicos, novaLinha(TipoItemManutencaoExecutada.PECA)])
-              }
-            >
-              Adicionar item
-            </button>
+            <div className="toolbar-actions">
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() =>
+                  updateField("itensServicos", [...form.itensServicos, novaLinha(TipoItemManutencaoExecutada.SERVICO)])
+                }
+              >
+                Adicionar servico
+              </button>
+              <button
+                type="button"
+                className="button-primary"
+                onClick={() =>
+                  updateField("itensServicos", [...form.itensServicos, novaLinha(TipoItemManutencaoExecutada.PECA)])
+                }
+              >
+                Adicionar peca
+              </button>
+            </div>
           </div>
 
           {form.itensServicos.map((item, index) => (
             <div key={item.id} className="surface section-card" style={{ padding: 16 }}>
+              <div className="section-header" style={{ marginBottom: 12 }}>
+                <div>
+                  <span className="page-kicker">Item da OS {index + 1}</span>
+                  <h4 className="section-title" style={{ fontSize: "1rem" }}>
+                    {item.tipo === TipoItemManutencaoExecutada.PECA ? "Peca/material aplicado" : "Servico executado"}
+                  </h4>
+                </div>
+                <button type="button" className="button-secondary" onClick={() => removeLinha(item.id)}>
+                  Remover
+                </button>
+              </div>
               <div className="form-grid-4">
                 <label className="field">
                   <span className="field-label">Tipo</span>
@@ -374,21 +402,15 @@ export function ManutencaoExecucaoForm() {
 
                 <label className="field" style={{ gridColumn: "span 2" }}>
                   <span className="field-label">
-                    {item.tipo === TipoItemManutencaoExecutada.PECA ? "Descricao da peca" : "Descricao do servico"}
+                    {item.tipo === TipoItemManutencaoExecutada.PECA ? "Descricao da peca/material" : "Descricao do servico"}
                   </span>
                   <input
                     className="field-control"
                     value={item.descricao}
                     onChange={(event) => updateLinha(item.id, { descricao: event.target.value })}
-                    placeholder={item.tipo === TipoItemManutencaoExecutada.PECA ? "Filtro de oleo" : "Troca de filtro"}
+                    placeholder={item.tipo === TipoItemManutencaoExecutada.PECA ? "Filtro, oleo, correia..." : "Troca, regulagem, solda, limpeza..."}
                   />
                 </label>
-
-                <div className="toolbar-actions">
-                  <button type="button" className="button-secondary" onClick={() => removeLinha(item.id)}>
-                    Remover
-                  </button>
-                </div>
 
                 {item.tipo === TipoItemManutencaoExecutada.PECA ? (
                   <>
@@ -423,7 +445,6 @@ export function ManutencaoExecucaoForm() {
                   />
                 </label>
               </div>
-              <p className="subtle">Linha {index + 1}</p>
             </div>
           ))}
         </div>
@@ -439,7 +460,7 @@ export function ManutencaoExecucaoForm() {
 
         <div className="toolbar-actions">
           <button type="submit" className="button-primary" disabled={isPending}>
-            {isPending ? "Salvando..." : "Salvar manutencao executada"}
+            {isPending ? "Salvando..." : "Salvar ordem de servico"}
           </button>
         </div>
 
@@ -453,8 +474,8 @@ export function ManutencaoExecucaoForm() {
             <tr>
               <th>Data</th>
               <th>Equipamento</th>
-              <th>Manutencao</th>
-              <th>Itens e servicos</th>
+              <th>Ordem de servico</th>
+              <th>Pecas e servicos</th>
             </tr>
           </thead>
           <tbody>
