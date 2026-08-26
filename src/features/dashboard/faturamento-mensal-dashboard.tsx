@@ -327,6 +327,20 @@ export function FaturamentoMensalDashboard() {
       return row;
     });
   }, [data, selectedClients, selectedWorks]);
+  const selectedClientTotals = useMemo(
+    () =>
+      selectedClients.map((client, index) => ({
+        id: client.id,
+        label: client.nomeFantasia || client.nome,
+        color: clientColorMap.get(client.id) ?? clientChartPalette[index % clientChartPalette.length],
+        total: Number(
+          clientComparisonRows
+            .reduce((sum, row) => sum + Number(row[`client_${index}`] ?? 0), 0)
+            .toFixed(2)
+        )
+      })),
+    [clientColorMap, clientComparisonRows, selectedClients]
+  );
   const clientComparisonMinWidth = Math.max(
     860,
     selectedClients.length * Math.max(clientComparisonRows.length, 1) * 58 + 180
@@ -888,6 +902,27 @@ export function FaturamentoMensalDashboard() {
           </div>
         ) : (
           <div className="billing-chart-panel billing-client-chart-panel">
+            <div className="billing-client-total-summary" aria-label="Faturamento total por cliente">
+              <div className="billing-client-total-summary-copy">
+                <span className="billing-kicker">Faturamento total por cliente</span>
+                <p>
+                  Total das medicoes no periodo selecionado
+                  {selectedWorks.length > 0 ? " e nas obras filtradas." : "."}
+                </p>
+              </div>
+              <div className="billing-client-total-list">
+                {selectedClientTotals.map((client) => (
+                  <article key={client.id} className="billing-client-total-card">
+                    <div className="billing-client-total-name">
+                      <i style={{ background: client.color }} />
+                      <span>{client.label}</span>
+                    </div>
+                    <strong>{formatCurrency(client.total)}</strong>
+                  </article>
+                ))}
+              </div>
+            </div>
+
             <div className="billing-chart-legend billing-client-legend">
               {selectedClients.map((client) => (
                 <span key={client.id} className="billing-chart-legend-item">
