@@ -1685,6 +1685,8 @@ export function OrcamentosManager() {
   const [form, setForm] = useState<OrcamentoForm>(() => createEmptyForm());
   const [quickClienteOpen, setQuickClienteOpen] = useState(false);
   const [quickObraOpen, setQuickObraOpen] = useState(false);
+  const [quickMaterialOpen, setQuickMaterialOpen] = useState(false);
+  const [quickMaterialTargetItemId, setQuickMaterialTargetItemId] = useState("");
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickClienteForm, setQuickClienteForm] = useState({
     nome: "",
@@ -1700,6 +1702,11 @@ export function OrcamentosManager() {
     bairro: "",
     endereco: "",
     referencia: "",
+    observacao: ""
+  });
+  const [quickMaterialForm, setQuickMaterialForm] = useState({
+    descricao: "",
+    unidadePadrao: "m3",
     observacao: ""
   });
   const [selectedId, setSelectedId] = useState<string>("");
@@ -1783,6 +1790,15 @@ export function OrcamentosManager() {
       })),
     [options.materiais]
   );
+
+  const quickMaterialUnitOptions = useMemo(() => {
+    const unidadesBase = ["m3", "m2", "kg", "un", "ton", "t", "l", "h", "dia", "carga", "viagem", "verba"];
+    const unidadesCadastradas = options.materiais
+      .map((material) => material.unidadePadrao?.trim())
+      .filter((unidade): unidade is string => Boolean(unidade));
+
+    return Array.from(new Set([...unidadesBase, ...unidadesCadastradas]));
+  }, [options.materiais]);
 
   const equipamentoOptions = useMemo(
     () =>
@@ -2071,6 +2087,28 @@ export function OrcamentosManager() {
     });
   }
 
+  function resetQuickMaterialForm() {
+    setQuickMaterialForm({
+      descricao: "",
+      unidadePadrao: "m3",
+      observacao: ""
+    });
+  }
+
+  function abrirCadastroMaterialRapido(localId: string) {
+    const item = form.itens.find((currentItem) => currentItem.localId === localId);
+    const unidadeInicial = item?.unidade?.trim() || quickMaterialForm.unidadePadrao || "m3";
+
+    setQuickMaterialTargetItemId(localId);
+    setQuickMaterialForm((current) => ({
+      ...current,
+      unidadePadrao: unidadeInicial
+    }));
+    clearError();
+    setMessage("");
+    setQuickMaterialOpen(true);
+  }
+
   async function criarClienteRapido(confirmDuplicate = false) {
     setQuickSaving(true);
     setMessage("");
@@ -2145,6 +2183,49 @@ export function OrcamentosManager() {
     resetQuickObraForm();
     setQuickObraOpen(false);
     setMessage("Obra provisoria criada e selecionada no orcamento.");
+    setQuickSaving(false);
+  }
+
+  async function criarMaterialRapido() {
+    const targetItemId = quickMaterialTargetItemId;
+
+    setQuickSaving(true);
+    setMessage("");
+    clearError();
+
+    const response = await fetch("/api/materiais", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        descricao: quickMaterialForm.descricao,
+        unidadePadrao: quickMaterialForm.unidadePadrao,
+        observacao: quickMaterialForm.observacao,
+        categoria: "",
+        origemMaterial: "",
+        densidade: null,
+        status: "ATIVO"
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      applyApiError(data, "Nao foi possivel cadastrar o material.");
+      setQuickSaving(false);
+      return;
+    }
+
+    await loadOptions();
+
+    if (targetItemId && typeof data.id === "string") {
+      updateItem(targetItemId, "materialId", data.id);
+      updateItem(targetItemId, "descricao", data.descricao ?? quickMaterialForm.descricao);
+      updateItem(targetItemId, "unidade", data.unidadePadrao ?? quickMaterialForm.unidadePadrao);
+    }
+
+    resetQuickMaterialForm();
+    setQuickMaterialTargetItemId("");
+    setQuickMaterialOpen(false);
+    setMessage("Material cadastrado e selecionado no orcamento.");
     setQuickSaving(false);
   }
 
@@ -3220,6 +3301,7 @@ export function OrcamentosManager() {
             onSelectFormaCusteio={selectFormaCusteioResource}
             onUpdateValorAplicadoCusteio={updateValorAplicadoCusteio}
             onQuickCreateReferenciaTecnica={criarReferenciaTecnicaRapida}
+            onQuickCreateMaterial={abrirCadastroMaterialRapido}
             onSelectCommercialEquipment={selectCommercialEquipment}
             onPersonalizeResourceField={personalizeResourceField}
           />
@@ -3258,6 +3340,7 @@ export function OrcamentosManager() {
               onRemove={removeItem}
               onUpdate={updateItem}
               onSelectCommercialEquipment={selectCommercialEquipment}
+              onQuickCreateMaterial={abrirCadastroMaterialRapido}
             />
           ) : null}
 
@@ -3865,6 +3948,91 @@ export function OrcamentosManager() {
         </div>
       </div>
     ) : null}
+
+    {quickMaterialOpen ? (
+      <div className="orcamentos-quick-backdrop" role="dialog" aria-modal="true">
+        <div className="orcamentos-quick-dialog">
+          <div className="orcamentos-quick-header">
+            <div>
+              <span>Cadastro rapido</span>
+              <h3>Material</h3>
+              <small>Crie um material usando os mesmos criterios do cadastro normal.</small>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setQuickMaterialOpen(false);
+                setQuickMaterialTargetItemId("");
+              }}
+            >
+              x
+            </button>
+          </div>
+          <div className="orcamentos-quick-grid">
+            <label className="manager-field orcamentos-span-2">
+              <span className="manager-field-label">Descricao *</span>
+              <input
+                className="field-control"
+                value={quickMaterialForm.descricao}
+                minLength={3}
+                placeholder="Ex: Brita 1"
+                onChange={(event) =>
+                  setQuickMaterialForm((current) => ({ ...current, descricao: event.target.value }))
+                }
+              />
+            </label>
+            <label className="manager-field">
+              <span className="manager-field-label">Unidade *</span>
+              <select
+                className="field-control"
+                value={quickMaterialForm.unidadePadrao}
+                onChange={(event) =>
+                  setQuickMaterialForm((current) => ({ ...current, unidadePadrao: event.target.value }))
+                }
+              >
+                {quickMaterialUnitOptions.map((unidade) => (
+                  <option key={unidade} value={unidade}>
+                    {unidade}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="manager-field">
+              <span className="manager-field-label">Codigo</span>
+              <div className="field-control manager-readonly-field">Gerado automaticamente</div>
+              <small className="manager-field-hint">O padrao de codigo permanece centralizado no cadastro de materiais.</small>
+            </div>
+            <label className="manager-field orcamentos-span-2">
+              <span className="manager-field-label">Observacao</span>
+              <textarea
+                className="field-control"
+                rows={3}
+                value={quickMaterialForm.observacao}
+                onChange={(event) =>
+                  setQuickMaterialForm((current) => ({ ...current, observacao: event.target.value }))
+                }
+              />
+            </label>
+          </div>
+          <div className="orcamentos-quick-actions">
+            <button
+              type="button"
+              className="button-secondary"
+              disabled={quickSaving}
+              onClick={() => {
+                setQuickMaterialOpen(false);
+                setQuickMaterialTargetItemId("");
+              }}
+            >
+              Cancelar
+            </button>
+            <button type="button" className="button-primary" disabled={quickSaving} onClick={() => void criarMaterialRapido()}>
+              {quickSaving ? "Salvando..." : "Cadastrar material"}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null}
     </>
   );
 }
@@ -3894,6 +4062,7 @@ function FrentesOperacionaisSection(props: {
   onSelectFormaCusteio: (localId: string, formaId: string) => void;
   onUpdateValorAplicadoCusteio: (localId: string, value: string) => void;
   onQuickCreateReferenciaTecnica: (localId: string) => void;
+  onQuickCreateMaterial: (localId: string) => void;
   onSelectCommercialEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
   onPersonalizeResourceField: (localId: string, campo: CampoTecnicoRecurso) => void;
 }) {
@@ -4220,6 +4389,7 @@ function FrentesOperacionaisSection(props: {
                         onSelectFormaCusteio={props.onSelectFormaCusteio}
                         onUpdateValorAplicadoCusteio={props.onUpdateValorAplicadoCusteio}
                         onQuickCreateReferenciaTecnica={props.onQuickCreateReferenciaTecnica}
+                        onQuickCreateMaterial={props.onQuickCreateMaterial}
                         onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                         onPersonalizeResourceField={props.onPersonalizeResourceField}
                       />
@@ -4286,6 +4456,7 @@ function FrentesOperacionaisSection(props: {
                       onSelectFormaCusteio={props.onSelectFormaCusteio}
                       onUpdateValorAplicadoCusteio={props.onUpdateValorAplicadoCusteio}
                       onQuickCreateReferenciaTecnica={props.onQuickCreateReferenciaTecnica}
+                      onQuickCreateMaterial={props.onQuickCreateMaterial}
                       onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                       onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
@@ -4344,6 +4515,7 @@ function FrentesOperacionaisSection(props: {
                       onSelectFormaCusteio={props.onSelectFormaCusteio}
                       onUpdateValorAplicadoCusteio={props.onUpdateValorAplicadoCusteio}
                       onQuickCreateReferenciaTecnica={props.onQuickCreateReferenciaTecnica}
+                      onQuickCreateMaterial={props.onQuickCreateMaterial}
                       onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                       onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
@@ -4435,6 +4607,7 @@ function FrentesOperacionaisSection(props: {
                       onSelectFormaCusteio={props.onSelectFormaCusteio}
                       onUpdateValorAplicadoCusteio={props.onUpdateValorAplicadoCusteio}
                       onQuickCreateReferenciaTecnica={props.onQuickCreateReferenciaTecnica}
+                      onQuickCreateMaterial={props.onQuickCreateMaterial}
                       onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                       onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
@@ -4493,6 +4666,7 @@ function FrentesOperacionaisSection(props: {
                       onSelectFormaCusteio={props.onSelectFormaCusteio}
                       onUpdateValorAplicadoCusteio={props.onUpdateValorAplicadoCusteio}
                       onQuickCreateReferenciaTecnica={props.onQuickCreateReferenciaTecnica}
+                      onQuickCreateMaterial={props.onQuickCreateMaterial}
                       onSelectCommercialEquipment={props.onSelectCommercialEquipment}
                       onPersonalizeResourceField={props.onPersonalizeResourceField}
                     />
@@ -4997,6 +5171,7 @@ function OperationalItemList(props: {
   onSelectFormaCusteio: (localId: string, formaId: string) => void;
   onUpdateValorAplicadoCusteio: (localId: string, value: string) => void;
   onQuickCreateReferenciaTecnica: (localId: string) => void;
+  onQuickCreateMaterial: (localId: string) => void;
   onSelectCommercialEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
   onPersonalizeResourceField: (localId: string, campo: CampoTecnicoRecurso) => void;
 }) {
@@ -5070,6 +5245,7 @@ function OperationalItemList(props: {
                 fornecedorOptions={props.fornecedorOptions}
                 onUpdate={props.onUpdate}
                 onSelectEquipment={props.onSelectCommercialEquipment}
+                onQuickCreateMaterial={props.onQuickCreateMaterial}
               />
             )}
           </div>
@@ -5089,6 +5265,7 @@ function CommercialFrontItemFields(props: {
   fornecedorOptions: NamedSelectOption[];
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
   onSelectEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
+  onQuickCreateMaterial: (localId: string) => void;
 }) {
   const selectedCommercialEquipment =
     props.item.origemItemComercial === "RESOURCE"
@@ -5164,8 +5341,17 @@ function CommercialFrontItemFields(props: {
   return (
     <>
       {isMaterialItem(props.item) ? (
-        <label className="manager-field">
-          <span className="manager-field-label">Material</span>
+        <div className="manager-field">
+          <div className="orcamentos-inline-field-heading">
+            <span className="manager-field-label">Material</span>
+            <button
+              type="button"
+              className="button-secondary orcamentos-inline-action"
+              onClick={() => props.onQuickCreateMaterial(props.item.localId)}
+            >
+              + Cadastrar material
+            </button>
+          </div>
           <SearchableSelect
             value={props.item.materialId}
             options={props.materialOptions}
@@ -5173,7 +5359,7 @@ function CommercialFrontItemFields(props: {
             onChange={handleMaterialChange}
           />
           <small className="manager-field-hint">Material comercializado nesta frente.</small>
-        </label>
+        </div>
       ) : (
         <>
           <label className="manager-field">
@@ -6120,6 +6306,7 @@ function ItensSection(props: {
   onRemove: (localId: string) => void;
   onUpdate: (localId: string, key: keyof ItemForm, value: string | number) => void;
   onSelectCommercialEquipment: (localId: string, equipamento: EquipamentoResourceOption) => void;
+  onQuickCreateMaterial: (localId: string) => void;
 }) {
   return (
     <div className="orcamentos-form-section">
@@ -6167,6 +6354,7 @@ function ItensSection(props: {
                 fornecedorOptions={props.fornecedorOptions}
                 onUpdate={props.onUpdate}
                 onSelectEquipment={props.onSelectCommercialEquipment}
+                onQuickCreateMaterial={props.onQuickCreateMaterial}
               />
             </div>
           </article>

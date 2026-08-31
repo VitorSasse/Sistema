@@ -9305,6 +9305,26 @@ button {
   margin-top: 18px;
 }
 
+.orcamentos-inline-field-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.orcamentos-inline-action {
+  min-height: 28px;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+}
+
+.manager-readonly-field {
+  display: flex;
+  align-items: center;
+  color: var(--screen-muted);
+}
+
 @media (max-width: 720px) {
   .orcamentos-front-cost-panel {
     grid-template-columns: 1fr;
