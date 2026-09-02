@@ -358,33 +358,33 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderBottomWidth: 1,
     borderColor: colors.border,
-    paddingHorizontal: 10,
-    paddingVertical: 12
+    paddingHorizontal: 9,
+    paddingVertical: 8
   },
   aceiteTexto: {
     color: colors.muted,
-    fontSize: 8.5,
-    lineHeight: 1.25,
-    marginBottom: 48
+    fontSize: 8,
+    lineHeight: 1.18,
+    marginBottom: 30
   },
   assinaturaLinha: {
-    width: 300,
+    width: 280,
     borderTopWidth: 1,
     borderColor: colors.text,
-    height: 18,
+    height: 13,
     alignSelf: "center",
     marginBottom: 0
   },
   assinaturaNome: {
-    width: 300,
+    width: 280,
     textAlign: "center",
     fontWeight: "bold",
     alignSelf: "center",
-    marginBottom: 10
+    marginBottom: 6
   },
   aceiteCampo: {
-    marginTop: 3,
-    fontSize: 8.8
+    marginTop: 2,
+    fontSize: 8.2
   },
   footer: {
     position: "absolute",
